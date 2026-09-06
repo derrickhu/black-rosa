@@ -1,0 +1,10 @@
+SHARED PRINCIPLES: Vertical portrait paper UI. The WHOLE screen is black-and-white. No orange wash, no colored heaps on the lobby, no scenery, no tab bar.
+
+STYLE A3: near-white paper #F4EFE4, thin black ink frames, same ink-toy outline as the locked unit sheet.
+
+SHOT 01 lobby 9:16.
+TOP: empty horizontal ink plaque, no letters.
+BELOW: three tiny black icons (star, cannon, coin).
+CENTER: 2x4 square stage seals. First three black-stamped with 1-3 tiny diamond pips. Rest pale with a lock. All gray/black.
+BOTTOM: empty paper.
+2D ink-toy game UI. No English.

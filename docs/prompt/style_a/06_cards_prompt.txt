@@ -1,0 +1,36 @@
+SHARED PRINCIPLES (Ink Line / 墨弹防线 — do not deviate):
+Vertical portrait tower-defense shooter, camera facing the field straight-on (NOT 3/4 tactics top-down, NOT isometric).
+Silhouette first: one exaggerated memory shape per object, drop zoom-only details.
+Value before hue: paper ground stays bright; ink shapes read in black-and-white first.
+COLOR IS GAMEPLAY, NOT DECORATION: the world, empty cells, cannons, first-phase enemies, HUD chrome stay near black-and-white. Color appears ONLY on modifier stamps, modified bullets, burn/ice/explode, phase-2 elite/boss, and reveal.
+Thick near-black outlines (pure black or very dark warm brown, never mid-tone or colorful outlines). Flat fills with one highlight and one shadow. No gradients, no painterly strokes, no photo texture, no noise.
+No grassland, no chibi RPG party, no cold blue-gray chrome copied from other games.
+Readable at phone size: enemies ~50-90px, card marks ~88px, cannons ~70px.
+NO watermarks, no English UI chrome, no store badges, no QR codes.
+
+STYLE A — PAPER STAMP (宣纸图章):
+Warm Xuan-paper field #F4EFE4, ink #1A1410. Almost no decoration. Large empty paper.
+Sharp geometric stamps, as if carved seals pressed onto paper. Color is wet seal-ink applied AFTER the black print.
+Cannon = inkstone base + short upward barrel, a paper train of identical guns.
+Enemies are geometric ink marks (blob, dart, ring, diamond), NOT cute animals, NOT human soldiers.
+UI: thin ink frames, lots of paper, one solid black CTA. Monument Valley / Mini Metro calm, not arcade noise.
+Keep the image sparse. If a shape is not needed, leave paper.
+
+SHOT 06 — card stamp sheet, 1:1.
+Even grid 4x3 (12 cells, last one empty) on paper. NO TEXT, no names, no stars.
+Each cell one fat stamp icon, centered, same stroke weight:
+1 split = upward triangle, black
+2 fire = flame, orange #EB6114
+3 ice = diamond, cyan #269EDB
+4 track = curved arrow-arc, purple #9E47DB
+5 pierce = vertical bar/needle, black
+6 explode = burst cross/circle-spikes, red #DB3847
+7 accel = arrow up, black
+8 heavy = square block, black
+9 extra cannon = single-barrel gun stamp, black
+10 firerate = gun with double ring, black
+11 twin = two barrels side by side, black
+12 empty paper
+All must be one connected silhouette per cell. No tiny floating bits.
+
+Aspect: 1:1 stamp sheet. 2D game art, not a photograph, not a 3D render.

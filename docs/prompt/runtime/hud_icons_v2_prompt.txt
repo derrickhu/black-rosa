@@ -1,0 +1,18 @@
+SHARED PRINCIPLES: One connected silhouette per cell. NO TEXT.
+
+STYLE A3: thick near-black outline, 2-3 hard flat color steps, rounded ink-toy sticker. Warm paper #F4EFE4. Same drawing language as the previous HUD icons.
+
+CRITICAL: each icon is ONE clean shape only. NO ink droplets, NO splatters, NO dots under the feet, NO floating specks, NO dirty marks. The paper around the icon must be empty.
+
+SHOT: 4 columns x 2 rows equal grid, one icon centered, large margin, NO TEXT no numbers no labels.
+
+1 Star: five-point star, fill violet-blue #6B5CE7 with lighter top step, near-black outline
+2 Coin: Chinese cash, round, square hole, gold #E8B43A / #C99220 steps, near-black outline
+3 Lock: simple graphite padlock, no color, no dots
+4 Heart: red #E05446, near-black outline, no dots
+5 Diamond: small solid ink-black rhombus, no dots
+6 Die: white/cream cube, rounded, six red pips, near-black outline, no extra specks
+7 Cannon (HUD): slightly top-down short ink cannon on a round base, graphite only, no droplets
+8 empty paper
+
+NO watermarks, no English chrome, no store badges.

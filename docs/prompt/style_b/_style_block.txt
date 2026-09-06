@@ -1,0 +1,8 @@
+STYLE B — WOODCUT ARCADE (木刻街机):
+Cooler gray paper #E8E4DC. Heavy black masses. Outline pixels feel 28-33% of each silhouette.
+Poster woodcut / linocut: chunky blocks, carved notches, second-pass color like spot ink, not glow.
+Cannon = linked woodcut gun-cart, thick wheels implied as black blocks, one train.
+Enemies are fiercer block-creatures (still non-human): wedge runner, plated ring-shield, burst elite.
+Cards are thick-bordered square seals. Hits are big color slabs, not soft light blooms.
+UI: bold black frames, big paper panels so chrome does not crush the field. Hades / Cult of the Lamb graphic punch.
+Do not fill the whole screen with black. Paper panels must stay large and light.

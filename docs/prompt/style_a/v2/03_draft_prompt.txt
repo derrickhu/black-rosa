@@ -1,0 +1,45 @@
+SHARED PRINCIPLES (Ink Line / 墨弹防线 — do not deviate):
+Vertical portrait tower-defense shooter, camera facing the field straight-on (NOT 3/4 tactics top-down, NOT isometric).
+Silhouette first: one exaggerated memory shape per object, drop zoom-only details.
+Value before hue: paper ground stays bright; ink shapes read in black-and-white first.
+COLOR IS GAMEPLAY, NOT DECORATION: the world, empty cells, cannons, HUD chrome stay near black-and-white. First-phase enemies are ink people in graphite/gray (readable bodies, not rainbow). Saturated color appears ONLY on modifier tools, modified bullets, burn/ice/explode, phase-2 clothing tints, and reveal.
+Thick near-black outlines (pure black or very dark warm brown, never mid-tone or colorful outlines). Volume = 2–3 hard flat color steps, not soft 3D, not paper-cut. No painterly strokes, no photo texture, no noise.
+No grassland, no chibi RPG party, no cold blue-gray chrome copied from other games.
+Readable at phone size: enemies ~50-90px, card marks ~88px, cannons ~70px.
+NO watermarks, no English UI chrome, no store badges, no QR codes.
+
+STYLE A2 — PAPER STAGE + INK MACHINES (宣纸战场 / 机关墨件):
+Warm paper field #F4EFE4. World stays paper. Color is still gameplay: only mods, modified shots, VFX, and late-stage clothing tints.
+
+VOLUME RULE (critical):
+Volume comes from 2–3 hard color steps (light plane / mid body / dark side), plus a thick near-black outline.
+NOT paper-cut flat silhouettes.
+NOT plastic 3D, NOT soft airbrush, NOT realistic shading, NOT photo texture.
+Think chunky vector toys: you can tell top from side, but every plane is a flat fill.
+
+CANNON:
+Top-down with a slight tilt so the barrel top is visible. Dark charcoal cylinder barrel, lighter gray top plane, thick black rounded-square base. A train of identical guns, linked. Weight like a desk tool, not a sticker.
+
+TOOLS / CARDS (not elemental emoji):
+Each modifier is a small MACHINE or HAND-TOOL, one silhouette, one accent color.
+Forbidden on cards: flame tongues, ice crystals, gem diamonds, magic wisps, raw geometric stamps (bare triangle/diamond/circle).
+Meaning must read at a glance from the tool's job.
+
+ENEMIES (PVZ-like ink people, not glyphs):
+Readable body: head, torso, arms, legs. Plants vs Zombies cartoon structure, but ink-print.
+Early: near-black / graphite fills, thick outline, gray cloth, white eye dots. NOT a solid black blob, NOT a white ghost, NOT a triangle.
+Late/elite/boss: same bodies, small clothing color (hat band, coat patch), never full rainbow.
+Each type has one body gag (shield lid, lean runner, cluster of small guys, wide sidestep, huge boss).
+
+VFX:
+Same rendering as the approved Cursor A VFX sheet: white-hot core → saturated mid → darker rim, sharp hard edges, on black.
+Shapes of travel shots must be TOOL-SLUGS / machine bits (bolts, nozzles, nails, canisters), NOT fireballs or ice crystals.
+
+SHOT 03 — draft overlay, 9:16. Dimmed battlefield with ink-people and chunky cannons behind.
+Large light paper panel. Three vertical cards, 1-star only, no 2/3 stars.
+LEFT: black Y-splitter pipe tool, name 分化
+MID: orange handheld blowtorch tool (metal nozzle + tank, NOT a flame icon), name 加火
+RIGHT: cyan cooling clamp / refrigerant pliers (NOT a diamond), name 加冰
+Big tool icon, short Chinese name allowed. Pale reroll button, optional 看广告重刷.
+
+Aspect: 9:16. 2D game art, chunky vector, not a photograph, not a 3D render.

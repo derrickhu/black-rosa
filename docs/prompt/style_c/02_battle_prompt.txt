@@ -1,0 +1,28 @@
+SHARED PRINCIPLES (Ink Line / 墨弹防线 — do not deviate):
+Vertical portrait tower-defense shooter, camera facing the field straight-on (NOT 3/4 tactics top-down, NOT isometric).
+Silhouette first: one exaggerated memory shape per object, drop zoom-only details.
+Value before hue: paper ground stays bright; ink shapes read in black-and-white first.
+COLOR IS GAMEPLAY, NOT DECORATION: the world, empty cells, cannons, first-phase enemies, HUD chrome stay near black-and-white. Color appears ONLY on modifier stamps, modified bullets, burn/ice/explode, phase-2 elite/boss, and reveal.
+Thick near-black outlines (pure black or very dark warm brown, never mid-tone or colorful outlines). Flat fills with one highlight and one shadow. No gradients, no painterly strokes, no photo texture, no noise.
+No grassland, no chibi RPG party, no cold blue-gray chrome copied from other games.
+Readable at phone size: enemies ~50-90px, card marks ~88px, cannons ~70px.
+NO watermarks, no English UI chrome, no store badges, no QR codes.
+
+STYLE C — CASUAL SILHOUETTE (萝卜剪影):
+Warm paper #F4EFE4. Rounder corners, capsule buttons, friendly mass.
+World still paper + ink. Color still arrives only after mods. Do NOT paint the whole cast in pastels.
+Cannon = round ink-pot turret with a short snub barrel, cute but still black.
+Enemies are readable creature-silhouettes in ink (drop, dart-rat, beetle-shield, pebble swarm, crab-strafer, big blot elite, giant seal boss) — one color each unless phase-2.
+Cards are round-corner stamp tiles with a single fat icon.
+UI like Archero / Carrot Fantasy: big hit areas, soft radii, still no rainbow chrome.
+Forbidden: full-color casual mascots, shiny plastic, candy UI, extra lobby tabs.
+
+SHOT 02 — mid-battle COVER shot, 9:16. This is the hero image.
+The world is still paper. ONLY the center column is colored.
+TOP HUD as graphics not sentences: left a black coin disc, center three small red heart-stamps (HP), right a tiny wave pip. A thin empty toast band under them. No English.
+FIELD: enemies (black blob, dart, ring, small swarm dots) coming from the top. 5 columns of cells. Only the lowest row is open (chapter-1). Center cell holds an orange flame stamp and a black triangle stamp stacked in the same column (triangle below, flame above) — bullets going up: black before the stamps, then split, then orange fire shots after the flame.
+Other four columns empty pale cells. Thin black leak line. A train of THREE identical black cannons at the bottom, slightly left of center.
+BOTTOM UI: left a pale rounded rect (retreat), center a large SOLID BLACK rounded rect (draft CTA). No readable words, or at most 两字 改装 on the black button.
+Must read in one second: paper world + one column you already painted.
+
+Aspect: 9:16 phone screen. 2D game art, not a photograph, not a 3D render.
