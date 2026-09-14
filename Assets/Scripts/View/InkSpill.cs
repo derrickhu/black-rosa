@@ -3,10 +3,12 @@ using UnityEngine;
 
 namespace InkLine
 {
-    // 死亡表现。一只怪没了，屏幕上要留下三样东西：
-    //   1. 白色剪影炸开一下 —— 「它没了」这句话必须在 0.2 秒内说完；
-    //   2. 地上一摊墨 —— 战场要记得这里死过人，割草才有痕迹；
-    //   3. 几滴甩出去的墨点 —— 摊子本身太规整，有碎点才像溅开的。
+    // 死亡表现：白色剪影炸开一下（「它没了」这句话必须在 0.2 秒内说完），
+    // 外加几滴甩出去的墨点。
+    //
+    // 地上那摊墨不在这里 —— 它是 DropKind.Ink 那件掉落物本身，由 InkDrops 画。
+    // 死亡特效和掉落物各摊一摊的话，同一个位置会叠两摊深色，而且被吸走的
+    // 是看不见的那一摊，「尸体化成墨被收走」这件事就断了。
     public static class InkSpill
     {
         const int Pool = 18;
@@ -49,10 +51,9 @@ namespace InkLine
     {
         const int Flecks = 6;
         const float FlashLife = 0.22f;
-        const float PoolLife = 3.2f;
+        const float FleckLife = 0.85f;
 
         SpriteRenderer _flash;
-        SpriteRenderer _pool;
         SpriteRenderer[] _fleck;
         Vector2[] _vel;
         Vector2[] _at;
@@ -89,7 +90,7 @@ namespace InkLine
 
         void LateUpdate()
         {
-            if (!_on || _pool == null || _fleck == null)
+            if (!_on || _fleck == null)
             {
                 _on = false;
                 enabled = false;
@@ -107,20 +108,8 @@ namespace InkLine
                 _flash.color = new Color(1f, 1f, 1f, (1f - fu) * 0.95f);
             }
 
-            // 墨摊：先泼开，再慢慢被纸吃掉
-            float pu = Mathf.Clamp01(_t / PoolLife);
-            float grow = Mathf.Min(1f, _t / 0.2f);
-            float spread = _size * Mathf.Lerp(0.35f, 1f, grow * grow);
-            _pool.enabled = pu < 1f;
-            _pool.transform.localPosition = new Vector3(0f, -_size * 0.16f, 0f);
-            // 压扁成椭圆，看着才是躺在地上而不是浮在半空
-            _pool.transform.localScale = new Vector3(spread, spread * 0.42f, 1f);
-            Color ink = InkTheme.Ink;
-            ink.a = 0.46f * Mathf.SmoothStep(1f, 0f, Mathf.InverseLerp(0.45f, 1f, pu));
-            _pool.color = ink;
-
             // 碎点：甩出去，落回地面，一起淡掉
-            float flu = Mathf.Clamp01(_t / 0.85f);
+            float flu = Mathf.Clamp01(_t / FleckLife);
             for (int i = 0; i < Flecks; i++)
             {
                 _vel[i].y -= 7f * dt;
@@ -133,9 +122,8 @@ namespace InkLine
                 _fleck[i].color = c;
             }
 
-            if (pu < 1f) return;
+            if (flu < 1f) return;
             _flash.enabled = false;
-            _pool.enabled = false;
             for (int i = 0; i < Flecks; i++) _fleck[i].enabled = false;
             _on = false;
             enabled = false;
@@ -143,11 +131,9 @@ namespace InkLine
 
         void Ensure()
         {
-            if (_pool != null && _fleck != null) return;
+            if (_fleck != null) return;
             // 域重载会把引用清空但子节点还挂着，先清一遍再建，免得越积越多。
             for (int i = transform.childCount - 1; i >= 0; i--) Destroy(transform.GetChild(i).gameObject);
-            // 墨摊压在格子底纹之上、走怪之下 —— 盖住网格会让人以为格子锁了。
-            _pool = Make("pool", InkFx.Splat(), 1);
             _fleck = new SpriteRenderer[Flecks];
             _vel = new Vector2[Flecks];
             _at = new Vector2[Flecks];

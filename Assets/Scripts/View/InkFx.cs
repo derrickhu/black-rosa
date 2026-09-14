@@ -14,6 +14,7 @@ namespace InkLine
         static Sprite _blade;
         static Sprite _pill;
         static Sprite _splat;
+        static Sprite _coin;
 
         public static Material AddMat()
         {
@@ -170,19 +171,73 @@ namespace InkLine
             _splat = BakeRadial(128, (r, p) =>
             {
                 float ang = Mathf.Atan2(p.y, p.x);
-                float edge = 0.66f
-                             + 0.15f * Mathf.Sin(ang * 3f + 0.7f)
-                             + 0.09f * Mathf.Sin(ang * 5f - 1.9f)
+                float edge = 0.60f
+                             + 0.11f * Mathf.Sin(ang * 3f + 0.7f)
+                             + 0.08f * Mathf.Sin(ang * 5f - 1.9f)
                              + 0.05f * Mathf.Sin(ang * 9f + 2.6f);
-                float body = Mathf.SmoothStep(edge, edge - 0.14f, r);
-                // 主体外面甩几滴。角度上只在几个窄窗口里有，半径上锁在外圈一环 ——
-                // 不锁半径的话这几滴会从中心一路连到边上，变成放射状的刺。
-                float band = (r - 0.86f) / 0.075f;
-                float fleck = Mathf.SmoothStep(0.04f, 0.16f, Mathf.Sin(ang * 7f + 1.2f) - 0.74f)
-                              * Mathf.Exp(-band * band);
-                return Mathf.Max(body, fleck);
+                // Mathf.SmoothStep(from, to, t) 是「在 from 和 to 之间平滑插值」，
+                // 不是「把 t 按 from→to 归一化到 0~1」。当阈值用会得到一张
+                // alpha 恒在 from~to 之间的图 —— 整块半透明的方块，不是一摊墨。
+                // 要阈值就得先 InverseLerp 归一化。
+                float a = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(edge, edge - 0.12f, r));
+                // 甩出去的那几滴，每滴都得是一个独立的圆点。拿「角度窗口 × 半径环」
+                // 去凑不行 —— 那在极坐标下是个矩形，画出来是绕着中心的一圈弧形短条，
+                // 看着像放射的刺。
+                for (int k = 0; k < 5; k++)
+                {
+                    // 黄金角，五滴自然散开而不撞在一处
+                    float spot = k * 2.39996f;
+                    float away = 0.80f + 0.13f * Mathf.Sin(k * 5.1f);
+                    var c = new Vector2(Mathf.Cos(spot), Mathf.Sin(spot)) * away;
+                    float rad = 0.075f + 0.03f * Mathf.Sin(k * 2.7f);
+                    float d = (p - c).magnitude / rad;
+                    a = Mathf.Max(a, Mathf.Exp(-d * d));
+                }
+                return a;
             });
             return _splat;
+        }
+
+        // 一枚单独的金币。顶栏那张叠币图标是「你一共有多少钱」的意思，
+        // 掉在地上的一份收入拿它来画，读起来就成了「掉了一沓钱」，数量感全丢了。
+        // 这里只烤一枚：墨色描边 + 金面 + 左上高光 + 中间一个戳印。
+        public static Sprite Coin()
+        {
+            if (_coin != null) return _coin;
+            const int n = 64;
+            var tex = new Texture2D(n, n, TextureFormat.RGBA32, false);
+            tex.filterMode = FilterMode.Bilinear;
+            tex.wrapMode = TextureWrapMode.Clamp;
+            var px = new Color[n * n];
+            float mid = (n - 1) * 0.5f;
+            for (int y = 0; y < n; y++)
+            for (int x = 0; x < n; x++)
+            {
+                var p = new Vector2((x - mid) / mid, (y - mid) / mid);
+                float r = p.magnitude;
+                // 边缘一像素宽的羽化。硬切在小尺寸下会变成锯齿的方块。
+                float a = Mathf.Clamp01((0.97f - r) * mid * 0.55f);
+                if (a <= 0f) { px[y * n + x] = new Color(0f, 0f, 0f, 0f); continue; }
+
+                Color c;
+                if (r > 0.85f) c = InkTheme.Ink;
+                else
+                {
+                    // 左上偏亮、右下偏深，一枚平涂的圆才立得起来。
+                    float lit = Mathf.Clamp01(0.5f + (p.x * -0.5f + p.y * 0.5f) * 0.9f);
+                    c = Color.Lerp(InkTheme.CoinDeep, InkTheme.CoinFace, lit);
+                    if (lit > 0.82f) c = Color.Lerp(c, InkTheme.GoldHi, (lit - 0.82f) / 0.18f * 0.8f);
+                    // 戳印：中间一圈细的深色环，让它读成「钱」而不是一个黄点
+                    float band = (r - 0.34f) / 0.07f;
+                    c = Color.Lerp(c, InkTheme.CoinDeep, Mathf.Exp(-band * band) * 0.75f);
+                }
+                c.a = a;
+                px[y * n + x] = c;
+            }
+            tex.SetPixels(px);
+            tex.Apply(false, false);
+            _coin = Sprite.Create(tex, new Rect(0, 0, n, n), new Vector2(0.5f, 0.5f), n);
+            return _coin;
         }
 
         static Sprite BakeRadial(int n, System.Func<float, Vector2, float> alpha)

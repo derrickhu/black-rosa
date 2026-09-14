@@ -107,8 +107,10 @@ namespace InkLine
         public Vector2 Vel;
         public float Ground;
         public float Rest;
+        public float Age;       // 落地后活了多久。墨摊靠它算摊开的进度
         public float Fly;       // >0 表示已经起飞，1 到账
         public Vector2 From;
+        public float Size;      // 墨摊按死者的体型摊开；金币恒为 1
         public float Seed;
         public bool Dead;
     }
@@ -1201,17 +1203,21 @@ namespace InkLine
         // 割草关一秒能死十几只，全都弹出来既看不清也白烧渲染。
         // 72 试过了，太多：一次清屏的技能能同时挂五六十件，全都沿同一条线飞向顶栏，
         // 堆成一坨糊住半个战场，反而看不见自己赚了什么。留一条看得清的流就够。
-        const int DropCap = 24;
+        const int DropCap = 40;
         const float DropRestTime = 0.26f;
         const float DropFlyTime = 0.38f;
+        // 墨摊在地上待得久一些：它是死亡留下的痕迹，要够时间看清才谈得上「收走」。
+        const float PuddleRestTime = 0.85f;
 
         // 一只怪掉几枚金币、几滴墨。拆成几份是为了「一片金币叮叮当当飞过去」，
         // 一份一大枚反而没有收获感；份数跟着体型走，关底死时该铺满半个屏。
         void DropLoot(EnemyActor e)
         {
             int ink = Mathf.Max(1, e.Gold * GameConstants.InkPerGold);
-            Scatter(e, DropKind.Gold, e.Gold, Mathf.Clamp(e.Gold, 1, e.IsBoss ? 8 : 2));
-            Scatter(e, DropKind.Ink, ink, Mathf.Clamp(ink / 4, 1, e.IsBoss ? 5 : 1));
+            Scatter(e, DropKind.Gold, e.Gold, Mathf.Clamp(e.Gold, 1, e.IsBoss ? 14 : 4));
+            // 墨只出一摊。它是尸体留在地上那摊，不是一把零钱 ——
+            // 一只怪摊开好几摊，看着就不像同一具身体流出来的了。
+            Scatter(e, DropKind.Ink, ink, 1);
         }
 
         void Scatter(EnemyActor e, DropKind kind, int total, int pieces)
@@ -1228,17 +1234,25 @@ namespace InkLine
                     continue;
                 }
                 float side = pieces == 1 ? UnityEngine.Random.Range(-1f, 1f) : (i - (pieces - 1) * 0.5f) / pieces * 2f;
+                // 墨是从尸体底下淌出来的，不会被抛到空中：一开始就贴在地上，
+                // 慢慢摊开再被吸走。金币才是弹出来、滚一下、躺平。
+                bool puddle = kind == DropKind.Ink;
+                float ground = Mathf.Max(GameConstants.LeakY + 0.3f,
+                    e.Pos.y - (puddle ? e.Radius * 0.55f : UnityEngine.Random.Range(0.3f, 0.9f)));
                 Drops.Add(new DropItem
                 {
                     Id = NextActorId++,
                     Kind = kind,
                     Amount = amount,
-                    Pos = e.Pos,
-                    Vel = new Vector2(side * 1.9f + UnityEngine.Random.Range(-0.35f, 0.35f),
-                        UnityEngine.Random.Range(2.4f, 3.8f)),
-                    // 落点别掉到漏怪线底下 —— 那儿已经是炮台和界面的地盘了。
-                    Ground = Mathf.Max(GameConstants.LeakY + 0.3f, e.Pos.y - UnityEngine.Random.Range(0.3f, 0.9f)),
-                    Rest = DropRestTime + UnityEngine.Random.Range(0f, 0.16f),
+                    Pos = puddle ? new Vector2(e.Pos.x, ground) : e.Pos,
+                    Vel = puddle
+                        ? Vector2.zero
+                        : new Vector2(side * 1.9f + UnityEngine.Random.Range(-0.35f, 0.35f),
+                            UnityEngine.Random.Range(2.4f, 3.8f)),
+                    Ground = ground,
+                    // 那摊墨要摊开、晃一会儿才被吸走，不然「流出来一摊」根本来不及看见。
+                    Rest = (puddle ? PuddleRestTime : DropRestTime) + UnityEngine.Random.Range(0f, 0.16f),
+                    Size = puddle ? Mathf.Max(0.42f, e.Radius) * (e.IsBoss ? 2.9f : 2.1f) : 1f,
                     Seed = UnityEngine.Random.value * 10f
                 });
             }
@@ -1249,6 +1263,7 @@ namespace InkLine
             for (int i = Drops.Count - 1; i >= 0; i--)
             {
                 DropItem d = Drops[i];
+                d.Age += dt;
                 if (d.Fly > 0f)
                 {
                     // 越飞越快，落点那一下才有「被吸进去」的收束感。
