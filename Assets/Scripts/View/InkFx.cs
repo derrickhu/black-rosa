@@ -12,6 +12,8 @@ namespace InkLine
         static Sprite _disc;
         static Sprite _ring;
         static Sprite _blade;
+        static Sprite _pill;
+        static Sprite _splat;
 
         public static Material AddMat()
         {
@@ -129,6 +131,58 @@ namespace InkLine
             tex.Apply(false, false);
             _blade = Sprite.Create(tex, new Rect(0, 0, w, h), new Vector2(0.5f, 0.18f), h);
             return _blade;
+        }
+
+        // Pill() 在 localScale 为 1 时的世界高度。贴图是 64x16、PPU 取 64，
+        // 所以宽正好 1 个单位而高只有四分之一 —— 要多高得先除掉这个数。
+        public const float PillH = 0.25f;
+
+        // 血条用的圆角横条。轴心压在左端 —— 这样「按比例缩 x」就是从左往右填，
+        // 不用再为对齐额外算一次位移。1 个世界单位 = 一整条。
+        public static Sprite Pill()
+        {
+            if (_pill != null) return _pill;
+            const int w = 64, h = 16;
+            var tex = new Texture2D(w, h, TextureFormat.RGBA32, false);
+            tex.filterMode = FilterMode.Bilinear;
+            tex.wrapMode = TextureWrapMode.Clamp;
+            var px = new Color[w * h];
+            float r = (h - 1) * 0.5f;
+            for (int y = 0; y < h; y++)
+            for (int x = 0; x < w; x++)
+            {
+                float dy = y - r;
+                float dx = Mathf.Max(0f, Mathf.Max(r - x, x - (w - 1 - r)));
+                float d = Mathf.Sqrt(dx * dx + dy * dy);
+                px[y * w + x] = new Color(1f, 1f, 1f, Mathf.Clamp01(r + 0.5f - d));
+            }
+            tex.SetPixels(px);
+            tex.Apply(false, false);
+            _pill = Sprite.Create(tex, new Rect(0, 0, w, h), new Vector2(0f, 0.5f), w);
+            return _pill;
+        }
+
+        // 地上那摊墨。不是个圆 —— 圆看着像阴影，要有几片不规则的瓣和边缘的碎点，
+        // 才读得出是「流出来的」。压扁交给缩放，这里只管形状。
+        public static Sprite Splat()
+        {
+            if (_splat != null) return _splat;
+            _splat = BakeRadial(128, (r, p) =>
+            {
+                float ang = Mathf.Atan2(p.y, p.x);
+                float edge = 0.66f
+                             + 0.15f * Mathf.Sin(ang * 3f + 0.7f)
+                             + 0.09f * Mathf.Sin(ang * 5f - 1.9f)
+                             + 0.05f * Mathf.Sin(ang * 9f + 2.6f);
+                float body = Mathf.SmoothStep(edge, edge - 0.14f, r);
+                // 主体外面甩几滴。角度上只在几个窄窗口里有，半径上锁在外圈一环 ——
+                // 不锁半径的话这几滴会从中心一路连到边上，变成放射状的刺。
+                float band = (r - 0.86f) / 0.075f;
+                float fleck = Mathf.SmoothStep(0.04f, 0.16f, Mathf.Sin(ang * 7f + 1.2f) - 0.74f)
+                              * Mathf.Exp(-band * band);
+                return Mathf.Max(body, fleck);
+            });
+            return _splat;
         }
 
         static Sprite BakeRadial(int n, System.Func<float, Vector2, float> alpha)

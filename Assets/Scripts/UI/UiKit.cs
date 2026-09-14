@@ -241,7 +241,15 @@ namespace InkLine
         public static Text Chip(Transform parent, string name, Sprite icon, string value,
             Vector2 pos, Vector2 size, Pin pin = Pin.Top)
         {
+            return Chip(parent, name, icon, value, pos, size, pin, out _);
+        }
+
+        // 要拿药丸整体做动效（弹一下、算屏幕坐标）时用这个重载。
+        public static Text Chip(Transform parent, string name, Sprite icon, string value,
+            Vector2 pos, Vector2 size, Pin pin, out RectTransform chip)
+        {
             var root = Stroke(parent, name, pos, size, pin, 5f, radius: size.y * 0.5f);
+            chip = root;
             root.GetComponent<Image>().raycastTarget = false;
             float r = size.y * 1.06f;
             if (icon != null) Icon(root, icon, new Vector2(-size.x * 0.5f + r * 0.42f, 0f), r);

@@ -24,9 +24,10 @@ namespace InkLine
         public const int DailyWinStamina = 4;
         public const int StarterInk = 60;
 
-        // 局内：技能能量。击杀按敌人金币值 ×2 累积。
-        public const int EnergyMax = 100;
-        public const int EnergyPerGold = 2;
+        // 局内：技能墨。和局外那笔墨是两个池子 —— 这一笔打完就清，
+        // 只在本局里攒来放技能，不进存档。击杀按敌人赏金 ×2 累积。
+        public const int InkMax = 100;
+        public const int InkPerGold = 2;
         public const int SpellSlots = 2;
 
         public const float WorldHalfHeight = 8f;

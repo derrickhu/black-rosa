@@ -61,6 +61,38 @@ namespace InkLine
         // 奶光环的半径，约一格半。再大就会隔着好几列偷偷奶到，玩家看不出因果。
         public const float HealRange = 1.4f;
 
+        // 一只写在关卡表里的兵，实际刷几只。
+        //
+        // 关卡表里那些 1~3 只的批量摆在 6 列的场上太稀了，一炮打死一只、屏幕
+        // 空半天，既没有压迫感也没有割草感。这里把轻甲杂兵按倍数铺开，
+        // BattleWorld.Spawn 会把这一批的血量和赏金按同样的倍数分摊下去 ——
+        // 一波的总血量和总收入不动，变的只是「几只厚的」换成「一群薄的」。
+        //
+        // 有机制的那几只（奶妈、厚甲、盾、墨尊、镇守）和全部关底都留 1。
+        // 它们各自在教一条规矩，复制一份只会把那一课变成数值消耗战。
+        public static int Density(EnemyId id)
+        {
+            switch (id)
+            {
+                case EnemyId.Swarm:
+                    return 3;
+                case EnemyId.Ball:
+                case EnemyId.Walker:
+                case EnemyId.Tall:
+                case EnemyId.Chubby:
+                case EnemyId.BigHead:
+                case EnemyId.Runner:
+                case EnemyId.Strafer:
+                case EnemyId.Belt:
+                case EnemyId.Crawler:
+                case EnemyId.Sprinter:
+                case EnemyId.Splitter:
+                    return 2;
+                default:
+                    return 1;
+            }
+        }
+
         public static EnemyDef Get(EnemyId id, int stageIndex)
         {
             float t = 1f + stageIndex * 0.08f;

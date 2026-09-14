@@ -6,7 +6,8 @@ namespace InkLine
     // 各自直接改血/状态，免得域里再套域。
     public sealed partial class BattleWorld
     {
-        public int Energy;
+        // 局内墨。和 MetaProgress.Ink 是两个池子：这一笔打完就清。
+        public int Ink;
         public float RageTime;
         public bool MendUsed;
         // 长度跟着常量走。内容一律由 BeginSpells 写满，别依赖默认值。
@@ -14,23 +15,23 @@ namespace InkLine
 
         public int SlotSpell(int slot) => slot >= 0 && slot < _slots.Length ? _slots[slot] : -1;
 
-        public int SlotEnergy(int slot)
+        public int SlotInkCost(int slot)
         {
             int id = SlotSpell(slot);
-            return id < 0 ? 0 : SpellCatalog.Get(id).Energy;
+            return id < 0 ? 0 : SpellCatalog.Get(id).InkCost;
         }
 
         public bool CanCast(int slot)
         {
             int id = SlotSpell(slot);
             if (id < 0 || Paused || Victory || Defeat) return false;
-            if (Energy < SpellCatalog.Get(id).Energy) return false;
+            if (Ink < SpellCatalog.Get(id).InkCost) return false;
             return id != (int)SpellId.Mend || !MendUsed;
         }
 
         void BeginSpells(int[] equipped)
         {
-            Energy = 0;
+            Ink = 0;
             RageTime = 0f;
             MendUsed = false;
             for (int i = 0; i < _slots.Length; i++)
@@ -44,7 +45,7 @@ namespace InkLine
         {
             if (!CanCast(slot)) return false;
             SpellDef d = SpellCatalog.Get(SlotSpell(slot));
-            Energy -= d.Energy;
+            Ink -= d.InkCost;
             switch (d.Id)
             {
                 case SpellId.Burst: CastBurst(); break;
@@ -74,7 +75,7 @@ namespace InkLine
         {
             e.Hp -= dmg;
             e.HitFlash = 0.18f;
-            ShowFloat(e.Pos + Vector2.up * 0.22f, Mathf.Max(1, Mathf.RoundToInt(dmg)).ToString(), tint, 1.1f);
+            ShowDamage(e, dmg, tint, 1.1f, true);
             if (e.Hp <= 0f) Kill(e, null);
         }
 
@@ -93,6 +94,7 @@ namespace InkLine
             }
             Bursts.Add(new FxBurst { Pos = at, Kind = HitFx.Explode, Tint = InkTheme.Explode, Scale = 1.9f });
             PulseHitStop(0.12f);
+            AddShake(0.5f);
         }
 
         void CastHalt()
@@ -109,6 +111,7 @@ namespace InkLine
                 Kind = HitFx.Stun, Tint = InkTheme.Word, Scale = 2.2f
             });
             PulseHitStop(0.1f);
+            AddShake(0.34f);
         }
 
         void CastRage()
@@ -132,6 +135,7 @@ namespace InkLine
                 Kind = HitFx.Knock, Tint = InkTheme.Ink, Scale = 2.4f
             });
             PulseHitStop(0.14f);
+            AddShake(0.55f);
         }
 
         void CastSplash()
@@ -172,7 +176,7 @@ namespace InkLine
             MendUsed = true;
             if (BaseHp >= MaxBaseHp) return;
             BaseHp++;
-            ShowFloat(new Vector2(0f, GameConstants.EmitterY + 0.7f), "+1", InkTheme.Heart, 1.3f);
+            Push(PopKind.Heal, 0, new Vector2(0f, GameConstants.EmitterY + 0.7f), "+1", InkTheme.Heart, 1.3f, 1f);
         }
     }
 }

@@ -462,10 +462,10 @@ namespace InkLine
                 CardIcon(box, InkSprites.Ui(d.Id), new Vector2(0f, 32f), 52f, true);
                 var n = UiKit.Label(box, "n", d.Name, 28, new Vector2(0f, -18f), new Vector2(210, 36));
                 UiKit.Bold(n);
-                var c = UiKit.Label(box, "c", d.Energy + " 能量", 19, new Vector2(0f, -44f), new Vector2(210, 26));
+                var c = UiKit.Label(box, "c", "耗 " + d.InkCost + " 墨", 19, new Vector2(0f, -44f), new Vector2(210, 26));
                 c.color = InkTheme.TextMid;
             }
-            var tip = UiKit.Label(page, "tip", "战斗中点右下角的键释放。两个键共用一条能量。", 20,
+            var tip = UiKit.Label(page, "tip", "战斗中点右下角的键释放。局内打怪攒墨，两个键共用。", 20,
                 new Vector2(0f, 142f), new Vector2(640, 30), TextAnchor.MiddleCenter, Pin.Top);
             tip.color = InkTheme.TextMid;
 
@@ -502,9 +502,9 @@ namespace InkLine
             // 框左沿对齐上面的名字（-66），右边离卡沿还留 27。
             var desc = UiKit.Label(box, "d", d.Desc, 16, new Vector2(34f, 10f), new Vector2(200, 26), TextAnchor.MiddleLeft);
             desc.color = InkTheme.TextMid;
-            var energy = UiKit.Label(box, "e", d.Energy + " 能量", 18, new Vector2(-78f, -58f), new Vector2(140, 26),
+            var cost = UiKit.Label(box, "e", "耗 " + d.InkCost + " 墨", 18, new Vector2(-78f, -58f), new Vector2(140, 26),
                 TextAnchor.MiddleLeft);
-            energy.color = InkTheme.TextMid;
+            cost.color = InkTheme.TextMid;
             if (owned)
             {
                 // 右对齐的框右沿要离卡边留出手指宽的余量，之前只剩 7px，顶到描边上了。

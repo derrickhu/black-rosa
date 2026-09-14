@@ -29,6 +29,8 @@ namespace InkLine
             InkVfx.Ensure();
             InkVfx.BindRoot(_root);
             InkPops.BindRoot(_root);
+            InkSpill.BindRoot(_root);
+            InkDrops.BindRoot(_root);
             var slab = Make("slab", InkFx.SoftDisc(), new Vector3(0f, 0.35f, 0f), 1f);
             slab.sortingOrder = -2;
             slab.transform.localScale = new Vector3(FieldLayout.FieldWidth * 1.35f, 13.5f, 1f);
@@ -150,19 +152,15 @@ namespace InkLine
                 if (e.Dead) continue;
                 bool flash = e.HitFlash > 0f;
                 Color tint = Color.white;
-                if (!flash)
-                {
-                    // 狂化染红。从 0.4 压到 0.25：关底现在是带金冠玉佩的手绘图，
-                    // tint 是乘算的，压太狠会把配件的颜色一起糊掉，而配件颜色
-                    // 正是玩家判断危险度的依据。0.25 足够看出「它红了」。
-                    if (e.Colored) tint = Color.Lerp(Color.white, InkTheme.Explode, 0.25f);
-                    // 冻是整体染青，其余持续状态交给 InkDot 的记号层，不再抢本体颜色
-                    if (e.Frozen) tint = Color.Lerp(Color.white, InkTheme.Ice, 0.45f);
-                    else if (e.BurnTime > 0f) tint = Color.Lerp(Color.white, InkTheme.Fire, 0.45f);
-                    else if (e.PoisonTime > 0f) tint = Color.Lerp(Color.white, InkTheme.Poison, 0.32f);
-                }
-                Sprite body = flash ? InkSprites.Flash(e.Type) : InkArt.Person(e.Type, Color.clear);
-                if (body == null) body = InkArt.Person(e.Type, Color.clear);
+                // 狂化染红。从 0.4 压到 0.25：关底现在是带金冠玉佩的手绘图，
+                // tint 是乘算的，压太狠会把配件的颜色一起糊掉，而配件颜色
+                // 正是玩家判断危险度的依据。0.25 足够看出「它红了」。
+                if (e.Colored) tint = Color.Lerp(Color.white, InkTheme.Explode, 0.25f);
+                // 冻是整体染青，其余持续状态交给 InkDot 的记号层，不再抢本体颜色
+                if (e.Frozen) tint = Color.Lerp(Color.white, InkTheme.Ice, 0.45f);
+                else if (e.BurnTime > 0f) tint = Color.Lerp(Color.white, InkTheme.Fire, 0.45f);
+                else if (e.PoisonTime > 0f) tint = Color.Lerp(Color.white, InkTheme.Poison, 0.32f);
+                Sprite body = InkArt.Person(e.Type, Color.clear);
                 float baseScale = e.Radius * 2.6f;
                 float wave = Time.unscaledTime * (e.Held ? 3.2f : 5.4f) + e.Id * 1.7f;
                 float breath = 1f + 0.075f * Mathf.Sin(wave);
@@ -174,15 +172,24 @@ namespace InkLine
                     sx *= 1.1f + 0.1f * punch;
                     sy *= 0.86f - 0.06f * punch;
                 }
-                SpriteRenderer sr = Bind(_enemies, e.Id, body, e.Pos + Vector2.up * (0.035f * Mathf.Sin(wave)), baseScale, 4, tint);
+                // 命中位移直接加在绘制位上：碰撞和走位还按 e.Pos 算，
+                // 挨打顿一下只是看的人的事，不该影响谁先破防线。
+                Vector2 at = e.Pos + e.Recoil + Vector2.up * (0.035f * Mathf.Sin(wave));
+                SpriteRenderer sr = Bind(_enemies, e.Id, body, at, baseScale, 4, tint);
                 sr.transform.localScale = new Vector3(sx, sy, 1f);
-                if (!flash && (e.Frozen || e.BurnTime > 0f))
+                if (e.Frozen || e.BurnTime > 0f)
                     InkVfx.PlayGlow(sr, e.Frozen ? InkTheme.Ice : InkTheme.Fire, 1.45f);
                 else
                     InkVfx.StopAura(sr);
                 var dots = sr.GetComponent<InkDot>();
                 if (dots == null) dots = sr.gameObject.AddComponent<InkDot>();
                 dots.Sync(e, 5);
+                PaintHitFlash(sr, e);
+                var bar = sr.GetComponent<InkBar>();
+                if (bar == null) bar = sr.gameObject.AddComponent<InkBar>();
+                // 16 起步：压在命中特效（9~15）之上、飘字（19/20）之下。
+                // 血条被爆点盖住的话，最该看清的那一刻恰好看不清。
+                bar.Sync(e, 16);
             }
             for (int n = 0; n < w.Bullets.Count; n++)
             {
@@ -197,7 +204,15 @@ namespace InkLine
 
             for (int n = 0; n < w.Bursts.Count; n++) InkVfx.SpawnHit(w.Bursts[n]);
             w.Bursts.Clear();
+            for (int n = 0; n < w.Deaths.Count; n++) InkSpill.Play(w.Deaths[n]);
+            w.Deaths.Clear();
+            if (w.ShakeWanted > 0f)
+            {
+                InkShake.Kick(Camera.main, w.ShakeWanted);
+                w.ShakeWanted = 0f;
+            }
             InkPops.Sync(w.Floats);
+            InkDrops.Sync(w.Drops);
 
             _seen.Clear();
             for (int n = 0; n < w.Enemies.Count; n++) if (!w.Enemies[n].Dead) _seen.Add(w.Enemies[n].Id);
@@ -205,6 +220,34 @@ namespace InkLine
             _seen.Clear();
             for (int n = 0; n < w.Bullets.Count; n++) if (!w.Bullets[n].Dead) _seen.Add(w.Bullets[n].Id);
             Purge(_bullets);
+        }
+
+        // 命中白闪。原来是整只换成纯白剪影，射速快的时候敌人大半时间都是一团白，
+        // 既看不出是什么怪，也看不出血条打到哪了 —— 白闪反而把最该看的东西盖了。
+        // 现在本体照常画，白版只当一层会淡掉的罩子叠在上面。
+        static void PaintHitFlash(SpriteRenderer host, EnemyActor e)
+        {
+            Transform t = host.transform.Find("hit");
+            SpriteRenderer sr = t != null ? t.GetComponent<SpriteRenderer>() : null;
+            float a = Mathf.Clamp01(e.HitFlash / 0.14f);
+            if (a <= 0.01f)
+            {
+                if (sr != null) sr.enabled = false;
+                return;
+            }
+            if (sr == null)
+            {
+                var go = new GameObject("hit");
+                go.transform.SetParent(host.transform, false);
+                go.transform.localPosition = Vector3.zero;
+                go.transform.localScale = Vector3.one;
+                sr = go.AddComponent<SpriteRenderer>();
+                sr.sortingOrder = host.sortingOrder + 1;
+                InkFx.PaintSprite(sr, Color.white);
+            }
+            sr.sprite = InkSprites.Flash(e.Type);
+            sr.enabled = sr.sprite != null;
+            sr.color = new Color(1f, 1f, 1f, a * 0.82f);
         }
 
         void AccrueWash(int col, CardId id)

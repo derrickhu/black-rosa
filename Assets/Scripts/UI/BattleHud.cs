@@ -17,22 +17,26 @@ namespace InkLine
         }
 
         public readonly Text Gold;
+        public readonly RectTransform GoldChip;
         public readonly Image[] Hearts;
         public readonly Text Wave;
         public readonly Text Toast;
-        public readonly Text Energy;
+        public readonly Text Ink;
+        public readonly RectTransform InkChip;
         public readonly Button Draft;
         public readonly Text DraftLabel;
         public readonly SpellKey[] Keys;
 
-        BattleHud(Text gold, Image[] hearts, Text wave, Text toast, Text energy,
-            Button draft, Text draftLabel, SpellKey[] keys)
+        BattleHud(Text gold, RectTransform goldChip, Image[] hearts, Text wave, Text toast,
+            Text ink, RectTransform inkChip, Button draft, Text draftLabel, SpellKey[] keys)
         {
             Gold = gold;
+            GoldChip = goldChip;
             Hearts = hearts;
             Wave = wave;
             Toast = toast;
-            Energy = energy;
+            Ink = ink;
+            InkChip = inkChip;
             Draft = draft;
             DraftLabel = draftLabel;
             Keys = keys;
@@ -42,7 +46,7 @@ namespace InkLine
             System.Action retreat, System.Action draft, System.Action<int> cast)
         {
             // 只加 8 不是 30：TopPad 里已经含了「让到微信胶囊下沿再留 12」那一段，
-            // 再加 30 就把整排药丸推进战场里去了 —— 右上那个能量药丸本来就压在
+            // 再加 30 就把整排药丸推进战场里去了 —— 右上那个墨药丸本来就压在
             // 走怪区上沿，而顶栏每往下一格，玩家能提前看见敌人的时间就少一点。
             float top = ScreenFit.TopPad + 8f;
             float bot = ScreenFit.BottomPad + 18f;
@@ -50,11 +54,13 @@ namespace InkLine
             // 读数做成药丸，和首页顶栏一套构件，图标也是同一批手绘图。
             var chip = new Vector2(172f, 54f);
             var gold = UiKit.Chip(layer, "gold", InkSprites.Ui("gold"), "0",
-                new Vector2(18f, top), chip, Pin.TopLeft);
+                new Vector2(18f, top), chip, Pin.TopLeft, out RectTransform goldChip);
 
-            // 能量摆右上，和左上的金币对称。中间留给波次。
-            var energy = UiKit.Chip(layer, "energy", InkSprites.Ui("energy"), "0",
-                new Vector2(18f, top), chip, Pin.TopRight);
+            // 局内墨摆右上，和左上的金币对称。中间留给波次。
+            // 图标用首页那滴墨，不用闪电 —— 闪电在首页是体力，两处撞图标，
+            // 玩家会以为局内打怪在回体力。
+            var ink = UiKit.Chip(layer, "ink", InkSprites.Ui("ink"), "0",
+                new Vector2(18f, top), chip, Pin.TopRight, out RectTransform inkChip);
 
             var wavePlate = UiKit.Stroke(layer, "waveplate", new Vector2(0f, top), new Vector2(196f, 54f),
                 Pin.Top, 5f, radius: 27f);
@@ -83,7 +89,7 @@ namespace InkLine
             int maxHp = world != null ? world.MaxBaseHp : GameConstants.BaseHp;
             var hearts = UiKit.Hearts(layer, new Vector2(-70f, heartY), heartSize, maxHp, Pin.Bottom);
 
-            return new BattleHud(gold, hearts, wave, toast, energy, draftBtn, draftLabel, keys);
+            return new BattleHud(gold, goldChip, hearts, wave, toast, ink, inkChip, draftBtn, draftLabel, keys);
         }
 
         static SpellKey MakeKey(RectTransform layer, int slot, Vector2 pos, System.Action<int> cast)
@@ -110,15 +116,32 @@ namespace InkLine
             return vy * layer.rect.height;
         }
 
+        // 掉落物要飞到药丸上，得知道药丸在世界里的哪儿。画布是 ScreenSpaceOverlay，
+        // RectTransform.position 本身就是屏幕像素，直接反投回去就行。
+        public static Vector2 ChipInWorld(RectTransform chip, Vector2 fallback)
+        {
+            Camera cam = Camera.main;
+            if (cam == null || chip == null) return fallback;
+            Vector3 p = cam.ScreenToWorldPoint(new Vector3(chip.position.x, chip.position.y, 0f));
+            return new Vector2(p.x, p.y);
+        }
+
         public void Refresh(BattleWorld world, bool inBattle, string tip)
         {
             if (world == null || Gold == null) return;
             Gold.text = world.Gold.ToString();
+            // 到账脉冲由这里衰减：世界在暂停和顿帧里都不走 Tick，
+            // 而金币飞进来那一下恰恰常常压在顿帧上。
+            float dt = Time.unscaledDeltaTime;
+            world.GoldPop = Mathf.Max(0f, world.GoldPop - dt * 3.4f);
+            world.InkPop = Mathf.Max(0f, world.InkPop - dt * 3.4f);
+            Pop(GoldChip, Gold, world.GoldPop, InkTheme.CoinDeep);
+            Pop(InkChip, Ink, world.InkPop, InkTheme.Track);
             int hp = Mathf.Clamp(world.BaseHp, 0, Hearts.Length);
             for (int i = 0; i < Hearts.Length; i++)
                 Hearts[i].color = i < hp ? Color.white : new Color(1f, 1f, 1f, 0.28f);
             Wave.text = world.BossSpawned ? "关底" : $"波 {world.WaveIndex + 1}/{world.Stage.Waves.Length}";
-            Energy.text = world.Energy.ToString();
+            Ink.text = world.Ink.ToString();
             if (world.ToastTime > 0f) Toast.text = world.Toast;
             else if (!string.IsNullOrEmpty(tip)) Toast.text = tip;
             else if (world.RevealTime > 0f) Toast.text = $"显形 · {world.LastReveal}";
@@ -134,6 +157,15 @@ namespace InkLine
                 : Vector3.one;
         }
 
+        // 收到一笔就把药丸顶一下、数字染一下色。飞过去的金币要在这儿落地有声，
+        // 否则那段飞行只是装饰，玩家仍然不知道自己赚到了。
+        static void Pop(RectTransform chip, Text value, float pulse, Color flash)
+        {
+            if (chip == null) return;
+            chip.localScale = Vector3.one * (1f + 0.18f * pulse);
+            if (value != null) value.color = Color.Lerp(InkTheme.TextDark, flash, pulse);
+        }
+
         void RefreshKeys(BattleWorld world, bool inBattle)
         {
             for (int i = 0; i < Keys.Length; i++)
@@ -145,9 +177,9 @@ namespace InkLine
                 if (!has) continue;
                 SpellDef d = SpellCatalog.Get(id);
                 k.Name.text = d.Name;
-                k.Cost.text = d.Energy.ToString();
-                float need = Mathf.Max(1, d.Energy);
-                k.Fill.fillAmount = Mathf.Clamp01(world.Energy / need);
+                k.Cost.text = d.InkCost.ToString();
+                float need = Mathf.Max(1, d.InkCost);
+                k.Fill.fillAmount = Mathf.Clamp01(world.Ink / need);
                 bool ready = inBattle && world.CanCast(k.Slot);
                 k.Btn.interactable = ready;
                 Color tint = d.Tint;

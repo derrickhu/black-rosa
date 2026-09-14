@@ -63,6 +63,13 @@ namespace InkLine
             if (_screen == Screen.Lobby && _home != null) _home.Tick();
             if (_screen == Screen.Battle || _screen == Screen.Place || _screen == Screen.Draft || _screen == Screen.Confirm)
             {
+                if (_world != null && _hud != null)
+                {
+                    // 掉落物要飞进顶栏，得先知道两个药丸现在在世界的哪儿 ——
+                    // 安全区一变（转屏、不同机型）位置就不一样，不能写死。
+                    _world.GoldChip = BattleHud.ChipInWorld(_hud.GoldChip, _world.GoldChip);
+                    _world.InkChip = BattleHud.ChipInWorld(_hud.InkChip, _world.InkChip);
+                }
                 if (_world != null && _screen == Screen.Battle)
                 {
                     if (!uiHit) HandleRail();
