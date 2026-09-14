@@ -1,0 +1,11 @@
+Redraw the attached spelling sheet as one bold connected title.
+
+SPELLING: 墨 then 字 then 防 then 线. Copy the sheet. One row. Pure solid magenta (#FF00FF) background.
+
+DESIGN: the letters themselves are the picture. Extra-bold, rounded, slightly different bounce heights, one shared dark-brown outline, near-black fill. Flat 2D sticker. Looks like the same family as a casual tower-defense logo.
+
+Keep 字 as a clean, complete 字 — roof 宀 and child 子 both fully drawn in black ink. Give 字 the same weight as the other three. A tiny persimmon-orange square stamp, the size of a period, sits in the open space under 宀 and above 子, still inside the character.
+
+墨 has four blueberry-ink drips. 防 has a tiny cream heart in 方. 线 has a blueberry-ink silk ribbon on the left.
+
+Still reads 墨字防线. Uniform magenta. No playing card. No English.

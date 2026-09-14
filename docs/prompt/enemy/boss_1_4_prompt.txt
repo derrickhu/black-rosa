@@ -1,0 +1,30 @@
+A 2 by 2 grid of 4 full-body game enemy boss characters on a pure solid magenta background (#FF00FF).
+
+MATCH THE ATTACHED REFERENCE IMAGE'S CHARACTER STYLE EXACTLY. That reference shows the existing enemies of this game. Copy its drawing language precisely:
+- Body is a chunky rounded blob-person made of dark charcoal grey ink (about #3F423C), with a slightly lighter grey sheen along the top of the head, shoulders and limbs.
+- Very thick solid black outline around the whole silhouette and around every limb.
+- The face has ONLY two plain white oval eyes. No mouth, no nose, no eyebrows, no pupils.
+- Mitten hands and simple rounded feet, no fingers, no toes.
+- A few stitched cross-shaped patch marks on the body.
+- A few small solid black ink droplets and specks scattered in the air around the character.
+- Cartoonish, cute-but-menacing, slightly hunched, standing front-facing full body.
+
+CRITICAL COLOUR RULE: the BODY MUST STAY DARK CHARCOAL INK GREY, never tinted. Colour appears ONLY on the listed worn accessories. These are the game's final bosses, so each one wears a full set of accessories with metallic pieces — they must look obviously more decorated and more dangerous than the plain grey figures in the reference. Put the accessories on the outer edge of the silhouette (top of head, neck, hands, ankles, back) so they stay visible when the character is small on screen.
+
+These four are BOSSES: draw them noticeably bulky, heavy and imposing, with wide shoulders and thick legs.
+
+Top-left — "Drum Boss":
+A heavy blob-person carrying a huge round war drum on one arm like a shield. The drum has a bright yellow drumhead, a red rope lacing criss-crossing its rim, and copper studs around the edge. He also wears a red headband. Body charcoal grey.
+
+Top-right — "Inksac Boss":
+A hugely bloated round blob-person whose swollen belly is a translucent deep violet ink sac with darker violet ink sloshing inside. A green sash is tied tightly around the middle, and a copper carry-ring hangs at the top of the sac. Small violet droplets leak from the bottom. Arms and legs and head stay charcoal grey.
+
+Bottom-left — "Iron Barrel Boss":
+A squat extremely armoured blob-person encased in slate blue-grey iron plates with rows of copper rivets along every plate seam. He wears a copper face mask covering the lower face (the two white eyes still show above it) and a tall red horsehair plume on top of the helmet. Very short thick legs, very wide body.
+
+Bottom-right — "Twin-Head Boss":
+One single wide charcoal body with TWO heads side by side on the shoulders, each head with its own two white eyes. The left head wears a teal cloth wrap, the right head wears a yellow cloth wrap, and a copper chain links the two necks together across the chest. Four arms, two on each side.
+
+LAYOUT: exactly 2 columns and 2 rows, 4 characters. Each character stands centred in its own quadrant, fully inside it, surrounded by a wide band of empty magenta. No character touches or overlaps another, and no part of any character crosses into another quadrant. All four drawn at roughly the same height.
+
+NO TEXT, no letters, no numbers, no labels, no captions, no writing, no watermarks, no signatures, no UI frames, no health bars, no ground shadow, no platform or floor. The background must be one perfectly uniform solid magenta with no gradient, no vignette and no texture.

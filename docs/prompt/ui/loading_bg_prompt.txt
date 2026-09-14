@@ -1,0 +1,21 @@
+A vertical 9:16 full-bleed illustration for a casual mobile game loading screen. Warm paper colours only.
+
+MOOD AND PALETTE:
+The whole picture is a warm sheet of paper the colour of a steamed bun at the top, shifting gently to the colour of a dried apricot near the bottom. Two soft wash blobs: one pale apricot in the upper-left, one peach-pink in the lower-right, both very faint, like watercolour stains on paper. No sky, no landscape, no horizon, no grass, no stone walls.
+
+SUBJECTS — keep the middle of the picture busy, keep the top quarter and the bottom quarter almost empty:
+- In the lower-middle, one short stubby toy cannon seen from the side, pointing straight up. Charcoal-grey barrel, dark-brown wooden block, thick dark-brown outline. The same chunky toy silhouette as a casual card-game icon.
+- Above the cannon, three small charcoal-grey ink creatures walking downward toward it, each a different body: one short and chubby, one tall and thin, one round like a ball. Each has two solid white oval eyes and two stubby feet. Bare charcoal-grey ink skin, no clothes, no hats.
+- Just in front of the cannon, one square cream playing-card standing on the paper, with a thick dark-brown outline. On the card face, a single fat orange starburst, the orange of a ripe persimmon. This is the only saturated colour accent besides the ink-violet of a small splat near the chubby creature.
+
+RENDERING STYLE — FLAT 2D VECTOR / CASUAL CARD GAME:
+- Flat solid colour. At most three hard-edged tones per object, like cut paper. No soft gradients on the characters or the cannon.
+- Uniform thick dark brown outline (#3A2A20) on every object, same line weight.
+- Completely flat and graphic. No 3D, no bevel, no gloss, no shine, no drop shadow on the background.
+- Bold chunky silhouettes that read at phone size. Few objects, large, with lots of empty warm paper around them.
+
+LEAVE THESE AREAS EMPTY (only the warm paper, no objects):
+- The top 22 percent of the picture: empty paper, for a logo to be placed later.
+- The bottom 22 percent of the picture: empty paper, for a progress bar and legal text to be placed later.
+
+NO TEXT, no letters, no numbers, no Chinese characters, no logo, no watermark, no UI bars, no buttons, no captions. No black border, no white border.

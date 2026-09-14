@@ -1,4 +1,6 @@
-# 冰火弹 fireice_shot
+# 冰火弹 fireice_shot（旧整弹，已停用）
+
+现行口径：火 overlay + 冰 overlay 同挂，见 [`layers.md`](layers.md)。本文件只留旧母版说明。
 
 只用 Cursor `GenerateImage`。母版进  
 `game_assets/black-rosa/美术/runtime/vfx/fireice/`

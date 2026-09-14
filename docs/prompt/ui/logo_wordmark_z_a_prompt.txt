@@ -1,0 +1,13 @@
+Redraw the attached spelling sheet as one connected casual-game wordmark.
+
+SPELLING: four simplified Chinese characters in a row, left to right, 墨 then 字 then 防 then 线. Keep every stroke of the sheet. Restyle only. One row. Pure solid magenta (#FF00FF) background with wide empty magenta around the row.
+
+DESIGN: extra-bold rounded sticker letters, slightly bouncing, joined by a shared thick dark-brown outline (#3A2A20) like cut vinyl. Fill is near-black ink (#1A1410). Flat solid colour, hard edges, two or three flat tones.
+
+Colour lives in the strokes, not as a second object sitting on the letter:
+- 墨: the four dots of 黑 are four fat droplets the colour of crushed blueberries.
+- 字: keep the full 宀 roof and the full 子. The last hook of 子 is a short fat calligraphy dab the orange of a ripe persimmon, still the hook of 子.
+- 防: a tiny cream heart the size of a stroke sits inside 方.
+- 线: the silk radical 纟 is a whipping ribbon the colour of crushed blueberries, still the left third of 线.
+
+The four characters still read 墨字防线. One perfectly uniform solid magenta background.

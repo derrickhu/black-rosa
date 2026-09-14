@@ -1,0 +1,37 @@
+A 2 by 2 grid of 4 full-body game enemy characters on a pure solid magenta background (#FF00FF).
+
+MATCH THE ATTACHED REFERENCE IMAGE'S CHARACTER STYLE EXACTLY. That reference shows the existing enemies of this game. Copy its drawing language precisely:
+- Body is a chunky rounded blob-person made of dark charcoal grey ink (about #3F423C), with a slightly lighter grey sheen along the top of the head, shoulders and limbs.
+- Very thick solid black outline around the whole silhouette and around every limb.
+- The head is a rounded charcoal ball sitting clearly above the shoulders, showing ONLY two eyes. THE TWO EYES ARE PURE BRIGHT WHITE (#FFFFFF), two simple soft rounded ovals exactly like the reference.
+- Mitten hands and simple rounded feet, no fingers, no toes.
+- One or two stitched cross-shaped patch marks on the charcoal skin.
+- A few small solid black ink droplets and specks scattered in the air around the character.
+- Cartoonish, cute, round, friendly-but-spooky, standing front-facing full body.
+
+ON EVERY ONE OF THESE FOUR, THE HEAD, THE ARMS AND THE LEGS ARE BARE CHARCOAL INK SKIN, smooth and uncovered, with the two white oval eyes plainly visible. Each one wears only the two small items listed for him, and those items sit on his chest or belly or on the very top of his head. Everything else about him is plain charcoal ink like the reference.
+
+Top-left — "Apron Healer":
+A small round blob-person taking a small step forward, one mitten hand holding up a little round dark ink pot. His two items are:
+1. A BRIGHT GRASS GREEN apron tied over his belly, with a bold WHITE CROSS in the centre of the apron: one upright vertical bar crossed by one horizontal bar at right angles, like the plus sign on a medicine box, its bars parallel to the edges of the picture.
+2. A small WHITE folded cloth cap, like a little nurse's cap, sitting FLAT AND LEVEL AND CENTRED directly on the crown of his round head, resting squarely on top of the head and clearly touching it, with the whole cap shape complete and worn straight.
+
+Top-right — "Plated Heavy":
+A WIDE, HEAVY, THICK blob-person standing planted with both feet apart and both arms out to the sides. He has a big fully rounded charcoal HEAD BALL sitting on top of his broad shoulders, and you can plainly see the whole round curve of the top of his head above the shoulders. His two items are:
+1. Three thick SLATE BLUE-GREY metal plates strapped across his chest and belly only.
+2. A row of small shiny COPPER rivets, a warm reddish-brown metal like a new penny, running along the edge of every plate.
+His broad charcoal shoulders, thick charcoal arms and thick charcoal legs are all bare and plainly visible around the plates.
+
+Bottom-left — "Scarf Runner":
+A slim blob-person leaning forward in a fast run, both arms swept back. His two items are:
+1. A long BRIGHT TEAL BLUE-GREEN scarf knotted at the front of his neck, its two loose ends streaming out sideways behind him.
+2. A narrow BRIGHT TEAL BLUE-GREEN band around each ankle.
+
+Bottom-right — "Belt Brute":
+A sturdy square-shouldered blob-person standing square and pushing forward with one shoulder. His two items are:
+1. A wide MUSTARD YELLOW belt around his waist with a small square brass buckle at the front.
+2. A short MUSTARD YELLOW wrap around each forearm.
+
+LAYOUT: exactly 2 columns and 2 rows, 4 characters. Each character stands centred in its own quadrant and is COMPLETELY INSIDE that quadrant, with the top of its head and the bottom of its feet well within the quadrant and a wide band of empty magenta all around it. No character touches or overlaps another, no character is cut off by the edge of the picture, and no part of any character crosses into another quadrant.
+
+NO TEXT, no letters, no numbers, no labels, no captions, no writing, no watermarks, no signatures, no UI frames, no health bars, no ground shadow, no platform or floor, no hoods, no helmets, no hats other than the one white cap described above, no masks, no face coverings, no cloaks, no sparks, no glowing effects. The background must be one perfectly uniform solid magenta with no gradient, no vignette and no texture.

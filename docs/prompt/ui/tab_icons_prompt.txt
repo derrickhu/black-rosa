@@ -1,0 +1,32 @@
+Draw exactly these 4 specific objects as flat vector game icons, arranged in a 2 by 2 grid on a pure solid magenta background (#FF00FF).
+
+THE 4 SUBJECTS ARE FIXED. Draw these and nothing else. Do not substitute, do not invent, do not add generic fantasy icons.
+
+Top left:
+1. A single short stubby cannon, seen from the side, pointing up to the right at about 30 degrees. The barrel is a thick flat grey tube with a wider ring at its muzzle. It rests on a small squat dark brown wooden block. Chunky and toy-like.
+
+Top right:
+2. A triangular pennant flag flying to the right from a short straight pole. The cloth is the vivid orange-leaning red of a Chinese New Year red envelope, one flat tone plus one hard-edged darker red band along its lower edge. The pole is a plain dark brown stick with a small round knob on top.
+
+Bottom left:
+3. A Chinese calligraphy brush held diagonally, tip pointing down to the left. The handle is a flat warm bamboo tan tube, the ferrule is a thin flat gold band, and the brush tip is a solid tapered wedge of deep violet ink. One single fat round violet ink droplet sits just below and left of the tip, clearly separated from it.
+
+Bottom right:
+4. A partly unrolled paper scroll seen straight on: a flat cream rectangle of paper with a dark brown rolled bar across its top edge and another across its bottom edge. The paper face carries one thick bold violet brush stroke, a single downward diagonal swipe, thick at the top and tapering to a point at the bottom.
+
+RENDERING STYLE — FLAT 2D VECTOR STICKER ART:
+- Fill everything with FLAT SOLID COLOUR ONLY. Absolutely no gradients anywhere.
+- Each icon uses at most three flat tones of its colour: a base tone, one darker tone for the shadow area, one lighter tone for the lit area. The boundary between tones is a HARD CRISP EDGE, like cut paper. Never a soft blend, never a fade, never an airbrush transition.
+- Uniform thick dark brown outline (#3A2A20) around every shape, constant width, about 5% of the icon width, identical line weight on all 4 icons.
+- Completely flat and graphic. NO three-dimensional rendering, NO volume, NO roundness modelling, NO bevel, NO emboss, NO extrusion, NO thickness, NO perspective, NO isometric view. Straight-on flat silhouettes only.
+- NO glossy highlights, NO shine, NO specular dots, NO reflections, NO sparkle, NO glow, NO bloom, NO rim light.
+- NO drop shadows, NO ambient shadows, NO shadow cast on the background.
+- NO texture, NO noise, NO grain, NO painterly brush strokes, NO plastic or glass or metal material rendering.
+- CRITICAL for round objects: never shade them as three-dimensional volumes. A tube or barrel must be drawn as a FLAT shape with at most one hard-edged darker band along one side — never a smooth left-to-right sheen. The ink droplet follows the same rule: flat fill plus one hard-edged darker region. No soft shading of any curved surface anywhere.
+- Bold simple chunky silhouettes that read instantly at 44 pixels. Thick forms, no thin spindly lines, no fine detail, no ornamental filigree.
+
+This is flat minimal vector iconography for a 2D mobile game bottom navigation bar. It is NOT a rendered 3D icon, NOT a candy-style glossy icon, NOT a clay or plastic render.
+
+LAYOUT: exactly 2 columns and 2 rows, 4 cells. Each icon sits centred in its own cell at roughly equal size, surrounded on all four sides by a wide band of empty magenta. Each icon is COMPLETELY INSIDE its own cell, with a clear margin of empty magenta on all four sides. No icon touches or overlaps a neighbour, and no part of any icon crosses into another cell.
+
+NO TEXT, no letters, no numbers, no labels, no captions, no writing, no watermarks, no signatures anywhere in the image. The background must be one perfectly uniform solid magenta with no gradient, no vignette and no texture.

@@ -39,12 +39,25 @@ namespace InkLine
         public static Sprite Heap(CardId id, int star, int size)
         {
             Sprite art = InkSprites.Heap(id, star);
-            if (art != null) return NeedsCard(id) ? OnCard(art, size) : art;
+            if (art != null) return NeedsCard(id) ? OnCard(art, size, GlyphPad(id)) : art;
             string key = "heap:" + id + ":" + star + ":" + size;
             if (Cache.TryGetValue(key, out Sprite s)) return s;
             s = Bake(size, (px, n) => DrawHeap(px, n, id));
             Cache[key] = s;
-            return NeedsCard(id) ? OnCard(s, size) : s;
+            return NeedsCard(id) ? OnCard(s, size, GlyphPad(id)) : s;
+        }
+
+        // 字牌图，但不套墨底盘。放进 UiKit 的卡面里用 —— 外面已经有一圈描边了，
+        // 再叠 DrawCardPlate 那圈就是框中框。
+        public static Sprite Glyph(CardId id, int size = 96)
+        {
+            Sprite art = InkSprites.Heap(id, 1);
+            if (art != null) return art;
+            string key = "glyph:" + id + ":" + size;
+            if (Cache.TryGetValue(key, out Sprite s)) return s;
+            s = Bake(size, (px, n) => DrawHeap(px, n, id));
+            Cache[key] = s;
+            return s;
         }
 
         public static Sprite Card(int size = 128)
@@ -68,24 +81,58 @@ namespace InkLine
                 case CardId.Explode:
                 case CardId.Accel:
                 case CardId.Heavy:
+                case CardId.Stun:
+                case CardId.Sec:
+                case CardId.Kill:
+                case CardId.Myriad:
+                case CardId.Arrow:
+                case CardId.Strike:
+                case CardId.Back:
+                case CardId.Link:
+                case CardId.Slash:
+                case CardId.Gold:
+                case CardId.Wood:
+                case CardId.Water:
+                case CardId.Earth:
+                case CardId.Wind:
+                case CardId.Thunder:
+                case CardId.Poison:
+                case CardId.Confuse:
                     return true;
                 default:
                     return false;
             }
         }
 
-        static Sprite OnCard(Sprite art, int size)
+        static float GlyphPad(CardId id) => NeedsCard(id) ? 0.18f : 0f;
+
+        static Sprite OnCard(Sprite art, int size, float pad = 0f)
         {
             if (art == null) return Card(size);
-            string key = "carded:" + art.GetInstanceID() + ":" + size;
+            if (!CanRead(art)) return art;
+            string key = "carded:" + art.GetInstanceID() + ":" + size + ":" + pad.ToString("0.00");
             if (Cache.TryGetValue(key, out Sprite s)) return s;
             s = Bake(size, (px, n) =>
             {
                 DrawCardPlate(px, n);
-                BlitSprite(px, n, art);
+                BlitSprite(px, n, art, pad);
             });
             Cache[key] = s;
             return s;
+        }
+
+        static bool CanRead(Sprite art)
+        {
+            if (art == null || art.texture == null) return false;
+            try
+            {
+                art.texture.GetPixels(0, 0, 1, 1);
+                return true;
+            }
+            catch (UnityException)
+            {
+                return false;
+            }
         }
 
         static void DrawCardPlate(Color[] px, int n)
@@ -123,27 +170,55 @@ namespace InkLine
             return Mathf.Sqrt(ax * ax + ay * ay) + Mathf.Min(Mathf.Max(dx, dy), 0f) - rad;
         }
 
-        static void BlitSprite(Color[] dst, int n, Sprite art)
+        static void BlitSprite(Color[] dst, int n, Sprite art, float pad = 0f)
         {
             Texture2D tex = art.texture;
             if (tex == null) return;
-            Rect r = art.textureRect;
             Color[] src;
             try { src = tex.GetPixels(); }
             catch (UnityException) { return; }
             int tw = tex.width, th = tex.height;
+            int x0 = tw, y0 = th, x1 = -1, y1 = -1;
+            for (int y = 0; y < th; y++)
+            for (int x = 0; x < tw; x++)
+            {
+                Color c = src[y * tw + x];
+                if (c.a < 0.08f || IsPaperPixel(c)) continue;
+                if (x < x0) x0 = x;
+                if (y < y0) y0 = y;
+                if (x > x1) x1 = x;
+                if (y > y1) y1 = y;
+            }
+            if (x1 < x0) return;
+            float gw = x1 - x0 + 1f;
+            float gh = y1 - y0 + 1f;
+            float margin = n * Mathf.Clamp(pad, 0.12f, 0.28f);
+            float box = Mathf.Max(1f, n - margin * 2f);
+            float scale = box / Mathf.Max(gw, gh);
+            float dw = gw * scale;
+            float dh = gh * scale;
+            float ox = (n - dw) * 0.5f;
+            float oy = (n - dh) * 0.5f;
             for (int y = 0; y < n; y++)
             for (int x = 0; x < n; x++)
             {
-                float u = (x + 0.5f) / n;
-                float v = (y + 0.5f) / n;
-                float sx = r.x + u * r.width - 0.5f;
-                float sy = r.y + v * r.height - 0.5f;
-                Color over = SampleBilinear(src, tw, th, sx, sy);
-                if (over.a < 0.02f) continue;
+                float u = (x + 0.5f - ox) / dw;
+                float v = (y + 0.5f - oy) / dh;
+                if (u < 0f || v < 0f || u > 1f || v > 1f) continue;
+                float sx = x0 + u * gw;
+                float sy = y0 + v * gh;
+                Color over = SampleBilinear(src, tw, th, sx - 0.5f, sy - 0.5f);
+                if (over.a < 0.02f || IsPaperPixel(over)) continue;
                 int i = y * n + x;
                 dst[i] = BlendOver(dst[i], over);
             }
+        }
+
+        static bool IsPaperPixel(Color c)
+        {
+            float mx = Mathf.Max(c.r, Mathf.Max(c.g, c.b));
+            float mn = Mathf.Min(c.r, Mathf.Min(c.g, c.b));
+            return mx > 0.78f && mn > 0.68f && mx - mn < 0.14f;
         }
 
         static Color SampleBilinear(Color[] src, int w, int h, float x, float y)
@@ -201,7 +276,7 @@ namespace InkLine
 
         public static Sprite Cell(int size = 128)
         {
-            const string key = "cell:dash:v1";
+            const string key = "cell:dash:v3";
             if (Cache.TryGetValue(key, out Sprite s)) return s;
             s = Bake(size, DrawCell);
             Cache[key] = s;
@@ -264,6 +339,36 @@ namespace InkLine
                 case CardId.Heavy:
                     Mound(px, n, 0f, -0.04f, 0.62f, 0.50f, InkTheme.Graphite, InkTheme.GraphiteMid, InkTheme.GraphiteHi);
                     break;
+                case CardId.Stun:
+                    DrawShaped(px, n, InkShape.Ring, InkTheme.Graphite);
+                    return;
+                case CardId.Sec:
+                case CardId.Kill:
+                    DrawShaped(px, n, InkShape.Star, InkTheme.Heart);
+                    return;
+                case CardId.Myriad:
+                case CardId.Arrow:
+                    DrawShaped(px, n, InkShape.Bar, InkTheme.Fire);
+                    return;
+                case CardId.Strike:
+                case CardId.Back:
+                    DrawShaped(px, n, InkShape.Square, InkTheme.Graphite);
+                    return;
+                case CardId.Link:
+                case CardId.Slash:
+                    DrawShaped(px, n, InkShape.Arc, InkTheme.GraphiteMid);
+                    return;
+                // 新元素的占位底：只铺一层元素色的形，汉字由 BattleView.PaintZi 写上去。
+                case CardId.Gold:
+                case CardId.Wood:
+                case CardId.Water:
+                case CardId.Earth:
+                case CardId.Wind:
+                case CardId.Thunder:
+                case CardId.Poison:
+                case CardId.Confuse:
+                    DrawShaped(px, n, CardCatalog.Get(id).Shape, InkTheme.Accent(id));
+                    return;
                 default:
                     DrawCannon(px, n);
                     return;
@@ -291,9 +396,10 @@ namespace InkLine
         {
             Color body = tint.a < 0.1f || tint == Color.black ? InkTheme.Graphite : Color.Lerp(InkTheme.Graphite, tint, 0.55f);
             Color mid = Color.Lerp(body, InkTheme.GraphiteHi, 0.35f);
+            bool boss = EnemyIds.IsBoss(id);
             float lean = id == EnemyId.Runner ? 0.10f : 0f;
-            float wide = id == EnemyId.Strafer || id == EnemyId.Boss ? 1.18f : 1f;
-            float scale = id == EnemyId.Swarm ? 0.55f : id == EnemyId.Boss ? 1.15f : 1f;
+            float wide = id == EnemyId.Strafer || boss ? 1.18f : 1f;
+            float scale = id == EnemyId.Swarm ? 0.55f : boss ? 1.15f : 1f;
             if (id == EnemyId.Swarm)
             {
                 StampPerson(px, n, -0.28f, -0.08f, 0.52f, 1f, body, mid);
@@ -303,8 +409,8 @@ namespace InkLine
                 return;
             }
             StampPerson(px, n, lean, 0f, scale, wide, body, mid);
-            if (id == EnemyId.Shield || id == EnemyId.Boss)
-                Disc(px, n, 0.18f * wide, -0.02f, id == EnemyId.Boss ? 0.34f : 0.26f, InkTheme.GraphiteMid, InkTheme.GraphiteHi);
+            if (id == EnemyId.Shield || boss)
+                Disc(px, n, 0.18f * wide, -0.02f, boss ? 0.34f : 0.26f, InkTheme.GraphiteMid, InkTheme.GraphiteHi);
             if (id == EnemyId.Elite)
             {
                 Disc(px, n, lean, 0.38f * scale, 0.16f, InkTheme.Graphite, InkTheme.GraphiteMid);
@@ -335,7 +441,7 @@ namespace InkLine
 
         static void DrawCell(Color[] px, int n)
         {
-            Color ink = new Color(InkTheme.Ink.r, InkTheme.Ink.g, InkTheme.Ink.b, 0.38f);
+            Color ink = new Color(InkTheme.Graphite.r, InkTheme.Graphite.g, InkTheme.Graphite.b, 0.28f);
             int thick = Mathf.Max(2, n / 42);
             int dash = Mathf.Max(5, n / 14);
             int gap = Mathf.Max(4, n / 20);
@@ -394,6 +500,7 @@ namespace InkLine
 
         public static InkShape EnemyShape(EnemyId id)
         {
+            if (EnemyIds.IsBoss(id)) return InkShape.Square;
             switch (id)
             {
                 case EnemyId.Runner: return InkShape.Triangle;
@@ -401,7 +508,6 @@ namespace InkLine
                 case EnemyId.Swarm: return InkShape.Circle;
                 case EnemyId.Strafer: return InkShape.Diamond;
                 case EnemyId.Elite: return InkShape.Burst;
-                case EnemyId.Boss: return InkShape.Square;
                 default: return InkShape.Circle;
             }
         }

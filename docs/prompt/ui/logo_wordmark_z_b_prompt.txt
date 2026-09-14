@@ -1,0 +1,13 @@
+Redraw the attached spelling sheet as a chunky horizontal logotype.
+
+SPELLING: exactly 墨, 字, 防, 线 left to right. Same stroke structure as the sheet. One tight row on pure solid magenta (#FF00FF). Wide magenta margin.
+
+DESIGN: toy-like rounded black ink letters with one even dark-brown outline. Flat cut-paper colour. The four glyphs sit close and share the same weight, like one sticker.
+
+Only tiny ink accents, all still strokes:
+- 墨 wears four blueberry-ink dots under the box of 黑.
+- 字 is a complete 字. A single blueberry-ink comma sits on the horizontal of 子 and is that horizontal.
+- 防 stays a complete 防. The inner cross of 方 is cream with a persimmon-orange pip.
+- 线 has its left silk radical drawn as one blueberry-ink ribbon.
+
+No playing card, no shield badge, no mascot beside the letters. The row still reads 墨字防线. Uniform magenta background.

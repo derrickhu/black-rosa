@@ -10,10 +10,17 @@ namespace InkLine
         readonly List<SpriteRenderer> _stamps = new List<SpriteRenderer>();
         readonly List<SpriteRenderer> _stars = new List<SpriteRenderer>();
         readonly List<SpriteRenderer> _emitters = new List<SpriteRenderer>();
+        readonly List<SpriteRenderer> _skins = new List<SpriteRenderer>();
+        readonly List<SpriteRenderer> _washes = new List<SpriteRenderer>();
+
+        // 皮肤。炮身是黑墨，乘色出不来，所以改成在炮位底下垫一团皮肤色。
+        public Color EmitterTint = Color.clear;
+        Color _skinPainted = new Color(-1f, -1f, -1f, -1f);
         readonly Dictionary<int, SpriteRenderer> _enemies = new Dictionary<int, SpriteRenderer>();
         readonly Dictionary<int, SpriteRenderer> _bullets = new Dictionary<int, SpriteRenderer>();
         readonly SpriteRenderer _leak;
         readonly HashSet<int> _seen = new HashSet<int>();
+        readonly Color[] _colWash = new Color[GameConstants.Columns];
 
         public BattleView(Transform parent)
         {
@@ -22,6 +29,19 @@ namespace InkLine
             InkVfx.Ensure();
             InkVfx.BindRoot(_root);
             InkPops.BindRoot(_root);
+            var slab = Make("slab", InkFx.SoftDisc(), new Vector3(0f, 0.35f, 0f), 1f);
+            slab.sortingOrder = -2;
+            slab.transform.localScale = new Vector3(FieldLayout.FieldWidth * 1.35f, 13.5f, 1f);
+            InkFx.PaintSprite(slab, InkTheme.StageLift);
+            for (int c = 0; c < GameConstants.Columns; c++)
+            {
+                var wash = Make("wash", InkFx.SoftDisc(), new Vector3(FieldLayout.ColumnX(c), 0.8f, 0f), 1f);
+                wash.sortingOrder = -1;
+                wash.transform.localScale = new Vector3(1.28f, 5.4f, 1f);
+                wash.enabled = false;
+                InkFx.PaintAdd(wash, Color.clear);
+                _washes.Add(wash);
+            }
             for (int c = 0; c < GameConstants.Columns; c++)
             for (int r = 0; r < GameConstants.Rows; r++)
             {
@@ -39,6 +59,12 @@ namespace InkLine
             }
             for (int i = 0; i < GameConstants.MaxEmitters; i++)
             {
+                var skin = Make("skin", InkFx.SoftDisc(), new Vector3(0, GameConstants.EmitterY, 0), 1f);
+                skin.sortingOrder = 4;
+                skin.transform.localScale = new Vector3(1.05f, 1.05f, 1f);
+                skin.enabled = false;
+                InkFx.PaintAdd(skin, Color.clear);
+                _skins.Add(skin);
                 var gun = Make("gun", InkArt.Cannon(), new Vector3(0, GameConstants.EmitterY, 0), 0.82f);
                 gun.sortingOrder = 5;
                 _emitters.Add(gun);
@@ -51,37 +77,71 @@ namespace InkLine
         public void Sync(BattleWorld w)
         {
             int i = 0;
+            for (int c = 0; c < GameConstants.Columns; c++) _colWash[c] = Color.clear;
             for (int c = 0; c < GameConstants.Columns; c++)
             for (int r = 0; r < GameConstants.Rows; r++, i++)
             {
-                bool open = r < w.OpenRows;
+                bool open = w.IsOpen(c, r);
                 _grid[i].enabled = true;
-                _grid[i].color = open ? Color.white : new Color(1f, 1f, 1f, 0.22f);
+                _grid[i].color = open ? Color.white : new Color(1f, 1f, 1f, 0.18f);
                 if (open && w.Grid[c, r].HasValue)
                 {
                     CardId id = w.Grid[c, r].Value;
                     _stamps[i].enabled = true;
-                    _stamps[i].color = Color.white;
                     int star = Mathf.Max(1, w.Stars[c, r]);
                     PaintStamp(_stamps[i], id, star);
-                    _stars[i].enabled = w.Stars[c, r] >= 2;
-                    _stars[i].sprite = InkArt.Heap(InkShape.Diamond, InkTheme.Accent(id), 48);
-                    _stars[i].transform.localScale = Vector3.one * (0.16f + 0.06f * w.Stars[c, r]);
+                    bool sleep = w.CellAsleep(c, r);
+                    bool lit = w.CellWordLit(c, r);
+                    _stamps[i].color = sleep ? new Color(1f, 1f, 1f, 0.38f) : Color.white;
+                    PaintZi(_stamps[i], id, sleep);
+                    if (!sleep && (id == CardId.Fire || id == CardId.Ice))
+                        InkVfx.PlayGlow(_stamps[i], id == CardId.Fire ? InkTheme.Fire : InkTheme.Ice, 1.08f);
+                    else
+                        InkVfx.StopAura(_stamps[i]);
+                    if (!sleep) AccrueWash(c, id);
+                    w.CellCharge(c, r, out int charged, out int need);
+                    if (need > 0)
+                    {
+                        _stars[i].enabled = true;
+                        _stars[i].sprite = InkArt.Heap(InkShape.Diamond, lit || charged > 0 ? InkTheme.Accent(id) : InkTheme.Graphite, 48);
+                        _stars[i].transform.localScale = Vector3.one * (0.10f + 0.07f * charged);
+                    }
+                    else
+                    {
+                        _stars[i].enabled = w.Stars[c, r] >= 2;
+                        _stars[i].sprite = InkArt.Heap(InkShape.Diamond, InkTheme.Accent(id), 48);
+                        _stars[i].transform.localScale = Vector3.one * (0.16f + 0.06f * w.Stars[c, r]);
+                    }
                 }
                 else
                 {
                     InkVfx.Stop(_stamps[i]);
+                    InkVfx.StopAura(_stamps[i]);
                     _stamps[i].enabled = false;
                     _stars[i].enabled = false;
+                    PaintZi(_stamps[i], CardId.None, true);
                 }
             }
+            PaintWashes();
 
+            bool skinned = EmitterTint.a > 0.01f;
+            // 皮肤色只在换皮肤时刷一次材质，不要每帧设。
+            if (_skinPainted != EmitterTint)
+            {
+                _skinPainted = EmitterTint;
+                var wash = new Color(EmitterTint.r, EmitterTint.g, EmitterTint.b, 0.5f);
+                for (int e = 0; e < _skins.Count; e++)
+                    InkFx.PaintAdd(_skins[e], skinned ? wash : Color.clear);
+            }
             for (int e = 0; e < GameConstants.MaxEmitters; e++)
             {
                 bool on = e < w.EmitterCount;
                 _emitters[e].enabled = on;
+                _skins[e].enabled = on && skinned;
                 if (!on) continue;
-                _emitters[e].transform.position = new Vector3(w.RailX + e * GameConstants.CellWidth, GameConstants.EmitterY, 0f);
+                var at = new Vector3(w.RailX + e * GameConstants.CellWidth, GameConstants.EmitterY, 0f);
+                _emitters[e].transform.position = at;
+                _skins[e].transform.position = at;
             }
 
             for (int n = 0; n < w.Enemies.Count; n++)
@@ -92,14 +152,19 @@ namespace InkLine
                 Color tint = Color.white;
                 if (!flash)
                 {
-                    if (e.Colored) tint = Color.Lerp(Color.white, InkTheme.Explode, 0.4f);
-                    if (e.FreezeTime > 0f) tint = Color.Lerp(Color.white, InkTheme.Ice, 0.45f);
+                    // 狂化染红。从 0.4 压到 0.25：关底现在是带金冠玉佩的手绘图，
+                    // tint 是乘算的，压太狠会把配件的颜色一起糊掉，而配件颜色
+                    // 正是玩家判断危险度的依据。0.25 足够看出「它红了」。
+                    if (e.Colored) tint = Color.Lerp(Color.white, InkTheme.Explode, 0.25f);
+                    // 冻是整体染青，其余持续状态交给 InkDot 的记号层，不再抢本体颜色
+                    if (e.Frozen) tint = Color.Lerp(Color.white, InkTheme.Ice, 0.45f);
                     else if (e.BurnTime > 0f) tint = Color.Lerp(Color.white, InkTheme.Fire, 0.45f);
+                    else if (e.PoisonTime > 0f) tint = Color.Lerp(Color.white, InkTheme.Poison, 0.32f);
                 }
                 Sprite body = flash ? InkSprites.Flash(e.Type) : InkArt.Person(e.Type, Color.clear);
                 if (body == null) body = InkArt.Person(e.Type, Color.clear);
                 float baseScale = e.Radius * 2.6f;
-                float wave = Time.unscaledTime * (e.FreezeTime > 0f ? 3.2f : 5.4f) + e.Id * 1.7f;
+                float wave = Time.unscaledTime * (e.Held ? 3.2f : 5.4f) + e.Id * 1.7f;
                 float breath = 1f + 0.075f * Mathf.Sin(wave);
                 float sx = baseScale * breath;
                 float sy = baseScale * (2f - breath);
@@ -111,40 +176,26 @@ namespace InkLine
                 }
                 SpriteRenderer sr = Bind(_enemies, e.Id, body, e.Pos + Vector2.up * (0.035f * Mathf.Sin(wave)), baseScale, 4, tint);
                 sr.transform.localScale = new Vector3(sx, sy, 1f);
+                if (!flash && (e.Frozen || e.BurnTime > 0f))
+                    InkVfx.PlayGlow(sr, e.Frozen ? InkTheme.Ice : InkTheme.Fire, 1.45f);
+                else
+                    InkVfx.StopAura(sr);
+                var dots = sr.GetComponent<InkDot>();
+                if (dots == null) dots = sr.gameObject.AddComponent<InkDot>();
+                dots.Sync(e, 5);
             }
             for (int n = 0; n < w.Bullets.Count; n++)
             {
                 BulletActor b = w.Bullets[n];
                 if (b.Dead) continue;
-                if (InkVfx.TryBody(b.FireStar, b.IceStar, b.HeavyStar, b.Radius, out Sprite[] frames, out Sprite first, out float shotScale, out float fps))
-                {
-                    SpriteRenderer shot = Bind(_bullets, b.Id, first, b.Pos, shotScale, 6, Color.white);
-                    var flip = shot.GetComponent<InkFlip>();
-                    if (flip == null) flip = shot.gameObject.AddComponent<InkFlip>();
-                    flip.Outline = PaintRim(shot, first, RimColor(b));
-                    InkVfx.PlayLoop(shot, frames, fps, b.Id);
-                    float ang = Mathf.Atan2(b.Vel.y, b.Vel.x) * Mathf.Rad2Deg - 90f;
-                    shot.transform.rotation = Quaternion.Euler(0f, 0f, ang);
-                    PaintTrail(shot, b.TrackStar > 0, shotScale);
-                }
-                else
-                {
-                    Color slug = b.Color == Color.black ? InkTheme.Graphite : b.Color;
-                    SpriteRenderer sr = Bind(_bullets, b.Id, InkArt.Heap(InkShape.Circle, slug, 48), b.Pos, b.Radius * 2.4f, 6, Color.white);
-                    InkVfx.Stop(sr);
-                    sr.transform.rotation = Quaternion.identity;
-                    PaintTrail(sr, b.TrackStar > 0, b.Radius * 2.4f);
-                    var flip = sr.GetComponent<InkFlip>();
-                    if (flip != null) flip.Outline = PaintRim(sr, sr.sprite, RimColor(b));
-                }
+                Sprite body = InkArt.Heap(InkShape.Circle, InkTheme.Ink, 48);
+                SpriteRenderer shot = Bind(_bullets, b.Id, body, b.Pos, 1f, 6, Color.white);
+                var layer = shot.GetComponent<InkShot>();
+                if (layer == null) layer = shot.gameObject.AddComponent<InkShot>();
+                layer.Present(b);
             }
 
-            for (int n = 0; n < w.Bursts.Count; n++)
-            {
-                FxBurst fx = w.Bursts[n];
-                if (fx.Kind == 1)
-                    InkVfx.SpawnHit(fx.Pos, fx.Scale > 0.01f ? fx.Scale : 1.25f, fx.Tint);
-            }
+            for (int n = 0; n < w.Bursts.Count; n++) InkVfx.SpawnHit(w.Bursts[n]);
             w.Bursts.Clear();
             InkPops.Sync(w.Floats);
 
@@ -156,6 +207,38 @@ namespace InkLine
             Purge(_bullets);
         }
 
+        void AccrueWash(int col, CardId id)
+        {
+            Color a = InkTheme.Accent(id);
+            float sat = Mathf.Max(a.r, Mathf.Max(a.g, a.b)) - Mathf.Min(a.r, Mathf.Min(a.g, a.b));
+            if (sat < 0.12f) return;
+            Color cur = _colWash[col];
+            if (cur.a < 0.02f)
+            {
+                a.a = 0.20f;
+                _colWash[col] = a;
+                return;
+            }
+            Color mix = Color.Lerp(cur, a, 0.45f);
+            mix.a = Mathf.Min(0.48f, cur.a + 0.12f);
+            _colWash[col] = mix;
+        }
+
+        void PaintWashes()
+        {
+            for (int c = 0; c < _washes.Count; c++)
+            {
+                Color col = _colWash[c];
+                bool on = col.a > 0.03f;
+                _washes[c].enabled = on;
+                if (on)
+                {
+                    col.a *= 0.55f;
+                    InkFx.PaintSoft(_washes[c], col);
+                }
+            }
+        }
+
         static void PaintStamp(SpriteRenderer stamp, CardId id, int star)
         {
             InkVfx.Stop(stamp);
@@ -163,48 +246,36 @@ namespace InkLine
             stamp.transform.localScale = Vector3.one * 0.88f;
         }
 
-        static void PaintTrail(SpriteRenderer shot, bool on, float shotScale)
+        static void PaintZi(SpriteRenderer stamp, CardId id, bool sleep)
         {
-            var trail = shot.GetComponent<InkTrail>();
-            if (on)
+            Transform t = stamp.transform.Find("zi");
+            TextMesh tm = t != null ? t.GetComponent<TextMesh>() : null;
+            bool need = id != CardId.None && InkSprites.Heap(id) == null;
+            if (!need)
             {
-                if (trail == null) trail = shot.gameObject.AddComponent<InkTrail>();
-                trail.Setup(new Color(0.96f, 0.78f, 1f), InkTheme.Track, 0.15f * shotScale);
-                trail.Feed(shot.transform.position, Time.unscaledDeltaTime);
+                if (tm != null) tm.gameObject.SetActive(false);
+                return;
             }
-            else if (trail != null) trail.Hide();
-        }
-
-        static Color RimColor(BulletActor b)
-        {
-            if (b.TrackStar > 0) return new Color(InkTheme.Track.r, InkTheme.Track.g, InkTheme.Track.b, 0.72f);
-            if (b.ExplodeR > 0.01f) return new Color(InkTheme.Explode.r, InkTheme.Explode.g, InkTheme.Explode.b, 0.55f);
-            return Color.clear;
-        }
-
-        static SpriteRenderer PaintRim(SpriteRenderer shot, Sprite sprite, Color color)
-        {
-            Transform t = shot.transform.Find("rim");
-            SpriteRenderer rim = t != null ? t.GetComponent<SpriteRenderer>() : null;
-            if (color.a < 0.02f)
+            if (tm == null)
             {
-                if (rim != null) rim.enabled = false;
-                return null;
-            }
-            if (rim == null)
-            {
-                var go = new GameObject("rim");
-                go.transform.SetParent(shot.transform, false);
+                var go = new GameObject("zi");
+                go.transform.SetParent(stamp.transform, false);
                 go.transform.localPosition = Vector3.zero;
-                go.transform.localRotation = Quaternion.identity;
-                go.transform.localScale = Vector3.one * 1.16f;
-                rim = go.AddComponent<SpriteRenderer>();
+                go.transform.localScale = Vector3.one;
+                tm = go.AddComponent<TextMesh>();
+                tm.anchor = TextAnchor.MiddleCenter;
+                tm.alignment = TextAlignment.Center;
+                tm.characterSize = 0.08f;
+                tm.fontSize = 64;
+                tm.font = Font.CreateDynamicFontFromOSFont(new[] { "PingFang SC", "Heiti SC", "STHeiti", "Songti SC" }, 64);
+                if (tm.font != null) tm.GetComponent<MeshRenderer>().material = tm.font.material;
+                var mr = go.GetComponent<MeshRenderer>();
+                mr.sortingOrder = 4;
             }
-            rim.enabled = true;
-            rim.sprite = sprite;
-            rim.color = color;
-            rim.sortingOrder = shot.sortingOrder - 1;
-            return rim;
+            tm.gameObject.SetActive(true);
+            tm.text = CardCatalog.Get(id).Name;
+            Color ink = CardCatalog.Get(id).Wake == CardWake.WordPart ? InkTheme.Word : InkTheme.Ink;
+            tm.color = sleep ? new Color(ink.r, ink.g, ink.b, 0.5f) : ink;
         }
 
         SpriteRenderer Bind(Dictionary<int, SpriteRenderer> map, int id, Sprite sprite, Vector2 pos, float scale, int order, Color color)

@@ -68,12 +68,11 @@ namespace InkLine
         static TextMesh Stamp(GameObject go, int order)
         {
             var tm = go.AddComponent<TextMesh>();
-            tm.font = UiKit.Font;
+            tm.font = UiKit.FontBold;
             tm.fontSize = 72;
             tm.characterSize = 0.052f;
             tm.anchor = TextAnchor.MiddleCenter;
             tm.alignment = TextAlignment.Center;
-            tm.fontStyle = FontStyle.Bold;
             tm.richText = false;
             var mr = go.GetComponent<MeshRenderer>();
             if (mr != null)

@@ -1,0 +1,17 @@
+Redraw the attached spelling sheet as one horizontal game title.
+
+The attached image is a SPELLING SHEET only. It shows four simplified Chinese characters in a row: 墨 then 字 then 防 then 线. Copy the identity of each glyph. Restyle only.
+
+LAYOUT: one wide horizontal lockup on a pure solid magenta (#FF00FF) field. Generous empty magenta on all four sides. The only object in the picture is this title.
+
+DESIGN: extra-bold rounded letters joined like one piece of cut vinyl. Neighbouring characters share walls. A few letters ride higher like a bounce. One thick dark-chocolate-brown outline (#3A2A20) wraps the whole row as a single island. Fill is near-black ink with cream steamed-bun paper counters.
+
+A small picture replaces one stroke of each letter and still reads as that stroke:
+- 墨: the four dots of 黑 are four fat droplets the colour of crushed blueberries.
+- 字: keep the full roof 宀 and the full 子. The last hook of 子 is a short fat calligraphy dab the colour of a ripe persimmon.
+- 防: a tiny cream heart the size of a stroke sits inside 方.
+- 线: the silk radical 纟 is a whipping ribbon the colour of crushed blueberries, still the left third of 线.
+
+RENDERING: flat 2D vector sticker art for a casual mobile game. Flat solid colour only. At most three flat tones per region, hard crisp edges like cut paper. Uniform outline width.
+
+The row still reads 墨字防线.

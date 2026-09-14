@@ -1,0 +1,30 @@
+A 2 by 2 grid of 4 full-body game enemy characters on a pure solid magenta background (#FF00FF).
+
+MATCH THE ATTACHED REFERENCE IMAGE'S CHARACTER STYLE EXACTLY. That reference shows the existing enemies of this game. Copy its drawing language precisely:
+- Body is a chunky rounded blob-person made of dark charcoal grey ink (about #3F423C), with a slightly lighter grey sheen along the top of the head, shoulders and limbs.
+- Very thick solid black outline around the whole silhouette and around every limb.
+- EVERY character's head is a ROUNDED CHARCOAL BALL showing ONLY two eyes. THE TWO EYES ARE PURE BRIGHT WHITE (#FFFFFF), drawn as two simple soft rounded ovals exactly like the reference. The eyes contain pure white only and they do not glow.
+- Mitten hands and simple rounded feet, no fingers, no toes.
+- One or two stitched cross-shaped patch marks on the bare charcoal skin.
+- A few small solid black ink droplets and specks scattered in the air around the character.
+- Cartoonish, cute-but-menacing, full body.
+
+THESE FOUR ARE ORDINARY FOOT SOLDIERS. Keep them SIMPLE and PLAIN, at the same modest level of detail as the plain figures in the reference image. Each wears only the two items listed for it, and the whole rest of the figure is plain bare charcoal ink.
+
+CRITICAL COLOUR RULE: the BODY MUST STAY DARK CHARCOAL INK GREY, never tinted. Colour appears ONLY on the listed worn items, and those colours must be rich and clearly saturated. Place the items on the outer edge of the silhouette so they stay readable when the character is tiny on screen. The bare charcoal head, bare charcoal forearms and bare charcoal lower legs stay uncovered.
+
+Top-left — "Twin Splitter":
+A slim blob-person standing with knees slightly bent, both arms hanging down. He wears TWO items: a pair of BRIGHT VIOLET PURPLE dungaree overalls covering his belly and legs with two straps over the shoulders, and a plain WHITE cloth band tied around his upper left arm. Across his chest runs one single thin jagged CRACK, like a crack in dry mud, showing that he is about to break apart. His bare charcoal head, bare charcoal arms and bare charcoal feet stay uncovered.
+
+Top-right — "Ribbon Sprinter":
+A slim blob-person crouched low in a fast forward-leaning walk, head down, arms tucked in close. He wears TWO items: a thick BRIGHT ORANGE cloth wrap around each wrist, the orange of a ripe orange fruit, and one long BRIGHT RED narrow ribbon tied at the back of his waist trailing out behind him. His bare charcoal head, chest and legs stay uncovered.
+
+Bottom-left — "Apron Mender":
+A small round blob-person taking a small step forward, one mitten hand holding up a little round pot. He wears TWO items: a BRIGHT GRASS GREEN apron tied over his belly, and a small flat WHITE cap on the top of his head. On the centre of the green apron is a bold WHITE CROSS made of one upright vertical bar crossed by one horizontal bar at right angles, like the plus sign on a medicine box. The cross is an upright plus shape, with its bars parallel to the edges of the picture. His bare charcoal head, arms and legs stay uncovered.
+
+Bottom-right — "Plated Bulwark":
+A wide heavy blob-person standing planted with both feet apart, arms out to the sides. He wears TWO items: three thick SLATE BLUE-GREY metal plates strapped across his chest and belly, and a row of small shiny COPPER rivets, a warm reddish-brown metal like a new penny, running along the edge of every plate. His bare charcoal head, bare charcoal arms and bare charcoal legs stay uncovered. Wide and thick, but still plain and simple.
+
+LAYOUT: exactly 2 columns and 2 rows, 4 characters. Each character sits centred in its own quadrant and is COMPLETELY INSIDE that quadrant, with the top of its head and the bottom of its feet well within the quadrant and a wide band of empty magenta all around it. No character touches or overlaps another, no character is cut off by the edge of the picture, and no part of any character crosses into another quadrant.
+
+NO TEXT, no letters, no numbers, no labels, no captions, no writing, no watermarks, no signatures, no UI frames, no health bars, no ground shadow, no platform or floor, no sparks, no glowing effects, no motion streak lines, no hoods, no masks, no face coverings. The background must be one perfectly uniform solid magenta with no gradient, no vignette and no texture.

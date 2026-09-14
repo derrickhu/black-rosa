@@ -1,0 +1,17 @@
+Redraw the attached reference as a chunky horizontal game title logo.
+
+ABOUT THE ATTACHED IMAGE: it is a SPELLING SHEET. It shows exactly four simplified Chinese characters in a row, left to right: 墨 then 弹 then 防 then 线. Keep those four glyphs readable as those four characters. Same stroke count, same left-right and top-bottom structure as the sheet.
+
+LAYOUT: one tight row of four characters on a pure solid magenta background (#FF00FF). Wide empty magenta margin on all four sides. The row is the only thing in the picture.
+
+DESIGN: a sticker-style casual mobile game logotype. The characters are extra-bold, rounded, slightly bouncing in size, like cut vinyl. Fill is near-black ink (#1A1410) with a thick even dark-brown outline (#3A2A20). Flat solid colour, hard edges, two or three flat tones.
+
+Make the lettering itself the picture:
+- 墨 wears a violet ink blot that is also the four dots of 黑, plus a second smaller blot sitting on the 土 like a puddle that is still part of the character.
+- 弹 has its 弓 drawn as a toy cannon: the bow curve IS the barrel, a round violet shot sits where the first hook of 弓 would be.
+- 防 has a tiny cream-and-orange shield tucked into 方, reading as the inner cross of 方.
+- 线 has the silk radical drawn as a looping ink ribbon that still occupies the left third of the character.
+
+All decoration is made of the same flat ink-and-outline language as the letters. The four characters still read, in order, as 墨弹防线.
+
+NO extra mascot beside the letters. NO English. NO numbers. NO watermark. One perfectly uniform solid magenta background.

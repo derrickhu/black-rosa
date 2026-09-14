@@ -1,0 +1,9 @@
+Design a round casual-game seal using the attached spelling sheet.
+
+A fat circle of cream steamed-bun paper with a thick dark-brown ring. Inside the circle, the four simplified characters 墨 字 防 线 arrange as one composition: 墨 large at left, 字 防 stacked or tucked, 线 sweeping along the right rim as a blueberry-violet ribbon that is also the character 线.
+
+Flat 2D, hard edges, toy-like. Black ink letters. Four blueberry drips hang from 墨. A persimmon-orange heart sits in 防.
+
+This is one coin-shaped logo, not four stamps in a row.
+
+Pure solid magenta (#FF00FF) around the seal. Letters read 墨字防线.

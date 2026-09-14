@@ -1,0 +1,23 @@
+Redraw the attached reference as a single horizontal game logo wordmark.
+
+ABOUT THE ATTACHED IMAGE: it is a SPELLING SHEET. It shows exactly four simplified Chinese characters in a row, left to right: 墨 then 字 then 防 then 线. Copy the identity of each glyph. Every stroke that is in the reference must stay in the same place. You are restyling these four characters, not inventing new ones, not adding a fifth character, not writing English.
+
+LAYOUT: one row, four characters, equal size, generous empty magenta (#FF00FF) around the whole row. The four characters sit close enough to read as one logo. Pure solid magenta background.
+
+STYLE: flat 2D casual mobile-game logotype. Chunky rounded black ink fills (#1A1410) with a uniform thick dark-brown outline (#3A2A20). Hard-edged flat colour only. Two or three flat tones. Cut-paper edges. The letters feel designed and toy-like, like a sticker.
+
+FUSE A SMALL PICTURE INTO ONE STROKE OF EACH CHARACTER. The picture replaces that stroke and still reads as that stroke. Same size as the stroke. Still touching the rest of the character.
+
+Left to right:
+
+1. 墨 — top half is the character 黑, bottom half is the character 土. The four dots under the box of 黑 become four fat round droplets of deep violet ink. The rest of 墨 stays black ink.
+
+2. 字 — top is the roof 宀, bottom is 子. The horizontal stroke of 子 becomes a small cream playing-card standing upright, thick dark-brown outline, one fat persimmon-orange brush stroke on the card face. The roof and the rest of 子 stay black ink.
+
+3. 防 — left side is the ear radical 阝, right side is 方. Inside the box of 方 sits a small flat cream shield with one orange heart, the orange of a ripe persimmon. The ear radical and the outer frame of 方 stay black ink.
+
+4. 线 — left side is the silk radical 纟, right side is 戋. The three stacked marks of the silk radical become a single whipping trail of deep violet ink, still occupying the left side of the character. The right side stays black ink.
+
+The four fusions stay inside their own characters. They do not float beside the letters. They do not become a second row of icons.
+
+NO extra objects outside the four characters. NO badge circle, NO ribbon, NO burst, NO stars in the background, NO English, NO numbers, NO watermark, NO caption. One perfectly uniform solid magenta background.

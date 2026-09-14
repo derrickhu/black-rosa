@@ -1,0 +1,18 @@
+Draw exactly ONE game logo mark, centered on a pure solid magenta background (#FF00FF).
+
+SUBJECT — a single toy cannon firing an ink drop:
+A short stubby cannon seen from the side, pointing up to the right at about 25 degrees. The barrel is a thick flat charcoal-grey tube with a wider ring at the muzzle, sitting on a small squat dark-brown wooden block, the same toy-cannon silhouette used in a casual mobile game. From the muzzle a fat round droplet of deep violet ink has just left the barrel, still close to the muzzle, with two tiny violet droplets trailing behind it. The whole mark reads as "a cannon that shoots ink".
+
+RENDERING STYLE — FLAT 2D VECTOR STICKER ART:
+- Fill everything with FLAT SOLID COLOUR ONLY. Absolutely no gradients anywhere.
+- At most three flat tones per colour: a base tone, one darker tone for the shadow area, one lighter tone for the lit area. The boundary between tones is a HARD CRISP EDGE, like cut paper.
+- Uniform thick dark brown outline (#3A2A20) around every shape, constant width, about 5% of the mark width.
+- Completely flat and graphic. Straight-on flat silhouette. No three-dimensional rendering, no volume modelling, no bevel, no emboss, no extrusion, no perspective, no isometric view.
+- No glossy highlights, no shine, no specular dots, no reflections, no sparkle, no glow, no bloom, no rim light.
+- No drop shadows, no ambient shadows, no shadow cast on the background.
+- No texture, no noise, no grain, no painterly brush strokes.
+- A tube or barrel is a FLAT shape with at most one hard-edged darker band along one side. The ink droplet is a flat circle plus one hard-edged darker crescent.
+
+The mark sits in the exact centre, large, with a wide band of empty magenta on all four sides. Nothing else in the image. No badge, no circle frame, no ribbon, no burst, no stars.
+
+NO TEXT, no letters, no numbers, no Chinese characters, no labels, no captions, no watermarks, no signatures. The background must be one perfectly uniform solid magenta.

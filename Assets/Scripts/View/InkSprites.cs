@@ -17,8 +17,27 @@ namespace InkLine
                 case EnemyId.Shield: return Load("shield");
                 case EnemyId.Swarm: return Load("swarm");
                 case EnemyId.Strafer: return Load("strafer");
+                case EnemyId.Chubby: return Load("chubby");
+                case EnemyId.Tall: return Load("tall");
+                case EnemyId.Ball: return Load("ball");
+                case EnemyId.BigHead: return Load("bighead");
+                case EnemyId.Belt: return Load("belt");
+                case EnemyId.Crawler: return Load("crawler");
+                case EnemyId.Splitter: return Load("splitter");
+                case EnemyId.Sprinter: return Load("sprinter");
+                case EnemyId.Mender: return Load("mender");
+                case EnemyId.Bulwark: return Load("bulwark");
                 case EnemyId.Elite: return Load("elite");
-                case EnemyId.Boss: return Load("boss");
+                case EnemyId.Warden: return Load("warden");
+                // 关底一关一张图。文件名和 EnemyId 一一对应，加 boss 时两边一起加。
+                case EnemyId.BossDrum: return Load("boss_drum");
+                case EnemyId.BossInkbag: return Load("boss_inkbag");
+                case EnemyId.BossIron: return Load("boss_iron");
+                case EnemyId.BossTwin: return Load("boss_twin");
+                case EnemyId.BossWarden: return Load("boss_warden");
+                case EnemyId.BossThunder: return Load("boss_thunder");
+                case EnemyId.BossMedic: return Load("boss_medic");
+                case EnemyId.BossKing: return Load("boss_king");
                 default: return Load("walker");
             }
         }
@@ -35,6 +54,24 @@ namespace InkLine
                 case CardId.Explode: return "explode";
                 case CardId.Accel: return "accel";
                 case CardId.Heavy: return "heavy";
+                case CardId.Stun: return "stun";
+                case CardId.Sec: return "sec";
+                case CardId.Kill: return "kill";
+                case CardId.Myriad: return "myriad";
+                case CardId.Arrow: return "arrow";
+                case CardId.Strike: return "strike";
+                case CardId.Back: return "back";
+                case CardId.Link: return "link";
+                case CardId.Slash: return "slash";
+                // 新元素还没出字图，Load 返回 null 会退到程序化底 + TextMesh 写字。
+                case CardId.Gold: return "gold";
+                case CardId.Wood: return "wood";
+                case CardId.Water: return "water";
+                case CardId.Earth: return "earth";
+                case CardId.Wind: return "wind";
+                case CardId.Thunder: return "thunder";
+                case CardId.Poison: return "poison";
+                case CardId.Confuse: return "confuse";
                 default: return "fire";
             }
         }
@@ -68,6 +105,12 @@ namespace InkLine
         }
 
         public static Sprite Die() => Load("icon_die");
+
+        // 界面手绘图标，Resources/Art/Ui/ico_*.png。
+        // 这批图本身就有颜色和描边，别再用 Image.color 去 tint —— 相乘只会脏掉。
+        public static Sprite Ui(string key) => Load("Ui/ico_" + key);
+
+        public static Sprite Ui(SpellId id) => Ui(id.ToString().ToLowerInvariant());
 
         public static Sprite Flash(EnemyId id)
         {

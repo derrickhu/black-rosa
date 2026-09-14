@@ -1,0 +1,32 @@
+TWO full-body game enemy characters side by side, one on the left half and one on the right half, on a pure solid magenta background (#FF00FF).
+
+MATCH THE ATTACHED REFERENCE IMAGE'S CHARACTER STYLE EXACTLY. That reference shows the existing enemies of this game. Copy its drawing language precisely:
+- Body is a chunky rounded blob-person made of dark charcoal grey ink (about #3F423C), with a slightly lighter grey sheen along the top of the head, shoulders and limbs.
+- Very thick solid black outline around the whole silhouette and around every limb.
+- Each character's head is a BARE, UNCOVERED, ROUNDED CHARCOAL BALL, fully visible, showing ONLY two eyes. THE TWO EYES ARE PURE BRIGHT WHITE (#FFFFFF), drawn as two simple soft rounded ovals exactly like the reference. The eyes contain pure white only and they do not glow.
+- Mitten hands and simple rounded feet, no fingers, no toes.
+- One or two stitched cross-shaped patch marks on the bare charcoal skin.
+- A few small solid black ink droplets and specks scattered in the air around the character.
+- Cartoonish, cute-but-menacing, full body.
+
+THESE TWO ARE VETERAN OFFICERS — the strongest regular soldiers, one rank below the bosses. They are big and broad-shouldered and each wears THREE coloured items, so they read as clearly better equipped than a plain grey soldier, while still being simpler and less ornate than a king.
+
+CRITICAL COLOUR RULE: the BODY MUST STAY DARK CHARCOAL INK GREY, never tinted. Colour appears ONLY on the three listed worn items, and each colour must be rich and clearly saturated. Place the items on the outer edge of the silhouette so they stay readable when the character is tiny on screen. The bare charcoal head, bare charcoal forearms and bare charcoal lower legs stay uncovered.
+
+LEFT — "Sash Veteran":
+A big broad blob-person walking with a heavy dragging step, shoulders hunched forward. He wears THREE items:
+1. A DEEP INDIGO BLUE cape, the dark blue of denim, fastened at the front of his neck and hanging down his BACK only, reaching his knees.
+2. One curved COPPER shoulder plate, a warm reddish-brown metal like a new penny, strapped over his right shoulder.
+3. A wide BRIGHT GOLDEN YELLOW cloth sash tied around his waist with the knot at the front.
+His bare charcoal head, chest, forearms and lower legs stay uncovered.
+
+RIGHT — "Standard Bearer":
+A big broad blob-person standing planted and facing forward, one mitten hand raised holding a tall flag pole that leans back over his shoulder. He wears THREE items:
+1. The tall flag: a plain dark wooden pole with a simple rectangular BRIGHT SCARLET RED cloth banner, the vivid red of a Chinese New Year red envelope, hanging from its top. The banner is a plain blank piece of red cloth with nothing drawn on it.
+2. Two or three loose dark iron CHAINS draped across his bare charcoal chest and shoulders.
+3. A DEEP FOREST GREEN short cape hanging from his shoulders down his back.
+His bare charcoal head, forearms and lower legs stay uncovered.
+
+LAYOUT: exactly 2 characters, one centred in the left half of the picture and one centred in the right half. Each is COMPLETELY INSIDE its own half, with the top of the head, the top of the flag and the bottom of the feet all well inside the picture, and a wide band of empty magenta all around. The two characters do not touch or overlap each other, and neither is cut off by the edge of the picture. Both drawn at roughly the same height.
+
+NO TEXT, no letters, no numbers, no labels, no captions, no writing, no symbols or emblems on the banner, no watermarks, no signatures, no UI frames, no health bars, no ground shadow, no platform or floor, no sparks, no glowing effects, no motion streak lines, no hoods, no helmets, no hats, no masks, no face coverings. The background must be one perfectly uniform solid magenta with no gradient, no vignette and no texture.

@@ -6,6 +6,8 @@ namespace InkLine
 {
     public sealed class DraftView : MonoBehaviour
     {
+        const float CardStepX = 200f;
+
         public Text Title;
         public DraftCardView[] Cards;
         public Button Reroll;
@@ -26,6 +28,19 @@ namespace InkLine
 
             int n = Cards != null ? Cards.Length : 0;
             int offerN = offer != null ? offer.Length : 0;
+
+            // 模板把三张卡按 -CardStepX / 0 / +CardStepX 摆死了。牌池不足三个字的
+            // 关卡（第一关只有「分」）只发一两张，得重新居中，
+            // 否则那一张会孤零零歪在左边。
+            for (int i = 0; i < n && i < offerN; i++)
+            {
+                var rt = Cards[i] != null ? Cards[i].GetComponent<RectTransform>() : null;
+                if (rt == null) continue;
+                Vector2 p = rt.anchoredPosition;
+                p.x = (i - (offerN - 1) * 0.5f) * CardStepX;
+                rt.anchoredPosition = p;
+            }
+
             for (int i = 0; i < n; i++)
             {
                 DraftCardView card = Cards[i];
@@ -39,16 +54,20 @@ namespace InkLine
                 CardDef def = CardCatalog.Get(offer[i]);
                 if (card.Star != null)
                 {
-                    card.Star.sprite = InkArt.Icon(InkShape.Star);
+                    card.Star.sprite = InkSprites.Ui("star");
                     card.Star.enabled = card.Star.sprite != null;
                 }
                 if (card.Heap != null)
                 {
-                    card.Heap.sprite = InkArt.Heap(def.Id, 160);
+                    card.Heap.sprite = InkArt.Glyph(def.Id, 160);
                     card.Heap.preserveAspect = true;
                     card.Heap.enabled = card.Heap.sprite != null;
                 }
-                if (card.Name != null) card.Name.text = def.Name;
+                if (card.Name != null)
+                {
+                    card.Name.text = def.Name;
+                    card.Name.color = def.Wake == CardWake.WordPart ? InkTheme.Gold : InkTheme.TextDark;
+                }
                 if (card.Desc != null) card.Desc.text = def.Desc;
                 if (card.Button != null)
                 {
@@ -88,7 +107,7 @@ namespace InkLine
         public static DraftView BuildTemplate(Transform parent)
         {
             var dim = UiKit.Dimmer(parent);
-            dim.GetComponent<Image>().color = new Color(0.10f, 0.09f, 0.08f, 0.58f);
+            dim.GetComponent<Image>().color = new Color(0.16f, 0.11f, 0.08f, 0.62f);
             dim.gameObject.name = "DraftPanel";
             var view = dim.gameObject.AddComponent<DraftView>();
             var board = UiKit.Stroke(dim, "board", new Vector2(0, -24), new Vector2(660, 620), Pin.Center, 8f);
@@ -96,14 +115,14 @@ namespace InkLine
             view.Cards = new DraftCardView[3];
             for (int i = 0; i < 3; i++)
             {
-                float x = (i - 1) * 200f;
+                float x = (i - 1) * CardStepX;
                 var card = UiKit.Stroke(board, "card" + i, new Vector2(x, 28), new Vector2(184, 360), Pin.Center, 5f);
                 var slot = card.gameObject.AddComponent<DraftCardView>();
                 slot.Button = card.gameObject.AddComponent<Button>();
                 slot.Button.targetGraphic = card.GetComponent<Image>();
-                slot.Star = UiKit.Icon(card, InkArt.Icon(InkShape.Star), new Vector2(0, 140), 36f);
+                slot.Star = UiKit.Icon(card, InkSprites.Ui("star"), new Vector2(0, 140), 36f);
                 slot.Star.gameObject.name = "star";
-                slot.Heap = UiKit.Icon(card, InkArt.Heap(CardId.Fire, 160), new Vector2(0, 28), 128f);
+                slot.Heap = UiKit.Icon(card, InkArt.Glyph(CardId.Fire, 160), new Vector2(0, 28), 120f);
                 slot.Heap.gameObject.name = "heap";
                 slot.Name = UiKit.Label(card, "name", "加火", 30, new Vector2(0, -92), new Vector2(168, 40));
                 slot.Desc = UiKit.Label(card, "desc", "子弹变橙并灼烧", 18, new Vector2(0, -138), new Vector2(160, 56));

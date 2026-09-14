@@ -10,7 +10,24 @@ namespace InkLine
         public const int MaxRevives = 2;
         public const int FirstDraftCost = 4;
         public const int DraftCostStep = 2;
-        public const int ChapterStageCount = 8;
+        // 二十关。原来是 8 关，一路满速解锁，没有过渡就打完了。
+        // MetaProgress.Normalize 里的 Fit() 会把旧存档的星数组补齐到新长度，
+        // 改这个数字不会打坏已有存档。
+        public const int ChapterStageCount = 20;
+
+        // 局外：体力。只卡重刷，没通过的关不收费，见 MetaProgress.StageCost。
+        public const int StaminaMax = 12;
+        public const int StaminaPerStage = 2;
+        public const int StaminaRegenMinutes = 15;
+        public const int AdStaminaGain = 6;
+        public const int AdStaminaPerDay = 5;
+        public const int DailyWinStamina = 4;
+        public const int StarterInk = 60;
+
+        // 局内：技能能量。击杀按敌人金币值 ×2 累积。
+        public const int EnergyMax = 100;
+        public const int EnergyPerGold = 2;
+        public const int SpellSlots = 2;
 
         public const float WorldHalfHeight = 8f;
         public const float CellWidth = 1.16f;

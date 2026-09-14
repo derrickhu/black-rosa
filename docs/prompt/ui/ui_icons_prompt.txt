@@ -1,0 +1,32 @@
+A single flat image containing a 4 by 4 grid of 16 mobile game UI icons, on a pure solid magenta background (#FF00FF) that fills every gap between the icons.
+
+ART STYLE — all 16 icons must share exactly the same style:
+Casual mobile game icon art. Each icon has a thick, uniform dark warm-brown outline (#3A2A20), about 6% of the icon width. Inside the outline: clean saturated colour with soft simple cel shading, one slightly lighter top highlight and one slightly darker bottom shadow. Chunky, rounded, friendly silhouettes with generous thick forms — no thin spindly details, no fine lines. Slight glossy sheen on rounded surfaces. Warm palette overall. Flat lighting from the top. Vector-like clarity, crisp edges, high contrast against the magenta. Each icon is a single compact object that reads instantly at 64 pixels.
+
+LAYOUT: exactly 4 columns and 4 rows, 16 cells total. Every icon is centred in its own cell, roughly equal size, and completely separated from its neighbours by a wide magenta gutter. No icon touches another icon. No frames, no borders, no plates, no circles or rounded squares behind the icons — just the object floating on magenta.
+
+Row 1, left to right:
+1. A dark charcoal cannonball with a bright orange and yellow impact burst flashing behind it, radiating spikes of light.
+2. Two small stubby cast-iron cannons side by side on little wheels, angled slightly upward, dark grey metal with warm highlights.
+3. A round brass stopwatch tilted slightly, with three orange horizontal speed streaks whooshing off its left side.
+4. A neat stack of four shiny gold coins, the top coin tilted to show its face, warm yellow and amber with bright rim light.
+
+Row 2, left to right:
+5. A sturdy rounded shield in warm cream and grey with a plump red heart centred on its face.
+6. A violet and deep purple ink splash explosion, a round blob core with thick droplets bursting outward in all directions.
+7. A teal metal clamp or vice gripping a small round target, with two tiny motion-stop marks, conveying "held in place".
+8. A clenched fist wrapped in orange and red flames, punching upward, bold and chunky.
+
+Row 3, left to right:
+9. A wide horizontal crescent slash wave in bright orange and yellow, thick in the middle and tapering at both tips, like a sweeping blade arc.
+10. A tipping paint bucket in muted slate blue pouring out a thick stream of deep purple ink that puddles below.
+11. A plump red heart with a bold cream-white plus sign on its centre, and a small soft glow around it.
+12. A rounded teal water droplet with a small bright lightning bolt shape inside it, glossy and full.
+
+Row 4, left to right:
+13. A squat round ink bottle made of dark violet glass with a cork stopper and a glossy highlight, a little ink pooling at its base.
+14. A five pointed star in rich gold and amber with a bright warm highlight on its upper left point, plump and rounded.
+15. A small bright violet lightning bolt, thick and angular with rounded corners, glowing at the edges.
+16. A rolled paper scroll in warm cream, tied with a red band, lying slightly diagonal.
+
+NO TEXT, no labels, no captions, no numbers, no letters, no writing, no watermarks, no signatures anywhere in the image. No drop shadows cast onto the magenta background. No gradient background, no vignette, no texture on the background — the background must be one perfectly uniform solid magenta.

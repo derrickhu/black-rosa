@@ -1,0 +1,30 @@
+A 2 by 2 grid of 4 full-body game enemy boss characters on a pure solid magenta background (#FF00FF).
+
+MATCH THE ATTACHED REFERENCE IMAGE'S CHARACTER STYLE EXACTLY. That reference shows the existing enemies of this game. Copy its drawing language precisely:
+- Body is a chunky rounded blob-person made of dark charcoal grey ink (about #3F423C), with a slightly lighter grey sheen along the top of the head, shoulders and limbs.
+- Very thick solid black outline around the whole silhouette and around every limb.
+- The face is a bare rounded charcoal head showing ONLY two plain white eyes, drawn as two simple soft rounded ovals exactly like the reference.
+- Mitten hands and simple rounded feet, no fingers, no toes.
+- A few stitched cross-shaped patch marks on the bare charcoal skin.
+- A few small solid black ink droplets and specks scattered in the air around the character.
+- Cartoonish, cute-but-menacing, slightly hunched, standing front-facing full body.
+
+CRITICAL COLOUR RULE: the BODY MUST STAY DARK CHARCOAL INK GREY, never tinted. Colour appears ONLY on the listed worn objects, and every listed colour must be RICH, BRIGHT AND FULLY SATURATED, exactly the hue named. These are the game's final bosses, so each wears a full set of brightly coloured decorations and must look far more decorated and dangerous than the plain grey figures in the reference. Place the decorations on the outer edge of the silhouette (top of head, neck, hands, ankles, back) so they stay readable when the character is small on screen. The bare charcoal head, bare charcoal forearms and bare charcoal lower legs of every character stay uncovered and clearly visible.
+
+All four are BOSSES: heavy, bulky and imposing, with wide shoulders, thick arms and thick legs. Draw all four at the same large size.
+
+Top-left — "Lantern Jailer":
+A big heavy blob-person. Three loose dark iron chains hang across his bare charcoal shoulders and chest. A wide brown leather belt holds a brown leather kilt around his waist, with a bunch of shiny copper keys dangling from it. His raised mitten hand holds up a BRIGHT GLOWING EMERALD GREEN paper lantern on a short copper hook, and the lantern is the brightest thing in the picture. Bare charcoal head, arms and legs.
+
+Top-right — "Ribbon Racer":
+A big heavy blob-person leaning forward in a charging stance. Many long BRIGHT ORANGE and BRIGHT SCARLET RED silk ribbon streamers are tied to his shoulders and upper arms and trail far out behind him, rippling in the wind. He wears a thick polished copper band on each wrist, each band painted with a small bright yellow zigzag stripe, and a bright gold ring around each ankle. Bare charcoal chest and head. The air around him is empty magenta.
+
+Bottom-left — "Plated Barrel":
+A very squat, extremely wide blob-person. Four or five thick SLATE BLUE metal plates are strapped across his chest and belly like a barrel, each plate edged with a row of shiny copper rivets, and a tall BRIGHT RED brush plume is tied to a copper band on his shoulder. Very short very thick legs. His bare charcoal head, bare charcoal mitten hands and bare charcoal feet stay uncovered.
+
+Bottom-right — "Ink King":
+The biggest and most decorated of all four, the final boss. On top of his BARE charcoal head sits a tall ornate crown made of BRIGHT SHINY YELLOW GOLD with pointed spikes and small gemstones. A long flowing BRIGHT SCARLET VERMILION RED silk robe, the colour of a red envelope, is draped over his shoulders and trails down behind him. He wears two polished COPPER shoulder plates and a COPPER chest plate. A big round JADE GREEN disc pendant hangs on a cord at the centre of his neck. Bright gold rings on both mitten hands. His bare charcoal head and thick bare charcoal legs stay clearly visible. Gold, scarlet red, copper and jade green must all be clearly present and vivid.
+
+LAYOUT: exactly 2 columns and 2 rows, 4 characters. Each character stands centred in its own quadrant, fully inside it, surrounded by a band of empty magenta. No character touches or overlaps another, and no part of any character crosses into another quadrant. All four drawn at roughly the same height and filling their quadrants equally.
+
+NO TEXT, no letters, no numbers, no labels, no captions, no writing, no watermarks, no signatures, no UI frames, no health bars, no ground shadow, no platform or floor, no sparks, no glowing energy arcs, no magic effects in the air. The background must be one perfectly uniform solid magenta with no gradient, no vignette and no texture.

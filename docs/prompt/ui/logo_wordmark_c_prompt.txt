@@ -1,0 +1,12 @@
+Redraw the attached logo. Keep the same four simplified Chinese characters in the same order: 墨 弹 防 线. Keep the same connected sticker lockup: one shared thick dark-brown outline wrapping all four letters as a single badge.
+
+Change only the painting:
+- The interior of every letter is solid near-black ink, the colour of wet Chinese ink, #1A1410. One flat tone. Hard edge where it meets the outline.
+- Keep the four violet ink droplets hanging from 墨.
+- Keep the short stubby cannon that replaces the bow of 弹, and the little violet shot at its muzzle.
+- Keep the small cream shield with an orange heart inside 防.
+- Keep the violet silk trail that is the left side of 线.
+
+Flat sticker art. Hard edges. The background is pure solid magenta (#FF00FF) with a wide empty margin.
+
+NO extra characters. NO English. NO watermark.

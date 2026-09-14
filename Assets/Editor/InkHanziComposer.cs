@@ -32,7 +32,7 @@ namespace InkLine
         Rect _marquee;
         Vector2 _scroll;
 
-        [MenuItem("墨弹防线/汉字牌合成")]
+        [MenuItem("墨字防线/汉字牌合成")]
         public static void Open()
         {
             var w = GetWindow<InkHanziComposer>("汉字牌合成");

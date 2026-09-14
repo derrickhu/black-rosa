@@ -1,0 +1,7 @@
+Vertical 9:16 full-bleed paper illustration, locked camera, 8-second idle loop. Keep every object in the same place as the first frame for the whole clip.
+
+Warm steamed-bun coloured paper fading to dried-apricot near the bottom, two faint watercolour stains. A short stubby charcoal-grey toy cannon in the lower-middle pointing straight up on a dark-brown wooden block. Three small charcoal ink creatures walking toward the cannon: one chubby, one tall and thin, one round like a ball, each with two white oval eyes. One cream playing-card standing in front of the cannon with a single fat persimmon-orange star. Flat 2D casual card-game look, thick dark-brown outlines, cut-paper colour.
+
+Gentle idle motion only: the three ink creatures bob and take tiny steps in place, the chubby one has a tiny pulsing violet splat beside it, the cannon rocks a few degrees as if breathing, a faint puff of charcoal ink dust rises from the muzzle and fades, the star card tilts slightly, the paper wash drifts very slowly. Camera stays locked, no zoom, no pan, no cut. Last frame matches the first frame so the clip can loop.
+
+Stay a painted picture filling every pixel, edge to edge, for all 8 seconds. Keep the top fifth and the bottom fifth as empty warm paper.

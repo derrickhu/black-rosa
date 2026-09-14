@@ -1,0 +1,9 @@
+Design a single game emblem from the attached spelling sheet.
+
+The sheet shows the four simplified Chinese characters 墨 字 防 线. Those four glyphs are the only letters. They fuse into ONE sticker-shaped mark, sharing one thick dark-brown outline, overlapping like stacked cut paper. Sizes may differ. They may sit on a gentle arc or nestle together. This is one object, a logo badge.
+
+Flat 2D casual mobile-game art. Near-black ink fills, cream steamed-bun paper patches, blueberry-violet ink drips, one persimmon-orange accent. Hard edges, two or three flat tones.
+
+A fat blueberry-ink blot anchors the left. A tiny cream card and a tiny cream shield live inside the lettering as part of the same silhouette.
+
+Pure solid magenta (#FF00FF) field, wide empty magenta around the one mark. The letters still read 墨字防线.

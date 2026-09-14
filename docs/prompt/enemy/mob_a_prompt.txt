@@ -1,0 +1,30 @@
+A 2 by 2 grid of 4 full-body game enemy characters on a pure solid magenta background (#FF00FF).
+
+MATCH THE ATTACHED REFERENCE IMAGE'S CHARACTER STYLE EXACTLY. That reference shows the existing enemies of this game. Copy its drawing language precisely:
+- Body is a chunky rounded blob-person made of dark charcoal grey ink (about #3F423C), with a slightly lighter grey sheen along the top of the head, shoulders and limbs.
+- Very thick solid black outline around the whole silhouette and around every limb.
+- EVERY character's head is a BARE, UNCOVERED, ROUNDED CHARCOAL BALL, fully visible, showing ONLY two eyes. THE TWO EYES ARE PURE BRIGHT WHITE (#FFFFFF), drawn as two simple soft rounded ovals exactly like the reference. The eyes contain pure white only and they do not glow.
+- Mitten hands and simple rounded feet, no fingers, no toes.
+- One or two stitched cross-shaped patch marks on the bare charcoal skin.
+- A few small solid black ink droplets and specks scattered in the air around the character.
+- Cartoonish, cute-but-menacing, full body.
+
+THESE FOUR ARE ORDINARY FOOT SOLDIERS. Keep them SIMPLE, PLAIN, SMALL AND SLIM-BUILT, at the same modest level of detail as the plain figures in the reference image. Each wears only the one or two items listed for it, and the whole rest of the figure is plain bare charcoal ink. Narrow shoulders, short simple limbs, small rounded bodies.
+
+CRITICAL COLOUR RULE: the BODY MUST STAY DARK CHARCOAL INK GREY, never tinted. Colour appears ONLY on the one or two listed worn items, and those colours must be rich and clearly saturated. Place each item on the outer edge of the silhouette (top of head, neck, knees, wrists) so it stays readable when the character is tiny on screen. The bare charcoal head, bare charcoal arms and bare charcoal legs stay uncovered.
+
+Top-left — "Headband Runner":
+A slim light blob-person sprinting, body leaning far forward, both arms swept back, one leg stretched out in a long stride. He wears ONE item: a BRIGHT RED cloth headband tied around his forehead with the two loose ends fluttering backwards. Everything else is plain bare charcoal ink. Bare feet. Bare uncovered charcoal head.
+
+Top-right — "Knee-pad Crawler":
+A low, flat blob-person crawling on all fours, belly close to the ground, bare charcoal head raised and facing forward. He wears ONE item: a pair of knee pads strapped over both knees, coloured BRIGHT LEMON YELLOW, the vivid yellow of a fresh lemon or a school bus. Everything else is plain bare charcoal ink, and his head is bare and uncovered. Wide flat squat silhouette, much wider than tall.
+
+Bottom-left — "Teal Cape Drifter":
+A slim blob-person standing upright with both arms held loosely out to the sides, body tilted to one side as if drifting sideways. His head is a BARE UNCOVERED ROUNDED CHARCOAL BALL with two plain white oval eyes, fully visible from the front. He wears ONE item: a short BRIGHT TEAL BLUE-GREEN cape, the colour of a shallow tropical sea, fastened at the front of his neck with a small knot and hanging down his BACK only, billowing out sideways behind him. The cape covers his back. His head, face, chest, arms and legs are all bare charcoal ink and fully visible.
+
+Bottom-right — "Shield Pusher":
+A small slim blob-person braced forward in a pushing stance, both mitten hands holding a round shield up in front of one shoulder. His bare charcoal head is fully visible above the shield. He wears TWO items: the round COPPER shield, a warm reddish-brown metal like a new penny, with a small raised dome in its centre; and a plain WIDE BROWN LEATHER belt around his waist. His bare charcoal head, arms and legs stay uncovered. Slim narrow build, not heavy.
+
+LAYOUT: exactly 2 columns and 2 rows, 4 characters. Each character sits centred in its own quadrant and is COMPLETELY INSIDE that quadrant, with the top of its head and the bottom of its feet well within the quadrant and a wide band of empty magenta all around it. No character touches or overlaps another, no character is cut off by the edge of the picture, and no part of any character crosses into another quadrant.
+
+NO TEXT, no letters, no numbers, no labels, no captions, no writing, no watermarks, no signatures, no UI frames, no health bars, no ground shadow, no platform or floor, no sparks, no glowing effects, no motion streak lines, no hoods, no helmets, no hats, no masks, no face coverings. The background must be one perfectly uniform solid magenta with no gradient, no vignette and no texture.

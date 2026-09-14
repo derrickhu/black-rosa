@@ -8,7 +8,7 @@ public static class InkGameViewSize
 {
     const int W = 720;
     const int H = 1280;
-    const string Label = "墨弹防线 720x1280";
+    const string Label = "墨字防线 720x1280";
 
     static InkGameViewSize()
     {

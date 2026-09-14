@@ -1,0 +1,13 @@
+Redraw the attached spelling sheet as a soft rounded wordmark for a casual card game.
+
+SPELLING: 墨 字 防 线 in one row, left to right, matching the sheet stroke for stroke. Pure solid magenta (#FF00FF) field, generous empty magenta around the letters.
+
+DESIGN: very chunky rounded letters, cream-paper fill (#FFF4E8) with a thick dark-brown outline and a near-black inner fill on each stroke, like a bakery sign. Flat colour, hard edges.
+
+Small pictures stay the size of a stroke:
+- 墨: four blueberry-ink drips as the dots of 黑.
+- 字: a complete 字. The roof 宀 has two tiny blueberry drips hanging from the eaves. 子 is fully drawn in black ink.
+- 防: a persimmon-orange heart tucked into 方, stroke-sized.
+- 线: silk radical as a blueberry-ink ribbon.
+
+Still reads 墨字防线. Uniform magenta background. No English, no extra icons beside the letters.

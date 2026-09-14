@@ -1,0 +1,25 @@
+ONE single full-body game enemy boss character, centred, filling the frame, on a pure solid magenta background (#FF00FF).
+
+MATCH THE ATTACHED REFERENCE IMAGE'S CHARACTER STYLE EXACTLY. That reference shows the existing enemies of this game. Copy its drawing language precisely:
+- Body is a chunky rounded blob-person made of dark charcoal grey ink (about #3F423C), with a slightly lighter grey sheen along the top of the head, shoulders and limbs.
+- Very thick solid black outline around the whole silhouette and around every limb.
+- The head is a bare rounded charcoal ball showing ONLY two eyes. THE TWO EYES ARE PURE BRIGHT WHITE (#FFFFFF), drawn as two simple soft rounded ovals exactly like the reference. The eyes contain pure white only.
+- Mitten hands and simple rounded feet, no fingers, no toes.
+- A few stitched cross-shaped patch marks on the bare charcoal skin.
+- A few small solid black ink droplets and specks scattered in the air around him.
+- Cartoonish, cute-but-menacing, slightly hunched, standing front-facing full body.
+
+THE CHARACTER — "Ink King", the final boss of the whole game. A massive, heavy, imposing blob-person with very wide shoulders, thick arms and thick heavy legs. He is the most richly decorated character in the game and he must look expensive and festive.
+
+HIS COLOURS — every one of these must be vivid, bright and unmistakable:
+- CROWN: on top of his bare charcoal head sits a tall ornate crown of WARM YELLOW GOLD, the exact bright buttery yellow colour of a shiny gold coin or a gold wedding ring, with pointed spikes. It gleams warm yellow.
+- ROBE: a long flowing silk robe draped over his shoulders and trailing down behind him, coloured BRIGHT WARM SCARLET RED — exactly the vivid orange-leaning red of a Chinese New Year red envelope, or of a fresh ripe tomato, or of a Chinese temple gate. It is a warm fiery red.
+- SHOULDER AND CHEST PLATES: polished COPPER, a warm reddish-brown metal like a new penny.
+- PENDANT: a big round disc pendant of bright JADE GREEN hanging on a cord at the centre of his neck.
+- HANDS: a bright warm yellow gold ring on each mitten hand.
+
+The gold must be warm yellow, the robe must be warm scarlet red, the copper must be warm reddish brown, and the pendant must be green. His whole colour scheme is warm — reds, yellows and golds — like a Chinese emperor's festival dress.
+
+His BODY STAYS DARK CHARCOAL INK GREY and is never tinted. His bare charcoal head, his bare charcoal forearms and his thick bare charcoal legs all stay uncovered and clearly visible. The decorations sit on the outer edge of his silhouette so they stay readable when he is small on screen.
+
+NO TEXT, no letters, no numbers, no labels, no captions, no writing, no watermarks, no signatures, no UI frames, no health bars, no ground shadow, no platform or floor, no sparks, no glowing energy arcs, no magic effects in the air, no weapon, no staff, no sword, no shield. The background must be one perfectly uniform solid magenta with no gradient, no vignette and no texture.

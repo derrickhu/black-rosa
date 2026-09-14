@@ -1,0 +1,30 @@
+A 2 by 2 grid of 4 full-body game enemy characters on a pure solid magenta background (#FF00FF).
+
+MATCH THE ATTACHED REFERENCE IMAGE'S CHARACTER STYLE EXACTLY. That reference shows the existing enemies of this game. Copy its drawing language precisely:
+- Body is a chunky rounded blob-person made of dark charcoal grey ink (about #3F423C), with a slightly lighter grey sheen along the top of the head, shoulders and limbs.
+- Very thick solid black outline around the whole silhouette and around every limb.
+- The head is a rounded charcoal ball sitting clearly above the shoulders, showing ONLY two eyes. EVERY EYE IN THIS PICTURE IS ONE FLAT SHAPE FILLED COMPLETELY AND ENTIRELY WITH PURE WHITE #FFFFFF, edge to edge, a plain solid white oval and nothing more, exactly like the reference. The eyes are large and clearly visible on every character.
+- Mitten hands and simple rounded feet, no fingers, no toes.
+- One or two stitched cross-shaped patch marks on the charcoal skin.
+- A few small solid black ink droplets and specks scattered in the air around the character.
+- Cartoonish, cute, round, friendly-but-spooky, standing front-facing full body.
+
+STRICT PALETTE: this entire picture is drawn with only THREE TONES — solid black for the outlines, dark charcoal grey for every body, and pure white for the eyes. Every one of these four characters is made entirely of that same smooth unbroken dark charcoal grey ink, from head to foot, exactly like the two plain grey figures in the top row of the reference image. Each body is one single continuous smooth grey surface with a plain simple outline. They are the lowest-rank, plainest, simplest enemies in the game, and they are told apart ONLY by BODY SHAPE and POSE.
+
+They are soft round blob people, like plain grey rubber toys.
+
+Top-left — "Fat One":
+A very SHORT, very WIDE, very ROUND blob-person. His belly is one big wide smooth circle, much wider than it is tall. Very short stubby legs, very short stubby arms, and a small round head perched on top of the huge round belly. He leans back a little and waddles.
+
+Top-right — "Tall One":
+A very TALL, very THIN, LANKY blob-person. Long thin smooth legs, long thin smooth arms, a narrow slim torso, and a small round head on a thin neck. He is striding forward with one very long step. He is by far the tallest of the four.
+
+Bottom-left — "Round One":
+A creature that is almost entirely ONE BIG SMOOTH BALL — the ball is his whole body. He has no legs and no arms, just the big smooth round ball with two plain white oval eyes near the top of it and two tiny rounded nubs at the very bottom. At the very bottom of the ball there are EXACTLY TWO of these nubs, one on the left and one on the right, and nothing else. He is tilted over as if rolling forward.
+
+Bottom-right — "Big Head One":
+A blob-person with a HUGE OVERSIZED ROUND SMOOTH HEAD and a tiny little body underneath it. The head is at least twice as wide as the small body. Short thin arms and short thin legs, and he leans forward as if the heavy head is tipping him over.
+
+LAYOUT: exactly 2 columns and 2 rows, 4 characters. Each character stands centred in its own quadrant and is COMPLETELY INSIDE that quadrant, with the top of its head and the bottom of its feet well within the quadrant and a wide band of empty magenta all around it. No character touches or overlaps another, no character is cut off by the edge of the picture, and no part of any character crosses into another quadrant.
+
+NO TEXT, no letters, no numbers, no labels, no captions, no writing, no watermarks, no signatures, no UI frames, no health bars, no ground shadow, no platform or floor, no weapons, no tools, no held objects, no wings, no horns, no spikes, no claws, no teeth, no fur, no crystals, no mouths, no pupils, no irises, no dark eye centres, no coloured eyes, no extra legs, no many-legged creatures. The background must be one perfectly uniform solid magenta with no gradient, no vignette and no texture.

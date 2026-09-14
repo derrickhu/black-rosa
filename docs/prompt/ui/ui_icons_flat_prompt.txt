@@ -1,0 +1,46 @@
+Draw exactly these 16 specific objects as flat vector game icons, arranged in a 4 by 4 grid on a pure solid magenta background (#FF00FF).
+
+THE 16 SUBJECTS ARE FIXED. Draw these and nothing else. Do not substitute, do not invent, do not add generic fantasy icons.
+
+Row 1:
+1. A dark charcoal cannonball in front of a flat orange and yellow spiky starburst.
+2. Two short stubby cannons side by side pointing up to the right, flat grey barrels with a flat darker grey underside.
+3. A round stopwatch with a flat gold body and a small button on top, with three straight flat orange speed streaks to its left.
+4. A stack of three flat gold coins.
+
+Row 2:
+5. A rounded shield with a flat cream face and a flat red heart in its centre.
+6. A violet ink splat: a round blob with several thick blunt droplets radiating outward.
+7. A flat teal circular target gripped on its left side by a flat teal clamp.
+8. A red clenched fist with a flat orange flame shape rising behind it.
+
+Row 3:
+9. A wide horizontal crescent sweep in flat orange, thick at the centre and pointed at both ends.
+10. A tipped-over slate blue bucket pouring a thick violet stream that pools below it.
+11. A red heart with a bold cream PLUS SIGN on its centre: one upright vertical bar crossed by one horizontal bar at right angles, like a medical plus. It must NOT be a diagonal X or a saltire.
+12. A teal water droplet with a small flat gold lightning bolt on it.
+
+Row 4:
+13. A squat round bottle with a flat violet body and a small brown cork on top.
+14. A five pointed star in flat gold.
+15. A single angular lightning bolt in flat violet.
+16. A closed padlock with a flat grey body and a grey shackle arch on top.
+
+ABOUT THE ATTACHED REFERENCE IMAGE: it is a STYLE SWATCH ONLY. It deliberately contains abstract shapes — a disc, a rounded square, a blob and an arrow — which are NOT subjects to draw. Copy only its rendering technique: how the flat colour bands meet at hard edges, and how thick and even the outline is. Do NOT include a disc, a rounded square, a blob or an arrow in the output. Every cell must be one of the 16 subjects listed above.
+
+RENDERING STYLE — FLAT 2D VECTOR STICKER ART:
+- Fill everything with FLAT SOLID COLOUR ONLY. Absolutely no gradients anywhere.
+- Each icon uses at most three flat tones of its colour: a base tone, one darker tone for the shadow area, one lighter tone for the lit area. The boundary between tones is a HARD CRISP EDGE, like cut paper. Never a soft blend, never a fade, never an airbrush transition.
+- Uniform thick dark brown outline (#3A2A20) around every shape, constant width, about 5% of the icon width, identical line weight on all 16 icons.
+- Completely flat and graphic. NO three-dimensional rendering, NO volume, NO roundness modelling, NO bevel, NO emboss, NO extrusion, NO thickness, NO perspective, NO isometric view. Straight-on flat silhouettes only.
+- NO glossy highlights, NO shine, NO specular dots, NO reflections, NO sparkle, NO glow, NO bloom, NO rim light.
+- NO drop shadows, NO ambient shadows, NO shadow cast on the background.
+- NO texture, NO noise, NO grain, NO painterly brush strokes, NO plastic or glass or metal material rendering.
+- CRITICAL for round objects: never shade them as three-dimensional volumes. A ball or sphere must be drawn as a FLAT CIRCLE with at most one hard-edged darker crescent along one side — never a soft radial falloff from a bright centre. A cylinder or tube must be drawn as a FLAT shape with at most one hard-edged darker band along one side — never a smooth left-to-right sheen. A bottle, a blob, a bucket and a droplet follow the same rule: flat fill plus one hard-edged darker region. No soft shading of any curved surface anywhere.
+- Bold simple chunky silhouettes that read instantly at 64 pixels. Thick forms, no thin spindly lines, no fine detail, no ornamental filigree.
+
+This is flat minimal vector iconography for a 2D mobile game interface. It is NOT a rendered 3D icon, NOT a candy-style glossy icon, NOT a clay or plastic render.
+
+LAYOUT: exactly 4 columns and 4 rows, 16 cells. Each icon sits centred in its own cell at roughly equal size, surrounded on all four sides by a wide band of empty magenta. No icon touches or overlaps a neighbour, and no part of any icon crosses into another cell.
+
+NO TEXT, no letters, no numbers, no labels, no captions, no writing, no watermarks, no signatures anywhere in the image. The background must be one perfectly uniform solid magenta with no gradient, no vignette and no texture.

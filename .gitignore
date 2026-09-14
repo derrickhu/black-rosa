@@ -27,3 +27,22 @@ sysinfo.txt
 /wechat-minigame/
 /Packages/com.qq.weixin.minigame/
 /Packages/com.qq.weixin.minigame/
+
+# 离线出 UI 对比稿用的临时 venv（Pillow / fontTools）
+.venv-mock/
+__pycache__/
+*.pyc
+
+# 本机编辑器 / 微信私有配置
+.cursor/
+project.private.config.json
+
+# 字标评审图与生图母版放仓库外 game_assets
+Assets/Resources/Art/Ui/logo_[a-z].png
+Assets/Resources/Art/Ui/logo_[a-z].png.meta
+Assets/Resources/Art/Ui/logo_compare*.png
+Assets/Resources/Art/Ui/logo_compare*.png.meta
+Assets/Resources/Art/Ui/loading_logo_proto_*.png
+Assets/Resources/Art/Ui/loading_logo_proto_*.png.meta
+docs/美术/loading/raw/
+docs/美术/loading/final/
