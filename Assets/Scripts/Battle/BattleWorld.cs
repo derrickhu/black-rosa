@@ -108,6 +108,7 @@ namespace InkLine
         public float Ground;
         public float Rest;
         public float Age;       // 落地后活了多久。墨摊靠它算摊开的进度
+        public float Gather;    // 0~1。墨摊收拢成一颗墨珠的进度，金币恒为 1
         public float Fly;       // >0 表示已经起飞，1 到账
         public Vector2 From;
         public float Size;      // 墨摊按死者的体型摊开；金币恒为 1
@@ -1208,6 +1209,11 @@ namespace InkLine
         const float DropFlyTime = 0.38f;
         // 墨摊在地上待得久一些：它是死亡留下的痕迹，要够时间看清才谈得上「收走」。
         const float PuddleRestTime = 0.85f;
+        // 摊开的墨团成一颗珠子要多久。这一下必须在原地做完再起飞 ——
+        // 边缩边飞的话两件事叠在一起，看着只是「那摊墨忽然没了」。
+        const float PuddleGatherTime = 0.3f;
+        // 团起来时珠子离地多高。收拢本身就该把墨从地面提起来。
+        const float PuddleLift = 0.2f;
 
         // 一只怪掉几枚金币、几滴墨。拆成几份是为了「一片金币叮叮当当飞过去」，
         // 一份一大枚反而没有收获感；份数跟着体型走，关底死时该铺满半个屏。
@@ -1252,6 +1258,7 @@ namespace InkLine
                     Ground = ground,
                     // 那摊墨要摊开、晃一会儿才被吸走，不然「流出来一摊」根本来不及看见。
                     Rest = (puddle ? PuddleRestTime : DropRestTime) + UnityEngine.Random.Range(0f, 0.16f),
+                    Gather = puddle ? 0f : 1f,
                     Size = puddle ? Mathf.Max(0.42f, e.Radius) * (e.IsBoss ? 2.9f : 2.1f) : 1f,
                     Seed = UnityEngine.Random.value * 10f
                 });
@@ -1284,7 +1291,9 @@ namespace InkLine
                     }
                     continue;
                 }
-                if (d.Pos.y > d.Ground)
+                // 正在团起来的墨珠也离了地，但它不归重力管 ——
+                // 不挡住的话下一帧就被当成没落地的金币拽回地面，收拢永远做不完。
+                if (d.Gather >= 1f && d.Pos.y > d.Ground)
                 {
                     d.Vel.y -= 15f * dt;
                     d.Pos += d.Vel * dt;
@@ -1299,6 +1308,14 @@ namespace InkLine
                 }
                 d.Rest -= dt;
                 if (d.Rest > 0f) continue;
+                if (d.Gather < 1f)
+                {
+                    d.Gather = Mathf.Min(1f, d.Gather + dt / PuddleGatherTime);
+                    // 边团边抬。位置得真的动，不能只在视图里偏移 ——
+                    // 起飞点用的是 d.Pos，对不上就会在起飞那一帧闪回地面。
+                    d.Pos.y = d.Ground + PuddleLift * d.Gather;
+                    continue;
+                }
                 d.Fly = 0.0001f;
                 d.From = d.Pos;
             }

@@ -17,6 +17,7 @@ namespace InkLine
         sealed class Piece
         {
             public SpriteRenderer Body;
+            public SpriteRenderer Bead;     // 只有墨用：收拢后的那颗珠子
             public SpriteRenderer Shadow;
             public Vector2 Last;
             public bool Tracked;
@@ -80,38 +81,42 @@ namespace InkLine
             }
         }
 
+        // 墨走三段：摊在地上 → 原地团成一颗珠 → 珠子飞进顶栏。
+        // 中间那段是两层交叉淡：摊子缩着淡出，珠子涨着淡入。不换层直接把
+        // Splat() 缩小的话，它外圈那五滴会跟着缩成一圈脏点。
         static void Puddle(Piece p, DropItem d)
         {
             p.Shadow.enabled = false;
             float wide = Mathf.Max(0.3f, d.Size);
+            float gather = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(d.Gather));
+            float fly = Mathf.Clamp01(d.Fly);
 
-            if (d.Fly <= 0f)
+            // 摊子：淌开 → 收拢时缩回去并淡掉
+            float grow = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(d.Age / 0.3f));
+            float breath = 1f + 0.035f * Mathf.Sin(Time.unscaledTime * 3.1f + d.Seed);
+            float w = wide * Mathf.Lerp(0.3f, 1f, grow) * breath * Mathf.Lerp(1f, 0.22f, gather);
+            p.Body.enabled = gather < 1f;
+            if (p.Body.enabled)
             {
-                // 摊开：头 0.3 秒淌到最大，之后边缘小幅呼吸，像还在流。
-                float grow = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(d.Age / 0.3f));
-                float breath = 1f + 0.035f * Mathf.Sin(Time.unscaledTime * 3.1f + d.Seed);
-                float w = wide * Mathf.Lerp(0.3f, 1f, grow) * breath;
                 p.Body.transform.position = new Vector3(d.Pos.x, d.Ground, 0f);
                 p.Body.transform.localScale = new Vector3(w, w * 0.4f, 1f);
                 p.Body.transform.localRotation = Quaternion.Euler(0f, 0f, Mathf.Sin(d.Seed) * 12f);
-                p.Body.color = Ink(0.72f * grow);
-                return;
+                p.Body.color = Ink(0.72f * grow * (1f - gather));
             }
 
-            // 被收走：横向收拢、纵向抽起来，最后成一道顺着飞行方向的细流。
-            float u = Mathf.Clamp01(d.Fly);
-            float pull = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(u / 0.42f));
-            float w2 = wide * Mathf.Lerp(1f, 0.16f, pull);
-            float h2 = wide * Mathf.Lerp(0.4f, 0.5f, pull) * Mathf.Lerp(1f, 0.42f, u);
-            p.Body.transform.position = new Vector3(d.Pos.x, d.Pos.y, 0f);
-            p.Body.transform.localScale = new Vector3(w2, h2, 1f);
-            // 细流要顺着走向躺。抬起来那一下方向还没定，先竖着，之后跟着位移转。
-            Vector2 step = p.Tracked ? d.Pos - p.Last : Vector2.up;
+            // 珠子：团起来时涨出来，飞的时候收小一点，顺着走向拖着尾巴
+            p.Bead.enabled = gather > 0f;
+            if (!p.Bead.enabled) return;
+            float bead = wide * 0.34f * Mathf.Lerp(0.2f, 1f, gather) * Mathf.Lerp(1f, 0.66f, fly);
+            p.Bead.transform.position = new Vector3(d.Pos.x, d.Pos.y, 0f);
+            p.Bead.transform.localScale = new Vector3(bead, bead, 1f);
+            // 刚团起来时还没位移，方向定不了，先让尖朝上；飞起来再跟着走向转。
+            Vector2 step = p.Tracked ? d.Pos - p.Last : Vector2.zero;
             float ang = step.sqrMagnitude > 0.000004f
                 ? Mathf.Atan2(step.y, step.x) * Mathf.Rad2Deg - 90f
                 : 0f;
-            p.Body.transform.localRotation = Quaternion.Euler(0f, 0f, Mathf.Lerp(0f, ang, pull));
-            p.Body.color = Ink(0.72f);
+            p.Bead.transform.localRotation = Quaternion.Euler(0f, 0f, ang);
+            p.Bead.color = Ink(0.86f * gather);
         }
 
         static Color Ink(float a) => new Color(InkTheme.Ink.r, InkTheme.Ink.g, InkTheme.Ink.b, a);
@@ -136,7 +141,19 @@ namespace InkLine
             // 墨摊贴在格子底纹之上、走怪之下 —— 盖住网格会让人以为格子锁了。
             sr.sortingOrder = gold ? 9 : 1;
             InkFx.PaintSprite(sr, Color.white);
-            return new Piece { Body = sr, Shadow = sh };
+            var piece = new Piece { Body = sr, Shadow = sh };
+            if (gold) return piece;
+
+            // 珠子离地飞，得压在走怪之上，不然半路会钻到敌人后面去。
+            var bead = new GameObject("bead");
+            bead.transform.SetParent(wrap.transform, false);
+            var br = bead.AddComponent<SpriteRenderer>();
+            br.sprite = InkFx.Bead();
+            br.sortingOrder = 9;
+            br.enabled = false;
+            InkFx.PaintSprite(br, Color.white);
+            piece.Bead = br;
+            return piece;
         }
     }
 }

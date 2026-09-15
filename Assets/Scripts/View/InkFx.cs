@@ -15,6 +15,7 @@ namespace InkLine
         static Sprite _pill;
         static Sprite _splat;
         static Sprite _coin;
+        static Sprite _bead;
 
         public static Material AddMat()
         {
@@ -238,6 +239,36 @@ namespace InkLine
             tex.Apply(false, false);
             _coin = Sprite.Create(tex, new Rect(0, 0, n, n), new Vector2(0.5f, 0.5f), n);
             return _coin;
+        }
+
+        // 一颗墨珠。地上那摊墨被收走时先团成这个形状再飞走 ——
+        // 直接把 Splat() 缩小不行：它外圈那五滴会跟着缩成一圈脏点，
+        // 而且不规则的边在小尺寸下只剩毛刺，读不出是「一滴墨」。
+        // 尖朝上是为了配合飞行时按走向旋转，尾巴自然拖在后面。
+        public static Sprite Bead()
+        {
+            if (_bead != null) return _bead;
+            const int n = 64;
+            var tex = new Texture2D(n, n, TextureFormat.RGBA32, false);
+            tex.filterMode = FilterMode.Bilinear;
+            tex.wrapMode = TextureWrapMode.Clamp;
+            var px = new Color[n * n];
+            float mid = (n - 1) * 0.5f;
+            for (int y = 0; y < n; y++)
+            for (int x = 0; x < n; x++)
+            {
+                var p = new Vector2((x - mid) / mid, (y - mid) / mid);
+                // 头是个圆，头顶往上收成尖
+                float head = 0.52f - (p - new Vector2(0f, -0.3f)).magnitude;
+                float up = Mathf.InverseLerp(-0.3f, 0.98f, p.y);
+                float tail = 0.52f * Mathf.Pow(1f - up, 0.72f) - Mathf.Abs(p.x);
+                float sd = p.y <= -0.3f ? head : Mathf.Max(head, tail);
+                px[y * n + x] = new Color(1f, 1f, 1f, Mathf.Clamp01(sd * mid * 0.5f));
+            }
+            tex.SetPixels(px);
+            tex.Apply(false, false);
+            _bead = Sprite.Create(tex, new Rect(0, 0, n, n), new Vector2(0.5f, 0.5f), n);
+            return _bead;
         }
 
         static Sprite BakeRadial(int n, System.Func<float, Vector2, float> alpha)
