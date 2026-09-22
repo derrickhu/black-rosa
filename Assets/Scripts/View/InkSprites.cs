@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.IO;
 using UnityEngine;
 
 namespace InkLine
@@ -8,6 +9,20 @@ namespace InkLine
         static readonly Dictionary<string, Sprite> Cache = new Dictionary<string, Sprite>();
 
         public static Sprite Cannon() => Load("cannon");
+
+        // 和首页皮肤卡是同一门炮，只是炮口朝上，好坐在战场底边。
+        public static Sprite CannonSkin(int skin)
+        {
+            string name;
+            switch (skin)
+            {
+                case 1: name = "cannon_cinnabar"; break;
+                case 2: name = "cannon_celadon"; break;
+                case 3: name = "cannon_gilt"; break;
+                default: name = "cannon_plain"; break;
+            }
+            return Load(name) ?? Cannon();
+        }
 
         public static Sprite Person(EnemyId id)
         {
@@ -136,16 +151,91 @@ namespace InkLine
         {
             if (string.IsNullOrEmpty(name)) return null;
             if (Cache.TryGetValue(name, out Sprite cached) && cached != null) return cached;
-            Texture2D tex = Resources.Load<Texture2D>("Art/" + name);
-            Sprite sprite = null;
-            if (tex != null)
+            // 先拿导入器切好的 Sprite。界面图 isReadable=false，Sprite.Create 会失败，
+            // 那正是上次炮台页整屏退回白框的原因。
+            Sprite sprite = Resources.Load<Sprite>("Art/" + name);
+            if (sprite == null)
             {
-                float ppu = Mathf.Max(tex.height, 64f);
-                sprite = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f), ppu);
+                Texture2D tex = Resources.Load<Texture2D>("Art/" + name);
+                if (tex != null && tex.isReadable)
+                {
+                    float ppu = Mathf.Max(tex.height, 64f);
+                    sprite = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f), ppu);
+                }
             }
-            if (sprite == null) sprite = Resources.Load<Sprite>("Art/" + name);
+#if UNITY_EDITOR
+            // 团结还没把新图收进 Library 时，Resources.Load 是空的。
+            // 编辑器里直接读 PNG，避免 Art() 退回白框。真机包走上面的 Resources。
+            if (sprite == null) sprite = LoadFromDisk(name, default);
+#endif
             Cache[name] = sprite;
             return sprite;
         }
+
+        public static Sprite LoadSliced(string name, Vector4 border)
+        {
+            if (string.IsNullOrEmpty(name)) return null;
+            string key = name + ":slice:" + border;
+            if (Cache.TryGetValue(key, out Sprite cached) && cached != null) return cached;
+            Sprite imported = Load(name);
+            if (imported == null)
+            {
+                Cache[key] = null;
+                return null;
+            }
+            // 导入器经常还是 0 边，不能信。调用方给了九宫格就按调用方切。
+            if ((imported.border - border).sqrMagnitude < 1f && imported.border.sqrMagnitude > 1f)
+            {
+                Cache[key] = imported;
+                return imported;
+            }
+            Texture2D tex = imported.texture;
+            if (tex != null && tex.isReadable)
+            {
+                var sprite = Sprite.Create(
+                    tex,
+                    new Rect(0, 0, tex.width, tex.height),
+                    new Vector2(0.5f, 0.5f),
+                    100f,
+                    0,
+                    SpriteMeshType.FullRect,
+                    border);
+                Cache[key] = sprite;
+                return sprite;
+            }
+#if UNITY_EDITOR
+            if (border.sqrMagnitude > 1f)
+            {
+                Sprite disk = LoadFromDisk(name, border);
+                if (disk != null)
+                {
+                    Cache[key] = disk;
+                    return disk;
+                }
+            }
+#endif
+            Cache[key] = imported;
+            return imported;
+        }
+
+#if UNITY_EDITOR
+        static Sprite LoadFromDisk(string name, Vector4 border)
+        {
+            string path = Path.Combine(Application.dataPath, "Resources/Art/" + name + ".png");
+            if (!File.Exists(path)) return null;
+            var tex = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+            if (!tex.LoadImage(File.ReadAllBytes(path))) return null;
+            tex.filterMode = FilterMode.Bilinear;
+            tex.wrapMode = TextureWrapMode.Clamp;
+            return Sprite.Create(
+                tex,
+                new Rect(0, 0, tex.width, tex.height),
+                new Vector2(0.5f, 0.5f),
+                128f,
+                0,
+                SpriteMeshType.FullRect,
+                border);
+        }
+#endif
     }
 }

@@ -1,0 +1,61 @@
+A complete vertical mobile game UI screenshot, 9:16, 720 by 1280 composition, polished finished casual game screen.
+
+This is a production-ready interface mock for an ink-and-paper Chinese tower-defence game. Printed sticker art, flat solid colour, hard crisp edges like cut paper. Uniform thick outline the colour of dark soy sauce (#3A2A20) on every shape. Each colour uses at most three flat tones meeting at a hard edge.
+
+ABOUT THE ATTACHED IMAGE: it is a STYLE SWATCH ONLY. Copy only its rendering technique: flat colour bands and even thick outlines. The disc, rounded square, hexagon and arrow on the swatch stay off this screen.
+
+COLOUR ANCHORS
+- Page background: the warm beige of unsized rice paper, slightly deeper peach at the bottom
+- Cards: the white of a porcelain plate
+- Selected outline and selected tab label: the red of a Chinese New Year red envelope
+- Price buttons: the yellow of a new copper coin
+- Board: the deep walnut brown of an old ink-stone case
+- Type: dark soy-sauce brown
+- Locked cards: the cool grey of wet clay
+
+TOP — CURRENCY
+Two white porcelain pills with thick outlines sit high, close to the top edge.
+Left pill: a teal water-drop with a small gold lightning bolt, numbers 12/12
+Right pill: a squat violet ink bottle with a cork, number 50
+
+BOARD — EQUIPPED SLOTS
+A wide rounded walnut-brown ink-stone case occupies the upper middle, thick soy-sauce outline, thin inner line the yellow of a new copper coin. Shorter than a square, a shallow tray for two cards only.
+A short red-envelope paper tag at the top-left of the board reads exactly 技能
+Inside the board, two white porcelain ID cards sit side by side.
+Left card, selected, red-envelope outline: a purple ink-splat sticker, name 墨爆, small line 耗25墨
+Right card, wet-clay grey porcelain: centred word 空槽
+
+SUMMARY STRIP
+A cream rounded strip under the board, walnut outline, centred text exactly 两个键共用局内墨
+
+SPELL CATALOG
+A 2 by 3 grid of six porcelain cards under the strip. Each card is a wide rounded rectangle with thick soy-sauce outline. Left a circular coloured sticker icon, then two lines of type, bottom a cost and a status. Cards in this order:
+
+Top-left, selected, red-envelope outline:
+Icon: purple ink splat. Title 墨爆  Sub 最前排炸开一圈，6点伤害  Bottom-left 耗25墨  Bottom-right vermilion word 已装备1
+
+Top-right, live white porcelain:
+Icon: teal concentric target ring. Title 定身  Sub 全场敌人定住1.6秒  Bottom-left 耗35墨  Bottom-right copper-coin yellow pill 40墨
+
+Middle-left, live white porcelain:
+Icon: red raised fist with a small orange flame. Title 强攻  Sub 5秒内炮弹伤害翻倍  Bottom-left 耗45墨  Bottom-right grey word 差25墨
+
+Middle-right, live white porcelain:
+Icon: warm gold crescent moon. Title 横扫  Sub 全屏5点伤害并击退  Bottom-left 耗55墨  Bottom-right grey word 差70墨
+
+Bottom-left, wet-clay grey locked card:
+Icon: tipped bucket pouring a purple puddle, greyed. Title 泼墨  Sub 敌人最多那一列灼烧3秒  Bottom-left 耗50墨  Bottom-right grey word 需18星
+
+Bottom-right, wet-clay grey locked card:
+Icon: red heart with a white plus. Title 回血  Sub 基地回1血，每局限一次  Bottom-left 耗70墨  Bottom-right grey word 通关解锁
+
+BOTTOM DOCK — illustrated art, a designed painted asset sitting flush with the bottom of the screen and stretching the full width.
+A rolled-out rice-paper scroll lying as a tray, cream paper face, dark walnut roller caps on the left and right ends, thick soy-sauce outline, tall enough for large icons.
+Three equal columns on the tray.
+Left: a large printed-sticker cannon, label 炮台
+Centre: a large printed-sticker triangular pennant the red of a New Year envelope on a walnut pole, label 出征
+Right, selected: a raised cream porcelain plaque standing on the tray, a large printed-sticker calligraphy brush with one violet ink drop, label 技能 in red-envelope red
+The three icons are big, chunky, printed sticker quality, the heroes of the dock.
+
+Type is clean bold simplified Chinese, the exact words listed above, large enough to read on a phone.
+One single finished game screen, even margins, generous tap targets.

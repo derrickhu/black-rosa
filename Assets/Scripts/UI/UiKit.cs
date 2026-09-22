@@ -217,6 +217,22 @@ namespace InkLine
             return rt;
         }
 
+        // 贴一张生好的界面图。有 border 就九宫格，没有就原图。图缺失时退回 Stroke，避免编辑器里空白。
+        public static RectTransform Art(Transform parent, string name, string key, Vector2 pos, Vector2 size,
+            Pin pin = Pin.Center, Vector4 border = default)
+        {
+            bool sliced = border.sqrMagnitude > 0.01f;
+            Sprite spr = sliced ? InkSprites.LoadSliced(key, border) : InkSprites.Load(key);
+            if (spr == null)
+                return Stroke(parent, name, pos, size, pin);
+            var rt = Panel(parent, name, pos, size, Color.white, pin);
+            var img = rt.GetComponent<Image>();
+            img.sprite = spr;
+            img.type = (sliced || spr.border.sqrMagnitude > 1f) ? Image.Type.Sliced : Image.Type.Simple;
+            img.preserveAspect = img.type == Image.Type.Simple;
+            return rt;
+        }
+
         // 卡面 = 投影 + 圆角实底 + 等宽描边，三层九宫格叠出来。
         // 投影得是「同级、且先于卡面插入」的节点：Unity UI 里子节点一定画在父节点
         // 自己的图形之上，把投影挂成子节点会直接糊住卡面。
@@ -248,7 +264,7 @@ namespace InkLine
         public static Text Chip(Transform parent, string name, Sprite icon, string value,
             Vector2 pos, Vector2 size, Pin pin, out RectTransform chip)
         {
-            var root = Stroke(parent, name, pos, size, pin, 5f, radius: size.y * 0.5f);
+            var root = Stroke(parent, name, pos, size, pin, 3f, radius: size.y * 0.5f);
             chip = root;
             root.GetComponent<Image>().raycastTarget = false;
             float r = size.y * 1.06f;
@@ -285,7 +301,8 @@ namespace InkLine
             t.alignment = anchor;
             t.color = InkTheme.TextDark;
             t.text = text;
-            t.horizontalOverflow = HorizontalWrapMode.Wrap;
+            // Noto 的行盒比 fontSize 高一截。框不够高再一 Wrap，整行会被裁没。
+            t.horizontalOverflow = HorizontalWrapMode.Overflow;
             t.verticalOverflow = VerticalWrapMode.Overflow;
             t.raycastTarget = false;
             return t;
@@ -399,22 +416,29 @@ namespace InkLine
         // 底栏。整条悬浮的药丸，不是三个并排的按钮 —— 按钮的意思是「按一下发生一件事」，
         // 底栏的意思是「我现在在哪一页」。两者长得一样时，玩家分不清哪些能按出结果、
         // 哪些只是换个地方看，而且三个立体按钮并排在底部会把视线从内容上抢走。
-        // 选中态靠三件事一起说：淡底 + 图标不透明放大 + 标签换粗体主色。
-        // 不在图标底下垫饱和色块 —— 这批手绘图标自己带颜色和描边，垫一层就是撞色。
-        public const float TabBarH = 128f;   // 底栏在 BottomPad 之上吃掉的高度
-        const float TabBarW = 688f;
-        const float TabBarInner = 104f;
-        const float TabIconOn = 54f;
-        const float TabIconOff = 48f;
+        // 选中态按原型：宣纸方牌垫底 + 图标放大 + 标签换朱红粗体。
+        // 未选中也保持原色，只是略小、没有方牌 —— 半透明会把图标看小一圈。
+        public const float TabBarH = 236f;   // 卷轴按原图比例铺，不再压成一条
+        const float TabBarW = 720f;
+        public const float DockH = 220f;
+        // 卷轴两头是卷杆，三个页签不能按 720 均分，否则两边的图标压在杆上。
+        // 选中框比图标大一圈，但要给下面的字留出宣纸，不能把字顶到下沿木轴上。
+        const float TabStep = 180f;
+        const float TabIconOn = 96f;
+        const float TabIconOff = 80f;
+        const float TabPlaque = 112f;
+        const float TabMarkY = 42f;
+        const float TabLabelY = -36f;
+        const int TabLabelPx = 28;
 
         public static Button[] TabBar(Transform parent, string[] names, Sprite[] icons, Action<int> pick)
         {
-            var bar = Stroke(parent, "tabbar", new Vector2(0f, ScreenFit.BottomPad + 12f),
-                new Vector2(TabBarW, TabBarInner), Pin.Bottom, 5f, radius: TabBarInner * 0.34f);
+            RectTransform bar;
+            bar = Art(parent, "tabbar", "Ui/tab_dock", new Vector2(0f, ScreenFit.BottomPad),
+                new Vector2(TabBarW, DockH), Pin.Bottom, new Vector4(88f, 70f, 88f, 70f));
             bar.GetComponent<Image>().raycastTarget = false;
 
             int n = names.Length;
-            float step = TabBarW / n;
             var btns = new Button[n];
             for (int i = 0; i < n; i++)
             {
@@ -423,25 +447,25 @@ namespace InkLine
                 go.transform.SetParent(bar, false);
                 var rt = go.GetComponent<RectTransform>();
                 rt.anchorMin = rt.anchorMax = rt.pivot = new Vector2(0.5f, 0.5f);
-                rt.anchoredPosition = new Vector2((i - (n - 1) * 0.5f) * step, 0f);
-                rt.sizeDelta = new Vector2(step - 10f, TabBarInner - 14f);
+                rt.anchoredPosition = new Vector2((i - (n - 1) * 0.5f) * TabStep, 12f);
+                rt.sizeDelta = new Vector2(TabStep - 8f, DockH - 16f);
 
-                // 根节点这张图既是选中态的淡底，也是整格的点击区 ——
-                // 未选中时 color 是全透明，但照样接射线，所以整格都点得到。
                 var glow = go.GetComponent<Image>();
-                glow.sprite = UiSprites.Fill(UiSprites.Tier(26f));
-                glow.type = Image.Type.Sliced;
                 glow.color = Color.clear;
 
                 var btn = go.GetComponent<Button>();
-                // 关掉 Button 自带的变色，否则它会和 PaintTab 抢着改同一张图的颜色。
                 btn.transition = Selectable.Transition.None;
                 btn.targetGraphic = glow;
                 btn.onClick.AddListener(() => pick(idx));
 
+                Art(go.transform, "plaque", "Ui/tab_plaque", new Vector2(0f, TabMarkY),
+                    new Vector2(TabPlaque, TabPlaque), Pin.Center);
+
                 if (icons != null && idx < icons.Length && icons[idx] != null)
-                    Icon(go.transform, icons[idx], new Vector2(0f, 14f), TabIconOff);
-                Label(go.transform, "t", names[i], 22, new Vector2(0f, -28f), new Vector2(step - 16f, 28f));
+                    Icon(go.transform, icons[idx], new Vector2(0f, TabMarkY), TabIconOff);
+                var tabLabel = Label(go.transform, "t", names[i], TabLabelPx, new Vector2(0f, TabLabelY),
+                    new Vector2(160f, 36f));
+                tabLabel.fontSize = TabLabelPx;
                 btns[i] = btn;
             }
             return btns;
@@ -467,24 +491,41 @@ namespace InkLine
             {
                 if (tabs[i] == null) continue;
                 bool on = i == active;
-                var glow = tabs[i].GetComponent<Image>();
-                if (glow != null) glow.color = on ? InkTheme.TabOn : Color.clear;
+                var root = tabs[i].GetComponent<RectTransform>();
+                if (root != null)
+                    root.anchoredPosition = new Vector2((i - (tabs.Length - 1) * 0.5f) * TabStep, root.anchoredPosition.y);
+                Transform plaque = tabs[i].transform.Find("plaque");
+                if (plaque != null)
+                {
+                    plaque.gameObject.SetActive(on);
+                    var pr = plaque.GetComponent<RectTransform>();
+                    pr.anchoredPosition = new Vector2(0f, TabMarkY);
+                    pr.sizeDelta = new Vector2(TabPlaque, TabPlaque);
+                }
+                Transform plaqueSh = tabs[i].transform.Find("plaque_sh");
+                if (plaqueSh != null) plaqueSh.gameObject.SetActive(on);
 
                 Transform ic = tabs[i].transform.Find("icon");
                 if (ic != null)
                 {
-                    // 压暗要用透明度，不能用 Image.color 相乘 —— 相乘只会把彩色图标弄脏。
-                    ic.GetComponent<Image>().color = new Color(1f, 1f, 1f, on ? 1f : 0.42f);
+                    ic.GetComponent<Image>().color = Color.white;
                     float s = on ? TabIconOn : TabIconOff;
-                    ic.GetComponent<RectTransform>().sizeDelta = new Vector2(s, s);
+                    var ir = ic.GetComponent<RectTransform>();
+                    ir.anchoredPosition = new Vector2(0f, TabMarkY);
+                    ir.sizeDelta = new Vector2(s, s);
                 }
 
                 Transform lb = tabs[i].transform.Find("t");
                 if (lb != null)
                 {
+                    var lr = lb.GetComponent<RectTransform>();
+                    lr.anchoredPosition = new Vector2(0f, TabLabelY);
+                    lr.sizeDelta = new Vector2(160f, 36f);
                     var t = lb.GetComponent<Text>();
-                    t.color = on ? InkTheme.CtaDeep : InkTheme.TextMid;
+                    t.fontSize = TabLabelPx;
+                    t.color = on ? InkTheme.Seal : InkTheme.TextMid;
                     t.font = on ? FontBold : Font;
+                    lb.SetAsLastSibling();
                 }
             }
         }

@@ -16,6 +16,7 @@ namespace InkLine
         static Sprite _splat;
         static Sprite _coin;
         static Sprite _bead;
+        static Sprite _mote;
 
         public static Material AddMat()
         {
@@ -71,6 +72,10 @@ namespace InkLine
             sr.color = color;
         }
 
+        // 拖尾贴图。横向必须是**硬边**：原来横向是 sigma 3.4 的高斯（在 16px 高上
+        // 几乎糊满整条），配上 SoftMat 的柔光，子弹过后就留下一道又宽又虚的脏影
+        // —— 那正是 §4.0 要砍掉的东西。现在横向满宽实心、只在最外一格收边，
+        // 纵向线性淡出，画出来是一条干净的速度线。
         public static Texture2D StreakTex()
         {
             if (_streak != null) return _streak;
@@ -79,12 +84,14 @@ namespace InkLine
             _streak.wrapMode = TextureWrapMode.Clamp;
             _streak.filterMode = FilterMode.Bilinear;
             var px = new Color32[w * h];
+            float mid = (h - 1) * 0.5f;
             for (int y = 0; y < h; y++)
             for (int x = 0; x < w; x++)
             {
                 float along = 1f - x / (w - 1f);
-                float across = Mathf.Exp(-((y - (h - 1) * 0.5f) / 3.4f) * ((y - (h - 1) * 0.5f) / 3.4f));
-                byte a = (byte)Mathf.Clamp(Mathf.RoundToInt(255f * Mathf.Pow(along, 1.15f) * across), 0, 255);
+                // 只留一格边做抗锯齿，其余满宽实心
+                float edge = Mathf.Clamp01((mid - Mathf.Abs(y - mid)) / 1.2f + 0.2f);
+                byte a = (byte)Mathf.Clamp(Mathf.RoundToInt(255f * along * Mathf.Min(1f, edge)), 0, 255);
                 px[y * w + x] = new Color32(255, 255, 255, a);
             }
             _streak.SetPixels32(px);
@@ -295,6 +302,32 @@ namespace InkLine
             if (_dot != null) return _dot;
             _dot = InkArt.Heap(InkShape.Circle, Color.white, 16);
             return _dot;
+        }
+
+        // 元素小卫星：按 §4.0 的规矩长 —— 实心亮面 + 一圈深色外沿 + 硬边。
+        // 白色画出来，由 SpriteRenderer 的 color 上元素纯色；外沿写成半透明黑，
+        // 上色后仍然是同色系里更深的一圈，所以在米色宣纸上立得住。
+        public static Sprite Mote()
+        {
+            if (_mote != null) return _mote;
+            const int n = 32;
+            var tex = new Texture2D(n, n, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp };
+            var px = new Color32[n * n];
+            float c = (n - 1) * 0.5f;
+            for (int y = 0; y < n; y++)
+            for (int x = 0; x < n; x++)
+            {
+                float r = Mathf.Sqrt((x - c) * (x - c) + (y - c) * (y - c)) / c;
+                Color32 v;
+                if (r > 1f) v = new Color32(255, 255, 255, 0);
+                else if (r > 0.70f) v = new Color32(70, 55, 45, 255);      // 深色外沿
+                else v = new Color32(255, 255, 255, 255);                  // 亮面
+                px[y * n + x] = v;
+            }
+            tex.SetPixels32(px);
+            tex.Apply(false, false);
+            _mote = Sprite.Create(tex, new Rect(0, 0, n, n), new Vector2(0.5f, 0.5f), n);
+            return _mote;
         }
 
     }

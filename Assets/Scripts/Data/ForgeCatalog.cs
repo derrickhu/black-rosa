@@ -13,6 +13,7 @@ namespace InkLine
         public string Icon;      // Resources/Art/Ui/ico_<Icon>.png
         public int[] Cost;
         public int[] Gate;
+        public int Reveal;       // 累计星到了才在加成页露面。0 = 开局就有
         public string LockNote;  // 星门槛超出本章上限时改显示这句
 
         public int MaxLevel => Cost.Length;
@@ -41,50 +42,68 @@ namespace InkLine
     {
         public const int LineCount = 5;
 
-        // 前三级刻意便宜，保证头几关就能点到 2、3 次。
-        // 贵的那几级靠总星门槛卡住，让人想着往后打而不是原地刷。
+        // 开局只亮伤害。别的线按累计星陆续露面，不能五张一起铺开。
+        // 已经点过的线永远留着，免得存档玩家看见自己买过的东西消失。
         static readonly ForgeDef[] Lines =
         {
             new ForgeDef
             {
                 Line = ForgeLine.Damage, Name = "伤害", Step = "炮弹伤害 +8%",
-                Icon = "damage",
+                Icon = "damage", Reveal = 0,
                 Cost = new[] { 12, 28, 60, 120 },
                 Gate = new[] { 0, 0, 12, 20 }
             },
             new ForgeDef
             {
                 Line = ForgeLine.Emitters, Name = "炮台数", Step = "多一门炮",
-                Icon = "guns",
+                Icon = "guns", Reveal = 20,
                 Cost = new[] { 60, 200 },
-                Gate = new[] { 8, 99 },
+                Gate = new[] { 20, 99 },
                 LockNote = "第二章开放"
             },
             new ForgeDef
             {
-                Line = ForgeLine.FireRate, Name = "射速", Step = "开火间隔 -4%",
-                Icon = "rate",
+                Line = ForgeLine.FireRate, Name = "射速", Step = "开火间隔 -8%",
+                Icon = "rate", Reveal = 5,
                 Cost = new[] { 16, 40, 90 },
-                Gate = new[] { 0, 0, 16 }
+                Gate = new[] { 5, 8, 16 }
             },
             new ForgeDef
             {
                 Line = ForgeLine.StartGold, Name = "开局金币", Step = "开局金币 +2",
-                Icon = "gold",
+                Icon = "gold", Reveal = 9,
                 Cost = new[] { 14, 32, 70 },
-                Gate = new[] { 0, 0, 16 }
+                Gate = new[] { 9, 12, 16 }
             },
             new ForgeDef
             {
                 Line = ForgeLine.BaseHp, Name = "基地生命", Step = "基地生命 +1",
-                Icon = "hp",
+                Icon = "hp", Reveal = 14,
                 Cost = new[] { 50, 160 },
-                Gate = new[] { 10, 22 }
+                Gate = new[] { 14, 22 }
             }
         };
 
         public static ForgeDef Get(int i) => Lines[Mathf.Clamp(i, 0, LineCount - 1)];
         public static ForgeDef Get(ForgeLine line) => Lines[(int)line];
+
+        // 点过，或累计星到了露面门槛，才在加成页出现。
+        public static bool Exposed(int line, int stars, int level) =>
+            level > 0 || stars >= Get(line).Reveal;
+
+        // 下一张要解锁的线。加成页只挂这一张「还没到」的预告，不把后面全摊开。
+        public static int NextLocked(int stars, int[] levels)
+        {
+            int best = -1, bestR = int.MaxValue;
+            for (int i = 0; i < LineCount; i++)
+            {
+                int lv = levels != null && i < levels.Length ? levels[i] : 0;
+                if (Exposed(i, stars, lv)) continue;
+                int r = Get(i).Reveal;
+                if (r < bestR) { bestR = r; best = i; }
+            }
+            return best;
+        }
 
         public static int MaxLevel(int i) => Get(i).MaxLevel;
 
@@ -111,7 +130,7 @@ namespace InkLine
             int gold = Lv(levels, ForgeLine.StartGold);
             int hp = Lv(levels, ForgeLine.BaseHp);
             s.DamageMul = 1f + 0.08f * dmg;
-            s.IntervalMul = 1f - 0.04f * rate;
+            s.IntervalMul = 1f - 0.08f * rate;
             s.Emitters = Mathf.Clamp(2 + gun, 1, GameConstants.MaxEmitters);
             s.StartGold = 6 + 2 * gold;
             s.BaseHp = GameConstants.BaseHp + hp;

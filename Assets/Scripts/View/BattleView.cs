@@ -10,12 +10,14 @@ namespace InkLine
         readonly List<SpriteRenderer> _stamps = new List<SpriteRenderer>();
         readonly List<SpriteRenderer> _stars = new List<SpriteRenderer>();
         readonly List<SpriteRenderer> _emitters = new List<SpriteRenderer>();
+        readonly List<SpriteRenderer> _muzzles = new List<SpriteRenderer>();
         readonly List<SpriteRenderer> _skins = new List<SpriteRenderer>();
         readonly List<SpriteRenderer> _washes = new List<SpriteRenderer>();
 
-        // 皮肤。炮身是黑墨，乘色出不来，所以改成在炮位底下垫一团皮肤色。
+        // 皮肤直接换炮身图，底下再垫一团同色的光。素笔的 tint 是透明，不能拿它判断换没换皮肤。
+        public int EmitterSkin;
         public Color EmitterTint = Color.clear;
-        Color _skinPainted = new Color(-1f, -1f, -1f, -1f);
+        int _skinPainted = -1;
         readonly Dictionary<int, SpriteRenderer> _enemies = new Dictionary<int, SpriteRenderer>();
         readonly Dictionary<int, SpriteRenderer> _bullets = new Dictionary<int, SpriteRenderer>();
         readonly SpriteRenderer _leak;
@@ -67,9 +69,13 @@ namespace InkLine
                 skin.enabled = false;
                 InkFx.PaintAdd(skin, Color.clear);
                 _skins.Add(skin);
-                var gun = Make("gun", InkArt.Cannon(), new Vector3(0, GameConstants.EmitterY, 0), 0.82f);
+                var gun = Make("gun", InkSprites.CannonSkin(0), new Vector3(0, GameConstants.EmitterY, 0), 0.64f);
                 gun.sortingOrder = 5;
                 _emitters.Add(gun);
+                var muzzle = Make("muzzle", InkFx.SoftDisc(), new Vector3(0, GameConstants.EmitterY, 0), 0.22f);
+                muzzle.sortingOrder = 6;
+                muzzle.enabled = false;
+                _muzzles.Add(muzzle);
             }
             _leak = Make("leak", InkArt.Heap(InkShape.Bar, new Color(InkTheme.Ink.r, InkTheme.Ink.g, InkTheme.Ink.b, 0.35f), 64), new Vector3(0, GameConstants.LeakY, 0), 1f);
             _leak.sortingOrder = 1;
@@ -126,24 +132,25 @@ namespace InkLine
             }
             PaintWashes();
 
-            bool skinned = EmitterTint.a > 0.01f;
-            // 皮肤色只在换皮肤时刷一次材质，不要每帧设。
-            if (_skinPainted != EmitterTint)
+            if (_skinPainted != EmitterSkin)
             {
-                _skinPainted = EmitterTint;
-                var wash = new Color(EmitterTint.r, EmitterTint.g, EmitterTint.b, 0.5f);
-                for (int e = 0; e < _skins.Count; e++)
-                    InkFx.PaintAdd(_skins[e], skinned ? wash : Color.clear);
+                _skinPainted = EmitterSkin;
+                Sprite body = InkSprites.CannonSkin(EmitterSkin);
+                for (int e = 0; e < _emitters.Count; e++)
+                {
+                    _emitters[e].sprite = body;
+                    _emitters[e].color = Color.white;
+                }
             }
             for (int e = 0; e < GameConstants.MaxEmitters; e++)
             {
                 bool on = e < w.EmitterCount;
                 _emitters[e].enabled = on;
-                _skins[e].enabled = on && skinned;
+                if (_skins.Count > e) _skins[e].enabled = false;
+                if (_muzzles.Count > e) _muzzles[e].enabled = false;
                 if (!on) continue;
                 var at = new Vector3(w.RailX + e * GameConstants.CellWidth, GameConstants.EmitterY, 0f);
                 _emitters[e].transform.position = at;
-                _skins[e].transform.position = at;
             }
 
             for (int n = 0; n < w.Enemies.Count; n++)
@@ -157,9 +164,13 @@ namespace InkLine
                 // 正是玩家判断危险度的依据。0.25 足够看出「它红了」。
                 if (e.Colored) tint = Color.Lerp(Color.white, InkTheme.Explode, 0.25f);
                 // 冻是整体染青，其余持续状态交给 InkDot 的记号层，不再抢本体颜色
-                if (e.Frozen) tint = Color.Lerp(Color.white, InkTheme.Ice, 0.45f);
-                else if (e.BurnTime > 0f) tint = Color.Lerp(Color.white, InkTheme.Fire, 0.45f);
-                else if (e.PoisonTime > 0f) tint = Color.Lerp(Color.white, InkTheme.Poison, 0.32f);
+                // 持续状态现在都由 InkDot 的分区图层来说，本体染色只留一点点「它变了色」。
+                // 原来冻 0.45 / 烧 0.45 / 毒 0.32 是在图层之外再喊一遍，
+                // 压那么狠会把怪糊成一块色板，图层的硬边反而看不出来。
+                // 同时挂多个状态时也只能染一种色，越浓越容易误导。
+                if (e.Frozen) tint = Color.Lerp(Color.white, InkTheme.Ice, 0.20f);
+                else if (e.BurnTime > 0f) tint = Color.Lerp(Color.white, InkTheme.Fire, 0.22f);
+                else if (e.PoisonTime > 0f) tint = Color.Lerp(Color.white, InkTheme.Poison, 0.18f);
                 Sprite body = InkArt.Person(e.Type, Color.clear);
                 float baseScale = e.Radius * 2.6f;
                 float wave = Time.unscaledTime * (e.Held ? 3.2f : 5.4f) + e.Id * 1.7f;
@@ -177,10 +188,9 @@ namespace InkLine
                 Vector2 at = e.Pos + e.Recoil + Vector2.up * (0.035f * Mathf.Sin(wave));
                 SpriteRenderer sr = Bind(_enemies, e.Id, body, at, baseScale, 4, tint);
                 sr.transform.localScale = new Vector3(sx, sy, 1f);
-                if (e.Frozen || e.BurnTime > 0f)
-                    InkVfx.PlayGlow(sr, e.Frozen ? InkTheme.Ice : InkTheme.Fire, 1.45f);
-                else
-                    InkVfx.StopAura(sr);
+                // 持续状态一概不再叠柔光。冰锥 / 火焰 / 毒泡本身就是硬边图，
+                // 外面再罩一圈雾正好把硬边泡软，而硬边是这套美术能立住的全部原因。
+                InkVfx.StopAura(sr);
                 var dots = sr.GetComponent<InkDot>();
                 if (dots == null) dots = sr.gameObject.AddComponent<InkDot>();
                 dots.Sync(e, 5);
@@ -199,7 +209,7 @@ namespace InkLine
                 SpriteRenderer shot = Bind(_bullets, b.Id, body, b.Pos, 1f, 6, Color.white);
                 var layer = shot.GetComponent<InkShot>();
                 if (layer == null) layer = shot.gameObject.AddComponent<InkShot>();
-                layer.Present(b);
+                layer.Present(b, EmitterSkin);
             }
 
             for (int n = 0; n < w.Bursts.Count; n++) InkVfx.SpawnHit(w.Bursts[n]);

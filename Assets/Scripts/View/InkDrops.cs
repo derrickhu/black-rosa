@@ -21,6 +21,7 @@ namespace InkLine
             public SpriteRenderer Shadow;
             public Vector2 Last;
             public bool Tracked;
+            public bool Shard;
         }
 
         public static void BindRoot(Transform root)
@@ -48,7 +49,7 @@ namespace InkLine
 
         static void Paint(DropItem d)
         {
-            if (!_live.TryGetValue(d.Id, out Piece p)) p = _live[d.Id] = Make(d.Kind);
+            if (!_live.TryGetValue(d.Id, out Piece p)) p = _live[d.Id] = Make(d);
             if (d.Kind == DropKind.Ink) Puddle(p, d);
             else Coin(p, d);
             p.Last = d.Pos;
@@ -65,7 +66,7 @@ namespace InkLine
             p.Body.transform.position = new Vector3(d.Pos.x, d.Pos.y + bob, 0f);
             // 飞起来收小一点，一串收束进药丸里才好看
             // 0.27 太小：描边和戳印都糊没了，一枚金币看着只是个橙点。
-            float size = 0.34f * Mathf.Lerp(1f, 0.66f, d.Fly);
+            float size = (p.Shard ? 0.62f : 0.34f) * Mathf.Lerp(1f, 0.66f, d.Fly);
             p.Body.transform.localScale = Vector3.one * size;
             // 在空中翻，躺下就停。一直转会像悬浮的道具，不像掉在地上的钱。
             p.Body.transform.localRotation = Quaternion.Euler(0f, 0f,
@@ -121,10 +122,11 @@ namespace InkLine
 
         static Color Ink(float a) => new Color(InkTheme.Ink.r, InkTheme.Ink.g, InkTheme.Ink.b, a);
 
-        static Piece Make(DropKind kind)
+        static Piece Make(DropItem d)
         {
-            bool gold = kind == DropKind.Gold;
-            var wrap = new GameObject(gold ? "coin" : "puddle");
+            bool ink = d.Kind == DropKind.Ink;
+            bool shard = d.Kind == DropKind.Shard;
+            var wrap = new GameObject(shard ? "shard" : ink ? "puddle" : "coin");
             wrap.transform.SetParent(_root, false);
 
             var shadow = new GameObject("shadow");
@@ -137,12 +139,17 @@ namespace InkLine
             var body = new GameObject("body");
             body.transform.SetParent(wrap.transform, false);
             var sr = body.AddComponent<SpriteRenderer>();
-            sr.sprite = gold ? InkFx.Coin() : InkFx.Splat();
+            if (shard)
+            {
+                Sprite icon = InkSprites.Ui(SpellCatalog.Get(d.Spell).Id);
+                sr.sprite = icon != null ? icon : InkFx.Coin();
+            }
+            else sr.sprite = ink ? InkFx.Splat() : InkFx.Coin();
             // 墨摊贴在格子底纹之上、走怪之下 —— 盖住网格会让人以为格子锁了。
-            sr.sortingOrder = gold ? 9 : 1;
+            sr.sortingOrder = ink ? 1 : 9;
             InkFx.PaintSprite(sr, Color.white);
-            var piece = new Piece { Body = sr, Shadow = sh };
-            if (gold) return piece;
+            var piece = new Piece { Body = sr, Shadow = sh, Shard = shard };
+            if (!ink) return piece;
 
             // 珠子离地飞，得压在走怪之上，不然半路会钻到敌人后面去。
             var bead = new GameObject("bead");

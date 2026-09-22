@@ -1,0 +1,51 @@
+A complete vertical mobile game UI screenshot, 9:16, 720 by 1280 composition, polished finished casual game screen.
+
+This is a production-ready interface mock for an ink-and-paper Chinese tower-defence game. Printed sticker art, flat solid colour, hard crisp edges like cut paper. Uniform thick outline the colour of dark soy sauce (#3A2A20) on every shape. Each colour uses at most three flat tones meeting at a hard edge.
+
+ABOUT THE ATTACHED IMAGE: it is a STYLE SWATCH ONLY. Copy only its rendering technique: flat colour bands and even thick outlines. The disc, rounded square, hexagon and arrow on the swatch stay off this screen.
+
+COLOUR ANCHORS
+- Page background: the warm beige of unsized rice paper, slightly deeper peach at the bottom
+- Cards: the white of a porcelain plate
+- Selected outline and selected tab label: the red of a Chinese New Year red envelope
+- Price buttons: the yellow of a new copper coin
+- Board: the deep walnut brown of an old ink-stone case
+- Type: dark soy-sauce brown
+
+TOP — CURRENCY
+Two white porcelain pills with thick outlines sit high, close to the top edge.
+Left pill: a teal water-drop with a small gold lightning bolt, numbers 12/12
+Right pill: a squat violet ink bottle with a cork, number 50
+
+BOARD — SKINS
+A large rounded walnut-brown ink-stone case occupies the upper middle, thick soy-sauce outline, thin inner line the yellow of a new copper coin.
+A short red-envelope paper tag at the top-left of the board reads exactly 炮台
+Inside the board, a 2 by 2 grid of four white porcelain ID cards. Each card shows exactly one short stubby side-view cannon on a wooden block, plus a name under the cannon.
+Top-left card, selected, red-envelope outline: grey cannon on warm cream disc, name 素笔, small vermilion word 使用中
+Top-right card: cannon on a vermilion cinnabar disc, name 朱砂, small word 需6星
+Bottom-left card: greyed cannon, name 青瓷, small word 需16星
+Bottom-right card: greyed cannon, name 鎏金, small word 通关
+Each card shows one cannon only.
+
+SUMMARY STRIP
+A cream rounded strip under the board, walnut outline, centred text exactly 当前 2 门炮
+
+UPGRADE LIST
+Five full-width white porcelain rows stacked under the strip, each row a rounded rectangle with thick soy-sauce outline. Left a circular coloured icon, centre two lines of type, right a pill button. Rows in this order:
+
+1. Icon: charcoal cannonball in front of an orange starburst. Title 伤害  Lv.0  Sub 炮弹伤害 +8%  Right grey text 需20星
+2. Icon: gold stopwatch with three orange speed streaks. Title 射速  Lv.0  Sub 开火间隔 -8%  Right copper-coin yellow pill 16墨
+3. Icon: a stack of three gold coins. Title 开局金币  Lv.1  Sub 开局金币 +2  Right copper-coin yellow pill 32墨
+4. Icon: cream shield with a red heart. Title 基地生命  Lv.0  Sub 基地生命 +1  Right copper-coin yellow pill 50墨
+5. Dim row. Icon: grey padlock. Title 炮台数  Sub 多一门炮  Right grey text 累积20星
+
+BOTTOM DOCK — illustrated art, a designed painted asset sitting flush with the bottom of the screen and stretching the full width.
+A rolled-out rice-paper scroll lying as a tray, cream paper face, dark walnut roller caps on the left and right ends, thick soy-sauce outline, tall enough for large icons.
+Three equal columns on the tray.
+Left: a large printed-sticker cannon, label 炮台
+Centre, selected: a raised cream porcelain plaque standing on the tray, a large printed-sticker triangular pennant the red of a New Year envelope on a walnut pole, label 出征 in red-envelope red
+Right: a large printed-sticker calligraphy brush with one violet ink drop, label 技能
+The three icons are big, chunky, printed sticker quality, the heroes of the dock.
+
+Type is clean bold simplified Chinese, the exact words listed above, large enough to read on a phone.
+One single finished game screen, even margins, generous tap targets.

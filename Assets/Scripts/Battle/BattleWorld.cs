@@ -93,7 +93,7 @@ namespace InkLine
         public float MaxLife = 0.72f;
     }
 
-    public enum DropKind { Gold, Ink }
+    public enum DropKind { Gold, Ink, Shard }
 
     // 掉落物。弹出来、落地、躺一下，然后飞进顶栏的药丸里。
     // 到账放在飞到的那一刻，不在击杀那一刻 —— 让「打死」和「我变富了」
@@ -103,6 +103,7 @@ namespace InkLine
         public int Id;
         public DropKind Kind;
         public int Amount;
+        public int Spell;       // Shard 时是哪门技能。别的掉落物不用
         public Vector2 Pos;
         public Vector2 Vel;
         public float Ground;
@@ -194,6 +195,9 @@ namespace InkLine
         // 到账脉冲：顶栏拿去弹一下。视图每帧自己衰减，世界只负责踢。
         public float GoldPop;
         public float InkPop;
+        // 这一局还能掉的碎片额度，和已经捡到、等通关入账的数量。
+        public int[] ShardRoom = new int[SpellCatalog.Count];
+        public int[] ShardGot = new int[SpellCatalog.Count];
         // 震屏请求。视图取走就清零，衰减归视图管 —— 顿帧期间世界是停的，
         // 震动不能跟着一起停，否则最该有反馈的那一下反而是静止的。
         public float ShakeWanted;
@@ -204,6 +208,7 @@ namespace InkLine
 
         // 局外升级只改这两个系数和开局条件，结算骨架一步都不动。
         float _damageMul = 1f;
+        float _skinDamage;
         float _intervalMul = 1f;
 
         readonly float[] _fireCd = new float[GameConstants.MaxEmitters];
@@ -276,6 +281,14 @@ namespace InkLine
                 RailX = FieldLayout.ColumnX(0);
             }
             for (int c = 0; c < GameConstants.Columns; c++) RefreshCol(c);
+        }
+
+        // 进关之后再套皮肤：默认弹伤和开局金币加上去，改装的乘算、加算照旧。
+        public void ApplySkin(int skin)
+        {
+            SkinDef d = SkinCatalog.Get(skin);
+            _skinDamage = d.DamageAdd;
+            if (d.GoldAdd != 0) Gold += d.GoldAdd;
         }
 
         void WipePreviewGrid()
@@ -434,8 +447,9 @@ namespace InkLine
         {
             int mul = EnemyCatalog.Density(spec.Id);
             int count = spec.Count * mul;
-            // 这一批的总血量和总赏金按关卡表原来那几只算，再摊到铺开的每一只头上。
-            // 赏金保底 1 —— 掉不出东西的怪打起来没意义，宁可让最便宜那档小小超发。
+            // 只摊赏金，不摊血。原先连血一起除，墨丁 4.5 ÷ 2 = 2.25，
+            // 开局弹伤 2.4，铺开的每一只都是一发死 —— 场上人多，难度反而没了。
+            // 赏金保底 1，总收入仍按关卡表原来那几只算。
             int purse = Mathf.Max(1, spec.Count * EnemyCatalog.Get(spec.Id, Stage.Index).Gold);
             for (int i = 0; i < count; i++)
             {
@@ -447,7 +461,7 @@ namespace InkLine
                     FieldLayout.ColumnX(col) + UnityEngine.Random.Range(-0.1f, 0.1f),
                     GameConstants.SpawnY + i / 3 * 0.62f + UnityEngine.Random.Range(0f, 0.12f));
                 int gold = Mathf.Max(1, purse / count + (i < purse % count ? 1 : 0));
-                Enemies.Add(Make(spec.Id, at, 1f / count * spec.Count, gold));
+                Enemies.Add(Make(spec.Id, at, 1f, gold));
             }
         }
 
@@ -519,7 +533,7 @@ namespace InkLine
                 if (_fireCd[i] > 0f) continue;
                 _fireCd[i] = interval;
                 float x = RailX + i * GameConstants.CellWidth;
-                FireBullet(new Vector2(x, GameConstants.EmitterY + 0.35f), Vector2.up);
+                FireBullet(new Vector2(x, GameConstants.EmitterY + 0.24f), Vector2.up);
             }
         }
 
@@ -532,10 +546,10 @@ namespace InkLine
                 Vel = dir.normalized * GameConstants.BulletSpeed,
                 NextRow = 0
             };
-            // 局外伤害升级和「强攻」都抬基础弹伤，不动加算/乘算两个池子，
-            // 免得和镇金那条招牌抢规则。分裂弹靠 CopyFrom 继承。
+            // 皮肤先把单发默认伤害加上，炮台伤害和「强攻」照旧乘。分裂弹靠 CopyFrom 继承。
+            b.Mods.BaseDamage += _skinDamage;
             b.Mods.BaseDamage *= _damageMul;
-            if (RageTime > 0f) b.Mods.BaseDamage *= 2f;
+            if (RageTime > 0f) b.Mods.BaseDamage *= RageMul;
             Bullets.Add(b);
             return b;
         }
@@ -1217,6 +1231,24 @@ namespace InkLine
 
         // 一只怪掉几枚金币、几滴墨。拆成几份是为了「一片金币叮叮当当飞过去」，
         // 一份一大枚反而没有收获感；份数跟着体型走，关底死时该铺满半个屏。
+        public void OfferShards(int[] level, int[] have)
+        {
+            if (ShardRoom == null || ShardRoom.Length != SpellCatalog.Count)
+                ShardRoom = new int[SpellCatalog.Count];
+            if (ShardGot == null || ShardGot.Length != SpellCatalog.Count)
+                ShardGot = new int[SpellCatalog.Count];
+            for (int i = 0; i < SpellCatalog.Count; i++)
+            {
+                int rank = level != null && i < level.Length ? level[i] : 0;
+                int got = have != null && i < have.Length ? have[i] : 0;
+                int need = rank >= SpellCatalog.MaxLevel
+                    ? 0
+                    : SpellCatalog.NextShards(SpellCatalog.Get(i), rank);
+                ShardRoom[i] = Mathf.Max(0, need - got);
+                ShardGot[i] = 0;
+            }
+        }
+
         void DropLoot(EnemyActor e)
         {
             int ink = Mathf.Max(1, e.Gold * GameConstants.InkPerGold);
@@ -1224,9 +1256,36 @@ namespace InkLine
             // 墨只出一摊。它是尸体留在地上那摊，不是一把零钱 ——
             // 一只怪摊开好几摊，看着就不像同一具身体流出来的了。
             Scatter(e, DropKind.Ink, ink, 1);
+            if (!e.IsBoss) return;
+            int spell = RollShard();
+            if (spell < 0) return;
+            Scatter(e, DropKind.Shard, 1, 1, spell);
+            SpellDef d = SpellCatalog.Get(spell);
+            Push(PopKind.Word, e.Id, e.Pos + Vector2.up * 0.55f, d.Name, d.Tint, 1.15f, 1.15f);
         }
 
-        void Scatter(EnemyActor e, DropKind kind, int total, int pieces)
+        int RollShard()
+        {
+            if (ShardRoom == null) return -1;
+            int n = 0;
+            for (int i = 0; i < ShardRoom.Length; i++)
+                if (ShardRoom[i] > 0) n++;
+            if (n <= 0) return -1;
+            int pick = UnityEngine.Random.Range(0, n);
+            for (int i = 0; i < ShardRoom.Length; i++)
+            {
+                if (ShardRoom[i] <= 0) continue;
+                if (pick == 0)
+                {
+                    ShardRoom[i]--;
+                    return i;
+                }
+                pick--;
+            }
+            return -1;
+        }
+
+        void Scatter(EnemyActor e, DropKind kind, int total, int pieces, int spell = -1)
         {
             if (total <= 0) return;
             pieces = Mathf.Max(1, Mathf.Min(pieces, total));
@@ -1236,7 +1295,7 @@ namespace InkLine
                 if (amount <= 0) continue;
                 if (Drops.Count >= DropCap)
                 {
-                    Collect(kind, amount);
+                    Collect(kind, amount, spell);
                     continue;
                 }
                 float side = pieces == 1 ? UnityEngine.Random.Range(-1f, 1f) : (i - (pieces - 1) * 0.5f) / pieces * 2f;
@@ -1250,6 +1309,7 @@ namespace InkLine
                     Id = NextActorId++,
                     Kind = kind,
                     Amount = amount,
+                    Spell = spell,
                     Pos = puddle ? new Vector2(e.Pos.x, ground) : e.Pos,
                     Vel = puddle
                         ? Vector2.zero
@@ -1275,7 +1335,9 @@ namespace InkLine
                 {
                     // 越飞越快，落点那一下才有「被吸进去」的收束感。
                     d.Fly += dt / DropFlyTime;
-                    Vector2 to = d.Kind == DropKind.Gold ? GoldChip : InkChip;
+                    Vector2 to = d.Kind == DropKind.Gold ? GoldChip
+                        : d.Kind == DropKind.Shard ? new Vector2(d.From.x, 8.4f)
+                        : InkChip;
                     float u = Mathf.Clamp01(d.Fly);
                     float e = u * u;
                     // 起手先往侧上方甩一点再拐向药丸，直线飞过去像是在瞬移。
@@ -1286,7 +1348,7 @@ namespace InkLine
                     d.Pos = Vector2.Lerp(a, b, e);
                     if (u >= 1f)
                     {
-                        Collect(d.Kind, d.Amount);
+                        Collect(d.Kind, d.Amount, d.Spell);
                         Drops.RemoveAt(i);
                     }
                     continue;
@@ -1321,12 +1383,17 @@ namespace InkLine
             }
         }
 
-        void Collect(DropKind kind, int amount)
+        void Collect(DropKind kind, int amount, int spell = -1)
         {
             if (kind == DropKind.Gold)
             {
                 Gold += amount;
                 GoldPop = 1f;
+            }
+            else if (kind == DropKind.Shard)
+            {
+                if (ShardGot != null && spell >= 0 && spell < ShardGot.Length)
+                    ShardGot[spell] += amount;
             }
             else
             {
@@ -1339,7 +1406,7 @@ namespace InkLine
         // 而那一截恰好是玩家刚刚看着掉出来的。
         void FlushDrops()
         {
-            for (int i = 0; i < Drops.Count; i++) Collect(Drops[i].Kind, Drops[i].Amount);
+            for (int i = 0; i < Drops.Count; i++) Collect(Drops[i].Kind, Drops[i].Amount, Drops[i].Spell);
             Drops.Clear();
         }
 
@@ -1680,8 +1747,10 @@ namespace InkLine
                 if (f.Life < f.MaxLife - 0.5f) continue;
                 f.Value += n;
                 f.Text = Mathf.RoundToInt(f.Value).ToString();
-                // 越滚越大，但压住上限，免得一串连击把字撑满半个屏。
-                f.Scale = Mathf.Max(f.Scale, scale) * (1f + Mathf.Min(0.45f, f.Value * 0.012f));
+                // 按当前累计值重算，不按并入次数连乘。
+                // 原先是 `旧缩放 × (1 + min(0.45, 值×0.012))`，灼烧 / 毒 / 分裂
+                // 每跳并一次，十下就是 1.45^10 ≈ 40 倍，字直接铺满屏。
+                f.Scale = PopScale(scale, f.Value);
                 f.Punch = 1f;
                 f.Life = f.MaxLife;
                 f.Vel = new Vector2(f.Vel.x * 0.5f, 1.5f);
@@ -1689,8 +1758,16 @@ namespace InkLine
                 if (crit) { f.Kind = PopKind.Crit; f.Color = color; }
                 return;
             }
-            FloatText pop = Push(kind, e.Id, e.Pos + Vector2.up * 0.24f, n.ToString(), color, scale, 0.78f);
+            FloatText pop = Push(kind, e.Id, e.Pos + Vector2.up * 0.24f, n.ToString(), color, PopScale(scale, n), 0.78f);
             pop.Value = n;
+        }
+
+        // 数字越大字略大，对数长，大约 40 以上几乎不再长。
+        // seed 是这一击自带的分量（重 1.42、斩杀走暴击那条），取和数值缩放里较大的。
+        static float PopScale(float seed, float value)
+        {
+            float fromValue = 1f + 0.38f * Mathf.Log10(Mathf.Max(1f, value));
+            return Mathf.Min(1.55f, Mathf.Max(seed, fromValue));
         }
 
         FloatText Push(PopKind kind, int owner, Vector2 pos, string text, Color color, float scale, float life)

@@ -19,7 +19,6 @@ namespace InkLine
         RectTransform _layer;
         Screen _screen = Screen.Lobby;
         int _pickStage;
-        int _stakedStamina;
         int _inkEarned;
         bool _inkDoubled;
         bool _resultWin;
@@ -28,6 +27,8 @@ namespace InkLine
         CardId _held;
         bool _rerolled;
         int _autoDrafts;
+        int _draftPaid;
+        bool _draftHold;
         bool _taughtStar;
         bool _dragging;
         string _tip;
@@ -74,7 +75,8 @@ namespace InkLine
                 {
                     if (!uiHit) HandleRail();
                     _world.Tick(Time.deltaTime);
-                    if (_world.CanDraft && _autoDrafts < AutoDraftLimit() && !(BattleWorld.PreviewFill && _world.BattleTime < 40f))
+                    if (_draftHold && !_world.CanDraft) _draftHold = false;
+                    if (!_draftHold && _world.CanDraft && _autoDrafts < AutoDraftLimit() && !(BattleWorld.PreviewFill && _world.BattleTime < 40f))
                     {
                         _autoDrafts++;
                         _tip = _autoDrafts == 1
@@ -102,40 +104,46 @@ namespace InkLine
             }
         }
 
-        // 回到首页时把还押着的体力退回去。通关那条路径会先把押注清零，
-        // 所以净效果是「只有通关才真的扣 2 点」，撤退、失败、续命再通关都算得对。
+        void ReloadSave()
+        {
+            _meta = MetaProgress.Load();
+            ShowHome();
+        }
+
         void ShowHome()
         {
-            _meta.RefundStamina(_stakedStamina);
-            _stakedStamina = 0;
             _screen = Screen.Lobby;
             ClearLayer();
             if (_view != null) { _view.Dispose(); _view = null; }
             _world = null;
             _hud = null;
-            _home = HomeScreen.Build(_layer, _meta, StartStage);
+            BattleHud.ReleaseCamera();
+            _home = HomeScreen.Build(_layer, _meta, StartStage, ReloadSave);
         }
 
         void StartStage(int index)
         {
-            _stakedStamina = 0;
             if (!BattleWorld.PreviewFill)
             {
                 int cost = _meta.StageCost(index);
                 if (!_meta.CanEnter(index)) return;
                 _meta.SpendStamina(cost);
-                _stakedStamina = cost;
             }
             _home = null;
             _pickStage = index;
             _autoDrafts = 0;
+            _draftHold = false;
             _taughtStar = false;
             _inkEarned = 0;
             _tip = index == 0 ? "滑到底下那一串，对准敌人。" : "";
             _world = new BattleWorld();
             _world.Begin(StageCatalog.Get(index), _meta.Forged, _meta.Equipped);
+            _world.ApplySkin(_meta.Skin);
+            _world.SpellRanks = _meta.SpellLevel;
+            _world.OfferShards(_meta.SpellLevel, _meta.SpellShards);
             if (_view != null) _view.Dispose();
             _view = new BattleView(null);
+            _view.EmitterSkin = _meta.Skin;
             _view.EmitterTint = _meta.SkinTint;
             BuildBattleHud();
             _screen = Screen.Battle;
@@ -195,7 +203,8 @@ namespace InkLine
         {
             if (!_world.CanDraft && !forced) return;
             if (_world.Gold < _world.DraftCost) return;
-            _world.Gold -= _world.DraftCost;
+            _draftPaid = _world.DraftCost;
+            _world.Gold -= _draftPaid;
             _world.DraftCount++;
             _world.Paused = true;
             _rerolled = false;
@@ -257,7 +266,17 @@ namespace InkLine
                     RollOffer();
                     ShowDraftPanel();
                 });
-            });
+            }, CloseDraft);
+        }
+
+        void CloseDraft()
+        {
+            if (_world == null || _screen != Screen.Draft) return;
+            _world.Gold += _draftPaid;
+            _world.DraftCount = Mathf.Max(0, _world.DraftCount - 1);
+            _draftHold = true;
+            _tip = "";
+            ResumeBattle();
         }
 
         void Pick(CardId id)
@@ -366,7 +385,7 @@ namespace InkLine
                 int lost = _world.MaxBaseHp - _world.BaseHp;
                 _resultStars = _world.RevivesUsed > 0 ? 1 : (lost <= 1 ? 3 : 2);
                 _inkEarned = _meta.ApplyResult(_pickStage, _resultStars);
-                _stakedStamina = 0;
+                _meta.AddShards(_world.ShardGot);
             }
             ShowResult();
         }

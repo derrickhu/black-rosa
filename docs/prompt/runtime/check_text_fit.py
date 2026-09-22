@@ -123,6 +123,11 @@ def resolve(expr):
     m = LIT.match(expr)
     if m:
         return [m.group(1)]
+    # 内插串 $"当前 {x} 门炮"：把 {表达式} 当成两位数量，别把花括号里的
+    # 代码当文字量进去 —— 那样一条 6 个字的提示会被算成 20 个字宽。
+    m = LIT.match(expr[1:]) if expr.startswith("$") else None
+    if m:
+        return [re.sub(r"\{[^{}]*\}", "00", m.group(1))]
     # d.Name / d.Desc / skin.Name 这类
     m = re.match(r"^[\w_]+\.(%s)$" % "|".join(FIELD_LIT), expr)
     if m:

@@ -1,0 +1,20 @@
+Draw exactly these 3 specific objects as flat vector game icons, arranged in 1 row and 3 columns on a pure solid magenta background (#FF00FF).
+
+THE 3 SUBJECTS ARE FIXED.
+
+Left:
+1. A single short stubby cannon, side view, pointing right. Flat grey barrel, a wider ring at the muzzle, resting on a squat dark walnut wooden block.
+
+Centre:
+2. A triangular pennant flag flying to the right from a short straight walnut pole. The cloth is the vivid red of a Chinese New Year red envelope, one flat tone plus one hard-edged darker red band along its lower edge. A small round knob on top of the pole.
+
+Right:
+3. A Chinese calligraphy brush held diagonally, tip pointing down to the left. Bamboo-tan handle the colour of dry bamboo, a thin ferrule the yellow of a new copper coin, a solid tapered wedge of deep violet ink for the tip. One single fat round violet ink droplet sits beside the tip, clearly separated from it.
+
+ABOUT THE ATTACHED IMAGE: it is a STYLE SWATCH ONLY. Copy only its rendering technique: flat colour bands and even thick outlines. The disc, rounded square, hexagon and arrow on the swatch stay off this image.
+
+RENDERING: flat solid colour only, hard crisp edges like cut paper, at most three flat tones per colour. Uniform thick outline the colour of dark soy sauce (#3A2A20). Chunky silhouettes that read at 56 pixels.
+
+Each icon sits centred in its own cell with a wide band of empty magenta on all four sides. No icon crosses into another cell.
+
+NO TEXT, no letters, no numbers, no labels, no captions, no writing, no watermarks anywhere.

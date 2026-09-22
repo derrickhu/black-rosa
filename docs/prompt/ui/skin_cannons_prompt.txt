@@ -1,0 +1,11 @@
+The attached image is a finished mobile-game UI mock. Copy the toy cannons from the dark board.
+
+Draw exactly these 3 objects in 1 row and 3 columns on a pure solid magenta background (#FF00FF).
+
+Left: a short stubby side-view cannon on a cream porcelain disc, the selected skin look from the attached image.
+Middle: the same cannon on a vermilion cinnabar disc, the red-pad skin from the attached image.
+Right: a light-grey ghost version of the same cannon on a pale grey disc, the locked skin look from the attached image.
+
+Each sits in the centre of its cell with a wide band of empty magenta on all four sides. Printed sticker art, flat solid colour, hard crisp edges like cut paper.
+
+NO TEXT, no letters, no numbers, no labels, no watermarks.

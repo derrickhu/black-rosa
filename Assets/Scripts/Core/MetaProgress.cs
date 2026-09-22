@@ -21,6 +21,8 @@ namespace InkLine
         public int Skin;
         public bool[] SkinOwned = new bool[SkinCatalog.Count];
         public bool[] SpellOwned = new bool[SpellCatalog.Count];
+        public int[] SpellLevel = new int[SpellCatalog.Count];
+        public int[] SpellShards = new int[SpellCatalog.Count];
         public int[] Equipped = { 0, -1 };
 
         public static MetaProgress Load()
@@ -66,13 +68,23 @@ namespace InkLine
             Forge = Fit(Forge, ForgeCatalog.LineCount);
             SkinOwned = Fit(SkinOwned, SkinCatalog.Count);
             SpellOwned = Fit(SpellOwned, SpellCatalog.Count);
+            SpellLevel = Fit(SpellLevel, SpellCatalog.Count);
+            SpellShards = Fit(SpellShards, SpellCatalog.Count);
             Equipped = Fit(Equipped, GameConstants.SpellSlots);
             for (int i = 0; i < Forge.Length; i++)
                 Forge[i] = Mathf.Clamp(Forge[i], 0, ForgeCatalog.MaxLevel(i));
             for (int i = 0; i < Stars.Length; i++)
                 Stars[i] = Mathf.Clamp(Stars[i], 0, GameConstants.MaxStar);
             SkinOwned[0] = true;
-            SpellOwned[0] = true;
+            for (int i = 0; i < SpellShards.Length; i++)
+            {
+                // 老存档只有「已解锁」布尔。升到 1 级，碎片进度按下一阶重新算。
+                if (SpellOwned[i] && SpellLevel[i] <= 0) SpellLevel[i] = 1;
+                SpellLevel[i] = Mathf.Clamp(SpellLevel[i], 0, SpellCatalog.MaxLevel);
+                SpellOwned[i] = SpellLevel[i] > 0;
+                int cap = SpellCatalog.NextShards(SpellCatalog.Get(i), SpellLevel[i]);
+                SpellShards[i] = Mathf.Clamp(SpellShards[i], 0, Mathf.Max(0, cap));
+            }
             Skin = SkinOwned[Mathf.Clamp(Skin, 0, SkinCatalog.Count - 1)] ? Mathf.Clamp(Skin, 0, SkinCatalog.Count - 1) : 0;
             for (int s = 0; s < Equipped.Length; s++)
             {
@@ -84,7 +96,6 @@ namespace InkLine
                 Equipped[0] = Equipped[1];
                 Equipped[1] = -1;
             }
-            if (Equipped[0] < 0) Equipped[0] = 0;
             if (Equipped[0] == Equipped[1]) Equipped[1] = -1;
             Ink = Mathf.Max(0, Ink);
             Stamina = Mathf.Clamp(Stamina, 0, GameConstants.StaminaMax);
@@ -122,6 +133,64 @@ namespace InkLine
         {
             PlayerPrefs.SetString(KeyV2, JsonUtility.ToJson(this));
             PlayerPrefs.Save();
+        }
+
+        public static void Wipe()
+        {
+            PlayerPrefs.DeleteKey(KeyV2);
+            PlayerPrefs.DeleteKey(KeyV1);
+            PlayerPrefs.Save();
+        }
+
+        public void FillStamina()
+        {
+            Stamina = GameConstants.StaminaMax;
+            StaminaTick = DateTime.UtcNow.Ticks;
+            Save();
+        }
+
+        public void GrantShards(int n)
+        {
+            if (n <= 0 || SpellShards == null) return;
+            for (int i = 0; i < SpellShards.Length && i < SpellCatalog.Count; i++)
+            {
+                int cap = SpellCatalog.NextShards(SpellCatalog.Get(i), SpellRank(i));
+                if (cap <= 0) continue;
+                SpellShards[i] = Mathf.Clamp(SpellShards[i] + n, 0, cap);
+            }
+            Save();
+        }
+
+        public void UnlockStages()
+        {
+            for (int i = 0; i < Stars.Length; i++)
+                Stars[i] = GameConstants.MaxStar;
+            Save();
+        }
+
+        public void UnlockSkins()
+        {
+            for (int i = 0; i < SkinOwned.Length; i++)
+                SkinOwned[i] = true;
+            Save();
+        }
+
+        public void UnlockSpells()
+        {
+            for (int i = 0; i < SpellLevel.Length && i < SpellCatalog.Count; i++)
+            {
+                if (SpellLevel[i] > 0) continue;
+                SpellLevel[i] = 1;
+                SpellOwned[i] = true;
+            }
+            Save();
+        }
+
+        public void MaxForge()
+        {
+            for (int i = 0; i < Forge.Length && i < ForgeCatalog.LineCount; i++)
+                Forge[i] = ForgeCatalog.MaxLevel(i);
+            Save();
         }
 
         // 大厅每帧调。体力恢复和日重置都是纯读时间的，放一起省心。
@@ -177,11 +246,11 @@ namespace InkLine
             return due <= 0L ? 0 : (int)(due / TimeSpan.TicksPerSecond);
         }
 
-        // 没打过的关不收体力 —— 推主线全程免费，只有回头重刷才耗。
+        // 进关就收，打过没打过一样。失败、中途回首页都不退。
         public int StageCost(int stage)
         {
             if (stage < 0 || stage >= Stars.Length) return 0;
-            return Stars[stage] > 0 ? GameConstants.StaminaPerStage : 0;
+            return GameConstants.StaminaPerStage;
         }
 
         public bool CanEnter(int stage) => Stamina >= StageCost(stage);
@@ -191,14 +260,6 @@ namespace InkLine
             if (n <= 0) return;
             if (Stamina >= GameConstants.StaminaMax) StaminaTick = DateTime.UtcNow.Ticks;
             Stamina = Mathf.Max(0, Stamina - n);
-            Save();
-        }
-
-        // 没赢就全额退，等价于只有通关才真的扣。
-        public void RefundStamina(int n)
-        {
-            if (n <= 0) return;
-            Stamina = Mathf.Min(GameConstants.StaminaMax, Stamina + n);
             Save();
         }
 
@@ -223,7 +284,13 @@ namespace InkLine
 
         public bool ChapterCleared => Stars[GameConstants.ChapterStageCount - 1] > 0;
 
-        public ForgeStats Forged => ForgeCatalog.Stats(Forge);
+        public ForgeStats Forged
+        {
+            get
+            {
+                return ForgeCatalog.Stats(Forge);
+            }
+        }
         public int StartEmitters => Forged.Emitters;
         public int StartGold => Forged.StartGold;
         public Color SkinTint => SkinCatalog.Get(Skin).Tint;
@@ -315,13 +382,48 @@ namespace InkLine
             Save();
         }
 
+        public int SpellShardCount(int i)
+        {
+            if (SpellShards == null || i < 0 || i >= SpellShards.Length) return 0;
+            return SpellShards[i];
+        }
+
+        public int SpellRank(int i)
+        {
+            if (SpellLevel == null || i < 0 || i >= SpellLevel.Length) return 0;
+            return SpellLevel[i];
+        }
+
+        // 通关后把这一局 boss 掉的碎片记进存档。满级的不再收，没满级的继续攒下一阶。
+        public void AddShards(int[] got)
+        {
+            if (got == null) return;
+            SpellShards = Fit(SpellShards, SpellCatalog.Count);
+            SpellLevel = Fit(SpellLevel, SpellCatalog.Count);
+            bool any = false;
+            for (int i = 0; i < got.Length && i < SpellShards.Length; i++)
+            {
+                if (got[i] <= 0 || SpellLevel[i] >= SpellCatalog.MaxLevel) continue;
+                int cap = SpellCatalog.NextShards(SpellCatalog.Get(i), SpellLevel[i]);
+                int next = Mathf.Min(cap, SpellShards[i] + got[i]);
+                if (next == SpellShards[i]) continue;
+                SpellShards[i] = next;
+                any = true;
+            }
+            if (any) Save();
+        }
+
         public bool CanBuySpell(int i, out string why)
         {
+            if (i < 0 || i >= SpellCatalog.Count) { why = ""; return false; }
+            int rank = SpellRank(i);
+            if (rank >= SpellCatalog.MaxLevel) { why = "已满级"; return false; }
             SpellDef d = SpellCatalog.Get(i);
-            if (SpellOwned[i]) { why = ""; return false; }
-            if (d.NeedClear && !ChapterCleared) { why = "通关解锁"; return false; }
-            if (TotalStars() < d.Gate) { why = $"需 {d.Gate} 星"; return false; }
-            if (Ink < d.Price) { why = $"差 {d.Price - Ink} 墨"; return false; }
+            int need = SpellCatalog.NextShards(d, rank);
+            int have = SpellShardCount(i);
+            if (have < need) { why = have + "/" + need; return false; }
+            int price = SpellCatalog.NextPrice(d, rank);
+            if (Ink < price) { why = $"差 {price - Ink} 墨"; return false; }
             why = "";
             return true;
         }
@@ -329,9 +431,13 @@ namespace InkLine
         public bool BuySpell(int i)
         {
             if (!CanBuySpell(i, out _)) return false;
-            Ink -= SpellCatalog.Get(i).Price;
+            int rank = SpellRank(i);
+            SpellDef d = SpellCatalog.Get(i);
+            Ink -= SpellCatalog.NextPrice(d, rank);
+            SpellShards[i] = 0;
+            SpellLevel[i] = rank + 1;
             SpellOwned[i] = true;
-            Equip(i);
+            if (rank <= 0) Equip(i);
             Save();
             return true;
         }

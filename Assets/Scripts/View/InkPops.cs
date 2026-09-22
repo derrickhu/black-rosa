@@ -76,7 +76,10 @@ namespace InkLine
             float fade = u > 0.34f ? 1f : Mathf.Clamp01(u / 0.34f);
             // 每次并入新伤害都重新弹一次，弹的幅度比原来大 —— 那一下就是「又打中了」。
             float punch = 1f + 0.55f * f.Punch * f.Punch;
-            float scale = f.Scale * punch * Body(f.Kind);
+            // 视图层再封一次：逻辑层算错也不许把字撑满屏。
+            // 1.55（字号上限）× 1.55（刚并入的弹一下）× 1.3（暴击）= 3.1，
+            // 那已经是半个战场宽；2.1 够「又打中了」跳一下，再大就是事故。
+            float scale = Mathf.Min(2.1f, f.Scale * punch * Body(f.Kind));
 
             Color fill = Face(f);
             fill.a = fade;

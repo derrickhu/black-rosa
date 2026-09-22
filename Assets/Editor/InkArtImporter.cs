@@ -12,6 +12,14 @@ public sealed class InkArtImporter : AssetPostprocessor
         // 这批 16 张白留 1MB 没意义，所以和 Vfx 一样关掉。
         bool ui = path.IndexOf("/Resources/Art/Ui/", System.StringComparison.Ordinal) >= 0;
         bool cpu = !vfx && !ui;
+        // 平涂特效（§4.0）是硬描边图，和界面图标一样经不起块压缩：
+        // 深色外沿正是它在宣纸底上立得住的原因，崩出脏点就白画了。
+        // 靠命名认：弹体渐变 `<元素>_shot_NN`、状态层 `burn_body_/ice_crust_/dot_*`。
+        // `_shot_` 里那两条下划线是有意的 —— 它要排除旧的柔光单图 `shot_ice.png`。
+        bool flatVfx = vfx && (path.Contains("_shot_")
+                               || path.Contains("/burn_body_")
+                               || path.Contains("/ice_crust_")
+                               || path.Contains("/dot_"));
         var importer = (TextureImporter)assetImporter;
         importer.textureType = TextureImporterType.Sprite;
         importer.spriteImportMode = SpriteImportMode.Single;
@@ -23,19 +31,41 @@ public sealed class InkArtImporter : AssetPostprocessor
         // Vfx 只当贴图用，黑底已由 docs/prompt/runtime/vfx_crush.py 离线压掉，
         // 所以可以关掉可读、开压缩。
         // 界面图标是硬描边小图，块压缩会在描边上崩出脏点，所以不压缩、只关可读。
-        importer.textureCompression = vfx
+        importer.textureCompression = vfx && !flatVfx
             ? TextureImporterCompression.Compressed
             : TextureImporterCompression.Uncompressed;
         importer.isReadable = cpu;
         // 屏幕上最大的用法是 160px 的抽卡字面，256 已经是两倍超采样。
         // 首页字标要铺到 560 宽，压到 256 会糊，单独放到 1024。
         bool logo = path.EndsWith("/Resources/Art/Ui/logo.png", System.StringComparison.Ordinal);
-        importer.maxTextureSize = logo ? 1024 : 256;
+        bool tag = path.EndsWith("/tag_forge.png");
+        bool panel = path.Contains("/panel_") || path.EndsWith("/tab_dock.png") || path.EndsWith("/tab_plaque.png");
+        importer.maxTextureSize = (logo || panel || tag) ? 1024 : 256;
+        if (panel) importer.spritePixelsPerUnit = 100;
+        // 面板要给 Sprite.Create 做九宫格兜底，得留 CPU 副本。
+        if (panel) importer.isReadable = true;
         var settings = new TextureImporterSettings();
         importer.ReadTextureSettings(settings);
         settings.spriteMeshType = SpriteMeshType.FullRect;
-        settings.spriteExtrude = 8;
-        settings.readable = cpu;
+        settings.spriteExtrude = 1;
+        settings.readable = cpu || panel;
         importer.SetTextureSettings(settings);
+        // SetTextureSettings 会把 border 冲掉，九宫格必须写在它后面。
+        if (path.EndsWith("/tab_dock.png"))
+            importer.spriteBorder = new Vector4(88f, 70f, 88f, 70f);
+        else if (path.Contains("/panel_board") || path.Contains("/panel_spell"))
+            importer.spriteBorder = Vector4.zero;
+        else if (path.Contains("/panel_card"))
+            importer.spriteBorder = new Vector4(18f, 18f, 18f, 18f);
+        else if (path.Contains("/panel_skin"))
+            importer.spriteBorder = new Vector4(30f, 34f, 30f, 30f);
+        else if (path.Contains("/panel_strip"))
+            importer.spriteBorder = new Vector4(28f, 10f, 28f, 10f);
+        else if (path.Contains("/panel_name"))
+            importer.spriteBorder = new Vector4(26f, 10f, 26f, 10f);
+        else if (path.Contains("/panel_row"))
+            importer.spriteBorder = new Vector4(44f, 8f, 44f, 8f);
+        else if (path.Contains("/panel_price"))
+            importer.spriteBorder = new Vector4(22f, 8f, 22f, 8f);
     }
 }

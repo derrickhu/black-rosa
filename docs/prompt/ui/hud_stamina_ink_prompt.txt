@@ -1,0 +1,13 @@
+Draw exactly two game UI icons side by side on a pure solid magenta background (#FF00FF), one icon in the left half and one icon in the right half. Wide empty magenta around each icon. The icons do not touch.
+
+The attached picture is only a paint sample. Copy its flat colour bands, its hard edges between tones, and its thick even dark-brown outline. Draw the two objects below.
+
+LEFT ICON — stamina:
+A single chunky angular lightning bolt, the whole icon is the bolt itself. Bright yellow like a new brass coin, with one darker band the colour of old brass along the lower edge of each zigzag. Thick dark-brown outline the colour of dark soy sauce, the same weight as the paint sample. Bold, short, easy to read at a small size.
+
+RIGHT ICON — ink:
+A squat round ink bottle with a small walnut-brown cork. The glass is the purple of a ripe grape, with one hard-edged lighter grape band across the shoulder. The liquid filling the lower two-thirds of the bottle is solid black Chinese calligraphy ink, a flat black pool with a hard edge where it meets the grape glass. Same thick dark-brown soy-sauce outline, same flat sticker rendering as the left icon.
+
+Both icons use flat solid colour only, hard crisp edges between tones, straight-on silhouettes, uniform outline width. Same size, same line weight.
+
+NO TEXT, no letters, no numbers, no labels, no captions, no writing, no watermarks. The background is one perfectly uniform solid magenta.

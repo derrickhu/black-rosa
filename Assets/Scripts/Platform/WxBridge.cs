@@ -36,6 +36,26 @@ namespace InkLine
             es.AddComponent(t);
         }
 
+        // 编辑器，或微信开发者工具的模拟器。真机（ios / android / ohos / windows）一律 false。
+        // 问不到平台就当真机，GM 入口不会出现。
+        public static bool IsSimulator
+        {
+            get
+            {
+                if (Application.isEditor) return true;
+                try
+                {
+                    object raw = Member(SystemInfo(), "platform");
+                    string name = raw as string;
+                    return name != null && name.Equals("devtools", StringComparison.OrdinalIgnoreCase);
+                }
+                catch (Exception)
+                {
+                    return false;
+                }
+            }
+        }
+
         public static bool IsMiniGame
         {
             get

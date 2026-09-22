@@ -1,0 +1,9 @@
+The attached image is a finished mobile-game UI mock. Copy the large dark-brown rounded board from the upper half of that screen.
+
+Draw that ONE board panel only, centered on a pure solid magenta background (#FF00FF).
+
+The board is a rounded rectangle of dark walnut brown, thick outline the colour of dark soy sauce. The inside of the board is empty: a flat dark brown field, no white cards, no cannons, no title tag, no Chinese, no numbers.
+
+Printed sticker art, flat solid colour, hard crisp edges like cut paper. Wide band of empty magenta on all four sides.
+
+NO TEXT, no letters, no numbers, no icons, no cards, no watermarks.

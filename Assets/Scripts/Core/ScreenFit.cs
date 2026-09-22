@@ -11,6 +11,10 @@ namespace InkLine
         public static float TopPad { get; private set; }
         public static float BottomPad { get; private set; }
 
+        // 只为让开微信胶囊而多出来的那一段。纯刘海内缩可以压掉一半，
+        // 胶囊这一段不行 —— 压了就点不到自己的按钮。
+        public static float CapsuleGuard { get; private set; }
+
         // 画布的真实尺寸，单位和 DesignW/DesignH 一样。
         // 别拿 DesignH 当页面高度用 —— 竖屏手机比 720x1280 更长，
         // CanvasScaler 是按宽匹配的，画布在 19.5:9 的机子上有 1558 个单位高。
@@ -64,8 +68,13 @@ namespace InkLine
             // 胶囊按钮压在右上角，safeArea 管不到它。三个数值药丸横着要 570 个单位，
             // 720 宽里挪不出胶囊那 200 来个单位的位置，所以整条顶栏让到它下沿之下。
             // 小游戏基本都是这么处理的，让出来的是高度不是功能。
+            CapsuleGuard = 0f;
             float frac = WxBridge.CapsuleBottomFrac();
-            if (frac > 0f) TopPad = Mathf.Max(TopPad, frac * CanvasH + 12f);
+            if (frac > 0f)
+            {
+                CapsuleGuard = frac * CanvasH + 12f;
+                TopPad = Mathf.Max(TopPad, CapsuleGuard);
+            }
         }
     }
 }

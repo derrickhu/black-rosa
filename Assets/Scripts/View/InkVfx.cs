@@ -132,6 +132,105 @@ namespace InkLine
             return s;
         }
 
+        // 平涂体：自带完整配色的帧动画，按原色直接画，不染色也不叠柔光。
+        // 米色宣纸底上柔光会糊成一团雾，硬边深色外沿才立得住，所以这类图
+        // 走普通混合、独占体槽。火先登记，其余字等风格定了再逐行加。
+        public struct FlatBody
+        {
+            public string Frames;   // Vfx/<Frames>_NN
+            public int Count;       // 总帧数
+            public int Window;      // 一个星级循环几帧
+            public int MaxStar;
+            public float Sink;      // 弹心在精灵中心之后几个精灵高（图里球心偏上）
+            public float Scale;
+        }
+
+        // Sink / Scale 都是 docs/prompt/runtime/vfx_flat_slice.py 量出来回填的，不要手调：
+        // Sink 来自切图时弹头在窗口里的位置，Scale 是按「★1 弹头 0.139 世界单位」归一算的
+        // —— 各元素弹头占精灵的比例差一倍多，只按精灵高归一会大小不一。
+        public static bool Flat(ShotFx fx, out FlatBody body)
+        {
+            switch (fx)
+            {
+                case ShotFx.FormFire:    body = Ramp("fire_shot", 0.238f, 1.00f); return true;
+                case ShotFx.FormIce:     body = Ramp("ice_shot", 0.196f, 1.21f); return true;
+                case ShotFx.FormWater:   body = Ramp("water_shot", 0.019f, 0.77f); return true;
+                case ShotFx.FormPoison:  body = Ramp("poison_shot", 0.233f, 0.77f); return true;
+                case ShotFx.FormEarth:   body = Ramp("earth_shot", 0.116f, 0.80f); return true;
+                case ShotFx.FormExplode: body = Ramp("explode_shot", 0.007f, 0.90f); return true;
+
+                // 道族 / 词组：墨黑骨白，不吃星级渐变（星改的是威力和动词，不是热度），
+                // 所以只有一帧。Scale 是按旧柔光图的实际可见高折算的 —— 新图是紧裁的，
+                // 照旧的 FormScale 给会凭空变大一圈。
+                case ShotFx.FormKill:   body = One("kill_shot", 1.04f); return true;
+                case ShotFx.FormCleave: body = One("cleave_shot", 1.04f); return true;
+                case ShotFx.FormKnock:  body = One("knock_shot", 0.75f); return true;
+                case ShotFx.FormArrow:  body = One("arrow_shot", 1.04f); return true;
+                case ShotFx.FormPierce: body = One("pierce_shot", 1.00f); return true;
+                // 分没有体槽图，也不该有：它分成两发子弹本身就说清了。
+                // `FormRank` 里也没有 `CardId.Split`，所以 `FormSplit` 根本选不到。
+
+                // 12 张招牌两两。每对 4 帧无级循环 —— 星级不改它的形，
+                // 所以不走星级窗口。尺寸按「弹头 0.20 世界单位」归一，比单元素
+                // ★3 的 0.253：叠出招牌绝不能反而变小。
+                case ShotFx.FormFrostFire:  body = Pair("frostfire_shot", -0.030f, 0.70f); return true;
+                case ShotFx.FormScorchBolt: body = Pair("scorchbolt_shot", 0.003f, 0.76f); return true;
+                case ShotFx.FormHailBolt:   body = Pair("hailbolt_shot", -0.069f, 0.96f); return true;
+                case ShotFx.FormBlightFire: body = Pair("blightfire_shot", -0.040f, 0.91f); return true;
+                case ShotFx.FormConduct:    body = Pair("conduct_shot", -0.008f, 0.67f); return true;
+                case ShotFx.FormMoltenGold: body = Pair("moltengold_shot", 0.108f, 0.79f); return true;
+                case ShotFx.FormWardGold:   body = Pair("wardgold_shot", 0.076f, 0.77f); return true;
+                case ShotFx.FormRotLife:    body = Pair("rotlife_shot", 0.099f, 0.79f); return true;
+                case ShotFx.FormRamEarth:   body = Pair("ramearth_shot", 0.109f, 0.70f); return true;
+                case ShotFx.FormColdWind:   body = Pair("coldwind_shot", 0.087f, 0.61f); return true;
+                case ShotFx.FormBlaze:      body = Pair("blaze_shot", -0.113f, 0.90f); return true;
+                case ShotFx.FormThunderCut: body = Pair("thundercut_shot", 0.103f, 1.06f); return true;
+
+                default:
+                    body = default;
+                    return false;
+            }
+        }
+
+        static FlatBody Ramp(string frames, float sink, float scale) => new FlatBody
+        {
+            Frames = frames, Count = 8, Window = 3, MaxStar = 3, Sink = sink, Scale = scale
+        };
+
+        // 单帧弹体：Sink 给 0，精灵按自己的包围盒正中压在子弹位置上。
+        static FlatBody One(string frames, float scale) => new FlatBody
+        {
+            Frames = frames, Count = 1, Window = 1, MaxStar = 3, Sink = 0f, Scale = scale
+        };
+
+        // 招牌两两：Window == Count，星级不参与，四帧一直循环。
+        static FlatBody Pair(string frames, float sink, float scale) => new FlatBody
+        {
+            Frames = frames, Count = 4, Window = 4, MaxStar = 3, Sink = sink, Scale = scale
+        };
+
+        // 八帧是一条「越往后越大越红」的单调渐变，星级决定窗口落在渐变的哪一段：
+        // ★1 播 00–02，★2 播 03–05，★3 播 05–07。窗口内相邻帧只差一点，
+        // 所以每个星级都能平滑循环；整段 0–7 一起播会让高星缩回低星那几帧。
+        // id 拿来错开相位，同屏一片弹才不会齐刷刷地闪。
+        public static Sprite FlatFrame(in FlatBody body, int star, int id)
+        {
+            Sprite[] frames = Frames(body.Frames, body.Count);
+            if (frames == null) return null;
+            int window = Mathf.Clamp(body.Window, 1, body.Count);
+            int top = Mathf.Max(2, body.MaxStar);
+            float k = Mathf.Clamp01((star - 1) / (float)(top - 1));
+            int start = Mathf.FloorToInt(k * (body.Count - window) + 0.5f);
+            int step = Mathf.FloorToInt(Time.unscaledTime * 13f + id * 0.41f);
+            int at = start + ((step % window) + window) % window;
+            for (int i = 0; i < body.Count; i++)
+            {
+                Sprite s = frames[(at + i) % body.Count];
+                if (s != null) return s;
+            }
+            return null;
+        }
+
         public static void Stop(SpriteRenderer sr)
         {
             if (sr == null) return;
@@ -182,19 +281,22 @@ namespace InkLine
 
         static readonly Dictionary<string, Sprite[]> Sequences = new Dictionary<string, Sprite[]>();
 
-        // 4 帧一组，缺帧就当这套图不存在，交给调用方回落。
-        public static Sprite[] Frames(string baseName)
+        // 默认 4 帧一组，缺帧就当这套图不存在，交给调用方回落。
+        public static Sprite[] Frames(string baseName) => Frames(baseName, 4);
+
+        public static Sprite[] Frames(string baseName, int count)
         {
-            if (Sequences.TryGetValue(baseName, out Sprite[] cached)) return cached;
-            var frames = new Sprite[4];
+            string key = count == 4 ? baseName : baseName + "#" + count;
+            if (Sequences.TryGetValue(key, out Sprite[] cached)) return cached;
+            var frames = new Sprite[count];
             bool any = false;
-            for (int i = 0; i < 4; i++)
+            for (int i = 0; i < count; i++)
             {
                 frames[i] = InkSprites.Load($"Vfx/{baseName}_{i:00}");
                 any |= frames[i] != null;
             }
             if (!any) frames = null;
-            Sequences[baseName] = frames;
+            Sequences[key] = frames;
             return frames;
         }
 

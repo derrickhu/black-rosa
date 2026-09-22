@@ -1,0 +1,21 @@
+2D game VFX sprite sheet for a top-down shooter. Layout: exactly 3 columns x 2 rows = 6 separate square cells, evenly spaced, each cell holding one complete projectile. PURE FLAT WHITE background (#FFFFFF) everywhere, including the gaps between cells. ABSOLUTELY NO GRID LINES, no cell borders, no dividing lines, no boxes, no outlines around the cells - the cells are separated by empty white space only. Each projectile is CENTERED inside its own cell with a wide empty white margin on all four sides. No frame numbers, no labels, no text, no watermark, no floor, no shadow, no character.
+
+All six are INK-AND-BONE projectiles for a brush-ink themed game: the body is near-black ink, the inner highlight is warm bone white, and there is exactly one small crimson accent on each. They must NOT use blue, green, orange or any elemental color - keeping them ink-colored is what tells the player "this is a technique, not an element".
+
+Rendering style, follow exactly: flat cel-shaded shapes built from HARD-EDGED color steps, like vector shapes stacked on top of each other. Exactly four steps, each a solid uniform color with a crisp visible boundary and no blending between them: a warm bone-white core stripe, then warm light grey, then near-black ink for the body, then a PURE BLACK outer rim tracing the whole silhouette. One small crimson wedge sits somewhere on each shape as the single accent. NO airbrush, NO smooth gradient, NO soft glow, NO blur, NO gloss, NO shiny specular streak, NO semi-transparent parts. Edges are sharp and graphic.
+
+Every projectile points straight UP, is symmetric left-to-right about its own vertical axis, and fills about 60 percent of its cell height. The six silhouettes must be UNMISTAKABLY DIFFERENT from each other at a glance - do not make them variations of one blade shape.
+
+Cell 1 (top left) EXECUTION CRESCENT: one broad curved reaper crescent, like a thick sickle blade with its horns pointing up and a heavy blunt base, the bone-white stripe running along the inner curve.
+
+Cell 2 (top middle) DOUBLE CLEAVE: two separate narrow blade slashes crossing each other in a tall X, one leaning left and one leaning right, both tapering to points at top and bottom.
+
+Cell 3 (top right) KNOCKBACK WEDGE: one squat blunt wedge like a flat-faced battering ram, very wide and short with a broad flat top edge and a narrow stem below, plus three short straight force lines under the stem.
+
+Cell 4 (bottom left) ARROW VOLLEY: three narrow arrowheads of the same size side by side in a tight fan, the middle one slightly higher, each a simple triangular head on a short thin shaft.
+
+Cell 5 (bottom middle) PIERCING SPIKE: one single very long and very thin needle spike, sharply pointed at the top, at most one sixth as wide as it is tall, with a small collar ring near its base.
+
+Cell 6 (bottom right) SPLITTING FORK: one dart whose upper half forks into TWO diverging prongs making a clear Y shape, with a single solid tail below the fork.
+
+Keep every cell's projectile fully inside its own cell with a wide empty white margin around it.

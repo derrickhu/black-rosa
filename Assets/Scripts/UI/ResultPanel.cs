@@ -23,7 +23,7 @@ namespace InkLine
                 UiKit.Bold(gain);
             }
             UiKit.Label(board, "d",
-                win ? "棋盘已清空。墨可以在首页改造炮台。" : "体力不扣，可以看广告续命，或回首页。",
+                win ? "棋盘已清空。墨可以在首页改造炮台。" : "体力已扣。可以看广告续命，或回首页。",
                 24, new Vector2(0, win ? 20 : 56), new Vector2(480, 70));
             if (win && doubleInk != null)
                 UiKit.Btn(board, "dbl", "看广告  墨翻倍", new Vector2(0, -30), new Vector2(300, 64), doubleInk);

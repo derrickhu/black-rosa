@@ -76,6 +76,25 @@ namespace InkLine
     public sealed class InkDot : MonoBehaviour
     {
         const int MaxStacks = 4;
+
+        // 状态层的空间分区。灼烧 / 中毒 / 缓 / 一个硬控是四条独立的计时轨，
+        // 随时可能同时挂在一只怪身上，所以每层必须占住一块不重叠的区域 ——
+        // 都堆在中间就会互相盖住，玩家数不清身上到底有几个状态。
+        // 坐标是怪的局部单位：脚底约 -0.45，头顶约 +0.45。
+        //
+        //   ┌── Halo  +0.56   晕环 / 惑漩涡（头顶之上）
+        //   │   Crown  +0.48  冰锥从这里往下长 ┐
+        //   │                 毒泡沿两侧上浮  │ 三者互斥或不同轴，互不遮挡
+        //   │   火头到胸口 +0.15              ┘
+        //   └── Foot  -0.45   火根 / 水纹（地面）
+        const float Foot = -0.45f;    // 脚底：火焰的根、水纹所在
+        const float Crown = 0.48f;    // 头顶：冰锥悬挂的上沿
+        const float Halo = 0.56f;     // 头顶之上：晕 / 惑
+        const float SideX = 0.30f;    // 身体两侧：毒泡的横向偏移
+        const float BurnH = 0.62f;    // 火焰高度：从脚底到胸口，不盖过头
+        const float CrustH = 0.58f;   // 冰锥高度：从头顶往下到腰，不盖住脚
+        const float SlowW = 0.42f;    // 水纹：只是脚边一圈，大了会像站台而不是减速
+
         Transform _rig;
         SpriteRenderer _burn;
         SpriteRenderer _slow;
@@ -93,43 +112,86 @@ namespace InkLine
 
             float t = Time.unscaledTime;
 
-            // 灼烧：头顶一簇橙火苗，呼吸
+            // 灼烧：一簇平涂火焰从脚下窜上来，火头到胸口。
+            // 火头不再盖过头顶 —— 上半区要留给冰壳，霜火那对才能同时读出来。
             bool burn = e.BurnTime > 0f;
-            Mark(_burn, burn, DotMarks.Flame(),
-                new Vector3(0f, 0.42f, 0f),
-                0.24f * (1f + 0.12f * Mathf.Sin(t * 9f + e.Id)),
-                Fade(InkTheme.FireHi, 0.85f), 0f);
+            Sprite blaze = Loop("burn_body", t * 12f + e.Id * 1.7f);
+            if (blaze != null)
+                Mark(_burn, burn, blaze, new Vector3(0f, Foot + 0.5f * BurnH * blaze.bounds.size.y, 0f),
+                    BurnH, Fade(Color.white, 0.9f), 0f, true);
+            else
+                Mark(_burn, burn, DotMarks.Flame(),
+                    new Vector3(0f, 0.42f, 0f),
+                    0.24f * (1f + 0.12f * Mathf.Sin(t * 9f + e.Id)),
+                    Fade(InkTheme.FireHi, 0.85f), 0f);
 
-            // 毒：紫绿气泡，几层就几个
+            // 毒：两侧外缘各飘一串气泡，左右交替。
+            // 走身体两侧是为了让开中轴 —— 中轴下半归火、上半归冰。
             int stacks = e.PoisonTime > 0f ? Mathf.Clamp(e.PoisonStacks, 0, MaxStacks) : 0;
+            Sprite bubble = InkSprites.Load("Vfx/dot_poison");
             for (int i = 0; i < MaxStacks; i++)
             {
-                float rise = Mathf.Repeat(t * 0.8f + i * 0.27f, 1f);
-                Mark(_poison[i], i < stacks, InkFx.SoftDisc(),
-                    new Vector3(-0.16f + i * 0.11f, 0.18f + rise * 0.34f, 0f),
-                    0.10f * (1f - rise * 0.35f),
-                    Fade(InkTheme.PoisonHi, 0.75f * (1f - rise)), 0f);
+                float rise = Mathf.Repeat(t * 0.7f + i * 0.31f, 1f);
+                float side = (i % 2 == 0 ? -1f : 1f) * (SideX + 0.04f * (i / 2));
+                Mark(_poison[i], i < stacks, bubble ?? InkFx.SoftDisc(),
+                    new Vector3(side, -0.05f + rise * 0.46f, 0f),
+                    (bubble != null ? 0.17f : 0.10f) * (1f - rise * 0.3f),
+                    bubble != null
+                        ? Fade(Color.white, 0.92f * (1f - rise * 0.7f))
+                        : Fade(InkTheme.PoisonHi, 0.75f * (1f - rise)),
+                    0f, bubble != null);
             }
 
-            // 缓：脚下一道青色水纹；冻的时候让位给冰壳
-            bool slow = e.SlowTime > 0f && e.Slow < 0.999f && !e.Frozen;
-            Mark(_slow, slow, DotMarks.Ripple(),
-                new Vector3(0f, -0.34f, 0f), 0.52f,
-                Fade(InkTheme.WaterHi, 0.55f), 0f);
+            // 缓：脚下地面一圈水纹。这一层永远在地面，不跟身上任何一层抢位置，
+            // 所以冻的时候也不必让位了。
+            bool slow = e.SlowTime > 0f && e.Slow < 0.999f;
+            Sprite ripple = InkSprites.Load("Vfx/dot_ripple");
+            Mark(_slow, slow, ripple ?? DotMarks.Ripple(),
+                new Vector3(0f, Foot - 0.02f, 0f), ripple != null ? SlowW : 0.52f,
+                ripple != null ? Fade(Color.white, 0.8f) : Fade(InkTheme.WaterHi, 0.55f),
+                0f, ripple != null);
 
-            // 硬控：冻是一层冰壳罩住整体，晕和惑是头顶转圈
+            // 硬控三个互斥，所以可以共用上半区：
+            // 冻是从头肩往下长的冰锥（和火正好反方向），晕和惑在头顶之上转。
             bool hard = e.HardTime > 0f;
             if (hard && e.Hard == StatusKind.Freeze)
-                Mark(_hard, true, InkFx.SoftRing(), Vector3.zero, 0.92f,
-                    Fade(InkTheme.IceHi, 0.62f), 0f);
+            {
+                Sprite crust = Loop("ice_crust", t * 6f + e.Id);
+                if (crust != null)
+                    Mark(_hard, true, crust,
+                        new Vector3(0f, Crown - 0.5f * CrustH * crust.bounds.size.y, 0f),
+                        CrustH, Fade(Color.white, 0.92f), 0f, true);
+                else
+                    Mark(_hard, true, InkFx.SoftRing(), Vector3.zero, 0.92f,
+                        Fade(InkTheme.IceHi, 0.62f), 0f);
+            }
             else if (hard && e.Hard == StatusKind.Stun)
-                Mark(_hard, true, InkFx.SoftRing(), new Vector3(0f, 0.44f, 0f), 0.34f,
-                    Fade(InkTheme.Word, 0.80f), t * 260f);
+            {
+                Sprite ring = InkSprites.Load("Vfx/dot_stun");
+                Mark(_hard, true, ring ?? InkFx.SoftRing(), new Vector3(0f, Halo, 0f),
+                    ring != null ? 0.46f : 0.34f,
+                    ring != null ? Fade(Color.white, 0.95f) : Fade(InkTheme.Word, 0.80f),
+                    ring != null ? 0f : t * 260f, ring != null);
+            }
             else if (hard && e.Hard == StatusKind.Confuse)
-                Mark(_hard, true, DotMarks.Swirl(), new Vector3(0f, 0.44f, 0f), 0.34f,
-                    Fade(InkTheme.ConfuseHi, 0.85f), t * -200f);
+            {
+                Sprite swirl = InkSprites.Load("Vfx/dot_confuse");
+                Mark(_hard, true, swirl ?? DotMarks.Swirl(), new Vector3(0f, Halo, 0f),
+                    swirl != null ? 0.34f : 0.34f,
+                    swirl != null ? Fade(Color.white, 0.92f) : Fade(InkTheme.ConfuseHi, 0.85f),
+                    t * -200f, swirl != null);
+            }
             else
                 Mark(_hard, false, null, Vector3.zero, 1f, Color.clear, 0f);
+        }
+
+        // 帧循环。负数取模在 C# 里是负的，所以要再拉回正区间。
+        static Sprite Loop(string set, float phase)
+        {
+            Sprite[] frames = InkVfx.Frames(set);
+            if (frames == null) return null;
+            int at = ((Mathf.FloorToInt(phase) % frames.Length) + frames.Length) % frames.Length;
+            return frames[at] ?? frames[0];
         }
 
         public void Quiet()
@@ -152,7 +214,9 @@ namespace InkLine
                 go.transform.SetParent(transform, false);
                 _rig = go.transform;
                 _burn = Spawn("burn", order);
-                _slow = Spawn("slow", order - 1);
+                // 水纹在地面，必须明确压到怪身体（order-1）后面去。
+                // 原来给的是 order-1，正好和身体同层，谁盖谁由引擎决定。
+                _slow = Spawn("slow", order - 2);
                 _hard = Spawn("hard", order + 1);
                 _poison = new SpriteRenderer[MaxStacks];
                 for (int i = 0; i < MaxStacks; i++) _poison[i] = Spawn("poison" + i, order);
@@ -170,7 +234,9 @@ namespace InkLine
             return sr;
         }
 
-        static void Mark(SpriteRenderer sr, bool on, Sprite sprite, Vector3 pos, float scale, Color color, float spin)
+        // flat：图自带配色，走普通混合按原色画；其余记号是白模，交给柔光染色。
+        static void Mark(SpriteRenderer sr, bool on, Sprite sprite, Vector3 pos, float scale,
+            Color color, float spin, bool flat = false)
         {
             if (sr == null) return;
             if (!on || sprite == null || color.a < 0.02f)
@@ -183,7 +249,8 @@ namespace InkLine
             sr.transform.localPosition = pos;
             sr.transform.localRotation = Quaternion.Euler(0f, 0f, spin);
             sr.transform.localScale = Vector3.one * scale;
-            InkFx.PaintSoft(sr, color);
+            if (flat) InkFx.PaintSprite(sr, color);
+            else InkFx.PaintSoft(sr, color);
         }
     }
 }

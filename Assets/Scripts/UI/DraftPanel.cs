@@ -5,7 +5,7 @@ namespace InkLine
 {
     public static class DraftPanel
     {
-        public static RectTransform Show(RectTransform layer, string title, CardId[] offer, bool rerolled, Action<CardId> pick, Action reroll)
+        public static RectTransform Show(RectTransform layer, string title, CardId[] offer, bool rerolled, Action<CardId> pick, Action reroll, Action close)
         {
             // 一律运行时搭，不再走 Resources/UI/DraftPanel 预制体。
             // UiKit 的圆角/描边/投影都是 UiSprites 在运行时烘的 Texture2D，不是工程资源，
@@ -13,7 +13,7 @@ namespace InkLine
             // 结果整屏退化成没有圆角的裸矩形。其余各屏本来也都是运行时搭的。
             DraftView view = DraftView.BuildTemplate(layer);
             UiKit.ApplyTo(view.transform);
-            view.Bind(title, offer, rerolled, pick, reroll);
+            view.Bind(title, offer, rerolled, pick, reroll, close);
             return view.GetComponent<RectTransform>();
         }
     }

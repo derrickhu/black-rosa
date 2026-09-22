@@ -22,7 +22,7 @@ namespace InkLine
         readonly int[] _star = new int[CardCatalog.IdCount];
         readonly List<StatusHit> _status = new List<StatusHit>();
 
-        public float BaseDamage = 2.4f;
+        public float BaseDamage = 1.8f;
         public float AddDamage;        // 金，加算池，最先算
         public float MulDamage = 1f;   // 重，乘算池，最后算
         public float Decay = 1f;       // 道族衰减：分裂 / 穿透

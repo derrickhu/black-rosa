@@ -67,6 +67,8 @@ namespace InkLine
         public static readonly Color Violet = Hex("8C6EDC");
         public static readonly Color Rose = Hex("E84E4E");
         public static readonly Color TabOn = Hex("FFE1BE");       // 底栏选中格的底色
+        public static readonly Color Board = Hex("3C2A24");       // 炮台页砚台展板
+        public static readonly Color Seal = Hex("C0392B");        // 红包朱红：选中皮肤 / 选中页签
         public static readonly Color Scrim = new Color(0.16f, 0.11f, 0.08f, 0.55f);
 
         public static readonly Color PlaceOk = new Color(0.22f, 0.62f, 0.32f, 0.32f);
@@ -81,6 +83,10 @@ namespace InkLine
                 case CardId.Fire: return Fire;
                 case CardId.Ice: return Ice;
                 case CardId.Track: return Track;
+                // 速漏了这一条，一直落到 default 的石墨灰去 —— 尾槽里
+                // 速比瞄优先，所以带速的弹从来没拖出过绿尾，`Accel` 这个绿
+                // 定义了却没人用。
+                case CardId.Accel: return Accel;
                 case CardId.Explode: return Explode;
                 case CardId.Stun: return Graphite;
                 case CardId.Gold: return Gold;

@@ -13,6 +13,7 @@ namespace InkLine
         public Button Reroll;
         public Text RerollLabel;
         public Image Die;
+        public Button Close;
 
         void Awake()
         {
@@ -20,7 +21,7 @@ namespace InkLine
             RescueCards();
         }
 
-        public void Bind(string title, CardId[] offer, bool rerolled, Action<CardId> pick, Action reroll)
+        public void Bind(string title, CardId[] offer, bool rerolled, Action<CardId> pick, Action reroll, Action close)
         {
             RescueCards();
             if (Title != null)
@@ -91,6 +92,11 @@ namespace InkLine
                 Die.sprite = InkSprites.Die();
                 Die.enabled = !rerolled && Die.sprite != null;
             }
+            if (Close != null)
+            {
+                Close.onClick.RemoveAllListeners();
+                if (close != null) Close.onClick.AddListener(() => close());
+            }
         }
 
         void RescueCards()
@@ -111,7 +117,8 @@ namespace InkLine
             dim.gameObject.name = "DraftPanel";
             var view = dim.gameObject.AddComponent<DraftView>();
             var board = UiKit.Stroke(dim, "board", new Vector2(0, -24), new Vector2(660, 620), Pin.Center, 8f);
-            view.Title = UiKit.Label(board, "title", "选一张改装", 26, new Vector2(0, 256), new Vector2(600, 44));
+            view.Title = UiKit.Label(board, "title", "选一张改装", 26, new Vector2(-18f, 256), new Vector2(520, 44));
+            view.Close = CloseMark(board);
             view.Cards = new DraftCardView[3];
             for (int i = 0; i < 3; i++)
             {
@@ -133,6 +140,36 @@ namespace InkLine
             view.Die = UiKit.Icon(view.Reroll.transform, InkSprites.Die(), new Vector2(-190f, 0f), 36f);
             if (view.Die != null) view.Die.gameObject.name = "die";
             return view;
+        }
+
+        static Button CloseMark(Transform board)
+        {
+            var go = new GameObject("close", typeof(RectTransform), typeof(Image), typeof(Button));
+            go.transform.SetParent(board, false);
+            var rt = go.GetComponent<RectTransform>();
+            rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = new Vector2(286f, 268f);
+            rt.sizeDelta = new Vector2(44f, 44f);
+            var img = go.GetComponent<Image>();
+            img.sprite = UiSprites.Fill(22);
+            img.color = InkTheme.Plain;
+            var ringGo = new GameObject("ring", typeof(RectTransform), typeof(Image));
+            ringGo.transform.SetParent(rt, false);
+            var ringRt = ringGo.GetComponent<RectTransform>();
+            ringRt.anchorMin = ringRt.anchorMax = new Vector2(0.5f, 0.5f);
+            ringRt.sizeDelta = new Vector2(44f, 44f);
+            var ring = ringGo.GetComponent<Image>();
+            ring.sprite = UiSprites.Line(18, 3);
+            ring.color = InkTheme.TextDark;
+            ring.raycastTarget = false;
+            var mark = UiKit.Label(rt, "t", "×", 28, Vector2.zero, new Vector2(44f, 44f));
+            mark.color = InkTheme.TextDark;
+            UiKit.Bold(mark);
+            var btn = go.GetComponent<Button>();
+            btn.targetGraphic = img;
+            btn.transition = Selectable.Transition.None;
+            return btn;
         }
     }
 }

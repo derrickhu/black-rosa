@@ -1,0 +1,10 @@
+The attached mock is only a style and shape reference for empty UI shells.
+
+Draw exactly four pieces in a 2 by 2 grid on a solid magenta field the colour of a highlighter pink (#FF00FF). Each piece sits in the centre of its cell with a wide magenta margin.
+
+Top-left: a landscape white porcelain card, wider than it is tall, thick outline the colour of dark soy sauce, empty inside.
+Top-right: the same landscape white porcelain card, thick outline the colour of a Chinese New Year red envelope, empty inside.
+Bottom-left: the same landscape card, fill the colour of cold rice paper, outline the colour of diluted ink, empty inside.
+Bottom-right: a small white porcelain tag, rounded ends, thick outline the colour of a Chinese New Year red envelope, and the two printed characters 炮台 in that same red-envelope red, centered, bold sticker lettering.
+
+Printed sticker art. Flat hard-edged cut paper. Cream porcelain, soy-sauce ink, red-envelope red.

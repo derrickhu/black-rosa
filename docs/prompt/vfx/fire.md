@@ -1,5 +1,12 @@
 # 加火验证特效（篝火 / 火焰弹 / 命中）
 
+> **弹体和燃烧层已换成 v2，本文这两节只作旧版留档。**
+> 现行方向见 [`../../字效管线.md`](../../字效管线.md) §4.0 与 §4.1「平涂体」，prompt 见
+> [`fire_v2_ball.txt`](./fire_v2_ball.txt)（火球 8 帧）和 [`fire_v2_burn.txt`](./fire_v2_burn.txt)（燃烧 4 帧）。
+> 关键差别：v2 是**平涂硬边 + 深红棕外沿 + 普通混合的白底图**，本文的「黑底、NO black outline、柔光」是旧口径，
+> 在米色宣纸底上会糊进背景。新图走 `fire_v2_slice.py` 洪泛去背，**不过** `vfx_crush.py`。
+> 篝火（`fire_heap_*`）和命中（`fire_hit_*`）尚未重做，仍按本文。
+
 只用 Cursor `GenerateImage`。原图进 `game_assets/black-rosa/美术/runtime/vfx/fire/`，确认前不入库。
 
 ## 实现口径

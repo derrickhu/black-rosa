@@ -1,0 +1,15 @@
+The attached image is a finished mobile-game UI mock. Copy its printing style: cream porcelain cards, thick soy-sauce outlines, red-envelope selected outline, copper-coin yellow pills.
+
+Draw exactly these 6 empty UI shells in a 2 by 3 grid on a pure solid magenta background (#FF00FF). Each cell is one empty shell, no icons on them.
+
+Row 1 left: a white porcelain rounded rectangle card, thick dark soy-sauce outline, empty inside.
+Row 1 middle: the same white card with a thick outline the red of a Chinese New Year red envelope, empty inside. This is the selected card.
+Row 1 right: a light grey rounded rectangle card, muted outline, empty inside. This is the locked card.
+
+Row 2 left: a short wide cream porcelain pill, soy-sauce outline, empty inside. This is a summary strip.
+Row 2 middle: a long wide white porcelain row, rounded ends, soy-sauce outline, empty inside. This is an upgrade row.
+Row 2 right: a small oval pill the yellow of a new copper coin, soy-sauce outline, empty inside. This is a price button.
+
+Each shell sits in the centre of its cell with a wide band of empty magenta on all four sides. Printed sticker art, flat solid colour, hard crisp edges like cut paper.
+
+NO TEXT, no letters, no numbers, no cannons, no icons, no watermarks.

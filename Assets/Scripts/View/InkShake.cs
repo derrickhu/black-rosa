@@ -23,6 +23,17 @@ namespace InkLine
             shake._seed = Random.value * 20f;
         }
 
+        // 战斗页会把相机基准位挪开，好给底栏腾出炮的位置。
+        // 不更新 _home 的话，LateUpdate 会把相机拽回第一次记下的原点。
+        public static void Pin(Camera cam)
+        {
+            if (cam == null) return;
+            var shake = cam.GetComponent<InkShake>();
+            if (shake == null) return;
+            shake._home = cam.transform.position;
+            shake._got = true;
+        }
+
         void LateUpdate()
         {
             if (!_got)

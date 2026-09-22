@@ -1,0 +1,62 @@
+A complete vertical mobile game UI screenshot, 9:16, 720 by 1280 composition, polished finished casual game screen.
+
+This is the SPELL page of 墨字防线, an ink-and-paper Chinese tower-defence home screen. The six spells on this page are exactly 墨爆, 定身, 强攻, 横扫, 泼墨, 回血. Printed sticker art, flat solid colour, hard crisp edges like cut paper. Uniform thick outline the colour of dark soy sauce (#3A2A20) on every shape. Each colour uses at most three flat tones meeting at a hard edge.
+
+Layout from top to bottom: currency pills, two hanging talismans, a one-line colophon, a 2 by 3 porcelain catalog, a paper-scroll dock.
+
+COLOUR ANCHORS
+- Page background: the warm beige of unsized rice paper, slightly deeper peach at the bottom
+- Cards: the white of a porcelain plate
+- Selected outline and selected tab label: the red of a Chinese New Year red envelope
+- Price buttons: the yellow of a new copper coin
+- Bamboo slat: dried winter bamboo, the yellow of old chopsticks
+- Talisman paper: unsized Xuan paper
+- Silk cords: the red of a New Year envelope
+- Type: dark soy-sauce brown
+- Locked cards: the cool grey of wet clay
+
+TOP — CURRENCY
+Two white porcelain pills with thick outlines sit high, close to the top edge.
+Left pill: a teal water-drop with a small gold lightning bolt, numbers 12/12
+Right pill: a squat violet ink bottle with a cork, number 50
+
+EQUIPPED — TWO HANGING TALISMANS
+The upper middle is a pair of hanging paper charms, a completely vertical paper-and-bamboo piece.
+A thin horizontal slat of dried winter bamboo stretches across, the yellow of old chopsticks, soy-sauce outline, two tiny hemp knots at the ends.
+A round cinnabar paste seal is stamped on the left end of the slat, the single character 技
+Two tall vertical Xuan-paper talismans hang from the slat by short red-envelope silk cords, side by side, each talisman about twice as tall as it is wide.
+Left talisman, equipped: cream Xuan paper, soy-sauce outline, a thin inner frame the red of a New Year envelope. A large purple ink-splat sticker in the upper half. Under the splat the name 墨爆. Under the name the small line 耗25墨
+Right talisman, empty: unused pale paper the colour of fresh rice, soy-sauce outline, a row of tiny stitch holes along the top edge. Centred word 空槽
+Directly under the two hanging papers, a small handwritten ink colophon in soy-sauce brown, exactly 两个键共用局内墨
+
+SPELL CATALOG
+A 2 by 3 grid of six porcelain cards under the talismans. Each card is a wide rounded rectangle with thick soy-sauce outline. Left a circular coloured sticker icon, then two lines of type, bottom a cost and a status. Cards in this order:
+
+Top-left, selected, red-envelope outline:
+Icon: purple ink splat. Title 墨爆  Sub 最前排炸开一圈，6点伤害  Bottom-left 耗25墨  Bottom-right vermilion word 已装备1
+
+Top-right, live white porcelain:
+Icon: teal concentric target ring. Title 定身  Sub 全场敌人定住1.6秒  Bottom-left 耗35墨  Bottom-right copper-coin yellow pill 40墨
+
+Middle-left, live white porcelain:
+Icon: red raised fist with a small orange flame. Title 强攻  Sub 5秒内炮弹伤害翻倍  Bottom-left 耗45墨  Bottom-right grey word 差25墨
+
+Middle-right, live white porcelain:
+Icon: warm gold crescent moon. Title 横扫  Sub 全屏5点伤害并击退  Bottom-left 耗55墨  Bottom-right grey word 差70墨
+
+Bottom-left, wet-clay grey locked card:
+Icon: tipped bucket pouring a purple puddle, greyed. Title 泼墨  Sub 敌人最多那一列灼烧3秒  Bottom-left 耗50墨  Bottom-right grey word 需18星
+
+Bottom-right, wet-clay grey locked card:
+Icon: red heart with a white plus. Title 回血  Sub 基地回1血，每局限一次  Bottom-left 耗70墨  Bottom-right grey word 通关解锁
+
+BOTTOM DOCK — illustrated art, a designed painted asset sitting flush with the bottom of the screen and stretching the full width.
+A rolled-out rice-paper scroll lying as a tray, cream paper face, dark walnut roller caps on the left and right ends, thick soy-sauce outline, tall enough for large icons.
+Three equal columns on the tray.
+Left: a large printed-sticker cannon, label 炮台
+Centre: a large printed-sticker triangular pennant the red of a New Year envelope on a walnut pole, label 出征
+Right, selected: a raised cream porcelain plaque standing on the tray, a large printed-sticker calligraphy brush with one violet ink drop, label 技能 in red-envelope red
+The three icons are big, chunky, printed sticker quality, the heroes of the dock.
+
+Type is clean bold simplified Chinese, the exact words listed above, large enough to read on a phone.
+One single finished game screen, even margins, generous tap targets.

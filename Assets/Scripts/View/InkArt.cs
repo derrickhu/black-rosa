@@ -276,7 +276,7 @@ namespace InkLine
 
         public static Sprite Cell(int size = 128)
         {
-            const string key = "cell:dash:v3";
+            const string key = "cell:slot:v1";
             if (Cache.TryGetValue(key, out Sprite s)) return s;
             s = Bake(size, DrawCell);
             Cache[key] = s;
@@ -441,23 +441,34 @@ namespace InkLine
 
         static void DrawCell(Color[] px, int n)
         {
-            Color ink = new Color(InkTheme.Graphite.r, InkTheme.Graphite.g, InkTheme.Graphite.b, 0.28f);
-            int thick = Mathf.Max(2, n / 42);
-            int dash = Mathf.Max(5, n / 14);
-            int gap = Mathf.Max(4, n / 20);
-            int period = dash + gap;
-            int inset = 1;
-            for (int i = inset; i < n - inset; i++)
+            // 空槽要在宣纸上认得出是「能放字的格子」：白瓷底、酱油描边、圆角，
+            // 四边留缝，别和旁边的槽粘成一条虚线。
+            float margin = n * 0.07f;
+            float rad = n * 0.16f;
+            float thick = Mathf.Max(4f, n / 26f);
+            Color fill = new Color(1f, 0.973f, 0.945f, 1f);
+            Color line = InkTheme.Outline;
+            float maxX = n - 1f - margin;
+            for (int y = 0; y < n; y++)
+            for (int x = 0; x < n; x++)
             {
-                if ((i - inset) % period >= dash) continue;
-                for (int t = 0; t < thick; t++)
-                {
-                    Put(px, n, i, inset + t, ink);
-                    Put(px, n, i, n - inset - 1 - t, ink);
-                    Put(px, n, inset + t, i, ink);
-                    Put(px, n, n - inset - 1 - t, i, ink);
-                }
+                float d = SdRound(x + 0.5f, y + 0.5f, margin, margin, maxX, maxX, rad);
+                if (d > 1.2f) continue;
+                Color c = d > -thick ? line : fill;
+                if (d > 0f) c.a = 1f - Mathf.Clamp01(d);
+                Put(px, n, x, y, c);
             }
+        }
+
+        static float SdRound(float x, float y, float minX, float minY, float maxX, float maxY, float rad)
+        {
+            float hx = (maxX - minX) * 0.5f - rad;
+            float hy = (maxY - minY) * 0.5f - rad;
+            float px = Mathf.Abs(x - (minX + maxX) * 0.5f) - hx;
+            float py = Mathf.Abs(y - (minY + maxY) * 0.5f) - hy;
+            float ox = Mathf.Max(px, 0f);
+            float oy = Mathf.Max(py, 0f);
+            return Mathf.Sqrt(ox * ox + oy * oy) + Mathf.Min(Mathf.Max(px, py), 0f) - rad;
         }
 
         static bool Sample(InkShape shape, Vector2 p)
