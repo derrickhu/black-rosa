@@ -23,6 +23,32 @@ namespace InkLine
             init.Invoke(null, new object[] { cb });
         }
 
+        // wx.login 拿一次性 code，换 openid 在云函数里做。非微信构建直接报失败。
+        public static void Login(Action<string> ok, Action<string> fail)
+        {
+#if UNITY_MINIGAME || WEIXINMINIGAME || UNITY_WEIXINMINIGAME || MINIGAME_SUBPLATFORM_WEIXIN
+            WeChatWASM.WX.Login(new WeChatWASM.LoginOption
+            {
+                success = r => ok(r.code),
+                fail = e => fail(e.errMsg)
+            });
+#else
+            fail("not minigame");
+#endif
+        }
+
+        // 切后台（锁屏、回桌面、聊天顶部）。编辑器和其它平台由调用方走 OnApplicationPause。
+        public static bool OnHide(Action hide)
+        {
+#if UNITY_MINIGAME || WEIXINMINIGAME || UNITY_WEIXINMINIGAME || MINIGAME_SUBPLATFORM_WEIXIN
+            if (Application.isEditor) return false;
+            WeChatWASM.WX.OnHide(_ => hide());
+            return true;
+#else
+            return false;
+#endif
+        }
+
         public static void KeepRuntime()
         {
             var wx = WxType();

@@ -132,14 +132,27 @@ namespace InkLine
         public void Save()
         {
             PlayerPrefs.SetString(KeyV2, JsonUtility.ToJson(this));
+            CloudSync.Touch();
             PlayerPrefs.Save();
         }
 
+        // 清档后紧接着 Load 会写出新档并标脏，调用方再 CloudSync.FlushNow，云端一起清。
         public static void Wipe()
         {
             PlayerPrefs.DeleteKey(KeyV2);
             PlayerPrefs.DeleteKey(KeyV1);
             PlayerPrefs.Save();
+        }
+
+        public static bool HasLocal => PlayerPrefs.HasKey(KeyV2) || PlayerPrefs.HasKey(KeyV1);
+
+        public static string RawLocal => PlayerPrefs.GetString(KeyV2, "");
+
+        // 云端下行用，不标脏。
+        public static void WriteRaw(string json)
+        {
+            PlayerPrefs.SetString(KeyV2, json);
+            PlayerPrefs.DeleteKey(KeyV1);
         }
 
         public void FillStamina()

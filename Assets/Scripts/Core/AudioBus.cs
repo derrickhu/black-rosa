@@ -6,6 +6,7 @@ namespace InkLine
 {
     // 整套声音都是「湿墨落在宣纸上」。
     // 按钮是纸页轻响，落子是印章，命中是一滴墨。音乐若在 Resources/Audio 里就循环，没有就静音。
+    // 在 CdnManifest 里的音乐（如 bgm_battle）从云上拉，没拉到之前也是静音。
     public static class AudioBus
     {
         const float MusicHome = 0.26f;
@@ -86,28 +87,118 @@ namespace InkLine
             if (name == _musicName) return;
             _musicName = name;
             Ensure();
-            AudioClip clip = Clip(name);
-            if (clip == null)
+            StopStream();
+            _music.Stop();
+            _music.clip = null;
+            if (CdnAssets.Has("Audio/" + name))
             {
-                _music.Stop();
-                _music.clip = null;
+                PlayRemote(name);
                 return;
             }
+            AudioClip clip = Clip(name);
+            if (clip != null) PlayClip(clip);
+        }
+
+        static void PlayClip(AudioClip clip)
+        {
             _music.clip = clip;
             _music.loop = true;
             _music.volume = 0f;
             _music.Play();
         }
 
+        // 云上的长音乐提前拉好（大厅里调），进战斗时就不用等。
+        public static void Warm(string name)
+        {
+            if (!CdnAssets.Has("Audio/" + name)) return;
+#if UNITY_MINIGAME || WEIXINMINIGAME || UNITY_WEIXINMINIGAME || MINIGAME_SUBPLATFORM_WEIXIN
+            if (!Application.isEditor)
+            {
+                Stream(name);
+                return;
+            }
+#endif
+            CdnAssets.Clip("Audio/" + name, _ => { });
+        }
+
         public static void Duck(bool on) => _duck = on;
 
         public static void Tick()
         {
-            if (_music == null || _music.clip == null) return;
             float bed = _musicName == "bgm_battle" ? MusicBattle : MusicHome;
             float target = bed * (_duck ? 0.4f : 1f);
-            _music.volume = Mathf.MoveTowards(_music.volume, target, Time.unscaledDeltaTime * 0.7f);
+            float step = Time.unscaledDeltaTime * 0.7f;
+#if UNITY_MINIGAME || WEIXINMINIGAME || UNITY_WEIXINMINIGAME || MINIGAME_SUBPLATFORM_WEIXIN
+            if (_stream != null && _streamOn)
+            {
+                _streamVol = Mathf.MoveTowards(_streamVol, target, step);
+                _stream.volume = _streamVol;
+            }
+#endif
+            if (_music == null || _music.clip == null) return;
+            _music.volume = Mathf.MoveTowards(_music.volume, target, step);
         }
+
+        static void PlayRemote(string name)
+        {
+#if UNITY_MINIGAME || WEIXINMINIGAME || UNITY_WEIXINMINIGAME || MINIGAME_SUBPLATFORM_WEIXIN
+            if (!Application.isEditor)
+            {
+                _stream = Stream(name);
+                _streamOn = true;
+                _streamVol = 0f;
+                _stream.volume = 0f;
+                if (Ready.Contains(name)) _stream.Play();
+                return;
+            }
+#endif
+            CdnAssets.Clip("Audio/" + name, clip =>
+            {
+                if (_musicName == name && _music.clip == null) PlayClip(clip);
+            });
+        }
+
+#if UNITY_MINIGAME || WEIXINMINIGAME || UNITY_WEIXINMINIGAME || MINIGAME_SUBPLATFORM_WEIXIN
+        // 微信里长音乐交给 InnerAudioContext：needDownload 让 SDK 整首下完落盘再播，下次秒开；
+        // 切后台 / 来电打断后的续播 SDK 自己会做。每首只建一个，切走时暂停不销毁。
+        static readonly Dictionary<string, WeChatWASM.WXInnerAudioContext> Streams =
+            new Dictionary<string, WeChatWASM.WXInnerAudioContext>();
+        static readonly HashSet<string> Ready = new HashSet<string>();
+        static WeChatWASM.WXInnerAudioContext _stream;
+        static bool _streamOn;
+        static float _streamVol;
+
+        static WeChatWASM.WXInnerAudioContext Stream(string name)
+        {
+            if (Streams.TryGetValue(name, out var ctx)) return ctx;
+            ctx = WeChatWASM.WX.CreateInnerAudioContext(new WeChatWASM.InnerAudioContextParam
+            {
+                src = CdnAssets.Url("Audio/" + name),
+                loop = true,
+                volume = 0f,
+                needDownload = true,
+            });
+            ctx.OnCanplay(() =>
+            {
+                Ready.Add(name);
+                if (_musicName == name && _stream == ctx && _streamOn) ctx.Play();
+            });
+            ctx.OnError(e => Debug.LogWarning($"[Audio] {name} stream error {e.errCode}"));
+            Streams[name] = ctx;
+            return ctx;
+        }
+
+        static void StopStream()
+        {
+            if (_stream == null) return;
+            _stream.Pause();
+            _stream.volume = 0f;
+            _stream = null;
+            _streamOn = false;
+        }
+#else
+        static void StopStream() { }
+#endif
 
         public static void Sweep(Transform root)
         {

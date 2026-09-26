@@ -11,7 +11,9 @@ public sealed class InkArtImporter : AssetPostprocessor
         // 界面图标只当贴图画，没人在 CPU 上读它。isReadable 会额外留一份内存副本，
         // 这批 16 张白留 1MB 没意义，所以和 Vfx 一样关掉。
         bool ui = path.IndexOf("/Resources/Art/Ui/", System.StringComparison.Ordinal) >= 0;
-        bool cpu = !vfx && !ui;
+        // 战斗背景包里只留 256 缩略图，高清版走 CdnAssets，同样没人读像素。
+        bool bg = path.IndexOf("/Resources/Art/Bg/", System.StringComparison.Ordinal) >= 0;
+        bool cpu = !vfx && !ui && !bg;
         // 平涂特效（§4.0）是硬描边图，和界面图标一样经不起块压缩：
         // 深色外沿正是它在宣纸底上立得住的原因，崩出脏点就白画了。
         // 靠命名认：弹体渐变 `<元素>_shot_NN`、状态层 `burn_body_/ice_crust_/dot_*`。
@@ -36,11 +38,9 @@ public sealed class InkArtImporter : AssetPostprocessor
             : TextureImporterCompression.Uncompressed;
         importer.isReadable = cpu;
         // 屏幕上最大的用法是 160px 的抽卡字面，256 已经是两倍超采样。
-        // 首页字标要铺到 560 宽，压到 256 会糊，单独放到 1024。
-        bool logo = path.EndsWith("/Resources/Art/Ui/logo.png", System.StringComparison.Ordinal);
-        bool tag = path.EndsWith("/tag_forge.png");
+        // 章节图、战斗背景这类大图的高清版在 CdnArt/，这里只是先顶上的缩略图。
         bool panel = path.Contains("/panel_") || path.EndsWith("/tab_dock.png") || path.EndsWith("/tab_plaque.png");
-        importer.maxTextureSize = (logo || panel || tag) ? 1024 : 256;
+        importer.maxTextureSize = panel ? 1024 : 256;
         if (panel) importer.spritePixelsPerUnit = 100;
         // 面板要给 Sprite.Create 做九宫格兜底，得留 CPU 副本。
         if (panel) importer.isReadable = true;
@@ -61,8 +61,6 @@ public sealed class InkArtImporter : AssetPostprocessor
             importer.spriteBorder = new Vector4(30f, 34f, 30f, 30f);
         else if (path.Contains("/panel_strip"))
             importer.spriteBorder = new Vector4(28f, 10f, 28f, 10f);
-        else if (path.Contains("/panel_name"))
-            importer.spriteBorder = new Vector4(26f, 10f, 26f, 10f);
         else if (path.Contains("/panel_row"))
             importer.spriteBorder = new Vector4(44f, 8f, 44f, 8f);
         else if (path.Contains("/panel_price"))

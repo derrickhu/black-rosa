@@ -9,7 +9,8 @@ namespace InkLine
     {
         const int Size = 512;
         const string ArtDir = "Assets/Resources/Art";
-        const string PartsDir = "Assets/Resources/Art/hanzi";
+        // 拼字素材只给这个工具用，放 Editor 下不进包。
+        const string PartsDir = "Assets/Editor/Art/hanzi";
 
         static readonly string[] Keys = { "fire", "ice", "split", "track", "pierce", "explode", "accel", "heavy" };
         static readonly string[] Labels = { "火", "冰", "分", "瞄", "穿", "炸", "速", "重" };

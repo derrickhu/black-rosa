@@ -55,6 +55,7 @@ namespace InkLine
                 {
                     MetaProgress.Wipe();
                     if (reload != null) reload();
+                    CloudSync.FlushNow("wipe");
                 })
             };
 

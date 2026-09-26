@@ -36,7 +36,22 @@ namespace InkLine
 
         void Start()
         {
-            WxBridge.InitSdk(Begin);
+            WxBridge.InitSdk(() => CloudSync.Startup(Begin));
+            CloudSync.Imported += OnCloudImported;
+        }
+
+        void OnDestroy()
+        {
+            CloudSync.Imported -= OnCloudImported;
+        }
+
+        // 进大厅后才到的云端档（启动超时后晚到、或上行被 409 打回）。
+        // 战斗里只换存档不打断，结算时就记到新档上。
+        void OnCloudImported()
+        {
+            if (_canvas == null) return;
+            _meta = MetaProgress.Load();
+            if (_screen == Screen.Lobby) ShowHome();
         }
 
         void Begin()
@@ -117,6 +132,7 @@ namespace InkLine
             BattleHud.ReleaseCamera();
             _home = HomeScreen.Build(_layer, _meta, StartStage, ReloadSave);
             AudioBus.Music("bgm_home");
+            AudioBus.Warm("bgm_battle");
         }
 
         void StartStage(int index)

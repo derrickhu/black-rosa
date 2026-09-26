@@ -616,10 +616,14 @@ namespace InkLine
             _chapter = Mathf.Clamp(_chapter, 0, SortiePageBuilder.ChapterCount - 1);
             if (board.Art != null)
             {
-                Sprite art = InkSprites.Load("Ui/chapter_" + (_chapter + 1));
-                if (art == null) art = InkSprites.Load("Ui/chapter_1");
-                if (art != null) board.Art.sprite = art;
+                string art = "Ui/chapter_" + (_chapter + 1);
+                if (InkSprites.Load(art) == null) art = "Ui/chapter_1";
+                CdnAssets.Bind(board.Art, art);
             }
+            // 左右翻页和点「出征」都不用等图：相邻两章的章节图和本章战场先拉。
+            CdnAssets.Prefetch("Ui/chapter_" + _chapter);
+            CdnAssets.Prefetch("Ui/chapter_" + (_chapter + 2));
+            CdnAssets.Prefetch("Bg/battle_bg_" + (_chapter + 1));
             if (board.Title != null) board.Title.text = SortiePageBuilder.ChapterTitle(_chapter);
             int count = Mathf.Min(SortiePageBuilder.PerChapter,
                 GameConstants.StageCount - _chapter * SortiePageBuilder.PerChapter);

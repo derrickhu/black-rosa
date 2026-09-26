@@ -103,9 +103,11 @@ namespace InkLine
         SpriteRenderer _slab;
 
         // 每章一张地面，铺满镜头（cover）。图没导进来就留原来的纯色底和中间那块提亮。
+        // 包里是缩略图，高清版由 CdnAssets 换上，尺寸变了 Sync 里每帧的 FitBackdrop 会重新铺。
         public void SetBackdrop(int chapter)
         {
-            Sprite s = InkSprites.Load("Bg/battle_bg_" + (chapter + 1));
+            string name = "Bg/battle_bg_" + (chapter + 1);
+            Sprite s = InkSprites.Load(name);
             if (s == null) return;
             if (_slab != null) _slab.enabled = false;
             if (_backdrop == null)
@@ -113,7 +115,7 @@ namespace InkLine
                 _backdrop = Make("backdrop", s, Vector3.zero, 1f);
                 _backdrop.sortingOrder = -10;
             }
-            _backdrop.sprite = s;
+            CdnAssets.Bind(_backdrop, name);
             FitBackdrop();
         }
 
