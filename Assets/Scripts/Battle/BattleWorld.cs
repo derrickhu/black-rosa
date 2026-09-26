@@ -205,6 +205,11 @@ namespace InkLine
         public float RevealTime;
         public string Toast;
         public float ToastTime;
+        // 图鉴：炮弹第一次真的带上某个字 / 词 / 招牌两两时报一次，一局内同一条只报一回。
+        public System.Action<CodexKind, int> CodexHit;
+        readonly bool[] _codexGlyph = new bool[CardCatalog.IdCount];
+        readonly bool[] _codexWord = new bool[(int)WordId.Cleave + 1];
+        readonly bool[] _codexPair = new bool[SignaturePairs.All.Length];
 
         // 局外升级只改这两个系数和开局条件，结算骨架一步都不动。
         float _damageMul = 1f;
@@ -648,6 +653,14 @@ namespace InkLine
             if (_heavyStar[col] > 0) m.Mark(CardId.Heavy, _heavyStar[col]);
             if (_stunStar[col] > 0) m.Mark(CardId.Stun, _stunStar[col]);
             if (_word[col] != WordId.None) m.WordLook = _word[col];
+            // 「斩」是词组字、不走 ApplyMod，成了连斩才算这发带着它 —— 否则雷决永远点不亮。
+            if (_word[col] == WordId.Cleave) m.Mark(CardId.Slash, Mathf.Max(1, _wordStar[col]));
+            if (_pierceStar[col] > 0) NoteGlyph(CardId.Pierce);
+            if (_explodeStar[col] > 0) NoteGlyph(CardId.Explode);
+            if (_heavyStar[col] > 0) NoteGlyph(CardId.Heavy);
+            if (_stunStar[col] > 0) NoteGlyph(CardId.Stun);
+            if (_word[col] != WordId.None) NoteWord(_word[col]);
+            NotePairs(m);
 
             if (_pierceStar[col] > 0 && PullCharge(col, ChPierce, 2))
             {
@@ -801,6 +814,33 @@ namespace InkLine
                     break;
             }
             PaintBodyColor(m);
+            NoteGlyph(id);
+            NotePairs(m);
+        }
+
+        void NoteGlyph(CardId id)
+        {
+            if (CodexHit == null || PreviewFill || _codexGlyph[(int)id]) return;
+            _codexGlyph[(int)id] = true;
+            CodexHit(CodexKind.Glyph, (int)id);
+        }
+
+        void NoteWord(WordId id)
+        {
+            if (CodexHit == null || PreviewFill || _codexWord[(int)id]) return;
+            _codexWord[(int)id] = true;
+            CodexHit(CodexKind.Word, (int)id);
+        }
+
+        void NotePairs(ShotMods m)
+        {
+            if (CodexHit == null || PreviewFill) return;
+            for (int i = 0; i < _codexPair.Length; i++)
+            {
+                if (_codexPair[i] || !SignaturePairs.Lit(m, i)) continue;
+                _codexPair[i] = true;
+                CodexHit(CodexKind.Pair, i);
+            }
         }
 
         // 弹体主色取所有元素字的均值，槽位表现另算。

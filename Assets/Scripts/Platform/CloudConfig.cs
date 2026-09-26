@@ -14,6 +14,7 @@ namespace InkLine
         public const string PushPath = Prefix + "/save/push";
         public const string RankSubmitPath = Prefix + "/rank/submit";
         public const string RankListPath = Prefix + "/rank/list";
+        public const string GameClubDailyPath = Prefix + "/gameclub/daily";
         public const int RankListLimit = 50;
 
         public const int RequestTimeoutSec = 10;

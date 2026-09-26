@@ -26,8 +26,11 @@ async function handleLogin(req) {
   }
 
   let platformUid = '';
+  let sessionKey = '';
   if (platform === 'wx') {
-    platformUid = await wxCode2Openid(body.code);
+    const wx = await wxCode2Openid(body.code);
+    platformUid = wx.openid;
+    sessionKey = wx.sessionKey;
   } else if (platform === 'dy') {
     platformUid = await ttCode2Openid(body.code);
   } else if (platform === 'tap') {
@@ -44,6 +47,14 @@ async function handleLogin(req) {
   }
 
   const userId = `${platform}:${platformUid}`;
+  if (sessionKey) {
+    // 游戏圈数据是用 session_key 加密的，解密接口要用到。存失败不影响登录。
+    try {
+      await require('./game-club').upsertWxSession(userId, sessionKey);
+    } catch (error) {
+      console.warn('[auth] save wx session failed', error && error.message);
+    }
+  }
   const ttlSec = getTtlSec();
   const gameKey = getGameKey();
   const now = Math.floor(Date.now() / 1000);
@@ -98,7 +109,7 @@ async function wxCode2Openid(code) {
   if (!data || !data.openid) {
     throw httpError(401, 'WX_LOGIN_FAIL', `wx code2session 失败: ${JSON.stringify(data || {})}`);
   }
-  return data.openid;
+  return { openid: data.openid, sessionKey: data.session_key || '' };
 }
 
 async function ttCode2Openid(code) {

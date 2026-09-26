@@ -31,6 +31,7 @@ namespace InkLine
         RankService.Board _data;
         bool _fontReady;
         bool _failed;
+        bool _authWait;
 
         public static RectTransform Show(RectTransform layer, MetaProgress meta)
         {
@@ -58,24 +59,11 @@ namespace InkLine
             float top = ScreenFit.TopPad + 64f;
             float bottom = ScreenFit.BottomPad + 36f;
             float h = Mathf.Max(760f, ScreenFit.CanvasH - top - bottom);
-            _board = UiKit.Stroke(dim, "board", new Vector2(0f, top), new Vector2(BoardW, h), Pin.Top,
-                6f, null, InkTheme.Hex("FBF4E6"), 28f);
-
-            Sprite rib = InkSprites.Load("Ui/ribbon_chapter");
-            float ribW = 380f;
-            float ribH = rib != null && rib.rect.width > 1f ? ribW * rib.rect.height / rib.rect.width : 100f;
-            var ribbon = UiKit.Art(_board, "ribbon", "Ui/ribbon_chapter", new Vector2(0f, -ribH * 0.46f),
-                new Vector2(ribW, ribH), Pin.Top);
-            ribbon.GetComponent<Image>().raycastTarget = false;
-            var title = UiKit.Label(ribbon, "t", "排行榜", 38, new Vector2(0f, ribH * 0.10f), new Vector2(260f, 56f));
-            title.color = InkTheme.CardFace;
-            UiKit.Bold(title);
+            _board = PanelKit.Board(dim, "排行榜", new Vector2(0f, top), new Vector2(BoardW, h), Pin.Top, Close);
 
             var sub = UiKit.Label(_board, "sub", "按通关关数排名 · 同关数先到者居前", 22,
                 new Vector2(0f, 64f), new Vector2(BoardW - 60f, 30f), TextAnchor.MiddleCenter, Pin.Top);
             sub.color = InkTheme.TextMid;
-
-            BuildClose();
 
             bool askProfile = WxBridge.CanAskProfile && !RankService.HasProfile;
             float footerH = RowH + 36f + (askProfile ? AuthH + 22f : 0f);
@@ -88,43 +76,54 @@ namespace InkLine
             if (askProfile)
             {
                 _auth = UiKit.Btn(_footer, "auth", "使用微信昵称头像上榜", new Vector2(0f, 20f),
-                    new Vector2(470f, AuthH), () => { }, true, Pin.Bottom);
-                StartCoroutine(PlaceProfileButton());
+                    new Vector2(470f, AuthH), OnAuthTap, true, Pin.Bottom);
+                // 点开排行榜这一下就要把隐私弹窗调起来，晚了就不算用户点击。
+                WxBridge.EnsurePrivacy(null);
+                StartCoroutine(PlaceWhenReady());
             }
 
             BuildList(footerH);
             SetStatus("排行榜加载中…", false);
+            // iPhone 上微信不给系统字体，回调也不会回来。先用游戏字体把榜画出来，字体到了再换。
+            _nameFont = UiKit.Font;
+            _fontReady = true;
             WxBridge.SystemFont(f =>
             {
-                if (this == null) return;
-                _nameFont = f != null ? f : UiKit.Font;
-                _fontReady = true;
+                if (this == null || f == null || f == _nameFont) return;
+                _nameFont = f;
                 TryFill();
             });
             Reload();
         }
 
-        void BuildClose()
+        void OnAuthTap()
         {
-            const float s = 68f;
-            var go = new GameObject("close", typeof(RectTransform), typeof(Image), typeof(Button));
-            go.transform.SetParent(_board, false);
-            var rt = go.GetComponent<RectTransform>();
-            rt.anchorMin = rt.anchorMax = new Vector2(1f, 1f);
-            rt.pivot = new Vector2(0.5f, 0.5f);
-            rt.anchoredPosition = new Vector2(-14f, -14f);
-            rt.sizeDelta = new Vector2(s, s);
-            var ring = go.GetComponent<Image>();
-            ring.sprite = UiSprites.Disc();
-            ring.color = InkTheme.Outline;
-            var face = UiKit.Icon(go.transform, UiSprites.Disc(), Vector2.zero, s - 10f);
-            face.color = InkTheme.Seal;
-            var x = UiKit.Label(go.transform, "x", "×", 46, new Vector2(0f, 2f), new Vector2(s, s));
-            x.color = InkTheme.CardFace;
-            UiKit.Bold(x);
-            var btn = go.GetComponent<Button>();
-            btn.targetGraphic = face;
-            btn.onClick.AddListener(Close);
+            if (WxBridge.PrivacyAgreed) return;
+            AudioBus.Tap();
+            WxBridge.EnsurePrivacy(null);
+            StartCoroutine(PlaceWhenReady());
+        }
+
+        IEnumerator PlaceWhenReady()
+        {
+            if (_authWait) yield break;
+            _authWait = true;
+            if (!WxBridge.PrivacyAgreed)
+            {
+                bool done = false, ok = false;
+                WxBridge.EnsurePrivacy(agreed => { ok = agreed; done = true; });
+                float until = Time.realtimeSinceStartup + 20f;
+                while (!done && Time.realtimeSinceStartup < until) yield return null;
+                if (!ok || this == null)
+                {
+                    _authWait = false;
+                    if (this != null)
+                        InkToast.Show((RectTransform)transform.parent, "需同意隐私协议后才能用微信昵称上榜");
+                    yield break;
+                }
+            }
+            _authWait = false;
+            yield return PlaceProfileButton();
         }
 
         void BuildList(float footerH)
@@ -347,15 +346,15 @@ namespace InkLine
         {
             yield return null;
             if (_auth == null) yield break;
-            var corners = new Vector3[4];
-            _auth.GetComponent<RectTransform>().GetWorldCorners(corners);
-            Vector2 a = RectTransformUtility.WorldToScreenPoint(null, corners[0]);
-            Vector2 b = RectTransformUtility.WorldToScreenPoint(null, corners[2]);
-            var rect = Rect.MinMaxRect(a.x, a.y, b.x, b.y);
+            var rect = PanelKit.ScreenRect(_auth.GetComponent<RectTransform>());
             WxBridge.ShowProfileButton(rect, (nick, avatar) =>
             {
                 if (this == null) return;
-                if (!RankService.SetProfile(nick, avatar)) return;
+                if (string.IsNullOrEmpty(nick) || !RankService.SetProfile(nick, avatar))
+                {
+                    InkToast.Show((RectTransform)transform.parent, "没有拿到微信昵称，请同意授权后再试");
+                    return;
+                }
                 WxBridge.HideProfileButton();
                 AudioBus.Tap();
                 RectTransform dim = (RectTransform)transform;

@@ -24,52 +24,54 @@ namespace InkLine
         public const int MaxLevel = 5;
 
         // 和改装抢同一笔本局金币，贵的技能放一次就少一次抽牌。
+        // Price / Shards 是解锁的底数。升级见 NextPrice / NextShards，每一级都比上一级贵。
+        // 新手礼包一次给 10 碎片、100 墨，定得比这个高，领完礼包也凑不齐一门。
         static readonly SpellDef[] All =
         {
             new SpellDef
             {
                 Id = SpellId.Burst, Name = "墨爆", Desc = "最前排炸开一圈，6 点伤害",
-                GoldCost = 25, Price = 30, Shards = 3, Gate = 0, Tint = InkTheme.Explode
+                GoldCost = 25, Price = 150, Shards = 12, Gate = 0, Tint = InkTheme.Explode
             },
             new SpellDef
             {
                 Id = SpellId.Halt, Name = "定身", Desc = "全场敌人定住 1.6 秒",
-                GoldCost = 35, Price = 55, Shards = 4, Gate = 0, Tint = InkTheme.Word
+                GoldCost = 35, Price = 180, Shards = 14, Gate = 0, Tint = InkTheme.Word
             },
             new SpellDef
             {
                 Id = SpellId.Rage, Name = "强攻", Desc = "5 秒内炮弹伤害翻倍",
-                GoldCost = 45, Price = 105, Shards = 5, Gate = 0, Tint = InkTheme.Fire
+                GoldCost = 45, Price = 320, Shards = 16, Gate = 0, Tint = InkTheme.Fire
             },
             new SpellDef
             {
                 Id = SpellId.Sweep, Name = "横扫", Desc = "全屏 5 点伤害并击退",
-                GoldCost = 55, Price = 170, Shards = 6, Gate = 5, Tint = InkTheme.Ink
+                GoldCost = 55, Price = 420, Shards = 18, Gate = 5, Tint = InkTheme.Ink
             },
             new SpellDef
             {
                 Id = SpellId.Splash, Name = "泼墨", Desc = "敌人最多那一列灼烧 3 秒",
-                GoldCost = 50, Price = 225, Shards = 6, Gate = 6, Tint = InkTheme.Poison
+                GoldCost = 50, Price = 560, Shards = 18, Gate = 6, Tint = InkTheme.Poison
             },
             new SpellDef
             {
                 Id = SpellId.Mend, Name = "回血", Desc = "基地回 1 血，每局限一次",
-                GoldCost = 70, Price = 310, Shards = 8, Gate = 0, NeedClear = true, Tint = InkTheme.Heart
+                GoldCost = 70, Price = 760, Shards = 22, Gate = 0, NeedClear = true, Tint = InkTheme.Heart
             },
             new SpellDef
             {
                 Id = SpellId.Frost, Name = "冰封", Desc = "全场冰伤并减速",
-                GoldCost = 40, Price = 85, Shards = 4, Tint = InkTheme.Ice
+                GoldCost = 40, Price = 240, Shards = 14, Tint = InkTheme.Ice
             },
             new SpellDef
             {
                 Id = SpellId.Slow, Name = "迟缓", Desc = "全场减速一阵",
-                GoldCost = 30, Price = 70, Shards = 4, Tint = InkTheme.Water
+                GoldCost = 30, Price = 200, Shards = 14, Tint = InkTheme.Water
             },
             new SpellDef
             {
                 Id = SpellId.Snipe, Name = "贯击", Desc = "最前一个吃一记重击",
-                GoldCost = 35, Price = 75, Shards = 4, Tint = InkTheme.Thunder
+                GoldCost = 35, Price = 220, Shards = 14, Tint = InkTheme.Thunder
             }
         };
 
@@ -80,14 +82,15 @@ namespace InkLine
         public static int NextShards(SpellDef d, int level)
         {
             if (level >= MaxLevel) return 0;
-            int step = Mathf.Max(1, d.Shards / 2);
+            int step = Mathf.Max(2, d.Shards / 2);
             return d.Shards + Mathf.Max(0, level) * step;
         }
 
+        // 墨价同样从解锁价往上爬，每级大约再贵三分之一，避免升满只比解锁贵一截。
         public static int NextPrice(SpellDef d, int level)
         {
             if (level >= MaxLevel) return 0;
-            int step = Mathf.Max(8, d.Price / 4);
+            int step = Mathf.Max(40, d.Price / 3);
             return d.Price + Mathf.Max(0, level) * step;
         }
 

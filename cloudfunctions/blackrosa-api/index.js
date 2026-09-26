@@ -7,6 +7,7 @@
  *   /save/push   上传存档（按 key 合并，updatedAt + baseRemoteUpdatedAt 防旧档回写）
  *   /rank/submit 上报已通关关数（只升不降），顺带更新昵称头像
  *   /rank/list   通关榜前 N 名 + 自己的名次
+ *   /gameclub/daily  解密 wx.getGameClubData，回当天游戏圈发帖数
  *   /health      健康检查
  *
  * 环境变量：
@@ -18,11 +19,13 @@
  *
  * 集合：blackrosa_playerData（userId 唯一索引）
  *       blackrosa_rankings（userId 唯一索引；cleared desc + reachedAt asc）
+ *       blackrosa_wxSessions（userId 唯一索引）
  */
 
 const { handleLogin } = require('./lib/auth');
 const { handlePull, handlePush } = require('./lib/save');
 const { handleSubmit, handleList } = require('./lib/rank');
+const { handleDailyPost } = require('./lib/game-club');
 const { respond, parseEvent, preflight } = require('./lib/http');
 
 const ROUTES = {
@@ -33,6 +36,7 @@ const ROUTES = {
   'POST /save/push': handlePush,
   'POST /rank/submit': handleSubmit,
   'POST /rank/list': handleList,
+  'POST /gameclub/daily': handleDailyPost,
 };
 
 exports.main = async (event, context) => {

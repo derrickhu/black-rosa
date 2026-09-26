@@ -28,6 +28,22 @@ namespace InkLine
         public const int DailyWinStamina = 4;
         public const int StarterInk = 85;
 
+        // 新手礼包：看两次激励广告，领一次就没了。皮肤下标见 SkinCatalog（2 = 青瓷）。
+        public const int GiftAds = 2;
+        public const int GiftSkin = 2;
+        public const int GiftShards = 10;
+        public const int GiftInk = 100;
+        // 七日签到：断一天从第 1 天重来；第一次连签满 7 天送鎏金（SkinCatalog 3）。
+        public const int CheckDays = 7;
+        public const int CheckStamina = 5;
+        public const int CheckInk = 30;
+        public const int CheckSkin = 3;
+        // 第一轮没有。第二轮起，第 7 天在当天奖励之外再给碎片。
+        public const int CheckShardDay7 = 5;
+        // 游戏圈：每天发一条帖子领一次。
+        public const int ClubInk = 50;
+        public const int ClubShards = 1;
+
         // 局内墨是这一局拾到的墨，通关时整笔入账。击杀掉多少按关卡的 InkBudget 摊，
         // 紫宝箱另给一份。技能花的是本局金币，不花墨。
         public const int InkMax = 9999;

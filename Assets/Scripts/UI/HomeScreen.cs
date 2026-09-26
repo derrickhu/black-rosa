@@ -589,7 +589,11 @@ namespace InkLine
 
         void BindSortie()
         {
-            if (_pages[1] != null) SortiePageBuilder.Ensure(_view, _pages[1]);
+            if (_pages[1] != null)
+            {
+                SortiePageBuilder.Ensure(_view, _pages[1]);
+                SortiePageBuilder.EnsureSides(_view, _pages[1]);
+            }
             int next = NextStage();
             bool canGo = _meta.CanEnter(next);
             if (_view.GoLabel != null)
@@ -746,12 +750,51 @@ namespace InkLine
                 if (btn == null) continue;
                 btn.onClick.RemoveAllListeners();
                 btn.onClick.AddListener(() => AudioBus.Tap());
-                if (i == SideRank) btn.onClick.AddListener(() => RankPanel.Show(_layer, _meta));
+                if (i == SideGift) btn.onClick.AddListener(() => StarterGiftPanel.Show(_layer, _meta, AfterReward));
+                else if (i == SideClub) btn.onClick.AddListener(() => GameClubPanel.Show(_layer, _meta, AfterReward));
+                else if (i == SideCheckIn) btn.onClick.AddListener(() => CheckInPanel.Show(_layer, _meta, AfterReward));
+                else if (i == SideCodex) btn.onClick.AddListener(() => CodexPanel.Show(_layer, _meta, AfterReward));
+                else if (i == SideRank) btn.onClick.AddListener(() => RankPanel.Show(_layer, _meta));
             }
+            if (_view.SideActs.Length != SortiePageBuilder.SideCount) return;
+            Button gift = _view.SideActs[SideGift];
+            if (gift != null) gift.gameObject.SetActive(!_meta.GiftClaimed);
+            RedDot(gift, !_meta.GiftClaimed);
+            RedDot(_view.SideActs[SideClub], !_meta.ClubClaimedToday);
+            RedDot(_view.SideActs[SideCheckIn], !_meta.CheckedToday);
+            RedDot(_view.SideActs[SideCodex], _meta.CodexHasNew);
         }
 
-        // 出征页侧边四个贴纸：游戏圈、签到、活动、排行榜。
-        const int SideRank = 3;
+        // 领了礼包 / 游戏圈奖励：顶栏数值、礼包贴纸、皮肤页都要跟着变。
+        void AfterReward()
+        {
+            _shownSec = -1;
+            Rebuild(_tab);
+        }
+
+        static void RedDot(Button btn, bool on)
+        {
+            if (btn == null) return;
+            Transform dot = btn.transform.Find("dot");
+            if (dot == null)
+            {
+                if (!on) return;
+                var rt = (RectTransform)btn.transform;
+                var ring = UiKit.Icon(btn.transform, UiSprites.Disc(), new Vector2(rt.sizeDelta.x * 0.5f - 14f, 52f), 26f);
+                ring.gameObject.name = "dot";
+                ring.color = InkTheme.CardFace;
+                UiKit.Icon(ring.transform, UiSprites.Disc(), Vector2.zero, 20f).color = InkTheme.Seal;
+                dot = ring.transform;
+            }
+            dot.gameObject.SetActive(on);
+        }
+
+        // 出征页侧边贴纸，顺序同 SortiePageBuilder.BuildSides。
+        const int SideGift = 0;
+        const int SideClub = 1;
+        const int SideCheckIn = 2;
+        const int SideCodex = 3;
+        const int SideRank = 4;
 
         void BindSeal(HomeSealCell slot, int index)
         {

@@ -32,6 +32,7 @@ namespace InkLine
         Transform _overlay;
         int _shotPage = -1;
         readonly bool[] _shotGot = new bool[4];
+        readonly Queue<string> _codexToasts = new Queue<string>();
         float _audioSweep;
 
         void Start()
@@ -96,6 +97,7 @@ namespace InkLine
                 {
                     if (!uiHit) HandleRail();
                     _world.Tick(Time.deltaTime);
+                    PumpCodexToast();
                     if (_world.Victory) { Finish(true); return; }
                     if (_world.Defeat) { Finish(false); return; }
                 }
@@ -153,6 +155,8 @@ namespace InkLine
             _world.ApplySkin(_meta.Skin);
             _world.SpellRanks = _meta.SpellLevel;
             _world.OfferShards(_meta.SpellLevel, _meta.SpellShards);
+            _world.CodexHit = OnCodex;
+            _codexToasts.Clear();
             if (_view != null) _view.Dispose();
             _view = new BattleView(null);
             _view.SetBackdrop(_world.Stage.Chapter);
@@ -161,6 +165,20 @@ namespace InkLine
             BuildBattleHud();
             _screen = Screen.Battle;
             AudioBus.Music("bgm_battle");
+        }
+
+        void OnCodex(CodexKind kind, int index)
+        {
+            if (_world == null || !_meta.CodexLearn(kind, index)) return;
+            string head = kind == CodexKind.Pair ? "秘卷现世" : "图鉴收录";
+            _codexToasts.Enqueue($"{head} · {CodexCatalog.Title(kind, index)}");
+        }
+
+        // 和关卡规则、成词提示共用一条 toast，排队等上一条放完，免得互相顶掉。
+        void PumpCodexToast()
+        {
+            if (_codexToasts.Count == 0 || _world.ToastTime > 0f) return;
+            _world.ShowToast(_codexToasts.Dequeue(), 1.8f);
         }
 
         void BuildBattleHud()

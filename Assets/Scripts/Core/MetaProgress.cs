@@ -24,6 +24,22 @@ namespace InkLine
         public int[] SpellLevel = new int[SpellCatalog.Count];
         public int[] SpellShards = new int[SpellCatalog.Count];
         public int[] Equipped = { 0, -1 };
+        public int GiftAds;
+        public bool GiftClaimed;
+        public int ClubDay;
+        public int CheckDay;
+        public int CheckRun;
+        public int CheckAdDay;
+        public bool CheckSkinDone;
+        public int CheckLoops;
+        // 图鉴：位掩码。字按 CardId、词按 WordId、秘卷按 SignaturePairs 下标。
+        // New 系列是「收录了还没点开看过」，给红点用。
+        public long CodexGlyph;
+        public int CodexWord;
+        public int CodexPair;
+        public long CodexNewGlyph;
+        public int CodexNewWord;
+        public int CodexNewPair;
 
         public static MetaProgress Load()
         {
@@ -214,10 +230,20 @@ namespace InkLine
             if (dirty) Save();
         }
 
+        static int Today => DayKey(DateTime.Now);
+
+        static int DayKey(DateTime d) => d.Year * 10000 + d.Month * 100 + d.Day;
+
+        static int ShiftDay(int key, int days)
+        {
+            if (key <= 0) return key;
+            var d = new DateTime(key / 10000, key / 100 % 100, key % 100);
+            return DayKey(d.AddDays(days));
+        }
+
         bool RollDay()
         {
-            DateTime n = DateTime.Now;
-            int today = n.Year * 10000 + n.Month * 100 + n.Day;
+            int today = Today;
             if (LastDay == today) return false;
             LastDay = today;
             AdStaminaToday = 0;
@@ -366,6 +392,205 @@ namespace InkLine
             int pick = room[UnityEngine.Random.Range(0, room.Count)];
             SpellShards[pick]++;
             return pick;
+        }
+
+        public bool GiftReady => !GiftClaimed && GiftAds >= GameConstants.GiftAds;
+
+        public void AddGiftAd()
+        {
+            if (GiftClaimed || GiftAds >= GameConstants.GiftAds) return;
+            GiftAds++;
+            Save();
+        }
+
+        // 已经买过青瓷的也照样给碎片和墨；碎片随机撒，攒满的技能不再给。
+        public bool ClaimGift()
+        {
+            if (!GiftReady) return false;
+            int skin = GameConstants.GiftSkin;
+            SkinOwned = Fit(SkinOwned, SkinCatalog.Count);
+            if (skin >= 0 && skin < SkinOwned.Length && !SkinOwned[skin])
+            {
+                SkinOwned[skin] = true;
+                Skin = skin;
+            }
+            for (int i = 0; i < GameConstants.GiftShards; i++)
+                if (GrantOneShard() < 0) break;
+            Ink += GameConstants.GiftInk;
+            GiftClaimed = true;
+            Save();
+            return true;
+        }
+
+        public bool ClubClaimedToday => ClubDay == Today;
+
+        // shards 是实际入账的碎片。技能都满了就是 0，墨照发。
+        public bool ClaimClub(out int shards)
+        {
+            shards = 0;
+            if (ClubClaimedToday) return false;
+            ClubDay = Today;
+            Ink += GameConstants.ClubInk;
+            shards = GiveRandomShards(GameConstants.ClubShards);
+            Save();
+            return true;
+        }
+
+        public bool CheckedToday => CheckDay == Today;
+
+        public bool CheckAdDoneToday => CheckAdDay == Today;
+
+        // 这一轮已签几天（0~7）。昨天没签、或者上一轮已满 7 天，从 0 算起。
+        public int CheckShown
+        {
+            get
+            {
+                if (CheckedToday) return Mathf.Clamp(CheckRun, 0, GameConstants.CheckDays);
+                bool alive = CheckDay == ShiftDay(Today, -1) && CheckRun < GameConstants.CheckDays;
+                return alive ? Mathf.Max(0, CheckRun) : 0;
+            }
+        }
+
+        // 第 7 天是否还送鎏金：没送过，而且玩家还没自己买。
+        public bool CheckSkinPending => !CheckSkinDone && !(GameConstants.CheckSkin < SkinOwned.Length
+                                                            && SkinOwned[GameConstants.CheckSkin]);
+
+        // 满过一轮之后才有碎片。刚签完第 7 天时轮次已经 +1，这一轮要按签之前算。
+        public bool CheckShardRound =>
+            (CheckedToday && CheckRun >= GameConstants.CheckDays) ? CheckLoops >= 2 : CheckLoops >= 1;
+
+        public int CheckShardOf(int day)
+        {
+            if (!CheckShardRound || day != GameConstants.CheckDays) return 0;
+            return GameConstants.CheckShardDay7;
+        }
+
+        // 返回今天是第几天（1~7），签过了返回 0。skin 表示这一签送了鎏金。shards 是实际入账的碎片。
+        public int CheckIn(bool doubled, out bool skin, out int shards)
+        {
+            skin = false;
+            shards = 0;
+            if (CheckedToday) return 0;
+            int day = CheckShown + 1;
+            bool shardRound = CheckLoops >= 1;
+            CheckRun = day;
+            CheckDay = Today;
+            int times = doubled ? 2 : 1;
+            if (doubled) CheckAdDay = Today;
+            Ink += GameConstants.CheckInk * times;
+            Stamina = Mathf.Min(GameConstants.StaminaMax, Stamina + GameConstants.CheckStamina * times);
+            int offer = shardRound && day == GameConstants.CheckDays ? GameConstants.CheckShardDay7 : 0;
+            shards = GiveRandomShards(offer * times);
+            if (day == GameConstants.CheckDays)
+            {
+                CheckLoops++;
+                if (!CheckSkinDone)
+                {
+                    CheckSkinDone = true;
+                    SkinOwned = Fit(SkinOwned, SkinCatalog.Count);
+                    int s = GameConstants.CheckSkin;
+                    if (s < SkinOwned.Length && !SkinOwned[s])
+                    {
+                        SkinOwned[s] = true;
+                        Skin = s;
+                        skin = true;
+                    }
+                }
+            }
+            Save();
+            return day;
+        }
+
+        // 签完没翻倍的，当天还能补看一次广告再领一份。
+        public bool CheckAdBonus(out int shards)
+        {
+            shards = 0;
+            if (!CheckedToday || CheckAdDoneToday) return false;
+            CheckAdDay = Today;
+            Ink += GameConstants.CheckInk;
+            Stamina = Mathf.Min(GameConstants.StaminaMax, Stamina + GameConstants.CheckStamina);
+            shards = GiveRandomShards(CheckShardOf(CheckRun));
+            Save();
+            return true;
+        }
+
+        int GiveRandomShards(int n)
+        {
+            int got = 0;
+            for (int i = 0; i < n; i++)
+            {
+                if (GrantOneShard() < 0) break;
+                got++;
+            }
+            return got;
+        }
+
+        // GM：把签到记录往前挪一天，等于跨天，连签不断。
+        public void GmCheckNextDay()
+        {
+            CheckDay = ShiftDay(CheckDay, -1);
+            CheckAdDay = ShiftDay(CheckAdDay, -1);
+            Save();
+        }
+
+        // ---- 图鉴 ----
+
+        public bool CodexKnows(CodexKind kind, int i)
+        {
+            switch (kind)
+            {
+                case CodexKind.Glyph: return (CodexGlyph & (1L << i)) != 0;
+                case CodexKind.Word: return (CodexWord & (1 << i)) != 0;
+                default: return (CodexPair & (1 << i)) != 0;
+            }
+        }
+
+        public bool CodexIsNew(CodexKind kind, int i)
+        {
+            switch (kind)
+            {
+                case CodexKind.Glyph: return (CodexNewGlyph & (1L << i)) != 0;
+                case CodexKind.Word: return (CodexNewWord & (1 << i)) != 0;
+                default: return (CodexNewPair & (1 << i)) != 0;
+            }
+        }
+
+        public bool CodexHasNew => CodexNewGlyph != 0 || CodexNewWord != 0 || CodexNewPair != 0;
+        public bool CodexPairNew => CodexNewPair != 0;
+        public bool CodexBaseNew => CodexNewGlyph != 0 || CodexNewWord != 0;
+
+        // 第一次收录返回 true。
+        public bool CodexLearn(CodexKind kind, int i)
+        {
+            if (CodexKnows(kind, i)) return false;
+            switch (kind)
+            {
+                case CodexKind.Glyph: CodexGlyph |= 1L << i; CodexNewGlyph |= 1L << i; break;
+                case CodexKind.Word: CodexWord |= 1 << i; CodexNewWord |= 1 << i; break;
+                default: CodexPair |= 1 << i; CodexNewPair |= 1 << i; break;
+            }
+            Save();
+            return true;
+        }
+
+        public void CodexSeen(CodexKind kind, int i)
+        {
+            if (!CodexIsNew(kind, i)) return;
+            switch (kind)
+            {
+                case CodexKind.Glyph: CodexNewGlyph &= ~(1L << i); break;
+                case CodexKind.Word: CodexNewWord &= ~(1 << i); break;
+                default: CodexNewPair &= ~(1 << i); break;
+            }
+            Save();
+        }
+
+        public void UnlockCodex()
+        {
+            for (int i = 1; i < CardCatalog.IdCount; i++)
+                if (CardCatalog.Get((CardId)i).Wake != CardWake.WordPart) CodexLearn(CodexKind.Glyph, i);
+            for (int i = (int)WordId.InstantKill; i <= (int)WordId.Cleave; i++) CodexLearn(CodexKind.Word, i);
+            for (int i = 0; i < SignaturePairs.All.Length; i++) CodexLearn(CodexKind.Pair, i);
         }
 
         public void AddInk(int n)

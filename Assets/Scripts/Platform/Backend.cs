@@ -46,6 +46,7 @@ namespace InkLine
         public CloudRemote remote;
         public RankRow[] list;
         public RankRow mine;
+        public int postCount;
     }
 
     [Serializable]

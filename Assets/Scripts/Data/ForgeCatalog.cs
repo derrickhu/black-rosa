@@ -46,42 +46,44 @@ namespace InkLine
         // 开局只亮伤害。别的线按通关关数陆续露面，不能五张一起铺开。
         // 已经点过的线永远留着，免得存档玩家看见自己买过的东西消失。
         // 门槛铺满 72 关：每章都有几级可升，最后一级落在第七、八章。
-        // 价按门槛那几关的墨收入定，一级大约是那一段打三到五关的收入。
+        // 价 = 门槛那一关的墨 ×4 再加 80，同一条线每级再贵一截。
+        // ×4 是「打两关」再留一倍给签到、游戏圈和以后的渠道；+80 把早期垫到一天奖励买不满一级。
+        // 多一门炮、加一滴血比加伤害贵，这两条单独上浮。
         static readonly ForgeDef[] Lines =
         {
             new ForgeDef
             {
                 Line = ForgeLine.Damage, Name = "伤害", Stat = "炮弹伤害", Step = "炮弹伤害 +8%",
                 Icon = "damage", Reveal = 0,
-                Cost = new[] { 10, 20, 30, 55, 90, 130, 180, 260 },
+                Cost = new[] { 120, 140, 170, 200, 240, 300, 380, 470 },
                 Gate = new[] { 0, 2, 6, 12, 20, 30, 42, 56 }
             },
             new ForgeDef
             {
                 Line = ForgeLine.Emitters, Name = "炮台数", Stat = "炮台", Step = "多一门炮",
                 Icon = "guns", Reveal = 9,
-                Cost = new[] { 50, 160 },
+                Cost = new[] { 260, 420 },
                 Gate = new[] { 9, 40 }
             },
             new ForgeDef
             {
                 Line = ForgeLine.FireRate, Name = "射速", Stat = "开火间隔", Step = "开火间隔 -8%",
                 Icon = "rate", Reveal = 3,
-                Cost = new[] { 15, 35, 90, 180 },
+                Cost = new[] { 130, 160, 220, 300 },
                 Gate = new[] { 3, 9, 24, 45 }
             },
             new ForgeDef
             {
                 Line = ForgeLine.StartGold, Name = "开局金币", Stat = "开局金币", Step = "开局金币 +2",
                 Icon = "gold", Reveal = 4,
-                Cost = new[] { 10, 25, 55, 100, 170 },
+                Cost = new[] { 140, 160, 210, 270, 360 },
                 Gate = new[] { 4, 10, 22, 36, 54 }
             },
             new ForgeDef
             {
                 Line = ForgeLine.BaseHp, Name = "基地生命", Stat = "基地生命", Step = "基地生命 +1",
                 Icon = "hp", Reveal = 7,
-                Cost = new[] { 30, 100, 210 },
+                Cost = new[] { 190, 280, 420 },
                 Gate = new[] { 7, 27, 50 }
             }
         };
