@@ -483,6 +483,13 @@ namespace InkLine
     {
         const int SlashN = 4;
         const int DotN = 2;
+        const int DropN = 7;
+        SpriteRenderer[] _drop;
+        readonly float[] _dropAng = new float[DropN];
+        readonly float[] _dropReach = new float[DropN];
+        readonly float[] _dropSize = new float[DropN];
+        float _rot;
+        bool _soft;
         SpriteRenderer _flash;
         SpriteRenderer _glow;
         SpriteRenderer _ring;
@@ -508,6 +515,7 @@ namespace InkLine
         int _slashN;
         bool _spin;
         bool _on;
+        float _inkA = 0.55f;
 
         public bool Busy => _on;
 
@@ -520,6 +528,15 @@ namespace InkLine
             _spin = false;
             _slashN = 4;
             Tune(fx.Kind, fx.Tint);
+            // 爆炸 / 技能会一路乘上去，不封顶的话外环能铺满半屏，只剩一片粉雾。
+            _scale = Mathf.Min(_scale, 1.9f);
+            _rot = Random.Range(0f, 90f);
+            for (int i = 0; i < DropN; i++)
+            {
+                _dropAng[i] = (i + Random.Range(-0.35f, 0.35f)) * Mathf.PI * 2f / DropN;
+                _dropReach[i] = Random.Range(0.42f, 0.78f);
+                _dropSize[i] = Random.Range(0.07f, 0.13f);
+            }
 
             // 底层：墨溅，永远在，负责「打到了」的手感
             _inkFrames = InkVfx.Frames("hit_ink");
@@ -548,6 +565,8 @@ namespace InkLine
 
         void Tune(int kind, Color tint)
         {
+            _inkA = 0.55f;
+            _soft = true;
             switch (kind)
             {
                 case HitFx.Fire:
@@ -619,11 +638,15 @@ namespace InkLine
                     _slashN = 2;
                     break;
                 default:
-                    _hi = Color.Lerp(InkTheme.GraphiteHi, Color.white, 0.35f);
-                    _mid = InkTheme.Graphite;
-                    _ringC = InkTheme.GraphiteMid;
-                    _life = 0.14f;
-                    _slashN = 3;
+                    // 普通墨弹：白芯先亮一下，再炸出一圈实墨点。灰色在宣纸上等于没打到。
+                    _hi = Color.white;
+                    _mid = InkTheme.Ink;
+                    _ringC = InkTheme.Ink;
+                    _life = 0.22f;
+                    _scale *= 1.18f;
+                    _slashN = 4;
+                    _inkA = 0.82f;
+                    _soft = false;
                     break;
             }
             if (tint.a > 0.4f && kind != HitFx.FireIce && kind != HitFx.Stun)
@@ -642,17 +665,21 @@ namespace InkLine
             }
             _t += Time.unscaledDeltaTime;
             float u = _life <= 0.01f ? 1f : Mathf.Clamp01(_t / _life);
-            float e = 1f - (1f - u) * (1f - u);
+            float e = 1f - (1f - u) * (1f - u) * (1f - u);
             float fade = 1f - u;
-            Paint(_flash, _hi, _scale * Mathf.Lerp(0.26f, 0.78f, e), fade * 0.95f);
-            Paint(_glow, _mid, _scale * Mathf.Lerp(0.48f, 1.62f, e), fade * 0.52f);
-            Paint(_ring, _ringC, _scale * Mathf.Lerp(0.20f, 1.78f, e), Mathf.Pow(fade, 1.15f) * 0.88f);
+            // 白芯只活前 40%，要的是「啪」一下，不是一团亮雾。
+            float pop = Mathf.Clamp01(1f - u / 0.4f);
+            Paint(_flash, _hi, _scale * Mathf.Lerp(0.42f, 0.82f, e), pop * 0.98f);
+            // 柔光在宣纸上只会化成一片雾。只给带色的命中留一层很淡、很小的底。
+            Paint(_glow, _mid, _scale * Mathf.Lerp(0.4f, 0.95f, e), _soft ? fade * fade * 0.2f : 0f);
+            Paint(_ring, _ringC, _scale * Mathf.Lerp(0.22f, 1.15f, e), Mathf.Pow(fade, 1.8f) * 0.6f);
             if (_spin && _ring != null)
                 _ring.transform.localRotation = Quaternion.Euler(0f, 0f, _t * 280f);
 
             // 三层图序：墨溅底在下，元素层在中，事件层在上
-            Frame(_ink, _inkFrames, u, _scale * 0.92f, InkTheme.Ink, fade * 0.42f);
-            Frame(_elem, _elemFrames, u, _scale * 1.12f,
+            Frame(_ink, _inkFrames, u, _scale * 0.78f, InkTheme.Ink, fade * _inkA);
+            if (_ink != null) _ink.transform.localRotation = Quaternion.Euler(0f, 0f, _rot);
+            Frame(_elem, _elemFrames, u, _scale * 0.98f,
                 _elemTinted ? _mid : Color.white, fade * 0.92f);
             if (_eventSprite != null)
                 Paint(_event, _eventColor, _scale * Mathf.Lerp(0.45f, 1.05f, e), Mathf.Pow(fade, 0.8f));
@@ -681,13 +708,30 @@ namespace InkLine
                     _slash[i].enabled = false;
                     continue;
                 }
-                float ang = 90f * i + 18f;
+                float ang = 90f * i + _rot + (i % 2 == 0 ? 0f : 14f);
+                float len = i % 2 == 0 ? 0.78f : 0.56f;
                 _slash[i].transform.localRotation = Quaternion.Euler(0f, 0f, ang);
                 _slash[i].transform.localScale = new Vector3(
-                    _scale * Mathf.Lerp(0.22f, 0.38f, e),
-                    _scale * Mathf.Lerp(0.55f, 1.15f, e),
+                    _scale * Mathf.Lerp(0.2f, 0.12f, e),
+                    _scale * Mathf.Lerp(0.3f, len, e),
                     1f);
-                Paint(_slash[i], i % 2 == 0 ? _hi : _mid, -1f, fade * 0.78f);
+                Paint(_slash[i], i % 2 == 0 ? _hi : _mid, -1f, pop * 0.9f);
+            }
+
+            // 硬边墨点往外甩，先快后慢，边飞边缩。糊的柔光撑不起「啪」，这一圈碎点才撑得起。
+            Color dropC = _mid;
+            for (int i = 0; i < DropN; i++)
+            {
+                if (_drop[i] == null) continue;
+                float reach = _scale * _dropReach[i] * e;
+                _drop[i].transform.localPosition = new Vector3(
+                    Mathf.Cos(_dropAng[i]) * reach,
+                    Mathf.Sin(_dropAng[i]) * reach - 0.12f * u * u * _scale, 0f);
+                float s = _scale * _dropSize[i] * (1f - 0.75f * u);
+                _drop[i].transform.localScale = Vector3.one * s;
+                dropC.a = Mathf.Clamp01(1.25f * fade);
+                _drop[i].color = dropC;
+                _drop[i].enabled = s > 0.01f;
             }
             if (u < 1f) return;
             SetVis(false);
@@ -732,6 +776,9 @@ namespace InkLine
             if (_dot != null)
                 for (int i = 0; i < DotN; i++)
                     if (_dot[i] != null) _dot[i].enabled = on && i < _dots;
+            if (_drop != null)
+                for (int i = 0; i < DropN; i++)
+                    if (_drop[i] != null) _drop[i].enabled = on;
             if (_slash == null) return;
             for (int i = 0; i < SlashN; i++)
                 if (_slash[i] != null) _slash[i].enabled = on && i < _slashN;
@@ -739,7 +786,7 @@ namespace InkLine
 
         void Ensure()
         {
-            if (_flash != null && _dot != null && _slash != null) return;
+            if (_flash != null && _dot != null && _slash != null && _drop != null) return;
             // 域重载后引用丢了但子节点还挂着，先清掉再重建，免得越积越多
             for (int i = transform.childCount - 1; i >= 0; i--)
                 Destroy(transform.GetChild(i).gameObject);
@@ -755,6 +802,13 @@ namespace InkLine
             _dot = new SpriteRenderer[DotN];
             for (int i = 0; i < DotN; i++)
                 _dot[i] = Make("dot" + i, InkFx.SoftDisc(), 14);
+            _drop = new SpriteRenderer[DropN];
+            Sprite dropSprite = InkArt.Heap(InkShape.Circle, Color.white, 48);
+            for (int i = 0; i < DropN; i++)
+            {
+                _drop[i] = Make("drop" + i, dropSprite, 14);
+                InkFx.PaintSprite(_drop[i], Color.white);
+            }
         }
 
         SpriteRenderer Make(string name, Sprite sprite, int order)

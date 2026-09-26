@@ -1,0 +1,56 @@
+墨字防线 · 背景音乐（Suno）
+
+两首仍是卡通休闲，但要闷、要靠后，像垫在画面底下的一层，不是主题曲。
+共用闷马林巴、暖贝斯、毡音钢琴。首页慢慢摇。战斗换成小调，用很低的心跳把节奏压住，旋律别往前冲。
+命中、开炮、印章要比音乐清楚。不要古筝洞箫，也不要蹦跳、拍手、八音盒。
+
+生成后导出 mp3，放到：
+  Assets/Resources/Audio/bgm_home.mp3
+  Assets/Resources/Audio/bgm_battle.mp3
+文件名必须是这两个。进游戏会自动循环，战斗曲还会再被压低一档。
+首页三页共用 bgm_home。进关切到 bgm_battle，回首页切回来。
+改装和结算时音乐会再低下去。
+
+如果一首里有明显的开头和结尾，把中间最稳的一段剪成循环，再覆盖同名文件。
+导出前把音量收到大概七成，留出头顶给音效。
+
+────────────────────────────────
+1. 首页  bgm_home
+风格：暖、软、不赶。卡通游戏的大厅垫乐，让人愿意待着，不想让人跟着点头。
+
+Style:
+instrumental, no vocals, soft casual cartoon underscore, muted marimba, warm bass, felt piano, quiet shaker, mellow, cozy, low in the mix, subdued, 92 BPM, F major
+
+Lyrics box（结构，不要唱出来）:
+[Intro]
+two bars of warm bass and a very quiet shaker
+
+[Loop]
+a small muted marimba phrase, then two bars of just bass and shaker, felt piano answers softly, no bright hook, unhurried, this section should feel loopable
+
+[Outro]
+bass holds one note and the shaker fades
+
+Exclude:
+vocals, lyrics, guzheng, erhu, dizi, xiao flute, chinese classical, temple, bouncy, claps, music box, whistle, orchestra, EDM, dubstep, cinematic hits
+
+────────────────────────────────
+2. 战斗  bgm_battle
+风格：同一套闷乐器，收成一条往前顶的低脉搏。有赶路的紧，没有欢呼。
+旋律短，反复，坐在贝斯下面。高音少，好把位置让给开炮和命中。
+
+Style:
+instrumental, no vocals, quiet tense cartoon battle underscore, muted marimba pulse, soft heartbeat kick, low bass ostinato, felt piano stabs, pressing, mellow, narrow mix, low in the mix, 112 BPM, A minor
+
+Lyrics box:
+[Intro]
+two soft heartbeats and a low bass note
+
+[Loop]
+a steady low pulse like a soft heartbeat, bass repeats a short tense figure, muted marimba taps the same three notes and then rests, felt piano adds one quiet stab every other bar, urgent but hushed, no melody in the foreground, this section should loop cleanly, no drop, no chorus swell
+
+[Outro]
+the heartbeat continues two bars and stops on the bass note
+
+Exclude:
+vocals, lyrics, guzheng, erhu, chinese classical, bright lead, claps, whistle, music box, ukulele strum, orchestra hits, war drums, choir, dubstep, risers, sirens

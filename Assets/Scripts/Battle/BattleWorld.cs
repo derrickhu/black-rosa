@@ -209,6 +209,7 @@ namespace InkLine
         // 局外升级只改这两个系数和开局条件，结算骨架一步都不动。
         float _damageMul = 1f;
         float _skinDamage;
+        int _skinId;
         float _intervalMul = 1f;
 
         readonly float[] _fireCd = new float[GameConstants.MaxEmitters];
@@ -287,6 +288,7 @@ namespace InkLine
         public void ApplySkin(int skin)
         {
             SkinDef d = SkinCatalog.Get(skin);
+            _skinId = skin;
             _skinDamage = d.DamageAdd;
             if (d.GoldAdd != 0) Gold += d.GoldAdd;
         }
@@ -534,6 +536,7 @@ namespace InkLine
                 _fireCd[i] = interval;
                 float x = RailX + i * GameConstants.CellWidth;
                 FireBullet(new Vector2(x, GameConstants.EmitterY + 0.24f), Vector2.up);
+                AudioBus.Shot(ShotPitch(_skinId));
             }
         }
 
@@ -890,7 +893,11 @@ namespace InkLine
                 e.HitFlash = 0.16f;
                 PulseHitStop(0.06f);
                 ShowFloat(e.Pos + Vector2.up * 0.18f, "挡", InkTheme.Ink, 0.92f);
-                if (!execute) return;
+                if (!execute)
+                {
+                    AudioBus.Hit();
+                    return;
+                }
             }
 
             // 2 基础弹伤 × 道族衰减
@@ -923,7 +930,7 @@ namespace InkLine
             // 6 扣血
             e.Hp -= dmg;
             bool heavy = m.Has(CardId.Heavy);
-            e.HitFlash = heavy || execute ? 0.2f : 0.14f;
+            e.HitFlash = heavy || execute ? 0.2f : 0.16f;
 
             // 7 状族
             ApplyStatusSet(e, m);
@@ -932,11 +939,12 @@ namespace InkLine
             ApplyPush(e, m);
 
             Bursts.Add(BuildBurst(e.Pos, m, execute));
+            PlayHit(m, execute);
             PulseHitStop(HitStopOf(m, execute));
             // 挨打往炮弹来的方向顿一下。本体命中才推，域伤害不推 ——
             // 一圈爆炸把周围的怪全推歪，看着像是被吹散而不是被炸到。
             if (from == HitSource.Direct && src != null)
-                Recoil(e, src.Vel, heavy || execute ? 0.3f : 0.16f);
+                Recoil(e, src.Vel, heavy || execute ? 0.34f : 0.24f);
             // 普通命中不震屏。每秒六到二十下都震，屏幕就一直在抖，
             // 真正该有分量的那几下反而分不出来了。
             AddShake(execute ? 0.34f : heavy || m.ExplodeR > 0.01f ? 0.18f : 0f);
@@ -1179,11 +1187,31 @@ namespace InkLine
             return 1.2f;
         }
 
+        static void PlayHit(ShotMods m, bool execute)
+        {
+            if (execute || m.ExplodeR > 0.01f || m.Has(CardId.Heavy)) AudioBus.Boom();
+            else if (m.Has(CardId.Fire)) AudioBus.HitFire();
+            else if (m.Has(CardId.Ice)) AudioBus.HitIce();
+            else AudioBus.Hit();
+        }
+
+        static float ShotPitch(int skin)
+        {
+            switch (skin)
+            {
+                case 1: return 0.94f;
+                case 2: return 1.08f;
+                case 3: return 0.9f;
+                default: return 1f;
+            }
+        }
+
         static float HitStopOf(ShotMods m, bool execute)
         {
             if (execute) return 0.15f;
-            if (m.ExplodeR > 0.01f || m.Has(CardId.Heavy)) return 0.12f;
-            return 0.07f;
+            if (m.ExplodeR > 0.01f || m.Has(CardId.Heavy)) return 0.10f;
+            // 普通命中每秒好几下，整场停 0.07 读起来是卡。分量交给怪身上的闪白和后坐。
+            return 0.025f;
         }
 
         void PulseHitStop(float time)
@@ -1194,10 +1222,13 @@ namespace InkLine
         void Kill(EnemyActor e, ShotMods m)
         {
             e.Dead = true;
+            if (e.IsBoss) AudioBus.Boss();
+            else AudioBus.Kill();
             Deaths.Add(new DeathFx { Pos = e.Pos, Type = e.Type, Radius = e.Radius, Boss = e.IsBoss });
             DropLoot(e);
-            // 小兵成片地死，一只震一下就是连续抖动。只有块头够大的才配震。
-            AddShake(e.IsBoss ? 0.42f : e.Radius > 0.3f ? 0.12f : 0f);
+            // 小兵只给一下很轻的震，成片死时取最大值不叠加，不会抖成一片。
+            AddShake(e.IsBoss ? 0.42f : e.Radius > 0.3f ? 0.16f : 0.07f);
+            PulseHitStop(e.IsBoss ? 0.2f : e.Radius > 0.3f ? 0.07f : 0.04f);
             if (e.IsBoss) BossKilled = true;
             if (e.SplitCount > 0) SpawnSplit(e, e.SplitCount);
             if (m != null && m.BurnPop) BurnPop(e.Pos, m);
@@ -1295,7 +1326,7 @@ namespace InkLine
                 if (amount <= 0) continue;
                 if (Drops.Count >= DropCap)
                 {
-                    Collect(kind, amount, spell);
+                    Collect(kind, amount, spell, true);
                     continue;
                 }
                 float side = pieces == 1 ? UnityEngine.Random.Range(-1f, 1f) : (i - (pieces - 1) * 0.5f) / pieces * 2f;
@@ -1348,7 +1379,7 @@ namespace InkLine
                     d.Pos = Vector2.Lerp(a, b, e);
                     if (u >= 1f)
                     {
-                        Collect(d.Kind, d.Amount, d.Spell);
+                        Collect(d.Kind, d.Amount, d.Spell, true);
                         Drops.RemoveAt(i);
                     }
                     continue;
@@ -1383,8 +1414,9 @@ namespace InkLine
             }
         }
 
-        void Collect(DropKind kind, int amount, int spell = -1)
+        void Collect(DropKind kind, int amount, int spell = -1, bool sound = false)
         {
+            if (sound) AudioBus.Pickup();
             if (kind == DropKind.Gold)
             {
                 Gold += amount;
@@ -1406,7 +1438,7 @@ namespace InkLine
         // 而那一截恰好是玩家刚刚看着掉出来的。
         void FlushDrops()
         {
-            for (int i = 0; i < Drops.Count; i++) Collect(Drops[i].Kind, Drops[i].Amount, Drops[i].Spell);
+            for (int i = 0; i < Drops.Count; i++) Collect(Drops[i].Kind, Drops[i].Amount, Drops[i].Spell, false);
             Drops.Clear();
         }
 
@@ -1521,6 +1553,7 @@ namespace InkLine
                 {
                     e.Dead = true;
                     BaseHp = Mathf.Max(0, BaseHp - 1);
+                    AudioBus.Leak();
                     AddShake(0.7f);
                     ShowToast("防线被突破");
                 }
@@ -1641,7 +1674,10 @@ namespace InkLine
                 LastReveal = CardCatalog.WordName(_word[col]);
                 RevealTime = 1.6f;
                 ShowToast("成词 · " + LastReveal);
+                AudioBus.Chime();
             }
+            else if (peek == PlaceResult.Upgraded) AudioBus.Chime();
+            else AudioBus.Stamp();
             return peek == PlaceResult.NeedConfirm ? PlaceResult.Placed : peek;
         }
 

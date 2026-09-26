@@ -75,30 +75,33 @@ namespace InkLine
             // 只在最后三分之一淡出。整段都在淡的话，刚飘出来的字就已经是半透明了。
             float fade = u > 0.34f ? 1f : Mathf.Clamp01(u / 0.34f);
             // 每次并入新伤害都重新弹一次，弹的幅度比原来大 —— 那一下就是「又打中了」。
-            float punch = 1f + 0.55f * f.Punch * f.Punch;
-            // 视图层再封一次：逻辑层算错也不许把字撑满屏。
-            // 1.55（字号上限）× 1.55（刚并入的弹一下）× 1.3（暴击）= 3.1，
-            // 那已经是半个战场宽；2.1 够「又打中了」跳一下，再大就是事故。
-            float scale = Mathf.Min(2.1f, f.Scale * punch * Body(f.Kind));
+            float pop = f.Punch * f.Punch;
+            float scale = Mathf.Min(2.1f, f.Scale * (1f + 0.22f * pop) * Body(f.Kind));
+            // 弹出的瞬间横着撑开、竖着压扁，收回来才像被打出来的，而不是一个标签在变大。
+            float sx = scale * (1f + 0.46f * pop);
+            float sy = scale * (1f - 0.3f * pop);
 
             Color fill = Face(f);
             fill.a = fade;
             tm.text = f.Text;
             tm.color = fill;
             tm.transform.position = new Vector3(f.Pos.x, f.Pos.y, 0f);
-            tm.transform.localScale = Vector3.one * scale;
-            // 暴击歪一点。整屏数字都正着写，大数字混在里面根本挑不出来。
-            tm.transform.localRotation = f.Kind == PopKind.Crit
-                ? Quaternion.Euler(0f, 0f, -8f)
-                : Quaternion.identity;
+            tm.transform.localScale = new Vector3(sx, sy, 1f);
+            float lean = ((f.Id % 5) - 2) * 4f;
+            if (f.Kind == PopKind.Crit) lean -= 8f;
+            lean += pop * 7f * ((f.Id & 1) == 0 ? 1f : -1f);
+            tm.transform.localRotation = Quaternion.Euler(0f, 0f, lean);
 
-            if (tm.transform.childCount == 0) return;
-            var halo = tm.transform.GetChild(0).GetComponent<TextMesh>();
-            if (halo == null) return;
-            halo.text = f.Text;
-            Color paper = InkTheme.PaperInner;
-            paper.a = fade;
-            halo.color = paper;
+            Color edge = InkTheme.Outline;
+            edge.a = fade;
+            int n = tm.transform.childCount;
+            for (int i = 0; i < n; i++)
+            {
+                var rim = tm.transform.GetChild(i).GetComponent<TextMesh>();
+                if (rim == null) continue;
+                rim.text = f.Text;
+                rim.color = edge;
+            }
         }
 
         static float Body(PopKind kind)
@@ -116,31 +119,39 @@ namespace InkLine
         {
             switch (f.Kind)
             {
-                // 普通伤害就是墨色。底子是宣纸，深字最好读，也让暴击的彩色真成重点 ——
-                // 满屏彩色数字等于没有重点。
+                // 奶油芯配酱油描边。黑字在墨怪身上会消失，白边放大一圈又把笔画吃成灰的。
                 case PopKind.Damage:
-                    return InkTheme.Ink;
+                    return InkTheme.PaperInner;
                 case PopKind.Crit:
-                    return f.Color.maxColorComponent > 0.3f ? f.Color : InkTheme.Word;
+                    Color c = f.Color.maxColorComponent > 0.35f ? f.Color : InkTheme.GoldHi;
+                    return Color.Lerp(c, Color.white, 0.28f);
+                case PopKind.Heal:
+                    return InkTheme.WoodHi;
                 default:
-                    return f.Color.maxColorComponent > 0.3f ? f.Color : InkTheme.Ink;
+                    return f.Color.maxColorComponent > 0.35f ? f.Color : InkTheme.PaperInner;
             }
         }
+
+        static readonly Vector2[] EdgeAt =
+        {
+            new Vector2(0.042f, 0f),
+            new Vector2(-0.042f, 0f),
+            new Vector2(0f, 0.042f),
+            new Vector2(0f, -0.042f)
+        };
 
         static TextMesh Make()
         {
             var go = new GameObject("pop");
             go.transform.SetParent(_root, false);
             var tm = Stamp(go, 20);
-            // 描边做法：同一串字放大一圈、纸色、垫在后面。单向投影只有一边有对比，
-            // 数字飘到深色墨迹或敌人身上时另外三边就化进背景了。
-            var halo = new GameObject("halo");
-            halo.transform.SetParent(go.transform, false);
-            halo.transform.localPosition = new Vector3(0f, 0f, 0.01f);
-            // 1.16 试过了，太粗：字的笔画本来就细，纸色放大一圈直接把深色的芯吃掉，
-            // 远看整个数字是灰的。1.09 刚好只在外沿留一道边。
-            halo.transform.localScale = Vector3.one * 1.09f;
-            Stamp(halo, 19);
+            for (int i = 0; i < EdgeAt.Length; i++)
+            {
+                var edge = new GameObject("edge");
+                edge.transform.SetParent(go.transform, false);
+                edge.transform.localPosition = new Vector3(EdgeAt[i].x, EdgeAt[i].y, 0.01f);
+                Stamp(edge, 19);
+            }
             return tm;
         }
 
@@ -149,7 +160,7 @@ namespace InkLine
             var tm = go.AddComponent<TextMesh>();
             tm.font = UiKit.FontBold;
             tm.fontSize = 72;
-            tm.characterSize = 0.052f;
+            tm.characterSize = 0.064f;
             tm.anchor = TextAnchor.MiddleCenter;
             tm.alignment = TextAlignment.Center;
             tm.richText = false;

@@ -36,7 +36,9 @@ namespace InkLine
             bool pierce = m.Star(CardId.Pierce) > 0;
 
             // 视觉大小和碰撞半径解耦：重只是略大，不撑满格。
-            float coreS = heavyStar > 0 ? 0.50f * GlyphTable.Get(CardId.Heavy).Size.At(heavyStar) : 0.50f;
+            // ShotScale 把弹体、光晕、拖尾一起放大，命中判定仍用 BulletActor.Radius。
+            const float ShotScale = 1.4f;
+            float coreS = (heavyStar > 0 ? 0.50f * GlyphTable.Get(CardId.Heavy).Size.At(heavyStar) : 0.50f) * ShotScale;
             float breath = 1f + 0.018f * Mathf.Sin(Time.unscaledTime * 10f + b.Id * 1.7f);
             float sx = (pierce ? coreS * 0.68f : coreS) * breath;
             float sy = (pierce ? coreS * 1.32f : coreS) * (2f - breath);
@@ -131,6 +133,7 @@ namespace InkLine
                 ribbonTime = look.Time;
             }
             if (heavyStar > 0) width *= 1.08f;
+            width *= ShotScale;
             // 平涂体图里已经自带了尾，这里只补一条细速度线，宽了会盖住硬边。
             if (flat)
             {
@@ -151,7 +154,7 @@ namespace InkLine
             // 但仍然短到不会脱离子弹。
             Ribbon(ref _trail, ref _trailOn, "trail", v.Trail.On,
                 Color.Lerp(v.Trail.Tint, Color.white, 0.2f), v.Trail.Tint,
-                v.Trail.Fx == ShotFx.TrailAccel ? 0.15f : 0.14f,
+                (v.Trail.Fx == ShotFx.TrailAccel ? 0.15f : 0.14f) * ShotScale,
                 v.Trail.Fx == ShotFx.TrailAccel ? 0.17f : 0.15f);
         }
 

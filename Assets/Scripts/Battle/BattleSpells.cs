@@ -6,7 +6,7 @@ namespace InkLine
     // 各自直接改血/状态，免得域里再套域。
     public sealed partial class BattleWorld
     {
-        // 局内墨。和 MetaProgress.Ink 是两个池子：这一笔打完就清。
+        // 局内墨。和 MetaProgress.Ink 是两个池子：这一笔打完就清。技能不花它。
         public int Ink;
         public float RageTime;
         public float RageMul = 2f;
@@ -17,17 +17,17 @@ namespace InkLine
 
         public int SlotSpell(int slot) => slot >= 0 && slot < _slots.Length ? _slots[slot] : -1;
 
-        public int SlotInkCost(int slot)
+        public int SlotGoldCost(int slot)
         {
             int id = SlotSpell(slot);
-            return id < 0 ? 0 : SpellCatalog.Get(id).InkCost;
+            return id < 0 ? 0 : SpellCatalog.Get(id).GoldCost;
         }
 
         public bool CanCast(int slot)
         {
             int id = SlotSpell(slot);
             if (id < 0 || Paused || Victory || Defeat) return false;
-            if (Ink < SpellCatalog.Get(id).InkCost) return false;
+            if (Gold < SpellCatalog.Get(id).GoldCost) return false;
             return MendReady(id);
         }
 
@@ -62,7 +62,8 @@ namespace InkLine
         {
             if (!CanCast(slot)) return false;
             SpellDef d = SpellCatalog.Get(SlotSpell(slot));
-            Ink -= d.InkCost;
+            Gold -= d.GoldCost;
+            GoldPop = 1f;
             switch (d.Id)
             {
                 case SpellId.Burst: CastBurst(); break;
@@ -76,7 +77,22 @@ namespace InkLine
                 case SpellId.Snipe: CastSnipe(); break;
             }
             ShowToast(d.Name);
+            AudioBus.Spell(SpellPitch(d.Id));
             return true;
+        }
+
+        static float SpellPitch(SpellId id)
+        {
+            switch (id)
+            {
+                case SpellId.Frost: return 1.14f;
+                case SpellId.Halt: return 0.88f;
+                case SpellId.Mend: return 1.08f;
+                case SpellId.Snipe: return 0.92f;
+                case SpellId.Sweep: return 0.96f;
+                case SpellId.Slow: return 0.9f;
+                default: return 1f;
+            }
         }
 
         EnemyActor FrontMost()

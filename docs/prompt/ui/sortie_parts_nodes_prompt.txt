@@ -1,0 +1,10 @@
+A 2 by 2 grid of round badges on a pure solid magenta background (#FF00FF). Equal cells, generous magenta gutter, each badge centered and the same diameter, about half the cell width. The magenta is only the background.
+
+RENDERING: flat solid colour, hard crisp edges, uniform thick outline the colour of soy sauce (#3A2A20). Straight-on stickers.
+
+CELL 1, top left: a circle the colour of warm milk. Inside it, a bold check mark the colour of a red envelope. Thick soy-sauce outline on the circle.
+CELL 2, top right: a solid circle the colour of a ripe persimmon. The face of the circle is one flat persimmon colour, empty of any mark. Thick soy-sauce outline.
+CELL 3, bottom left: a circle the colour of cool ash. Inside it, a small closed padlock the colour of wet clay. Thick soy-sauce outline.
+CELL 4, bottom right: a circle the colour of warm milk. Inside it, a small ink-beast face: a round head the colour of wet violet ink, two short horns the colour of steamed-bun cream, two eyes the colour of a red envelope, a small frown. Thick soy-sauce outline.
+
+Each cell contains only its one badge.

@@ -90,8 +90,8 @@ namespace InkLine
             for (int r = 0; r < GameConstants.Rows; r++, i++)
             {
                 bool open = w.IsOpen(c, r);
-                _grid[i].enabled = true;
-                _grid[i].color = open ? Color.white : new Color(1f, 1f, 1f, 0.18f);
+                _grid[i].enabled = open;
+                _grid[i].color = Color.white;
                 if (open && w.Grid[c, r].HasValue)
                 {
                     CardId id = w.Grid[c, r].Value;
@@ -179,9 +179,10 @@ namespace InkLine
                 float sy = baseScale * (2f - breath);
                 if (flash)
                 {
-                    float punch = Mathf.Clamp01(e.HitFlash / 0.14f);
-                    sx *= 1.1f + 0.1f * punch;
-                    sy *= 0.86f - 0.06f * punch;
+                    float punch = Mathf.Clamp01(e.HitFlash / 0.16f);
+                    punch *= punch;
+                    sx *= 1f + 0.24f * punch;
+                    sy *= 1f - 0.2f * punch;
                 }
                 // 命中位移直接加在绘制位上：碰撞和走位还按 e.Pos 算，
                 // 挨打顿一下只是看的人的事，不该影响谁先破防线。
@@ -239,7 +240,8 @@ namespace InkLine
         {
             Transform t = host.transform.Find("hit");
             SpriteRenderer sr = t != null ? t.GetComponent<SpriteRenderer>() : null;
-            float a = Mathf.Clamp01(e.HitFlash / 0.14f);
+            float a = Mathf.Clamp01(e.HitFlash / 0.16f);
+            a = Mathf.Sqrt(a);
             if (a <= 0.01f)
             {
                 if (sr != null) sr.enabled = false;
@@ -257,7 +259,7 @@ namespace InkLine
             }
             sr.sprite = InkSprites.Flash(e.Type);
             sr.enabled = sr.sprite != null;
-            sr.color = new Color(1f, 1f, 1f, a * 0.82f);
+            sr.color = new Color(1f, 1f, 1f, a * 0.92f);
         }
 
         void AccrueWash(int col, CardId id)
@@ -374,8 +376,9 @@ namespace InkLine
         public void HighlightCell(int col, int row, Color color)
         {
             int i = col * GameConstants.Rows + row;
-            if (i >= 0 && i < _grid.Count)
-                _grid[i].color = color.a < 0.02f ? Color.white : Color.Lerp(Color.white, color, 0.85f);
+            if (i < 0 || i >= _grid.Count || !_grid[i].enabled) return;
+            // 能放的格子始终是黑框。这里不再把整格乘成绿色。
+            _grid[i].color = Color.white;
         }
 
         public void Dispose()

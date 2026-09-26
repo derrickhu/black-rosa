@@ -10,7 +10,7 @@ namespace InkLine
         public SpellId Id;
         public string Name;
         public string Desc;
-        public int InkCost;    // 释放一次要多少局内墨
+        public int GoldCost;   // 释放一次要多少本局金币
         public int Price;      // 碎片集满后的解锁价，单位墨
         public int Shards;     // 解锁前要攒的碎片数。关底 boss 随机掉
         public int Gate;       // 旧的星数门槛，解锁已改走碎片
@@ -23,53 +23,53 @@ namespace InkLine
         public const int Count = 9;
         public const int MaxLevel = 5;
 
-        // 共用一条墨，所以贵的技能天然和便宜的抢资源，这才有攒不攒的取舍。
+        // 和改装抢同一笔本局金币，贵的技能放一次就少一次抽牌。
         static readonly SpellDef[] All =
         {
             new SpellDef
             {
                 Id = SpellId.Burst, Name = "墨爆", Desc = "最前排炸开一圈，6 点伤害",
-                InkCost = 25, Price = 20, Shards = 3, Gate = 0, Tint = InkTheme.Explode
+                GoldCost = 25, Price = 20, Shards = 3, Gate = 0, Tint = InkTheme.Explode
             },
             new SpellDef
             {
                 Id = SpellId.Halt, Name = "定身", Desc = "全场敌人定住 1.6 秒",
-                InkCost = 35, Price = 40, Shards = 4, Gate = 0, Tint = InkTheme.Word
+                GoldCost = 35, Price = 40, Shards = 4, Gate = 0, Tint = InkTheme.Word
             },
             new SpellDef
             {
                 Id = SpellId.Rage, Name = "强攻", Desc = "5 秒内炮弹伤害翻倍",
-                InkCost = 45, Price = 75, Shards = 5, Gate = 0, Tint = InkTheme.Fire
+                GoldCost = 45, Price = 75, Shards = 5, Gate = 0, Tint = InkTheme.Fire
             },
             new SpellDef
             {
                 Id = SpellId.Sweep, Name = "横扫", Desc = "全屏 5 点伤害并击退",
-                InkCost = 55, Price = 120, Shards = 6, Gate = 14, Tint = InkTheme.Ink
+                GoldCost = 55, Price = 120, Shards = 6, Gate = 14, Tint = InkTheme.Ink
             },
             new SpellDef
             {
                 Id = SpellId.Splash, Name = "泼墨", Desc = "敌人最多那一列灼烧 3 秒",
-                InkCost = 50, Price = 160, Shards = 6, Gate = 18, Tint = InkTheme.Poison
+                GoldCost = 50, Price = 160, Shards = 6, Gate = 18, Tint = InkTheme.Poison
             },
             new SpellDef
             {
                 Id = SpellId.Mend, Name = "回血", Desc = "基地回 1 血，每局限一次",
-                InkCost = 70, Price = 220, Shards = 8, Gate = 0, NeedClear = true, Tint = InkTheme.Heart
+                GoldCost = 70, Price = 220, Shards = 8, Gate = 0, NeedClear = true, Tint = InkTheme.Heart
             },
             new SpellDef
             {
                 Id = SpellId.Frost, Name = "冰封", Desc = "全场冰伤并减速",
-                InkCost = 40, Price = 60, Shards = 4, Tint = InkTheme.Ice
+                GoldCost = 40, Price = 60, Shards = 4, Tint = InkTheme.Ice
             },
             new SpellDef
             {
                 Id = SpellId.Slow, Name = "迟缓", Desc = "全场减速一阵",
-                InkCost = 30, Price = 50, Shards = 4, Tint = InkTheme.Water
+                GoldCost = 30, Price = 50, Shards = 4, Tint = InkTheme.Water
             },
             new SpellDef
             {
                 Id = SpellId.Snipe, Name = "贯击", Desc = "最前一个吃一记重击",
-                InkCost = 35, Price = 55, Shards = 4, Tint = InkTheme.Thunder
+                GoldCost = 35, Price = 55, Shards = 4, Tint = InkTheme.Thunder
             }
         };
 

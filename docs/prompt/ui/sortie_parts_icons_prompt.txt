@@ -1,0 +1,10 @@
+A 2 by 2 grid of flat sticker icons on a pure solid magenta background (#FF00FF). Equal cells, generous magenta gutter between cells, each icon centered in its cell. The magenta is only the background.
+
+RENDERING: flat solid colour, hard crisp edges, uniform thick outline the colour of soy sauce (#3A2A20), straight-on, chunky shapes. At most three flat tones per colour. Warm casual mini-game stickers.
+
+CELL 1, top left: two overlapping speech bubbles, one the colour of steamed-bun cream, one the colour of a red envelope. Thick soy-sauce outline.
+CELL 2, top right: a flat calendar page the colour of steamed-bun cream, with a red-envelope-red tick on it. Thick soy-sauce outline.
+CELL 3, bottom left: a gift box the colour of a red envelope, ribbon the colour of steamed-bun cream. Thick soy-sauce outline.
+CELL 4, bottom right: a stack of three round coins the colour of a gold coin, the front coin largest. Thick soy-sauce outline.
+
+Each cell contains only its one object. The background of every cell is the same pure magenta.

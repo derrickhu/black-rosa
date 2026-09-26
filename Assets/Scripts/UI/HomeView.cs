@@ -27,6 +27,8 @@ namespace InkLine
         public Text AdLabel;
         public Text Help;
         public HomeSealCell[] Seals;
+        public HomeChapterBoard Chapter;
+        public Button[] SideActs;
 
         public HomeSpellSlot[] Equipped;
         public Text SpellTip;

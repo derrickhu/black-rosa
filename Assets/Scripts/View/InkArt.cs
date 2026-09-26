@@ -276,7 +276,7 @@ namespace InkLine
 
         public static Sprite Cell(int size = 128)
         {
-            const string key = "cell:slot:v1";
+            const string key = "cell:slot:v2";
             if (Cache.TryGetValue(key, out Sprite s)) return s;
             s = Bake(size, DrawCell);
             Cache[key] = s;
@@ -441,20 +441,18 @@ namespace InkLine
 
         static void DrawCell(Color[] px, int n)
         {
-            // 空槽要在宣纸上认得出是「能放字的格子」：白瓷底、酱油描边、圆角，
-            // 四边留缝，别和旁边的槽粘成一条虚线。
-            float margin = n * 0.07f;
-            float rad = n * 0.16f;
-            float thick = Mathf.Max(4f, n / 26f);
-            Color fill = new Color(1f, 0.973f, 0.945f, 1f);
-            Color line = InkTheme.Outline;
+            // 只有一圈黑框。中间透明，宣纸自己当底，不再铺白块或绿底。
+            float margin = n * 0.08f;
+            float rad = n * 0.18f;
+            float thick = Mathf.Max(5f, n / 22f);
+            Color line = InkTheme.Ink;
             float maxX = n - 1f - margin;
             for (int y = 0; y < n; y++)
             for (int x = 0; x < n; x++)
             {
                 float d = SdRound(x + 0.5f, y + 0.5f, margin, margin, maxX, maxX, rad);
-                if (d > 1.2f) continue;
-                Color c = d > -thick ? line : fill;
+                if (d > 1.2f || d < -thick) continue;
+                Color c = line;
                 if (d > 0f) c.a = 1f - Mathf.Clamp01(d);
                 Put(px, n, x, y, c);
             }

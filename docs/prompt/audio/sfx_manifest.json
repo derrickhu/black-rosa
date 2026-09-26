@@ -1,0 +1,148 @@
+{
+  "defaults": {
+    "bitrate": "96k",
+    "prompt_influence": 0.55
+  },
+  "sfx": [
+    {
+      "name": "ui_tap",
+      "text": "loud crisp UI button click, a single dry tick, close microphone, sharp attack, no reverb, no music, no voice",
+      "duration": 0.16,
+      "output": "../../../Assets/Resources/Audio/ui_tap.mp3",
+      "notes": "所有按钮"
+    },
+    {
+      "name": "ui_back",
+      "text": "loud close-mic rustle of one paper sheet lifted off a desk, short and clear, dry, no reverb, no music, no voice",
+      "duration": 0.18,
+      "output": "../../../Assets/Resources/Audio/ui_back.mp3",
+      "notes": "关闭、取消"
+    },
+    {
+      "name": "ui_deny",
+      "text": "one muted dry paper tick, dull and very short, soft, no buzzer, no error beep, no reverb, no music, no voice",
+      "duration": 0.14,
+      "output": "../../../Assets/Resources/Audio/ui_deny.mp3",
+      "notes": "点了不能放的格子、灰按钮"
+    },
+    {
+      "name": "stamp",
+      "text": "loud close-mic thud of a stone seal pressed once onto thick paper, full short impact then a crisp paper edge, dry, no reverb, no music, no voice",
+      "duration": 0.38,
+      "output": "../../../Assets/Resources/Audio/stamp.mp3",
+      "notes": "字牌落格"
+    },
+    {
+      "name": "chime",
+      "text": "loud close-mic strike of two small ceramic bowls, a lower ping then a higher ping, each ping clearly audible, dry room, no music, no voice",
+      "duration": 0.62,
+      "output": "../../../Assets/Resources/Audio/chime.mp3",
+      "notes": "升星、成词"
+    },
+    {
+      "name": "draft",
+      "text": "three paper cards fanned open on a desk, soft paper rustle, short, dry and close, no reverb, no music, no voice",
+      "duration": 0.42,
+      "output": "../../../Assets/Resources/Audio/draft.mp3",
+      "notes": "改装牌展开"
+    },
+    {
+      "name": "shot",
+      "text": "one short wet calligraphy brush flick, soft bristle whoosh, light and airy, quick decay, dry and close, no gunshot, no explosion, no reverb, no music, no voice",
+      "duration": 0.36,
+      "output": "../../../Assets/Resources/Audio/shot.mp3",
+      "notes": "发弹。时长压短，连射才不糊"
+    },
+    {
+      "name": "hit",
+      "text": "loud bubble pop, one fat soap bubble bursting close to the microphone, round low body, dry, no music, no voice",
+      "duration": 0.5,
+      "output": "../../../Assets/Resources/Audio/hit.mp3",
+      "notes": "默认命中，解压的核心音"
+    },
+    {
+      "name": "hit_thud",
+      "text": "punchy low thump of a fist hitting a firm cushion, short tight body with a quick click on the attack, close microphone, dry, no reverb, no music, no voice",
+      "duration": 0.5,
+      "output": "../../../Assets/Resources/Audio/hit_thud.mp3",
+      "notes": "垫在每一下命中底下的低频身体"
+    },
+    {
+      "name": "kill_pop",
+      "text": "loud satisfying pop of a big bubble wrap bubble bursting close to the microphone, crisp snap then a tiny airy puff, dry, no music, no voice",
+      "duration": 0.5,
+      "output": "../../../Assets/Resources/Audio/kill_pop.mp3",
+      "notes": "小怪死亡的清脆一下，音高随连杀往上走"
+    },
+    {
+      "name": "hit_fire",
+      "text": "a dry paper snap followed by one tiny charcoal crackle, sharp attack, very short decay, close and dry, no roaring fire, no explosion, no reverb, no music, no voice",
+      "duration": 0.36,
+      "output": "../../../Assets/Resources/Audio/hit_fire.mp3",
+      "notes": "火字命中"
+    },
+    {
+      "name": "hit_ice",
+      "text": "a thin porcelain chip tick, bright and glassy, one note, sharp attack, very short decay, dry and close, no wind, no reverb, no music, no voice",
+      "duration": 0.36,
+      "output": "../../../Assets/Resources/Audio/hit_ice.mp3",
+      "notes": "冰字命中"
+    },
+    {
+      "name": "boom",
+      "text": "a loud wet ink splash with a low thump underneath, the body lasts about a third of a second, close microphone, dry room, no debris, no music, no voice",
+      "duration": 0.46,
+      "output": "../../../Assets/Resources/Audio/boom.mp3",
+      "notes": "重击、爆炸、斩杀"
+    },
+    {
+      "name": "kill",
+      "text": "wet ink blooming into rice paper then a soft falling brush release, round and gentle, short, dry room, no scream, no music, no voice",
+      "duration": 0.5,
+      "output": "../../../Assets/Resources/Audio/kill.mp3",
+      "notes": "小怪化开"
+    },
+    {
+      "name": "boss",
+      "text": "a heavy wet ink splash on a desk, then a slow low brush stroke that keeps sounding, the whole gesture lasts about one second, close and weighty, short room, loud, no orchestra, no music, no voice",
+      "duration": 1.05,
+      "output": "../../../Assets/Resources/Audio/boss.mp3",
+      "notes": "关底倒下"
+    },
+    {
+      "name": "leak",
+      "text": "a soft thick paper tear, low and round, brief, sad but not an alarm, dry and close, no siren, no buzzer, no music, no voice",
+      "duration": 0.42,
+      "output": "../../../Assets/Resources/Audio/leak.mp3",
+      "notes": "漏怪扣心"
+    },
+    {
+      "name": "pickup",
+      "text": "loud woodblock hit, one bright strike, close microphone, short and clear, dry, no music, no voice",
+      "duration": 0.22,
+      "output": "../../../Assets/Resources/Audio/pickup.mp3",
+      "notes": "金币或墨飞进顶栏"
+    },
+    {
+      "name": "spell",
+      "text": "one broad wet brush stroke across rice paper, audible soft bristles, a gentle swell and a clean release, dry and close, no magic choir, no reverb tail, no music, no voice",
+      "duration": 0.72,
+      "output": "../../../Assets/Resources/Audio/spell.mp3",
+      "notes": "放技能。音高在代码里按技能微调"
+    },
+    {
+      "name": "win",
+      "text": "three soft pentatonic ceramic notes rising slowly, small and warm, like a guqin harmonic, gentle ending, no drums, no orchestra, no voice, no lyrics",
+      "duration": 1.7,
+      "output": "../../../Assets/Resources/Audio/win.mp3",
+      "notes": "过关"
+    },
+    {
+      "name": "lose",
+      "text": "two clear descending tones on a soft low flute, each note close and plainly audible, gentle but present, no buzzer, no voice, no drums",
+      "duration": 1.25,
+      "output": "../../../Assets/Resources/Audio/lose.mp3",
+      "notes": "失败"
+    }
+  ]
+}

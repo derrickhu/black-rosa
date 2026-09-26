@@ -1,0 +1,27 @@
+A portrait 9:16 mobile game screen, full-bleed UI mockup, flat 2D cartoon sticker art.
+
+ABOUT THE ATTACHED REFERENCE IMAGE: keep the top and the bottom exactly. Top: GM badge, lightning pill "12/12", ink-bottle pill "10", logo 墨字防线. Bottom: persimmon-orange button reading 继续 第7关, and the cream paper scroll with wooden rollers labelled 炮台, 出征, 技能, with 出征 on a red-envelope-red square. Thick soy-sauce-brown outlines. Background is steamed-bun cream warming to pale peach. The empty cream band between the logo and the orange button is the canvas.
+
+FILL THE BAND WITH THIS EXACT ARRANGEMENT. The side icons and the chapter card are separate. The chapter card stays in the middle and does not touch the side icons.
+
+LEFT MARGIN, two round buttons stacked vertically, small, warm-milk face, soy-sauce-brown outline. Caption directly under each button:
+1. two flat speech bubbles. Caption: 游戏圈
+2. a flat calendar with a red-envelope-red tick. Caption: 签到
+
+RIGHT MARGIN, two round buttons stacked the same way:
+1. a flat red-envelope-red gift box with a cream ribbon. Caption: 活动
+2. a flat gold-coin podium with three steps. Caption: 排行榜
+
+CENTER, one cream paper card with rounded corners and a soy-sauce-brown outline. It occupies the middle 60 percent of the width.
+- Top of the card: a red-envelope-red ribbon with the exact characters 第二章
+- Middle of the card: five round seals joined by one short soy-sauce-brown curve, like a short path
+  - seal with numeral 6, warm milk, red-envelope-red rim
+  - seal with numeral 7, warm milk, ripe-persimmon rim, slightly larger
+  - seal with numeral 8, cool ash, a small padlock under the numeral
+  - seal with numeral 9, cool ash, a small padlock under the numeral
+  - seal with numeral 10, cool ash, a small padlock under the numeral
+- Bottom of the card: five round page dots. Dot 2 is ripe persimmon. Dots 1, 3, 4, 5 are cool ash. To the right of the dots, a small cream tab with the exact characters 下一章
+
+The card interior is plain warm paper. The seals are the only pictures on the card.
+
+RENDERING: flat solid colour, hard edges, thick soy-sauce-brown outline. Write the Chinese exactly: 游戏圈 签到 活动 排行榜 第二章 下一章 继续 第7关 墨字防线 炮台 出征 技能

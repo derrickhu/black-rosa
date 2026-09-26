@@ -45,6 +45,7 @@ namespace InkLine
             var h = new HomeScreen(layer, meta, start);
             UiKit.PaperSheet(layer);
             if (!h.TryPrefab()) h.BuildShell();
+            h.FitFrame();
             h.Pick(TabSortie);
             h.RefreshTop();
             if (WxBridge.IsSimulator)
@@ -64,11 +65,6 @@ namespace InkLine
             if (prefab == null) return false;
             var go = UnityEngine.Object.Instantiate(prefab, _layer, false);
             go.name = "Home";
-            var rt = go.GetComponent<RectTransform>();
-            rt.anchorMin = Vector2.zero;
-            rt.anchorMax = Vector2.one;
-            rt.offsetMin = Vector2.zero;
-            rt.offsetMax = Vector2.zero;
             _view = go.GetComponent<HomeView>();
             if (_view == null || _view.Skins == null || _view.Skins.Length == 0)
             {
@@ -208,8 +204,64 @@ namespace InkLine
             RefreshTop();
         }
 
+        float _fitW = -1f;
+        float _fitH = -1f;
+        float _fitTop = -1f;
+        float _fitBot = -1f;
+
+        // 预制体是按 720×1280 排的。画布一拉高，页会跟着变高，
+        // 顶上的牌子还钉在屏幕最上，多出来的高度就空在格子和底栏之间。
+        // 整页保持设计比例，能放下就按原大贴着安全区下沿，放不下再整体缩小。
+        void FitFrame()
+        {
+            if (_view == null) return;
+            var rt = _view.transform as RectTransform;
+            if (rt == null) return;
+            var parent = rt.parent as RectTransform;
+            float cw = parent != null ? parent.rect.width : 0f;
+            float ch = parent != null ? parent.rect.height : 0f;
+            if (cw < 2f || ch < 2f)
+            {
+                cw = ScreenFit.CanvasW;
+                ch = ScreenFit.CanvasH;
+            }
+            if (cw < 2f || ch < 2f) return;
+
+            float top = 0f;
+            float bot = 0f;
+            if (WxBridge.IsMiniGame)
+            {
+                top = ScreenFit.TopPad;
+                bot = ScreenFit.BottomPad;
+            }
+            if (Mathf.Approximately(cw, _fitW) && Mathf.Approximately(ch, _fitH)
+                && Mathf.Approximately(top, _fitTop) && Mathf.Approximately(bot, _fitBot))
+                return;
+
+            float availH = Mathf.Max(1f, ch - top - bot);
+            float scale = Mathf.Min(cw / ScreenFit.DesignW, availH / ScreenFit.DesignH);
+            if (scale < 0.01f) return;
+            _fitW = cw;
+            _fitH = ch;
+            _fitTop = top;
+            _fitBot = bot;
+
+            rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.sizeDelta = new Vector2(ScreenFit.DesignW, ScreenFit.DesignH);
+            rt.localScale = new Vector3(scale, scale, 1f);
+            float half = ScreenFit.DesignH * scale * 0.5f;
+            bool laidOut = parent != null && parent.rect.height > 2f;
+            Rect prect = laidOut ? parent.rect : new Rect(-cw * 0.5f, -ch * 0.5f, cw, ch);
+            float centerY = (prect.yMin + prect.yMax) * 0.5f;
+            float pivotY = prect.yMin + bot + half;
+            rt.anchoredPosition = new Vector2(0f, pivotY - centerY);
+            Canvas.ForceUpdateCanvases();
+        }
+
         public void Tick()
         {
+            FitFrame();
             int before = _meta.Stamina;
             _meta.Refresh();
             RefreshTop();
@@ -517,10 +569,11 @@ namespace InkLine
             }
         }
 
+        int _chapter = -1;
+
         void BindSortie()
         {
-            if (_view.Logo != null && _view.Logo.sprite == null)
-                _view.Logo.sprite = InkSprites.Load("Ui/logo");
+            if (_pages[1] != null) SortiePageBuilder.Ensure(_view, _pages[1]);
             int next = NextStage();
             bool canGo = _meta.CanEnter(next);
             if (_view.GoLabel != null)
@@ -535,9 +588,145 @@ namespace InkLine
                     _view.AdLabel.text = $"看广告  +{GameConstants.AdStaminaGain} 体力";
             }
             if (_view.Help != null) _view.Help.gameObject.SetActive(false);
-            if (_view.Seals != null)
+            if (_view.Chapter != null) BindChapter(next);
+            else if (_view.Seals != null)
                 for (int i = 0; i < _view.Seals.Length && i < GameConstants.ChapterStageCount; i++)
                     BindSeal(_view.Seals[i], i);
+            WireSides();
+        }
+
+        void BindChapter(int frontier)
+        {
+            HomeChapterBoard board = _view.Chapter;
+            if (_chapter < 0) _chapter = SortiePageBuilder.ChapterOf(frontier);
+            _chapter = Mathf.Clamp(_chapter, 0, SortiePageBuilder.ChapterCount - 1);
+            if (board.Art != null)
+            {
+                Sprite art = InkSprites.Load("Ui/chapter_" + (_chapter + 1));
+                if (art == null) art = InkSprites.Load("Ui/chapter_1");
+                if (art != null) board.Art.sprite = art;
+            }
+            if (board.Title != null) board.Title.text = SortiePageBuilder.ChapterTitle(_chapter);
+            int count = Mathf.Min(SortiePageBuilder.PerChapter,
+                GameConstants.ChapterStageCount - _chapter * SortiePageBuilder.PerChapter);
+            if (board.Route != null)
+            {
+                board.Route.color = InkTheme.Outline;
+                board.Route.SetPoints(SortiePageBuilder.RoutePoints(count));
+            }
+            if (board.Nodes != null)
+            {
+                for (int i = 0; i < board.Nodes.Length; i++)
+                {
+                    HomeSealCell slot = board.Nodes[i];
+                    if (slot == null) continue;
+                    bool show = i < count;
+                    slot.gameObject.SetActive(show);
+                    if (show) BindNode(slot, _chapter * SortiePageBuilder.PerChapter + i, frontier);
+                }
+            }
+            if (board.Dots != null)
+            {
+                for (int i = 0; i < board.Dots.Length; i++)
+                {
+                    if (board.Dots[i] == null) continue;
+                    if (board.Dots[i].sprite == null)
+                    {
+                        board.Dots[i].sprite = UiSprites.Fill(8);
+                        board.Dots[i].type = Image.Type.Sliced;
+                    }
+                    board.Dots[i].color = i == _chapter ? InkTheme.Cta : InkTheme.LineDim;
+                }
+            }
+            bool prevOk = _chapter > 0;
+            bool nextOk = _chapter + 1 < SortiePageBuilder.ChapterCount && ChapterOpen(_chapter + 1);
+            if (board.Prev != null) board.Prev.gameObject.SetActive(prevOk);
+            if (board.PrevLabel != null) board.PrevLabel.color = InkTheme.TextMid;
+            if (board.NextLabel != null)
+                board.NextLabel.color = nextOk ? InkTheme.TextDark : InkTheme.TextDim;
+            var swipe = board.GetComponent<ChapterSwipe>();
+            if (swipe != null) swipe.Moved = ShiftChapter;
+            if (board.Prev != null)
+            {
+                board.Prev.onClick.RemoveAllListeners();
+                board.Prev.onClick.AddListener(() => ShiftChapter(-1));
+            }
+            if (board.Next != null)
+            {
+                board.Next.onClick.RemoveAllListeners();
+                board.Next.onClick.AddListener(() => ShiftChapter(1));
+            }
+        }
+
+        void ShiftChapter(int dir)
+        {
+            int to = _chapter + dir;
+            if (to < 0 || to >= SortiePageBuilder.ChapterCount) return;
+            if (dir > 0 && !ChapterOpen(to))
+            {
+                AudioBus.Deny();
+                return;
+            }
+            AudioBus.Tap();
+            _chapter = to;
+            BindChapter(NextStage());
+        }
+
+        bool ChapterOpen(int chapter)
+        {
+            if (chapter <= 0) return true;
+            int first = chapter * SortiePageBuilder.PerChapter;
+            return first < GameConstants.ChapterStageCount && _meta.Unlocked(first);
+        }
+
+        void BindNode(HomeSealCell slot, int index, int frontier)
+        {
+            bool open = _meta.Unlocked(index);
+            bool cleared = open && _meta.Stars[index] > 0;
+            bool current = open && index == frontier && !cleared;
+            bool last = (index % SortiePageBuilder.PerChapter) == SortiePageBuilder.PerChapter - 1
+                || index == GameConstants.ChapterStageCount - 1;
+            string key = "node_lock";
+            if (cleared) key = "node_done";
+            else if (current) key = "node_now";
+            else if (last) key = "node_boss";
+            Sprite face = InkSprites.Ui(key);
+            if (slot.Plate != null && face != null) slot.Plate.sprite = face;
+            if (slot.Lock != null) slot.Lock.gameObject.SetActive(false);
+            if (slot.Stars != null)
+                for (int s = 0; s < slot.Stars.Length; s++)
+                    if (slot.Stars[s] != null) slot.Stars[s].gameObject.SetActive(false);
+            if (slot.Number != null)
+            {
+                slot.Number.gameObject.SetActive(current);
+                slot.Number.text = (index + 1).ToString();
+                slot.Number.color = InkTheme.CardFace;
+            }
+            if (slot.Tag != null) slot.Tag.text = "";
+            int cost = _meta.StageCost(index);
+            bool live = open && _meta.Stamina >= cost;
+            if (slot.Button != null)
+            {
+                slot.Button.interactable = live;
+                slot.Button.onClick.RemoveAllListeners();
+                int idx = index;
+                slot.Button.onClick.AddListener(() =>
+                {
+                    if (_meta.Unlocked(idx) && _meta.Stamina >= _meta.StageCost(idx)) _start(idx);
+                });
+            }
+        }
+
+        void WireSides()
+        {
+            if (_view.SideActs == null) return;
+            for (int i = 0; i < _view.SideActs.Length; i++)
+            {
+                Button btn = _view.SideActs[i];
+                if (btn == null) continue;
+                btn.onClick.RemoveAllListeners();
+                btn.onClick.AddListener(() => AudioBus.Tap());
+            }
         }
 
         void BindSeal(HomeSealCell slot, int index)
@@ -721,7 +910,7 @@ namespace InkLine
                 slot.Name.text = rank > 0 ? d.Name + " Lv." + rank : d.Name;
                 slot.Name.color = InkTheme.TextDark;
             }
-            if (slot.Cost != null) slot.Cost.text = "耗 " + d.InkCost + " 墨";
+            if (slot.Cost != null) slot.Cost.text = "耗 " + d.GoldCost + " 金";
         }
 
         void BindSpellCard(HomeSpellCard slot, int i)
@@ -758,7 +947,7 @@ namespace InkLine
                 slot.Desc.horizontalOverflow = HorizontalWrapMode.Wrap;
                 slot.Desc.verticalOverflow = VerticalWrapMode.Overflow;
             }
-            if (slot.Cost != null) slot.Cost.text = "耗 " + d.InkCost + " 墨";
+            if (slot.Cost != null) slot.Cost.text = "耗 " + d.GoldCost + " 金";
             if (slot.State != null) slot.State.raycastTarget = false;
             if (slot.PriceBack != null) slot.PriceBack.gameObject.SetActive(buyable);
             BindUpgradePill(slot, i, owned && buyable);
@@ -929,91 +1118,18 @@ namespace InkLine
 
         void BuildSortie(RectTransform page)
         {
-            Sprite mark = InkSprites.Load("Ui/logo");
-            float titleH;
-            if (mark != null)
-            {
-                const float w = 340f;
-                float h = w * mark.rect.height / Mathf.Max(1f, mark.rect.width);
-                var slot = UiKit.Panel(page, "title", new Vector2(0f, 6f), new Vector2(w, h),
-                    Color.clear, Pin.Top);
-                slot.GetComponent<Image>().raycastTarget = false;
-                var img = UiKit.Icon(slot, mark, Vector2.zero, w);
-                img.rectTransform.sizeDelta = new Vector2(w, h);
-                titleH = 6f + h;
-            }
-            else
-            {
-                var title = UiKit.Label(page, "t", "墨字防线", 44, new Vector2(0f, 16f),
-                    new Vector2(480, 70), TextAnchor.MiddleCenter, Pin.Top);
-                UiKit.Bold(title);
-                titleH = 90f;
-            }
-
-            float sealTop = titleH + 16f;
-            float room = PageH - sealTop - SortieFootH;
-            float step = Mathf.Min(SealStepY, room / SealRows);
-            float size = Mathf.Clamp(step - 22f, 96f, SealSize);
-            for (int i = 0; i < GameConstants.ChapterStageCount; i++)
-                Seal(page, i, size, UiKit.GridPos(i, SealCols, SealStepX, step)
-                              + new Vector2(0f, sealTop));
-
+            var host = page.GetComponent<HomeView>();
+            if (host == null) host = page.gameObject.AddComponent<HomeView>();
+            SortiePageBuilder.Build(page, host);
             int next = NextStage();
             bool canGo = _meta.CanEnter(next);
             var go = UiKit.Btn(page, "go", (_meta.Stars[next] > 0 ? "重打" : "继续") + $"  第 {next + 1} 关",
                 new Vector2(0f, 26f), new Vector2(460f, 106f), () => _start(next), true, Pin.Bottom);
             go.interactable = canGo;
-
             bool poor = _meta.Stamina < GameConstants.StaminaPerStage;
             if (poor && _meta.CanAdStamina)
                 UiKit.Btn(page, "adstam", $"看广告  +{GameConstants.AdStaminaGain} 体力",
                     new Vector2(0f, 150f), new Vector2(400f, 84f), WatchStaminaAd, false, Pin.Bottom);
-        }
-
-        const int SealCols = 5;
-        const int SealRows = (GameConstants.ChapterStageCount + SealCols - 1) / SealCols;
-        const float SealSize = 128f;
-        const float SealStepX = 138f;
-        const float SealStepY = 150f;
-        const float SortieFootH = 236f;
-
-        void Seal(RectTransform page, int index, float size, Vector2 pos)
-        {
-            float k = size / SealSize;
-            bool open = _meta.Unlocked(index);
-            int cost = _meta.StageCost(index);
-            bool afford = _meta.Stamina >= cost;
-            bool live = open && afford;
-            var plate = UiKit.Art(page, "st" + index, live ? "Ui/panel_card_on" : (open ? "Ui/panel_card" : "Ui/panel_card_dim"),
-                pos, new Vector2(size, size), Pin.Top, CardSlice);
-            var btn = plate.gameObject.AddComponent<Button>();
-            btn.targetGraphic = plate.GetComponent<Image>();
-            btn.interactable = live;
-            int idx = index;
-            btn.onClick.AddListener(() => { if (live) _start(idx); });
-            if (!open)
-            {
-                UiKit.Icon(plate, InkSprites.Ui("lock"), Vector2.zero, 48f * k);
-                return;
-            }
-            int stars = _meta.Stars[index];
-            var num = UiKit.Label(plate, "n", (index + 1).ToString(), Mathf.RoundToInt(34f * k),
-                new Vector2(0f, (stars > 0 ? 12f : 2f) * k), new Vector2(80f * k, 44f * k));
-            UiKit.Bold(num);
-            num.color = live ? InkTheme.TextDark : InkTheme.TextDim;
-            if (stars > 0)
-            {
-                float span = (stars - 1) * 26f * k;
-                for (int s = 0; s < stars; s++)
-                    UiKit.Icon(plate, InkSprites.Ui("star"),
-                        new Vector2(-span * 0.5f + s * 26f * k, -22f * k), 24f * k);
-            }
-            if (!afford)
-            {
-                var tag = UiKit.Label(plate, "cost", "体力 " + cost, Mathf.RoundToInt(16f * k),
-                    new Vector2(0f, -46f * k), new Vector2(100f * k, 22f * k));
-                tag.color = InkTheme.Rose;
-            }
         }
 
         // ---------- 炮台（无预制体时） ----------
@@ -1350,7 +1466,7 @@ namespace InkLine
             var n = UiKit.Label(box, "n", rank > 0 ? d.Name + " Lv." + rank : d.Name, 26,
                 new Vector2(0f, -size.y * 0.16f), new Vector2(140, 34));
             UiKit.Bold(n);
-            var c = UiKit.Label(box, "c", "耗 " + d.InkCost + " 墨", 18,
+            var c = UiKit.Label(box, "c", "耗 " + d.GoldCost + " 金", 18,
                 new Vector2(0f, -size.y * 0.28f), new Vector2(140, 26));
             c.color = InkTheme.TextMid;
         }
@@ -1391,7 +1507,7 @@ namespace InkLine
             var desc = UiKit.Label(box, "d", SpellCatalog.Blurb(d, rank), 16, new Vector2(36f, 4f),
                 new Vector2(200, 28), TextAnchor.MiddleLeft);
             desc.color = body;
-            var cost = UiKit.Label(box, "e", "耗 " + d.InkCost + " 墨", 17,
+            var cost = UiKit.Label(box, "e", "耗 " + d.GoldCost + " 金", 17,
                 new Vector2(-86f, -36f), new Vector2(130, 26), TextAnchor.MiddleLeft);
             cost.color = body;
             ShowShardBar(box, have, need, d.Tint, gathering);

@@ -294,9 +294,9 @@ namespace InkLine
                 if (!has) continue;
                 SpellDef d = SpellCatalog.Get(id);
                 k.Name.text = d.Name;
-                k.Cost.text = d.InkCost.ToString();
-                float need = Mathf.Max(1, d.InkCost);
-                k.Fill.fillAmount = Mathf.Clamp01(world.Ink / need);
+                k.Cost.text = d.GoldCost.ToString();
+                float need = Mathf.Max(1, d.GoldCost);
+                k.Fill.fillAmount = Mathf.Clamp01(world.Gold / need);
                 bool ready = inBattle && world.CanCast(k.Slot);
                 k.Btn.interactable = ready;
                 Color tint = d.Tint;

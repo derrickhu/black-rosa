@@ -24,8 +24,8 @@ namespace InkLine
         public const int DailyWinStamina = 4;
         public const int StarterInk = 60;
 
-        // 局内：技能墨。和局外那笔墨是两个池子 —— 这一笔打完就清，
-        // 只在本局里攒来放技能，不进存档。击杀按敌人赏金 ×2 累积。
+        // 局内墨和局外墨是两个池子，打完就清，不进存档。
+        // 技能花的是本局金币。击杀仍按赏金 ×2 往这只瓶子里攒墨。
         public const int InkMax = 100;
         public const int InkPerGold = 2;
         public const int SpellSlots = 2;

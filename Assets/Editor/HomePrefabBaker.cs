@@ -31,6 +31,55 @@ namespace InkLine
             Bake();
         }
 
+        [MenuItem("墨字防线/重排出征页")]
+        public static void BakeSortieMenu()
+        {
+            AssetDatabase.ImportAsset("Assets/Resources/Art/Ui",
+                ImportAssetOptions.ImportRecursive | ImportAssetOptions.ForceUpdate);
+            SortiePageBuilder.SpriteOf = file =>
+                AssetDatabase.LoadAssetAtPath<Sprite>(Ui + file + ".png");
+            try { BakeSortieOnly(); }
+            finally { SortiePageBuilder.SpriteOf = null; }
+        }
+
+        // 只换出征页。炮台和技能页留着，避免整份重烘盖掉微调。
+        public static void BakeSortieFromBatch()
+        {
+            AssetDatabase.ImportAsset("Assets/Resources/Art/Ui",
+                ImportAssetOptions.ImportRecursive | ImportAssetOptions.ForceUpdate);
+            SortiePageBuilder.SpriteOf = file =>
+                AssetDatabase.LoadAssetAtPath<Sprite>(Ui + file + ".png");
+            try { BakeSortieOnly(); }
+            finally { SortiePageBuilder.SpriteOf = null; }
+        }
+
+        public static void BakeSortieOnly()
+        {
+            if (!System.IO.File.Exists(Out))
+            {
+                Bake();
+                return;
+            }
+            var root = PrefabUtility.LoadPrefabContents(Out);
+            var view = root.GetComponent<HomeView>();
+            var page = view.SortiePage.GetComponent<RectTransform>();
+            for (int i = page.childCount - 1; i >= 0; i--)
+            {
+                Transform child = page.GetChild(i);
+                if (child.name == "go" || child.name == "adstam" || child.name == "help") continue;
+                Object.DestroyImmediate(child.gameObject);
+            }
+            view.Logo = null;
+            view.Seals = null;
+            view.Chapter = null;
+            view.SideActs = null;
+            SortiePageBuilder.Build(page, view);
+            PrefabUtility.SaveAsPrefabAsset(root, Out);
+            PrefabUtility.UnloadPrefabContents(root);
+            AssetDatabase.SaveAssets();
+            Debug.Log("出征页已写入 " + Out + "。炮台和技能页没动。");
+        }
+
         public static void Bake()
         {
             var root = new GameObject("Home", typeof(RectTransform), typeof(HomeView));
@@ -145,58 +194,15 @@ namespace InkLine
 
         static void BakeSortie(RectTransform page, HomeView view)
         {
-            view.Logo = Icon(page, "logo", new Vector2(0f, 16f), 340f);
-            if (view.Logo.sprite != null)
+            SortiePageBuilder.Build(page, view);
+            if (view.GoButton == null)
             {
-                float h = 340f * view.Logo.sprite.rect.height / Mathf.Max(1f, view.Logo.sprite.rect.width);
-                view.Logo.rectTransform.sizeDelta = new Vector2(340f, h);
-                var rt = view.Logo.rectTransform;
-                rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 1f);
-                rt.pivot = new Vector2(0.5f, 1f);
-                rt.anchoredPosition = new Vector2(0f, -6f);
+                view.GoButton = PillBtn(page, "go", "继续  第 1 关", new Vector2(0f, 26f), new Vector2(460f, 106f), true);
+                view.GoLabel = view.GoButton.GetComponentInChildren<Text>();
+                view.AdButton = PillBtn(page, "adstam", "看广告  +6 体力", new Vector2(0f, 150f), new Vector2(400f, 84f), false);
+                view.AdLabel = view.AdButton.GetComponentInChildren<Text>();
+                view.AdButton.gameObject.SetActive(false);
             }
-
-            var seals = Panel(page, "seals");
-            seals.anchorMin = new Vector2(0.5f, 0f);
-            seals.anchorMax = new Vector2(0.5f, 1f);
-            seals.pivot = new Vector2(0.5f, 0.5f);
-            seals.offsetMin = new Vector2(-345f, 236f);
-            seals.offsetMax = new Vector2(345f, -200f);
-            seals.GetComponent<Image>().color = Color.clear;
-            seals.GetComponent<Image>().raycastTarget = false;
-            var grid = seals.gameObject.AddComponent<GridLayoutGroup>();
-            grid.cellSize = new Vector2(128f, 128f);
-            grid.spacing = new Vector2(10f, 18f);
-            grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
-            grid.constraintCount = 5;
-            grid.childAlignment = TextAnchor.UpperCenter;
-
-            var cells = new HomeSealCell[GameConstants.ChapterStageCount];
-            for (int i = 0; i < cells.Length; i++)
-            {
-                var plate = Pic(seals, "st" + i, "panel_card", Vector2.zero, new Vector2(128f, 128f), Pin.Center);
-                var slot = plate.gameObject.AddComponent<HomeSealCell>();
-                slot.Plate = plate;
-                slot.Button = plate.gameObject.AddComponent<Button>();
-                slot.Button.targetGraphic = plate;
-                slot.Button.transition = Selectable.Transition.None;
-                slot.Lock = Icon(plate.rectTransform, "ico_lock", Vector2.zero, 48f);
-                slot.Number = Label(plate.rectTransform, "n", "", 34, new Vector2(0f, 12f), new Vector2(80, 44), Pin.Center);
-                UiKit.Bold(slot.Number);
-                slot.Tag = Label(plate.rectTransform, "tag", "", 17, new Vector2(0f, -34f), new Vector2(90, 24), Pin.Center);
-                var stars = new Image[3];
-                for (int s = 0; s < 3; s++)
-                    stars[s] = Icon(plate.rectTransform, "ico_star", new Vector2((s - 1) * 26f, -22f), 24f);
-                slot.Stars = stars;
-                cells[i] = slot;
-            }
-            view.Seals = cells;
-
-            view.GoButton = PillBtn(page, "go", "继续  第 1 关", new Vector2(0f, 26f), new Vector2(460f, 106f), true);
-            view.GoLabel = view.GoButton.GetComponentInChildren<Text>();
-            view.AdButton = PillBtn(page, "adstam", "看广告  +6 体力", new Vector2(0f, 150f), new Vector2(400f, 84f), false);
-            view.AdLabel = view.AdButton.GetComponentInChildren<Text>();
-            view.AdButton.gameObject.SetActive(false);
         }
 
         static void BakeSpell(RectTransform page, HomeView view)
@@ -360,6 +366,25 @@ namespace InkLine
         static Sprite SpriteAt(string file)
         {
             return AssetDatabase.LoadAssetAtPath<Sprite>(Ui + file + ".png");
+        }
+
+        // 编辑器重新编译后，出征页还是旧格子时补一次。已经有章节卡就不再动。
+        [InitializeOnLoad]
+        static class SortiePrefabHook
+        {
+            static SortiePrefabHook()
+            {
+                EditorApplication.delayCall += Once;
+            }
+
+            static void Once()
+            {
+                if (!System.IO.File.Exists(Out)) return;
+                string text = System.IO.File.ReadAllText(Out);
+                if (text.Contains("\n  m_Name: sortie_v5\n") || text.Contains("\r\n  m_Name: sortie_v5\r\n"))
+                    return;
+                BakeSortieMenu();
+            }
         }
 
         static void Stretch(RectTransform rt)

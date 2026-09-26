@@ -35,6 +35,7 @@ namespace InkLine
         Transform _overlay;
         int _shotPage = -1;
         readonly bool[] _shotGot = new bool[4];
+        float _audioSweep;
 
         void Start()
         {
@@ -59,6 +60,14 @@ namespace InkLine
         {
             if (_canvas == null) return;
             ScreenFit.Apply(Camera.main, _canvas);
+            AudioBus.Duck(_screen == Screen.Draft || _screen == Screen.Confirm || _screen == Screen.Result);
+            AudioBus.Tick();
+            _audioSweep -= Time.unscaledDeltaTime;
+            if (_audioSweep <= 0f)
+            {
+                _audioSweep = 0.35f;
+                AudioBus.Sweep(_layer);
+            }
             InkPointer.Pump();
             bool uiHit = EventSystemOverUi();
             if (_screen == Screen.Lobby && _home != null) _home.Tick();
@@ -119,6 +128,7 @@ namespace InkLine
             _hud = null;
             BattleHud.ReleaseCamera();
             _home = HomeScreen.Build(_layer, _meta, StartStage, ReloadSave);
+            AudioBus.Music("bgm_home");
         }
 
         void StartStage(int index)
@@ -147,6 +157,7 @@ namespace InkLine
             _view.EmitterTint = _meta.SkinTint;
             BuildBattleHud();
             _screen = Screen.Battle;
+            AudioBus.Music("bgm_battle");
         }
 
         void BuildBattleHud()
@@ -211,6 +222,7 @@ namespace InkLine
             RollOffer();
             _screen = Screen.Draft;
             ShowDraftPanel();
+            AudioBus.Draft();
         }
 
         // 牌池不足三个字时就少发几张。第一关只有「分」一个字，发三张一样的看着像
@@ -277,6 +289,7 @@ namespace InkLine
             _draftHold = true;
             _tip = "";
             ResumeBattle();
+            AudioBus.Back();
         }
 
         void Pick(CardId id)
@@ -310,11 +323,13 @@ namespace InkLine
             // 否则会悄悄放进一个画成灰底的格子里。
             if (result == BattleWorld.PlaceResult.LockedRow)
             {
+                AudioBus.Deny();
                 _world.ShowToast("这格还没开");
                 return;
             }
             if (result == BattleWorld.PlaceResult.RejectedMaxStar)
             {
+                AudioBus.Deny();
                 _world.ShowToast("已满星");
                 return;
             }
@@ -349,9 +364,7 @@ namespace InkLine
             for (int c = 0; c < GameConstants.Columns; c++)
             for (int r = 0; r < GameConstants.Rows; r++)
             {
-                // 没开的格子直接不碰。不能拿 Color.clear 去「清」它 ——
-                // HighlightCell 把低 alpha 当成「无高亮」，会刷成纯白，
-                // 反而让锁住的格子看起来是开的。它的灰底由每帧的 Sync 负责。
+                // 没开的格子不画。能放的格子只留黑框，这里不再铺绿色。
                 if (!_world.IsOpen(c, r)) continue;
                 var p = _world.PeekPlace(_held, c, r);
                 Color col = InkTheme.PlaceBad;
@@ -379,6 +392,8 @@ namespace InkLine
             _resultStars = 0;
             _inkEarned = 0;
             _inkDoubled = false;
+            if (win) AudioBus.Win();
+            else AudioBus.Lose();
             if (win)
             {
                 // 按丢了多少血算，不是按剩多少血。否则局外加基地血会自动放水。

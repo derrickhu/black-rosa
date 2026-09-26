@@ -1,0 +1,35 @@
+A portrait 9:16 mobile game screen, full-bleed UI mockup, flat 2D cartoon sticker art. Thick even outline the colour of soy sauce. Background is steamed-bun cream warming into pale peach.
+
+ABOUT THE ATTACHED REFERENCE: keep its drawing style, its side buttons, its pond illustration, its persimmon-orange continue button, and its bottom paper scroll. Redraw the screen with the layout below. The top of the screen is one short row and the chapter card is tall.
+
+TOP ROW, one line, three items only, centered as a group with the GM badge at the left:
+- a small rounded GM badge
+- a lightning pill reading 12/12
+- an ink-bottle pill reading 10
+The chapter card begins immediately under this row.
+
+LEFT MARGIN, beside the card, two round warm-milk buttons with soy-sauce-brown outlines:
+- two flat speech bubbles, caption 游戏圈
+- a flat calendar with a red-envelope-red tick, caption 签到
+
+RIGHT MARGIN, beside the card:
+- a flat gift box the colour of a red envelope with a cream ribbon, caption 活动
+- a stack of three flat coins the colour of a gold coin, caption 排行榜
+
+CENTER CARD, cream paper, large rounded corners, soy-sauce-brown outline, taller than the reference card. From top to bottom inside the card:
+1. A flat picture strip: a round pond the colour of wet slate ink, one cream paper boat, three celadon reeds, one round persimmon sun. Same picture as the reference.
+2. A red-envelope-red ribbon across the bottom of the picture, exact characters 第一章
+3. A route of nine round nodes in three rows of three, joined by one continuous soy-sauce-brown path that snakes:
+   - top row, left to right: node 1, node 2, node 3. Each is a warm-milk circle with a small red-envelope-red check.
+   - the path turns down on the right into the middle row
+   - middle row, right to left: node 4, node 5, node 6. Each is a warm-milk circle with a small red-envelope-red check.
+   - the path turns down on the left into the bottom row
+   - bottom row, left to right: node 7, node 8, node 9
+   - node 7 is larger, a solid ripe-persimmon circle with a cream numeral 7
+   - node 8 is a cool-ash circle with a small closed padlock
+   - node 9 is a cool-ash circle with a small ink-beast face and a tiny padlock, the last stop of the chapter
+4. Under the route: five page dots and a small cream tab reading 下一章. The first dot is ripe persimmon. The other dots are cool ash.
+
+BOTTOM, same as the reference: a wide persimmon-orange button reading 继续 第7关, then a cream paper scroll with wooden rollers. On the scroll: a cannon labelled 炮台, a red flag on a red-envelope-red square labelled 出征, a brush labelled 技能.
+
+RENDERING: flat solid colour, hard crisp edges, uniform thick soy-sauce-brown outline, straight-on sticker silhouettes. Chinese characters exactly: 游戏圈 签到 活动 排行榜 第一章 下一章 继续 第7关 炮台 出征 技能
