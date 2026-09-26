@@ -5,12 +5,13 @@ namespace InkLine
 {
     public sealed class BattleHud
     {
-        // 一个技能键：圆角牌 + 名字 + 金币花费 + 一条够不够放的细槽。
+        // 一个技能键：技能图标 + 名字 + 金币花费，底下一条够不够放的细槽。
         public sealed class SpellKey
         {
             public RectTransform Root;
             public Button Btn;
             public Image Fill;
+            public Image Art;
             public Image Mark;
             public Text Name;
             public Text Cost;
@@ -103,11 +104,19 @@ namespace InkLine
 
         static SpellKey MakeKey(RectTransform layer, int slot, Vector2 pos, System.Action<int> cast)
         {
-            var root = UiKit.Stroke(layer, "key" + slot, pos, new Vector2(KeyW, KeyH), Pin.BottomRight, 4f, radius: 16f);
-            var name = UiKit.Label(root, "n", "", 26, new Vector2(0f, 16f), new Vector2(KeyW - 12f, 36f));
+            var root = UiKit.Stroke(layer, "key" + slot, pos, new Vector2(KeyW, KeyH), Pin.BottomRight, 4f, radius: 18f);
+            // 图标占左半，名字和花费叠在右边。两个字的技能名刚好放下，不再铺成一块空文本框。
+            float icon = 52f;
+            float iconX = -KeyW * 0.5f + 8f + icon * 0.5f;
+            var art = UiKit.Icon(root, null, new Vector2(iconX, 4f), icon);
+            float textLeft = iconX + icon * 0.5f + 4f;
+            float textRight = KeyW * 0.5f - 8f;
+            float textCenter = (textLeft + textRight) * 0.5f;
+            float textW = textRight - textLeft;
+            var name = UiKit.Label(root, "n", "", 24, new Vector2(textCenter, 14f), new Vector2(textW, 30f));
             UiKit.Bold(name);
-            var mark = UiKit.Icon(root, InkSprites.Ui("gold"), new Vector2(-18f, -10f), 24f);
-            var cost = UiKit.Label(root, "c", "", 20, new Vector2(16f, -10f), new Vector2(52f, 28f), TextAnchor.MiddleLeft);
+            var mark = UiKit.Icon(root, InkSprites.Ui("gold"), new Vector2(textCenter - 16f, -12f), 22f);
+            var cost = UiKit.Label(root, "c", "", 20, new Vector2(textCenter + 14f, -12f), new Vector2(40f, 26f), TextAnchor.MiddleLeft);
             UiKit.Bold(cost);
 
             // 细槽贴在牌的下沿。底是淡金，实心按已有金币 / 花费从左往右填。
@@ -144,13 +153,13 @@ namespace InkLine
             btn.onClick.AddListener(() => cast(idx));
             return new SpellKey
             {
-                Root = root, Btn = btn, Fill = fill, Mark = mark, Name = name, Cost = cost, Slot = slot
+                Root = root, Btn = btn, Fill = fill, Art = art, Mark = mark, Name = name, Cost = cost, Slot = slot
             };
         }
 
         const float RowH = 84f;
-        const float KeyW = 120f;
-        const float KeyH = 84f;
+        const float KeyW = 148f;
+        const float KeyH = 88f;
         const float RetreatW = 124f;
         const float RetreatH = 52f;
         const float Side = 16f;
@@ -202,7 +211,7 @@ namespace InkLine
                 _heartsWrap.anchoredPosition = WorldToCanvas(_layer, new Vector3(0f, FieldLayout.GridBottom - 0.20f, 0f));
             }
 
-            FitCamera(bot + RowH, Mathf.Max(1f, _layer.rect.height));
+            FitCamera(bot + Mathf.Max(RowH, KeyH), Mathf.Max(1f, _layer.rect.height));
         }
 
         // 任何长宽比下，炮的下沿都要高过底栏上沿。短了就加视野、必要时下移相机，
@@ -372,6 +381,7 @@ namespace InkLine
                 if (sh != null && sh.gameObject.activeSelf != has) sh.gameObject.SetActive(has);
                 if (!has) continue;
                 SpellDef d = SpellCatalog.Get(id);
+                if (k.Art != null) k.Art.sprite = InkSprites.Ui(d.Id);
                 k.Name.text = d.Name;
                 k.Cost.text = d.GoldCost.ToString();
                 float need = Mathf.Max(1, d.GoldCost);
@@ -383,12 +393,15 @@ namespace InkLine
                 meter.offsetMax = Vector2.zero;
                 bool sealedOff = world.Stage != null && world.Stage.Has(StageRule.NoSpell);
                 if (sealedOff) k.Cost.text = "禁";
+                if (k.Mark != null) k.Mark.enabled = !sealedOff;
                 k.Fill.enabled = got > 0.03f && !sealedOff;
                 bool ready = inBattle && world.CanCast(k.Slot);
                 k.Btn.interactable = ready;
+                Color ink = ready ? Color.white : new Color(1f, 1f, 1f, 0.45f);
                 k.Name.color = ready ? InkTheme.TextDark : InkTheme.TextDim;
                 k.Cost.color = ready ? InkTheme.TextDark : InkTheme.TextDim;
-                k.Mark.color = ready ? Color.white : new Color(1f, 1f, 1f, 0.45f);
+                if (k.Art != null) k.Art.color = ink;
+                k.Mark.color = ink;
                 k.Fill.color = ready ? InkTheme.CoinFace : InkTheme.Gold;
                 k.Root.GetComponent<Image>().color = ready ? InkTheme.CardFace : InkTheme.CardDim;
                 k.Root.localScale = Vector3.one;

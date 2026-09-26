@@ -19,7 +19,6 @@ namespace InkLine
         const float SpellRodW = 640f;
         const float SpellSeal = 52f;
         const float SpellTagW = 190f;
-        const float SpellCardW = 322f;
 
         readonly RectTransform _layer;
         readonly MetaProgress _meta;
@@ -303,28 +302,6 @@ namespace InkLine
             if (ln != null) ln.GetComponent<Image>().color = InkTheme.LineDim;
         }
 
-        // 买得起是铜钱那种黄签，买不起 / 满级 / 锁定是灰签。
-        // 原型里这两种都是签，不是「有签」和「一行灰字」。
-        void PricePill(Transform parent, Vector2 pos, string text, bool live)
-        {
-            var pill = UiKit.Art(parent, "pp", live ? "Ui/panel_price" : "Ui/panel_price_off",
-                pos, new Vector2(146f, 44f), Pin.Center, PriceSlice);
-            pill.GetComponent<Image>().raycastTarget = false;
-            bool ink = live && text.EndsWith(" 墨");
-            string label = ink ? text.Substring(0, text.Length - 2).Trim() : text;
-            Sprite coin = ink ? InkSprites.Ui("ink") : null;
-            const float icon = 28f;
-            float w = Mathf.Max(24f, label.Length * 12f);
-            float total = coin != null ? w + 4f + icon : w;
-            float textX = coin != null ? -total * 0.5f + w * 0.5f : 0f;
-            if (coin != null)
-                UiKit.Icon(pill, coin, new Vector2(-total * 0.5f + w + 4f + icon * 0.5f, 0f), icon);
-            var t = UiKit.Label(pill, "t", label, 20, new Vector2(textX, 0f), new Vector2(w + 4f, 34f));
-            t.alignment = TextAnchor.MiddleCenter;
-            t.color = live ? InkTheme.TextDark : InkTheme.TextMid;
-            UiKit.Bold(t);
-        }
-
         static float PageH =>
             ScreenFit.CanvasH - PageTop - (ScreenFit.BottomPad + UiKit.TabBarH);
 
@@ -381,6 +358,7 @@ namespace InkLine
             int stars = _meta.ClearedCount();
             int locked = ForgeCatalog.NextLocked(stars, _meta.Forge);
             if (_view.Boosts == null) return;
+            EnsureBoostScroll();
             for (int i = 0; i < _view.Boosts.Length; i++)
             {
                 var row = _view.Boosts[i];
@@ -389,9 +367,66 @@ namespace InkLine
                              ForgeCatalog.Exposed(i, stars, _meta.ForgeLevel(i));
                 bool tease = i == locked;
                 row.gameObject.SetActive(shown || tease);
-                if (shown) BindBoost(row, i);
-                else if (tease) BindLocked(row, i, stars);
+                var le = row.GetComponent<LayoutElement>();
+                if (le != null) le.minHeight = le.preferredHeight = HomeForgeRow.Height;
             }
+            var list = _view.Boosts[0] != null ? _view.Boosts[0].transform.parent as RectTransform : null;
+            if (list != null) LayoutRebuilder.ForceRebuildLayoutImmediate(list);
+            for (int i = 0; i < _view.Boosts.Length && i < ForgeCatalog.LineCount; i++)
+            {
+                var row = _view.Boosts[i];
+                if (row == null || !row.gameObject.activeSelf) continue;
+                if (i == locked) BindBoostTease(row, i);
+                else BindBoost(row, i);
+            }
+        }
+
+        // 五条线加高之后超出页面，挂一层竖向滚动。底栏卷轴会盖住页脚，视口在它上面停住。
+        void EnsureBoostScroll()
+        {
+            if (_view.Boosts.Length == 0 || _view.Boosts[0] == null) return;
+            var box = _view.Boosts[0].transform.parent as RectTransform;
+            if (box == null) return;
+            var fit = box.GetComponent<ContentSizeFitter>();
+            if (fit == null) fit = box.gameObject.AddComponent<ContentSizeFitter>();
+            fit.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+            fit.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+            var layout = box.GetComponent<VerticalLayoutGroup>();
+            if (layout != null)
+            {
+                layout.spacing = 10f;
+                layout.padding = new RectOffset(0, 0, 4, 20);
+            }
+            float top = 8f + BoardH + 12f;
+            RectTransform view = box.parent != null && box.parent.name == "boostView" ? box.parent as RectTransform : null;
+            if (view == null)
+            {
+                var page = box.parent as RectTransform;
+                if (page == null) return;
+                var go = new GameObject("boostView", typeof(RectTransform), typeof(Image), typeof(RectMask2D));
+                view = go.GetComponent<RectTransform>();
+                view.SetParent(page, false);
+                var img = go.GetComponent<Image>();
+                img.color = new Color(1f, 1f, 1f, 0f);
+                img.raycastTarget = true;
+                box.SetParent(view, false);
+                var scroll = go.AddComponent<ScrollRect>();
+                scroll.content = box;
+                scroll.viewport = view;
+                scroll.horizontal = false;
+                scroll.vertical = true;
+                scroll.movementType = ScrollRect.MovementType.Clamped;
+                scroll.scrollSensitivity = 40f;
+                scroll.inertia = true;
+            }
+            view.anchorMin = Vector2.zero;
+            view.anchorMax = Vector2.one;
+            view.offsetMin = new Vector2(0f, 52f);
+            view.offsetMax = new Vector2(0f, -top);
+            box.anchorMin = box.anchorMax = new Vector2(0.5f, 1f);
+            box.pivot = new Vector2(0.5f, 1f);
+            box.anchoredPosition = Vector2.zero;
+            box.sizeDelta = new Vector2(HomeForgeRow.Width, box.sizeDelta.y);
         }
 
         void BindSkin(HomeSkinCell slot, int i)
@@ -522,51 +557,30 @@ namespace InkLine
 
         void BindBoost(HomeBoostRow slot, int line)
         {
-            ForgeDef d = ForgeCatalog.Get(line);
-            int lv = _meta.ForgeLevel(line);
-            bool max = lv >= d.MaxLevel;
-            bool buyable = _meta.CanBuyForge(line, out string why);
-            Paint(slot.Row, "Ui/panel_row", PillSlice);
+            Paint(slot.Row, "Ui/panel_skin", SkinSlice);
             if (slot.Row != null) slot.Row.color = Color.white;
-            if (slot.Icon != null)
-            {
-                slot.Icon.sprite = InkSprites.Ui(d.Icon);
-                Fade(slot.Icon, buyable || max);
-            }
-            Write(slot.Title, d.Name + "  Lv." + lv, (buyable || max) ? InkTheme.TextDark : InkTheme.TextDim, true);
-            Write(slot.Step, d.Step, InkTheme.TextMid);
-            string tail = max ? "已满级" : (buyable ? ForgeCatalog.Cost(line, lv) + " 墨" : why);
-            FitPrice(slot, tail, buyable && !max);
-            if (slot.Button != null)
-            {
-                slot.Button.interactable = buyable;
-                slot.Button.onClick.RemoveAllListeners();
-                int idx = line;
-                slot.Button.onClick.AddListener(() =>
-                {
-                    if (_meta.BuyForge(idx)) Rebuild(TabForge);
-                });
-            }
+            var ui = HomeForgeRow.Ensure(slot, slot.transform as RectTransform);
+            if (ui == null) return;
+            int idx = line;
+            ui.Bind(_meta, line, () => { if (_meta.BuyForge(idx)) Rebuild(TabForge); });
+            MuteRow(slot);
         }
 
-        void BindLocked(HomeBoostRow slot, int line, int stars)
+        void BindBoostTease(HomeBoostRow slot, int line)
         {
-            ForgeDef d = ForgeCatalog.Get(line);
-            Paint(slot.Row, "Ui/panel_row_lock", PillSlice);
-            if (slot.Icon != null)
-            {
-                slot.Icon.sprite = InkSprites.Ui("lock");
-                Fade(slot.Icon, false);
-            }
-            Write(slot.Title, d.Name, InkTheme.TextDim, true);
-            Write(slot.Step, d.Step, InkTheme.TextDim);
-            int need = Mathf.Max(0, d.Reveal - stars);
-            FitPrice(slot, need > 0 ? $"通关 {d.Reveal} 关" : d.LockNote, false);
-            if (slot.Button != null)
-            {
-                slot.Button.interactable = false;
-                slot.Button.onClick.RemoveAllListeners();
-            }
+            Paint(slot.Row, "Ui/panel_skin_dim", SkinSlice);
+            var ui = HomeForgeRow.Ensure(slot, slot.transform as RectTransform);
+            if (ui == null) return;
+            ui.BindTease(_meta, line);
+            MuteRow(slot);
+        }
+
+        // 整行不再是按钮，只有右边的升级键能点，免得滑动列表时误买。
+        static void MuteRow(HomeBoostRow slot)
+        {
+            if (slot.Button == null) return;
+            slot.Button.onClick.RemoveAllListeners();
+            slot.Button.interactable = false;
         }
 
         int _chapter = -1;
@@ -844,38 +858,30 @@ namespace InkLine
             FitSpellGrid(grid, viewport);
         }
 
-        // 两列卡片本身就要 660 宽。视口若比这窄，格子会从左右被切掉。
+        // 一行一张横卡。当前、下一级、所需材料和按钮要同时摆开，两列放不下。
         static void FitSpellGrid(RectTransform grid, RectTransform viewport)
         {
             if (grid == null || viewport == null) return;
             var layout = grid.GetComponent<GridLayoutGroup>();
             Canvas.ForceUpdateCanvases();
             float viewW = viewport.rect.width;
-            float viewH = viewport.rect.height;
             if (viewW < 80f) viewW = 700f;
-            float gapX = layout != null ? layout.spacing.x : 16f;
-            float cellW = 322f;
-            float cellH = 176f;
-            if (cellW * 2f + gapX > viewW - 8f)
-                cellW = Mathf.Floor((viewW - gapX - 8f) * 0.5f);
+            float cellW = Mathf.Min(HomeSpellRow.Width, viewW - 12f);
+            float cellH = HomeSpellRow.Height;
             if (layout != null)
             {
-                layout.spacing = new Vector2(gapX, 10f);
-                layout.padding = new RectOffset(0, 0, 4, 24);
+                layout.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
+                layout.constraintCount = 1;
+                layout.spacing = new Vector2(0f, 12f);
+                layout.padding = new RectOffset(0, 0, 6, 24);
                 layout.childAlignment = TextAnchor.UpperCenter;
-                if (viewH > 120f)
-                {
-                    float inner = viewH - layout.padding.top - layout.padding.bottom - layout.spacing.y * 2f;
-                    cellH = Mathf.Clamp(inner / 3f, 156f, 176f);
-                }
                 layout.cellSize = new Vector2(cellW, cellH);
             }
             grid.anchorMin = new Vector2(0.5f, 1f);
             grid.anchorMax = new Vector2(0.5f, 1f);
             grid.pivot = new Vector2(0.5f, 1f);
             grid.anchoredPosition = Vector2.zero;
-            float width = cellW * 2f + gapX;
-            grid.sizeDelta = new Vector2(width, 40f);
+            grid.sizeDelta = new Vector2(cellW, 40f);
             var fit = grid.GetComponent<ContentSizeFitter>();
             if (fit == null) fit = grid.gameObject.AddComponent<ContentSizeFitter>();
             fit.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
@@ -909,196 +915,26 @@ namespace InkLine
                 slot.Name.text = rank > 0 ? d.Name + " Lv." + rank : d.Name;
                 slot.Name.color = InkTheme.TextDark;
             }
-            if (slot.Cost != null) slot.Cost.text = "耗 " + d.GoldCost + " 金";
+            if (slot.Cost != null) slot.Cost.text = "释放 " + d.GoldCost + " 金";
         }
 
         void BindSpellCard(HomeSpellCard slot, int i)
         {
             if (slot == null) return;
-            SpellDef d = SpellCatalog.Get(i);
-            int rank = _meta.SpellRank(i);
-            bool owned = rank > 0;
-            bool maxed = rank >= SpellCatalog.MaxLevel;
-            int eq = _meta.EquippedSlot(i);
-            int have = _meta.SpellShardCount(i);
-            int need = maxed ? 0 : SpellCatalog.NextShards(d, rank);
-            bool gathering = !maxed && have < need;
-            bool buyable = _meta.CanBuySpell(i, out string why);
-            bool ready = !maxed && need > 0 && have >= need;
-            Paint(slot.Card, eq >= 0 ? "Ui/panel_skin_on"
-                : (rank <= 0 && have <= 0 ? "Ui/panel_skin_dim" : "Ui/panel_skin"), SkinSlice);
-            LiftSpellFoot(slot);
-            ShowShardBar(slot.Card != null ? slot.Card.transform : slot.transform, have, need, d.Tint, gathering);
-            if (slot.Icon != null)
-            {
-                slot.Icon.sprite = InkSprites.Ui(d.Id);
-                Fade(slot.Icon, true);
-            }
-            if (slot.Name != null)
-            {
-                slot.Name.text = owned ? d.Name + " Lv." + rank : d.Name;
-                slot.Name.color = eq >= 0 ? InkTheme.Seal
-                    : (owned || buyable || have > 0 ? InkTheme.TextDark : InkTheme.TextDim);
-            }
-            if (slot.Desc != null)
-            {
-                slot.Desc.text = SpellCatalog.Blurb(d, rank);
-                slot.Desc.horizontalOverflow = HorizontalWrapMode.Wrap;
-                slot.Desc.verticalOverflow = VerticalWrapMode.Overflow;
-            }
-            if (slot.Cost != null) slot.Cost.text = "耗 " + d.GoldCost + " 金";
-            if (slot.State != null) slot.State.raycastTarget = false;
-            if (slot.PriceBack != null) slot.PriceBack.gameObject.SetActive(buyable);
-            BindUpgradePill(slot, i, owned && buyable);
-            if (slot.State != null)
-            {
-                if (maxed)
-                {
-                    slot.State.text = "已满级";
-                    slot.State.color = InkTheme.TextMid;
-                }
-                else if (buyable)
-                {
-                    slot.State.text = SpellCatalog.NextPrice(d, rank) + " 墨";
-                    slot.State.color = InkTheme.TextDark;
-                }
-                else if (ready)
-                {
-                    slot.State.text = why;
-                    slot.State.color = InkTheme.TextDim;
-                }
-                else if (gathering)
-                    slot.State.text = "";
-                else if (owned)
-                {
-                    slot.State.text = eq >= 0 ? "已装备 " + (eq + 1) : "点击装备";
-                    slot.State.color = eq >= 0 ? InkTheme.Cta : InkTheme.TextMid;
-                }
-                else
-                {
-                    slot.State.text = why;
-                    slot.State.color = InkTheme.TextDim;
-                }
-            }
+            bool worn = _meta.EquippedSlot(i) >= 0;
+            Paint(slot.Card, worn ? "Ui/panel_skin_on" : "Ui/panel_skin", SkinSlice);
+            var card = (slot.Card != null ? slot.Card.transform : slot.transform) as RectTransform;
+            var row = HomeSpellRow.Ensure(slot, card);
+            if (row == null) return;
+            int idx = i;
+            row.Bind(_meta, i,
+                () => { if (_meta.BuySpell(idx)) Rebuild(TabSpell); },
+                () => { _meta.Equip(idx); Rebuild(TabSpell); });
             if (slot.Button != null)
             {
-                slot.Button.interactable = owned || buyable;
                 slot.Button.onClick.RemoveAllListeners();
-                int idx = i;
-                slot.Button.onClick.AddListener(() =>
-                {
-                    if (_meta.SpellRank(idx) > 0) _meta.Equip(idx);
-                    else _meta.BuySpell(idx);
-                    Rebuild(TabSpell);
-                });
+                slot.Button.interactable = false;
             }
-        }
-
-        void BindUpgradePill(HomeSpellCard slot, int i, bool upgrade)
-        {
-            if (slot.PriceBack == null) return;
-            var btn = slot.PriceBack.GetComponent<Button>();
-            if (!upgrade)
-            {
-                slot.PriceBack.raycastTarget = false;
-                if (btn != null) btn.onClick.RemoveAllListeners();
-                return;
-            }
-            if (btn == null)
-            {
-                btn = slot.PriceBack.gameObject.AddComponent<Button>();
-                btn.transition = Selectable.Transition.None;
-                btn.targetGraphic = slot.PriceBack;
-            }
-            slot.PriceBack.raycastTarget = true;
-            slot.PriceBack.transform.SetAsLastSibling();
-            btn.onClick.RemoveAllListeners();
-            int idx = i;
-            btn.onClick.AddListener(() =>
-            {
-                if (_meta.BuySpell(idx)) Rebuild(TabSpell);
-            });
-        }
-
-        static void ShowShardBar(Transform card, int have, int need, Color tint, bool show)
-        {
-            if (card == null) return;
-            Transform bar = card.Find("shard");
-            if (!show)
-            {
-                if (bar != null) bar.gameObject.SetActive(false);
-                return;
-            }
-            if (bar == null)
-            {
-                var track = UiKit.Panel(card, "shard", new Vector2(56f, -36f), new Vector2(150f, 18f), InkTheme.Bone);
-                var bg = track.GetComponent<Image>();
-                bg.sprite = UiSprites.Fill(8);
-                bg.type = Image.Type.Sliced;
-                bg.raycastTarget = false;
-                var fill = UiKit.Panel(track, "fill", new Vector2(2f, 0f), new Vector2(8f, 12f), tint);
-                var fr = fill.GetComponent<RectTransform>();
-                fr.anchorMin = fr.anchorMax = new Vector2(0f, 0.5f);
-                fr.pivot = new Vector2(0f, 0.5f);
-                var fi = fill.GetComponent<Image>();
-                fi.sprite = UiSprites.Fill(6);
-                fi.type = Image.Type.Sliced;
-                fi.raycastTarget = false;
-                var label = UiKit.Label(track, "n", "", 14, Vector2.zero, new Vector2(146f, 18f));
-                label.alignment = TextAnchor.MiddleCenter;
-                label.raycastTarget = false;
-                UiKit.Bold(label);
-                bar = track;
-            }
-            bar.gameObject.SetActive(true);
-            var barRt = bar as RectTransform;
-            if (barRt != null)
-            {
-                var bp = barRt.anchoredPosition;
-                barRt.anchoredPosition = new Vector2(bp.x, FootY(card));
-            }
-            float u = need <= 0 ? 0f : Mathf.Clamp01(have / (float)need);
-            Transform fillT = bar.Find("fill");
-            if (fillT != null)
-            {
-                var fr = fillT.GetComponent<RectTransform>();
-                fr.sizeDelta = new Vector2(Mathf.Max(u > 0.01f ? 10f : 0f, 146f * u), 12f);
-                var fi = fillT.GetComponent<Image>();
-                if (fi != null) fi.color = tint;
-            }
-            Transform num = bar.Find("n");
-            if (num != null)
-            {
-                var t = num.GetComponent<Text>();
-                t.text = have + "/" + need;
-                t.color = InkTheme.TextDark;
-            }
-        }
-
-        // 瓷面底唇大约 34 像素，底行贴在唇上会压进灰边。按卡片实际高度抬到唇上面。
-        static void LiftSpellFoot(HomeSpellCard slot)
-        {
-            float y = FootY(slot.Card != null ? slot.Card.transform : slot.transform);
-            SetY(slot.Cost, y);
-            SetY(slot.State, y);
-            SetY(slot.PriceBack, y);
-        }
-
-        static float FootY(Transform card)
-        {
-            var rt = card as RectTransform;
-            float h = rt != null ? rt.rect.height : 0f;
-            if (h < 40f) h = 176f;
-            return -h * 0.5f + 52f;
-        }
-
-        static void SetY(Component c, float y)
-        {
-            if (c == null) return;
-            var rt = c.transform as RectTransform;
-            if (rt == null) return;
-            var p = rt.anchoredPosition;
-            rt.anchoredPosition = new Vector2(p.x, y);
         }
 
         // ---------- 出征（无预制体时） ----------
@@ -1138,14 +974,12 @@ namespace InkLine
         const float BoardH = 415f;
         const float SkinCardW = 224f;
         const float SkinCardH = 124f;
-        const float RowH = 88f;
         const float RowGap = 8f;
 
         static readonly Vector4 CardSlice = new Vector4(18f, 18f, 18f, 18f);
         // 皮肤卡自带白边、描边和底唇，边要比普通票面宽，拉到 224×124 时唇才不会被拉扁。
         static readonly Vector4 SkinSlice = new Vector4(30f, 34f, 30f, 30f);
         static readonly Vector4 PillSlice = new Vector4(44f, 8f, 44f, 8f);
-        static readonly Vector4 PriceSlice = new Vector4(22f, 8f, 22f, 8f);
 
         void BuildForge(RectTransform page)
         {
@@ -1207,83 +1041,6 @@ namespace InkLine
                     }
                 }
             }
-            if (_view.Boosts != null && _view.Boosts.Length > 0 && _view.Boosts[0] != null)
-            {
-                var box = _view.Boosts[0].transform.parent as RectTransform;
-                if (box != null && box.name == "boosts")
-                    box.anchoredPosition = new Vector2(0f, -(8f + BoardH + 12f));
-            }
-        }
-
-        void FitPrice(HomeBoostRow slot, string tail, bool cta)
-        {
-            bool ink = cta && tail.EndsWith(" 墨");
-            string label = ink ? tail.Substring(0, tail.Length - 2).Trim() : tail;
-            if (slot.PriceBack != null)
-            {
-                slot.PriceBack.gameObject.SetActive(true);
-                Paint(slot.PriceBack, cta ? "Ui/panel_price" : "Ui/panel_price_off", PriceSlice);
-                var back = slot.PriceBack.rectTransform;
-                back.anchorMin = back.anchorMax = new Vector2(0.5f, 0.5f);
-                back.pivot = new Vector2(0.5f, 0.5f);
-                back.anchoredPosition = new Vector2(200f, 0f);
-                back.sizeDelta = new Vector2(156f, 44f);
-            }
-            if (slot.Price != null)
-            {
-                var rt = slot.Price.rectTransform;
-                rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
-                rt.pivot = new Vector2(0.5f, 0.5f);
-                slot.Price.alignment = TextAnchor.MiddleCenter;
-                slot.Price.horizontalOverflow = HorizontalWrapMode.Overflow;
-                slot.Price.verticalOverflow = VerticalWrapMode.Overflow;
-            }
-            Write(slot.Price, label, cta ? InkTheme.TextDark : InkTheme.TextDim, cta);
-            Image coin = PriceInk(slot);
-            if (coin != null) coin.gameObject.SetActive(ink && slot.PriceBack != null);
-            if (slot.Price == null) return;
-            var textRt = slot.Price.rectTransform;
-            if (!ink || coin == null || slot.PriceBack == null)
-            {
-                textRt.anchoredPosition = new Vector2(200f, 0f);
-                textRt.sizeDelta = new Vector2(144f, 36f);
-                return;
-            }
-            const float icon = 30f;
-            const float gap = 4f;
-            float w = slot.Price.preferredWidth;
-            if (w < 8f) w = Mathf.Max(18f, slot.Price.fontSize * 0.62f * label.Length);
-            float total = w + gap + icon;
-            float left = 200f - total * 0.5f;
-            textRt.sizeDelta = new Vector2(w + 6f, 36f);
-            textRt.anchoredPosition = new Vector2(left + w * 0.5f, 0f);
-            var crt = coin.rectTransform;
-            crt.SetParent(slot.PriceBack.rectTransform, false);
-            crt.anchorMin = crt.anchorMax = crt.pivot = new Vector2(0.5f, 0.5f);
-            crt.sizeDelta = new Vector2(icon, icon);
-            crt.anchoredPosition = new Vector2(left + w + gap + icon * 0.5f - 200f, 0f);
-            crt.SetAsLastSibling();
-        }
-
-        Image PriceInk(HomeBoostRow slot)
-        {
-            if (slot.PriceBack == null) return null;
-            Transform host = slot.PriceBack.transform;
-            Transform found = host.Find("ink");
-            Image img;
-            if (found == null)
-            {
-                var go = new GameObject("ink", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-                go.transform.SetParent(host, false);
-                img = go.GetComponent<Image>();
-                img.raycastTarget = false;
-            }
-            else img = found.GetComponent<Image>();
-            Sprite spr = InkSprites.Ui("ink");
-            if (spr != null) img.sprite = spr;
-            img.preserveAspect = true;
-            img.color = Color.white;
-            return img;
         }
 
         void SkinCell(RectTransform board, int i, Vector2 pos, Vector2 size)
@@ -1333,7 +1090,7 @@ namespace InkLine
             int n = shown.Count + (locked >= 0 ? 1 : 0);
             float viewH = Mathf.Max(140f, PageH - topY - 6f);
             float gap = RowGap;
-            float contentH = n * RowH + Mathf.Max(0, n - 1) * gap + 8f;
+            float contentH = n * HomeForgeRow.Height + Mathf.Max(0, n - 1) * gap + 8f;
             var view = UiKit.Panel(page, "boosts", new Vector2(0f, topY), new Vector2(720f, viewH), Color.clear, Pin.Top);
             view.GetComponent<Image>().raycastTarget = true;
             view.gameObject.AddComponent<RectMask2D>();
@@ -1347,56 +1104,18 @@ namespace InkLine
             scroll.movementType = ScrollRect.MovementType.Clamped;
             scroll.scrollSensitivity = 48f;
             for (int i = 0; i < shown.Count; i++)
-                ForgeRow(list, shown[i], i * (RowH + gap));
+                BindBoost(ForgeRow(list, "fg" + shown[i], i * (HomeForgeRow.Height + gap)), shown[i]);
             if (locked >= 0)
-                LockedRow(list, locked, stars, shown.Count * (RowH + gap));
+                BindBoostTease(ForgeRow(list, "lk" + locked, shown.Count * (HomeForgeRow.Height + gap)), locked);
         }
 
-        void ForgeRow(RectTransform page, int line, float y)
+        static HomeBoostRow ForgeRow(RectTransform page, string name, float y)
         {
-            ForgeDef d = ForgeCatalog.Get(line);
-            int lv = _meta.ForgeLevel(line);
-            bool max = lv >= d.MaxLevel;
-            bool buyable = _meta.CanBuyForge(line, out string why);
-            var box = UiKit.Art(page, "fg" + line, "Ui/panel_row", new Vector2(0f, y),
-                new Vector2(668f, RowH), Pin.Top, PillSlice);
-            var btn = box.gameObject.AddComponent<Button>();
-            btn.targetGraphic = box.GetComponent<Image>();
-            btn.interactable = buyable;
-            int idx = line;
-            btn.onClick.AddListener(() =>
-            {
-                if (_meta.BuyForge(idx)) Rebuild(TabForge);
-            });
-            CardIcon(box, InkSprites.Ui(d.Icon), new Vector2(-262f, 0f), 62f, true);
-            var n = UiKit.Label(box, "n", d.Name + " Lv." + lv, 26,
-                new Vector2(-50f, 14f), new Vector2(340, 36), TextAnchor.MiddleLeft);
-            UiKit.Bold(n);
-            n.color = InkTheme.TextDark;
-            var step = UiKit.Label(box, "s", d.Step, 18, new Vector2(-50f, -16f), new Vector2(340, 28),
-                TextAnchor.MiddleLeft);
-            step.color = InkTheme.TextMid;
-            string tail = max ? "已满级" : (buyable ? ForgeCatalog.Cost(line, lv) + " 墨" : why);
-            PricePill(box, new Vector2(238f, 0f), tail, buyable && !max);
-        }
-
-        void LockedRow(RectTransform page, int line, int stars, float y)
-        {
-            ForgeDef d = ForgeCatalog.Get(line);
-            var box = UiKit.Art(page, "lk" + line, "Ui/panel_row_lock", new Vector2(0f, y),
-                new Vector2(668f, RowH), Pin.Top, PillSlice);
-            box.GetComponent<Image>().raycastTarget = false;
-            CardIcon(box, InkSprites.Ui("lock"), new Vector2(-262f, 0f), 56f, false);
-            var n = UiKit.Label(box, "n", d.Name, 26, new Vector2(-50f, 14f), new Vector2(340, 36),
-                TextAnchor.MiddleLeft);
-            UiKit.Bold(n);
-            n.color = InkTheme.TextDim;
-            var step = UiKit.Label(box, "s", d.Step, 18, new Vector2(-50f, -16f), new Vector2(340, 28),
-                TextAnchor.MiddleLeft);
-            step.color = InkTheme.TextDim;
-            int need = Mathf.Max(0, d.Reveal - stars);
-            string tail = need > 0 ? $"通关 {d.Reveal} 关" : d.LockNote;
-            PricePill(box, new Vector2(238f, 0f), tail, false);
+            var box = UiKit.Art(page, name, "Ui/panel_skin", new Vector2(0f, y),
+                new Vector2(HomeForgeRow.Width, HomeForgeRow.Height), Pin.Top, SkinSlice);
+            var slot = box.gameObject.AddComponent<HomeBoostRow>();
+            slot.Row = box.GetComponent<Image>();
+            return slot;
         }
 
         // ---------- 技能（无预制体时） ----------
@@ -1427,12 +1146,9 @@ namespace InkLine
                 HangSpell(page, s, new Vector2((s - 0.5f) * 300f + 20f, tagTop), tagSize);
 
             float catalogY = tagTop + tagSize.y + 12f;
-            float avail = Mathf.Max(360f, PageH - catalogY - 8f);
-            float cardH = Mathf.Clamp((avail - 24f) / 3f, 148f, 188f);
-            float gap = Mathf.Clamp((avail - 3f * cardH) / 2f, 8f, 16f);
-            var cardSize = new Vector2(SpellCardW, cardH);
+            var cardSize = new Vector2(HomeSpellRow.Width, HomeSpellRow.Height);
             for (int i = 0; i < SpellCatalog.Count; i++)
-                SpellCard(page, i, UiKit.GridPos(i, 2, 338f, cardH + gap) + new Vector2(0f, catalogY), cardSize);
+                SpellCard(page, i, new Vector2(0f, catalogY + i * (HomeSpellRow.Height + 12f)), cardSize);
         }
 
         void EnsureSpellSeal()
@@ -1465,78 +1181,17 @@ namespace InkLine
             var n = UiKit.Label(box, "n", rank > 0 ? d.Name + " Lv." + rank : d.Name, 26,
                 new Vector2(0f, -size.y * 0.16f), new Vector2(140, 34));
             UiKit.Bold(n);
-            var c = UiKit.Label(box, "c", "耗 " + d.GoldCost + " 金", 18,
+            var c = UiKit.Label(box, "c", "释放 " + d.GoldCost + " 金", 18,
                 new Vector2(0f, -size.y * 0.28f), new Vector2(140, 26));
             c.color = InkTheme.TextMid;
         }
 
         void SpellCard(RectTransform page, int i, Vector2 pos, Vector2 size)
         {
-            SpellDef d = SpellCatalog.Get(i);
-            int rank = _meta.SpellRank(i);
-            bool owned = rank > 0;
-            bool maxed = rank >= SpellCatalog.MaxLevel;
-            int slot = _meta.EquippedSlot(i);
-            int have = _meta.SpellShardCount(i);
-            int need = maxed ? 0 : SpellCatalog.NextShards(d, rank);
-            bool gathering = !maxed && have < need;
-            bool buyable = _meta.CanBuySpell(i, out string why);
-            bool ready = !maxed && need > 0 && have >= need;
-            string key = slot >= 0 ? "Ui/panel_skin_on"
-                : (rank <= 0 && have <= 0 ? "Ui/panel_skin_dim" : "Ui/panel_skin");
-            var box = UiKit.Art(page, "sp" + i, key, pos, size, Pin.Top, SkinSlice);
-            var btn = box.gameObject.AddComponent<Button>();
-            btn.targetGraphic = box.GetComponent<Image>();
-            btn.interactable = owned || buyable;
-            int idx = i;
-            btn.onClick.AddListener(() =>
-            {
-                if (_meta.SpellRank(idx) > 0) _meta.Equip(idx);
-                else _meta.BuySpell(idx);
-                Rebuild(TabSpell);
-            });
-
-            CardIcon(box, InkSprites.Ui(d.Id), new Vector2(-118f, 10f), 68f, true);
-            Color title = rank <= 0 && have <= 0 ? InkTheme.TextDim : InkTheme.TextDark;
-            Color body = rank <= 0 && have <= 0 ? InkTheme.TextDim : InkTheme.TextMid;
-            var n = UiKit.Label(box, "n", owned ? d.Name + " Lv." + rank : d.Name, 26,
-                new Vector2(24f, 36f), new Vector2(168, 34), TextAnchor.MiddleLeft);
-            UiKit.Bold(n);
-            n.color = slot >= 0 ? InkTheme.Seal : title;
-            var desc = UiKit.Label(box, "d", SpellCatalog.Blurb(d, rank), 16, new Vector2(36f, 4f),
-                new Vector2(200, 28), TextAnchor.MiddleLeft);
-            desc.color = body;
-            var cost = UiKit.Label(box, "e", "耗 " + d.GoldCost + " 金", 17,
-                new Vector2(-86f, -36f), new Vector2(130, 26), TextAnchor.MiddleLeft);
-            cost.color = body;
-            ShowShardBar(box, have, need, d.Tint, gathering);
-
-            if (buyable)
-            {
-                var pill = UiKit.Art(box, "pp", "Ui/panel_price", new Vector2(88f, -36f),
-                    new Vector2(124f, 38f), Pin.Center, PriceSlice);
-                var pillImg = pill.GetComponent<Image>();
-                pillImg.raycastTarget = owned;
-                UiKit.Icon(pill, InkSprites.Ui("ink"), new Vector2(-40f, 0f), 22f);
-                var t = UiKit.Label(pill, "t", SpellCatalog.NextPrice(d, rank) + " 墨", 18,
-                    new Vector2(10f, 0f), new Vector2(86, 30));
-                UiKit.Bold(t);
-                if (owned)
-                {
-                    var up = pill.gameObject.AddComponent<Button>();
-                    up.targetGraphic = pillImg;
-                    up.onClick.AddListener(() => { if (_meta.BuySpell(idx)) Rebuild(TabSpell); });
-                }
-            }
-            else if (maxed || ready || (owned && !gathering))
-            {
-                string tail = maxed ? "已满级"
-                    : (ready ? why : (slot >= 0 ? "已装备 " + (slot + 1) : "点击装备"));
-                var t = UiKit.Label(box, "s", tail, 18, new Vector2(78f, -36f),
-                    new Vector2(140, 26), TextAnchor.MiddleRight);
-                t.color = maxed || ready ? InkTheme.TextDim : (slot >= 0 ? InkTheme.Seal : InkTheme.TextMid);
-                UiKit.Bold(t);
-            }
+            var box = UiKit.Art(page, "sp" + i, "Ui/panel_skin", pos, size, Pin.Top, SkinSlice);
+            var slot = box.gameObject.AddComponent<HomeSpellCard>();
+            slot.Card = box.GetComponent<Image>();
+            BindSpellCard(slot, i);
         }
     }
 }

@@ -9,7 +9,8 @@ namespace InkLine
     {
         public ForgeLine Line;
         public string Name;
-        public string Step;      // 每级加多少，卡面上直接显示
+        public string Stat;      // 加成项的名字，「当前 → 下一级」那行开头
+        public string Step;      // 每级加多少
         public string Icon;      // Resources/Art/Ui/ico_<Icon>.png
         public int[] Cost;
         public int[] Gate;
@@ -44,42 +45,44 @@ namespace InkLine
 
         // 开局只亮伤害。别的线按通关关数陆续露面，不能五张一起铺开。
         // 已经点过的线永远留着，免得存档玩家看见自己买过的东西消失。
+        // 门槛铺满 72 关：每章都有几级可升，最后一级落在第七、八章。
+        // 价按门槛那几关的墨收入定，一级大约是那一段打三到五关的收入。
         static readonly ForgeDef[] Lines =
         {
             new ForgeDef
             {
-                Line = ForgeLine.Damage, Name = "伤害", Step = "炮弹伤害 +8%",
+                Line = ForgeLine.Damage, Name = "伤害", Stat = "炮弹伤害", Step = "炮弹伤害 +8%",
                 Icon = "damage", Reveal = 0,
-                Cost = new[] { 15, 40, 85, 170 },
-                Gate = new[] { 0, 2, 5, 12 }
+                Cost = new[] { 10, 20, 30, 55, 90, 130, 180, 260 },
+                Gate = new[] { 0, 2, 6, 12, 20, 30, 42, 56 }
             },
             new ForgeDef
             {
-                Line = ForgeLine.Emitters, Name = "炮台数", Step = "多一门炮",
-                Icon = "guns", Reveal = 7,
-                Cost = new[] { 85, 280 },
-                Gate = new[] { 7, 17 }
+                Line = ForgeLine.Emitters, Name = "炮台数", Stat = "炮台", Step = "多一门炮",
+                Icon = "guns", Reveal = 9,
+                Cost = new[] { 50, 160 },
+                Gate = new[] { 9, 40 }
             },
             new ForgeDef
             {
-                Line = ForgeLine.FireRate, Name = "射速", Step = "开火间隔 -8%",
-                Icon = "rate", Reveal = 2,
-                Cost = new[] { 20, 55, 125 },
-                Gate = new[] { 2, 4, 10 }
+                Line = ForgeLine.FireRate, Name = "射速", Stat = "开火间隔", Step = "开火间隔 -8%",
+                Icon = "rate", Reveal = 3,
+                Cost = new[] { 15, 35, 90, 180 },
+                Gate = new[] { 3, 9, 24, 45 }
             },
             new ForgeDef
             {
-                Line = ForgeLine.StartGold, Name = "开局金币", Step = "开局金币 +2",
-                Icon = "gold", Reveal = 3,
-                Cost = new[] { 20, 45, 100 },
-                Gate = new[] { 3, 6, 11 }
+                Line = ForgeLine.StartGold, Name = "开局金币", Stat = "开局金币", Step = "开局金币 +2",
+                Icon = "gold", Reveal = 4,
+                Cost = new[] { 10, 25, 55, 100, 170 },
+                Gate = new[] { 4, 10, 22, 36, 54 }
             },
             new ForgeDef
             {
-                Line = ForgeLine.BaseHp, Name = "基地生命", Step = "基地生命 +1",
-                Icon = "hp", Reveal = 5,
-                Cost = new[] { 70, 225 },
-                Gate = new[] { 5, 14 }
+                Line = ForgeLine.BaseHp, Name = "基地生命", Stat = "基地生命", Step = "基地生命 +1",
+                Icon = "hp", Reveal = 7,
+                Cost = new[] { 30, 100, 210 },
+                Gate = new[] { 7, 27, 50 }
             }
         };
 
@@ -117,6 +120,21 @@ namespace InkLine
         {
             ForgeDef d = Get(i);
             return level < 0 || level >= d.Gate.Length ? 0 : d.Gate[level];
+        }
+
+        // 升到 level 级之后这条线一共加了多少，卡面「当前 → 下一级」用。
+        public static string Value(int i, int level)
+        {
+            int lv = Mathf.Max(0, level);
+            switch (Get(i).Line)
+            {
+                case ForgeLine.Damage: return "+" + 8 * lv + "%";
+                case ForgeLine.FireRate: return "-" + 8 * lv + "%";
+                case ForgeLine.StartGold: return "+" + 2 * lv;
+                case ForgeLine.BaseHp: return "+" + lv;
+                case ForgeLine.Emitters: return (2 + lv) + " 门";
+                default: return lv.ToString();
+            }
         }
 
         public static ForgeStats Stats(int[] levels)

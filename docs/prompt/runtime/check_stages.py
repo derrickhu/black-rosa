@@ -321,6 +321,16 @@ sink = forge_cost + spell_cost + skin_cost
 ratio = sink / max(1, ink_total)
 check(2.4 <= ratio <= 3.0, f"墨价 / 首通墨收入 = {sink} / {ink_total} = {ratio:.2f}（旧收入 {old_total}）")
 print(f"  墨价明细：锻造 {forge_cost}  技能 {spell_cost}  皮肤 {skin_cost}")
+
+# 炮台升级门槛：逐级不降、不超总关数、露面那一关就能买第一级，最后一级留到后几章。
+stage_total = chapters * size
+for m in re.finditer(r'Name = "([^"]+)", Stat[^\n]*\n[^\n]*Reveal = (\d+)[^\n]*\n\s*Cost = new\[\] \{([^}]*)\},\s*Gate = new\[\] \{([^}]*)\}', forge_src):
+    name, reveal = m.group(1), int(m.group(2))
+    cost = [int(x) for x in re.findall(r"\d+", m.group(3))]
+    gate = [int(x) for x in re.findall(r"\d+", m.group(4))]
+    ok = (len(cost) == len(gate) and gate == sorted(gate) and cost == sorted(cost)
+          and gate[-1] <= stage_total and gate[0] == reveal and gate[-1] >= stage_total * 0.55)
+    check(ok, f"炮台 {name}：门槛 {gate}  墨价 {cost}")
 for ch in range(chapters):
     part = [(e, r) for e, r in zip(eco, rows) if r["ch"] == ch]
     print(f"  第 {ch + 1} 章  金币 " + " ".join(f"{e['purse']:>3}" for e, _ in part)

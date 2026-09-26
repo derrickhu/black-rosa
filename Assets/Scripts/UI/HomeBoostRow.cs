@@ -12,5 +12,6 @@ namespace InkLine
         public Image PriceBack;
         public Text Price;
         public Button Button;
+        [System.NonSerialized] public HomeForgeRow Ui;
     }
 }
