@@ -28,6 +28,22 @@ namespace InkLine
                 Quiet();
                 return;
             }
+            float w = Mathf.Clamp(e.Radius * 2.7f, 0.52f, 1.9f);
+            float h = e.IsBoss ? 0.15f : 0.085f;
+            float y = e.Radius + (e.IsBoss ? 0.34f : 0.24f);
+            Paint(ratio, w, h, y, FillColor(e, ratio), order);
+        }
+
+        // 宝箱一落地就挂条：它的全部意义就是「还差几下打开」。
+        public void SyncChest(ChestActor c, float top, int order)
+        {
+            float ratio = c.MaxHp > 0.01f ? Mathf.Clamp01(c.Hp / c.MaxHp) : 0f;
+            Color fill = c.Kind == ChestKind.Gold ? InkTheme.CoinFace : InkTheme.Poison;
+            Paint(ratio, 0.72f, 0.085f, top, fill, order);
+        }
+
+        void Paint(float ratio, float w, float h, float y, Color fill, int order)
+        {
             Ensure(order);
 
             // 本体每帧在做呼吸缩放，条要反着缩回去才不跟着抖。
@@ -50,9 +66,6 @@ namespace InkLine
                 _hold = 0f;
             }
 
-            float w = Mathf.Clamp(e.Radius * 2.7f, 0.52f, 1.9f);
-            float h = e.IsBoss ? 0.15f : 0.085f;
-            float y = e.Radius + (e.IsBoss ? 0.34f : 0.24f);
             float rim = h * 0.4f;
 
             // 空槽必须比实心条浅得多。整条都是深色的话，条永远看着是满的 ——
@@ -60,7 +73,7 @@ namespace InkLine
             Lay(_edge, -w * 0.5f - rim, y, w + rim * 2f, h + rim * 2f, InkTheme.Ink, 0.88f);
             Lay(_track, -w * 0.5f, y, w, h, InkTheme.Bone, 1f);
             Lay(_ghost, -w * 0.5f, y, w * _shown, h, InkTheme.Heart, 0.95f);
-            Lay(_fill, -w * 0.5f, y, w * ratio, h, FillColor(e, ratio), 1f);
+            Lay(_fill, -w * 0.5f, y, w * ratio, h, fill, 1f);
         }
 
         static Color FillColor(EnemyActor e, float ratio)

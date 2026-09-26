@@ -38,7 +38,9 @@ namespace InkLine
             InkPops.BindRoot(_root);
             InkSpill.BindRoot(_root);
             InkDrops.BindRoot(_root);
+            ChestView.BindRoot(_root);
             var slab = Make("slab", InkFx.SoftDisc(), new Vector3(0f, 0.35f, 0f), 1f);
+            _slab = slab;
             slab.sortingOrder = -2;
             slab.transform.localScale = new Vector3(FieldLayout.FieldWidth * 1.35f, 13.5f, 1f);
             InkFx.PaintSprite(slab, InkTheme.StageLift);
@@ -97,8 +99,40 @@ namespace InkLine
             _leak.transform.localScale = new Vector3(FieldLayout.FieldWidth, 0.05f, 1f);
         }
 
+        SpriteRenderer _backdrop;
+        SpriteRenderer _slab;
+
+        // 每章一张地面，铺满镜头（cover）。图没导进来就留原来的纯色底和中间那块提亮。
+        public void SetBackdrop(int chapter)
+        {
+            Sprite s = InkSprites.Load("Bg/battle_bg_" + (chapter + 1));
+            if (s == null) return;
+            if (_slab != null) _slab.enabled = false;
+            if (_backdrop == null)
+            {
+                _backdrop = Make("backdrop", s, Vector3.zero, 1f);
+                _backdrop.sortingOrder = -10;
+            }
+            _backdrop.sprite = s;
+            FitBackdrop();
+        }
+
+        void FitBackdrop()
+        {
+            Camera cam = Camera.main;
+            if (_backdrop == null || _backdrop.sprite == null || cam == null) return;
+            float h = cam.orthographicSize * 2f;
+            float w = h * cam.aspect;
+            Vector2 size = _backdrop.sprite.bounds.size;
+            float k = Mathf.Max(w / Mathf.Max(0.01f, size.x), h / Mathf.Max(0.01f, size.y));
+            Transform t = _backdrop.transform;
+            t.localScale = new Vector3(k, k, 1f);
+            t.position = new Vector3(cam.transform.position.x, cam.transform.position.y, 0f);
+        }
+
         public void Sync(BattleWorld w)
         {
+            FitBackdrop();
             int i = 0;
             for (int c = 0; c < GameConstants.Columns; c++) _colWash[c] = Color.clear;
             for (int c = 0; c < GameConstants.Columns; c++)
@@ -227,6 +261,7 @@ namespace InkLine
             }
             InkPops.Sync(w.Floats);
             InkDrops.Sync(w.Drops);
+            ChestView.Sync(w.Chests);
 
             _seen.Clear();
             for (int n = 0; n < w.Enemies.Count; n++) if (!w.Enemies[n].Dead) _seen.Add(w.Enemies[n].Id);

@@ -381,7 +381,9 @@ namespace InkLine
                 meter.anchorMax = new Vector2(got, 1f);
                 meter.offsetMin = Vector2.zero;
                 meter.offsetMax = Vector2.zero;
-                k.Fill.enabled = got > 0.03f;
+                bool sealedOff = world.Stage != null && world.Stage.Has(StageRule.NoSpell);
+                if (sealedOff) k.Cost.text = "禁";
+                k.Fill.enabled = got > 0.03f && !sealedOff;
                 bool ready = inBattle && world.CanCast(k.Slot);
                 k.Btn.interactable = ready;
                 k.Name.color = ready ? InkTheme.TextDark : InkTheme.TextDim;

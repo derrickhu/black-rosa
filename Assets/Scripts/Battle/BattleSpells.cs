@@ -6,7 +6,7 @@ namespace InkLine
     // 各自直接改血/状态，免得域里再套域。
     public sealed partial class BattleWorld
     {
-        // 局内墨。和 MetaProgress.Ink 是两个池子：这一笔打完就清。技能不花它。
+        // 局内墨：这一局拾到的墨，通关时整笔进 MetaProgress.Ink。技能不花它。
         public int Ink;
         public float RageTime;
         public float RageMul = 2f;
@@ -27,6 +27,7 @@ namespace InkLine
         {
             int id = SlotSpell(slot);
             if (id < 0 || Paused || Victory || Defeat) return false;
+            if (Stage != null && Stage.Has(StageRule.NoSpell)) return false;
             if (Gold < SpellCatalog.Get(id).GoldCost) return false;
             return MendReady(id);
         }

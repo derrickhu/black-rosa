@@ -230,7 +230,9 @@ namespace InkLine
         int[] _heavyStar;
         int[] _stunStar;
 
-        public int DraftCost => GameConstants.FirstDraftCost + DraftCount * GameConstants.DraftCostStep;
+        public int DraftCost => Stage != null
+            ? Stage.DraftFirst + DraftCount * Stage.DraftStep
+            : GameConstants.FirstDraftCost + DraftCount * GameConstants.DraftCostStep;
         public bool CanDraft => Gold >= DraftCost && !Victory && !Defeat;
         public int AliveEnemies
         {
@@ -248,7 +250,7 @@ namespace InkLine
             OpenRows = Mathf.Clamp(stage.OpenRows, 1, GameConstants.Rows);
             for (int c = 0; c < GameConstants.Columns; c++)
             for (int r = 0; r < GameConstants.Rows; r++)
-                Open[c, r] = StageCatalog.CellOpen(stage.OpenCells, c, r);
+                Open[c, r] = stage.CellOpen(c, r);
             Grid = new CardId?[GameConstants.Columns, GameConstants.Rows];
             Stars = new int[GameConstants.Columns, GameConstants.Rows];
             _charge = new int[GameConstants.Columns, ChCount];
@@ -263,7 +265,7 @@ namespace InkLine
             RailX = FieldLayout.ColumnX(Mathf.Max(0, (GameConstants.Columns - EmitterCount) / 2));
             _damageMul = Mathf.Max(0.1f, forge.DamageMul);
             _intervalMul = Mathf.Clamp(forge.IntervalMul, 0.3f, 2f);
-            MaxBaseHp = Mathf.Max(1, forge.BaseHp);
+            MaxBaseHp = stage.Has(StageRule.Frail) ? 1 : Mathf.Max(1, forge.BaseHp);
             BaseHp = MaxBaseHp;
             BeginSpells(equipped);
             Enemies.Clear();
@@ -272,6 +274,7 @@ namespace InkLine
             Bursts.Clear();
             Drops.Clear();
             Deaths.Clear();
+            ResetChests();
             if (PreviewFill)
             {
                 OpenRows = GameConstants.Rows;
@@ -281,8 +284,27 @@ namespace InkLine
                 ApplyPreviewFill();
                 RailX = FieldLayout.ColumnX(0);
             }
+            else
+            {
+                PlacePreset(stage.Preset);
+                if (stage.Rules != StageRule.None) ShowToast(StageCatalog.RuleHint(stage.Rules), 3.2f);
+            }
             for (int c = 0; c < GameConstants.Columns; c++) RefreshCol(c);
         }
+
+        void PlacePreset(PresetCard[] preset)
+        {
+            if (preset == null) return;
+            for (int i = 0; i < preset.Length; i++)
+            {
+                PresetCard p = preset[i];
+                if (!IsOpen(p.Col, p.Row)) continue;
+                Grid[p.Col, p.Row] = p.Id;
+                Stars[p.Col, p.Row] = Mathf.Clamp(p.Star, 1, GameConstants.MaxStar);
+            }
+        }
+
+        float GoldMul => StageCatalog.GoldMulOf(Stage.Rules);
 
         // 进关之后再套皮肤：默认弹伤和开局金币加上去，改装的乘算、加算照旧。
         public void ApplySkin(int skin)
@@ -419,6 +441,7 @@ namespace InkLine
             TickEmitters(dt);
             TickBullets(dt);
             TickEnemies(dt);
+            TickChests(dt);
             TickFloats(dt);
             TickDrops(dt);
             if (ToastTime > 0f) ToastTime -= dt;
@@ -449,10 +472,12 @@ namespace InkLine
         {
             int mul = EnemyCatalog.Density(spec.Id);
             int count = spec.Count * mul;
+            if (Stage.Has(StageRule.Rich) && !EnemyIds.IsBoss(spec.Id))
+                count = Mathf.CeilToInt(count * 1.25f);
             // 只摊赏金，不摊血。原先连血一起除，墨丁 4.5 ÷ 2 = 2.25，
             // 开局弹伤 2.4，铺开的每一只都是一发死 —— 场上人多，难度反而没了。
             // 赏金保底 1，总收入仍按关卡表原来那几只算。
-            int purse = Mathf.Max(1, spec.Count * EnemyCatalog.Get(spec.Id, Stage.Index).Gold);
+            int purse = Mathf.Max(1, Mathf.RoundToInt(spec.Count * EnemyCatalog.Get(spec.Id, Stage.Hp).Gold * GoldMul));
             for (int i = 0; i < count; i++)
             {
                 int col = spec.Column;
@@ -478,8 +503,9 @@ namespace InkLine
         // 很容易只在 Spawn 里拷了，分裂出来的那批悄悄少一个字段。
         EnemyActor Make(EnemyId id, Vector2 at, float hpShare = 1f, int gold = -1)
         {
-            EnemyDef def = EnemyCatalog.Get(id, Stage.Index);
+            EnemyDef def = EnemyCatalog.Get(id, Stage.Hp);
             float hp = Mathf.Max(1f, def.Hp * hpShare);
+            float speed = Stage.Has(StageRule.Swift) ? def.Speed * 1.2f : def.Speed;
             var e = new EnemyActor
             {
                 Id = NextActorId++,
@@ -488,7 +514,7 @@ namespace InkLine
                 Hp = hp,
                 MaxHp = hp,
                 HpShare = hpShare,
-                Speed = def.Speed,
+                Speed = speed,
                 Radius = def.Radius,
                 Gold = gold >= 0 ? gold : def.Gold,
                 Shield = def.HasShield,
@@ -835,6 +861,7 @@ namespace InkLine
                     break;
                 }
             }
+            if (!b.Dead && HitChests(b)) b.Dead = true;
         }
 
         void Cleave(BulletActor b)
@@ -883,6 +910,7 @@ namespace InkLine
                 e.BurnDps = Mathf.Max(e.BurnDps, m.StatusPower(StatusKind.Burn) * 0.5f);
                 e.BurnTime = Mathf.Max(e.BurnTime, 1.5f);
             }
+            BlastChests(pos, r, m, src);
         }
 
         // 十步结算。所有伤害、状态、位移都从这里过，叠加规则只有这一份。
@@ -1293,11 +1321,18 @@ namespace InkLine
 
         void DropLoot(EnemyActor e)
         {
-            int ink = Mathf.Max(1, e.Gold * GameConstants.InkPerGold);
             Scatter(e, DropKind.Gold, e.Gold, Mathf.Clamp(e.Gold, 1, e.IsBoss ? 14 : 4));
+            // 墨按关卡预算摊到赏金上，一只小兵常常不到 1 滴，零头攒着，满 1 才淌一摊。
             // 墨只出一摊。它是尸体留在地上那摊，不是一把零钱 ——
             // 一只怪摊开好几摊，看着就不像同一具身体流出来的了。
-            Scatter(e, DropKind.Ink, ink, 1);
+            _inkCarry += e.Gold * (float)Stage.InkBudget / Mathf.Max(1, Stage.KillGold);
+            int ink = Mathf.FloorToInt(_inkCarry);
+            if (ink > 0)
+            {
+                _inkCarry -= ink;
+                Scatter(e, DropKind.Ink, ink, 1);
+            }
+            RollChest(e);
             if (!e.IsBoss) return;
             int spell = RollShard();
             if (spell < 0) return;
@@ -1327,7 +1362,10 @@ namespace InkLine
             return -1;
         }
 
-        void Scatter(EnemyActor e, DropKind kind, int total, int pieces, int spell = -1)
+        void Scatter(EnemyActor e, DropKind kind, int total, int pieces, int spell = -1) =>
+            ScatterAt(e.Pos, e.Radius, e.IsBoss, kind, total, pieces, spell);
+
+        void ScatterAt(Vector2 at, float radius, bool big, DropKind kind, int total, int pieces, int spell = -1)
         {
             if (total <= 0) return;
             pieces = Mathf.Max(1, Mathf.Min(pieces, total));
@@ -1345,14 +1383,14 @@ namespace InkLine
                 // 慢慢摊开再被吸走。金币才是弹出来、滚一下、躺平。
                 bool puddle = kind == DropKind.Ink;
                 float ground = Mathf.Max(GameConstants.LeakY + 0.3f,
-                    e.Pos.y - (puddle ? e.Radius * 0.55f : UnityEngine.Random.Range(0.3f, 0.9f)));
+                    at.y - (puddle ? radius * 0.55f : UnityEngine.Random.Range(0.3f, 0.9f)));
                 Drops.Add(new DropItem
                 {
                     Id = NextActorId++,
                     Kind = kind,
                     Amount = amount,
                     Spell = spell,
-                    Pos = puddle ? new Vector2(e.Pos.x, ground) : e.Pos,
+                    Pos = puddle ? new Vector2(at.x, ground) : at,
                     Vel = puddle
                         ? Vector2.zero
                         : new Vector2(side * 1.9f + UnityEngine.Random.Range(-0.35f, 0.35f),
@@ -1361,7 +1399,7 @@ namespace InkLine
                     // 那摊墨要摊开、晃一会儿才被吸走，不然「流出来一摊」根本来不及看见。
                     Rest = (puddle ? PuddleRestTime : DropRestTime) + UnityEngine.Random.Range(0f, 0.16f),
                     Gather = puddle ? 0f : 1f,
-                    Size = puddle ? Mathf.Max(0.42f, e.Radius) * (e.IsBoss ? 2.9f : 2.1f) : 1f,
+                    Size = puddle ? Mathf.Max(0.42f, radius) * (big ? 2.9f : 2.1f) : 1f,
                     Seed = UnityEngine.Random.value * 10f
                 });
             }
@@ -1440,7 +1478,7 @@ namespace InkLine
             }
             else
             {
-                Ink = Mathf.Min(GameConstants.InkMax, Ink + amount);
+                Ink += amount;
                 InkPop = 1f;
             }
         }
@@ -1633,6 +1671,7 @@ namespace InkLine
                 Victory = true;
                 Paused = true;
                 FlushDrops();
+                Chests.Clear();
             }
         }
 
@@ -1768,10 +1807,10 @@ namespace InkLine
             return ChWord;
         }
 
-        public void ShowToast(string text)
+        public void ShowToast(string text, float time = 1.4f)
         {
             Toast = text;
-            ToastTime = 1.4f;
+            ToastTime = time;
         }
 
         public void ShowFloat(Vector2 pos, string text, Color color, float scale = 1f)

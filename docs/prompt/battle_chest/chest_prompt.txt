@@ -1,0 +1,10 @@
+A 2 by 2 sprite sheet of four small treasure chests for a casual cartoon mobile tower-defense game, each chest centred in its own quarter with generous empty space around it, on a flat solid magenta background (#FF00FF) filling the whole canvas.
+
+Style: the same as the attached character picture, a clean flat cartoon with thick dark brown-black outlines, soft two-tone shading, rounded chunky shapes, a slight three-quarter top-down view. Each chest is a small cute rounded chest with a domed lid, a front lock plate and metal corner caps.
+
+Top left: a golden chest, the body the yellow of a shiny gold coin, corner caps and bands the orange-brown of a new copper coin, a small round keyhole lock, tightly closed, a tiny white highlight on the lid.
+Top right: the same golden chest, cracked and battered: two jagged dark cracks across the lid and front, one corner cap bent, the lid slightly lifted with warm yellow light glowing out of the gap and two gold coins peeking out.
+Bottom left: a purple chest, the body the purple of ripe grapes, corner caps and bands the deep violet of an ink bottle, a small round keyhole lock, tightly closed, a tiny white highlight on the lid.
+Bottom right: the same purple chest, cracked and battered: two jagged dark cracks across the lid and front, one corner cap bent, the lid slightly lifted with violet light glowing out of the gap and a drop of dark ink dripping over the edge.
+
+All four chests are the same size and the same angle, each drawn whole with its full outline, on the plain magenta background with no ground and no shadow.

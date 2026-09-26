@@ -4,7 +4,7 @@ namespace InkLine
 {
     public enum ForgeLine { Damage, Emitters, FireRate, StartGold, BaseHp }
 
-    // 一条升级线。Cost[i] 是从 i 级升到 i+1 级的价，Gate[i] 是那一级要求的总星。
+    // 一条升级线。Cost[i] 是从 i 级升到 i+1 级的价，Gate[i] 是那一级要求的已通关关数。
     public struct ForgeDef
     {
         public ForgeLine Line;
@@ -13,8 +13,8 @@ namespace InkLine
         public string Icon;      // Resources/Art/Ui/ico_<Icon>.png
         public int[] Cost;
         public int[] Gate;
-        public int Reveal;       // 累计星到了才在加成页露面。0 = 开局就有
-        public string LockNote;  // 星门槛超出本章上限时改显示这句
+        public int Reveal;       // 通关这么多关才在加成页露面。0 = 开局就有
+        public string LockNote;  // 门槛超出总关数时改显示这句
 
         public int MaxLevel => Cost.Length;
     }
@@ -42,7 +42,7 @@ namespace InkLine
     {
         public const int LineCount = 5;
 
-        // 开局只亮伤害。别的线按累计星陆续露面，不能五张一起铺开。
+        // 开局只亮伤害。别的线按通关关数陆续露面，不能五张一起铺开。
         // 已经点过的线永远留着，免得存档玩家看见自己买过的东西消失。
         static readonly ForgeDef[] Lines =
         {
@@ -50,55 +50,54 @@ namespace InkLine
             {
                 Line = ForgeLine.Damage, Name = "伤害", Step = "炮弹伤害 +8%",
                 Icon = "damage", Reveal = 0,
-                Cost = new[] { 12, 28, 60, 120 },
-                Gate = new[] { 0, 0, 12, 20 }
+                Cost = new[] { 15, 40, 85, 170 },
+                Gate = new[] { 0, 2, 5, 12 }
             },
             new ForgeDef
             {
                 Line = ForgeLine.Emitters, Name = "炮台数", Step = "多一门炮",
-                Icon = "guns", Reveal = 20,
-                Cost = new[] { 60, 200 },
-                Gate = new[] { 20, 99 },
-                LockNote = "第二章开放"
+                Icon = "guns", Reveal = 7,
+                Cost = new[] { 85, 280 },
+                Gate = new[] { 7, 17 }
             },
             new ForgeDef
             {
                 Line = ForgeLine.FireRate, Name = "射速", Step = "开火间隔 -8%",
-                Icon = "rate", Reveal = 5,
-                Cost = new[] { 16, 40, 90 },
-                Gate = new[] { 5, 8, 16 }
+                Icon = "rate", Reveal = 2,
+                Cost = new[] { 20, 55, 125 },
+                Gate = new[] { 2, 4, 10 }
             },
             new ForgeDef
             {
                 Line = ForgeLine.StartGold, Name = "开局金币", Step = "开局金币 +2",
-                Icon = "gold", Reveal = 9,
-                Cost = new[] { 14, 32, 70 },
-                Gate = new[] { 9, 12, 16 }
+                Icon = "gold", Reveal = 3,
+                Cost = new[] { 20, 45, 100 },
+                Gate = new[] { 3, 6, 11 }
             },
             new ForgeDef
             {
                 Line = ForgeLine.BaseHp, Name = "基地生命", Step = "基地生命 +1",
-                Icon = "hp", Reveal = 14,
-                Cost = new[] { 50, 160 },
-                Gate = new[] { 14, 22 }
+                Icon = "hp", Reveal = 5,
+                Cost = new[] { 70, 225 },
+                Gate = new[] { 5, 14 }
             }
         };
 
         public static ForgeDef Get(int i) => Lines[Mathf.Clamp(i, 0, LineCount - 1)];
         public static ForgeDef Get(ForgeLine line) => Lines[(int)line];
 
-        // 点过，或累计星到了露面门槛，才在加成页出现。
-        public static bool Exposed(int line, int stars, int level) =>
-            level > 0 || stars >= Get(line).Reveal;
+        // 点过，或通关关数到了露面门槛，才在加成页出现。
+        public static bool Exposed(int line, int cleared, int level) =>
+            level > 0 || cleared >= Get(line).Reveal;
 
         // 下一张要解锁的线。加成页只挂这一张「还没到」的预告，不把后面全摊开。
-        public static int NextLocked(int stars, int[] levels)
+        public static int NextLocked(int cleared, int[] levels)
         {
             int best = -1, bestR = int.MaxValue;
             for (int i = 0; i < LineCount; i++)
             {
                 int lv = levels != null && i < levels.Length ? levels[i] : 0;
-                if (Exposed(i, stars, lv)) continue;
+                if (Exposed(i, cleared, lv)) continue;
                 int r = Get(i).Reveal;
                 if (r < bestR) { bestR = r; best = i; }
             }

@@ -16,7 +16,7 @@ namespace InkLine
         public int LastDay;
         public bool DailyWinDone;
         public bool StarterGranted;
-        public int[] Stars = new int[GameConstants.ChapterStageCount];
+        public int[] Stars = new int[GameConstants.StageCount];
         public int[] Forge = new int[ForgeCatalog.LineCount];
         public int Skin;
         public bool[] SkinOwned = new bool[SkinCatalog.Count];
@@ -59,12 +59,12 @@ namespace InkLine
             }
             if (chapterCleared) Forge[(int)ForgeLine.Emitters] = 1;
             if (goldBonus) Forge[(int)ForgeLine.StartGold] = 1;
-            Ink += TotalStars() * 4;
+            Ink += ClearedCount() * 12;
         }
 
         void Normalize()
         {
-            Stars = Fit(Stars, GameConstants.ChapterStageCount);
+            Stars = Fit(Stars, GameConstants.StageCount);
             Forge = Fit(Forge, ForgeCatalog.LineCount);
             SkinOwned = Fit(SkinOwned, SkinCatalog.Count);
             SpellOwned = Fit(SpellOwned, SpellCatalog.Count);
@@ -250,7 +250,7 @@ namespace InkLine
         public int StageCost(int stage)
         {
             if (stage < 0 || stage >= Stars.Length) return 0;
-            return GameConstants.StaminaPerStage;
+            return StageCatalog.Get(stage).StaminaCost;
         }
 
         public bool CanEnter(int stage) => Stamina >= StageCost(stage);
@@ -275,14 +275,23 @@ namespace InkLine
 
         public bool Unlocked(int stage) => stage <= 0 || Stars[stage - 1] > 0;
 
-        public int TotalStars()
+        // 已通关几关。锻造、皮肤的门槛都按这个数。
+        public int ClearedCount()
         {
             int n = 0;
-            for (int i = 0; i < Stars.Length; i++) n += Stars[i];
+            for (int i = 0; i < Stars.Length; i++) if (Stars[i] > 0) n++;
             return n;
         }
 
-        public bool ChapterCleared => Stars[GameConstants.ChapterStageCount - 1] > 0;
+        // chapter 从 0 数。
+        public bool ChapterCleared(int chapter)
+        {
+            int last = (chapter + 1) * GameConstants.ChapterSize - 1;
+            return last >= 0 && last < Stars.Length && Stars[last] > 0;
+        }
+
+        // 皮肤、技能上的「通关解锁」指通关第三章。
+        public const int ClearGateChapter = 2;
 
         public ForgeStats Forged
         {
@@ -295,17 +304,28 @@ namespace InkLine
         public int StartGold => Forged.StartGold;
         public Color SkinTint => SkinCatalog.Get(Skin).Tint;
 
-        // 返回这一局赚到的墨，GameFlow 拿去显示，也拿去算广告双倍要补多少。
-        public int ApplyResult(int stage, int earned)
+        // 章底首通的额外奖励，结算页拿去显示。ApplyResult 每次先清掉。
+        [NonSerialized] public int FinaleStamina;
+        [NonSerialized] public int FinaleShard = -1;
+
+        // 结算的墨就是这一局亲手拾到的墨，关卡不再另发一笔。返回入账数，
+        // GameFlow 拿去显示，也拿去算广告双倍要补多少。
+        public int ApplyResult(int stage, int collected)
         {
-            if (stage < 0 || stage >= Stars.Length || earned <= 0) return 0;
-            int old = Stars[stage];
-            int full = 4 + stage * 2 + earned * 4;
-            int ink;
-            if (old <= 0) ink = full;                         // 首通
-            else if (earned > old) ink = (earned - old) * 4;  // 提星
-            else ink = Mathf.Max(1, full / 2);                // 重刷
-            if (earned > old) Stars[stage] = earned;
+            FinaleStamina = 0;
+            FinaleShard = -1;
+            if (stage < 0 || stage >= Stars.Length) return 0;
+            StageDef def = StageCatalog.Get(stage);
+            bool first = Stars[stage] <= 0;
+            if (first && def.Finale)
+            {
+                FinaleStamina = GameConstants.FinaleStamina;
+                Stamina = Mathf.Min(GameConstants.StaminaMax, Stamina + FinaleStamina);
+                FinaleShard = GrantOneShard();
+            }
+            // Stars 只剩「这关过没过」一层意思，旧存档里的 2、3 照样算通关。
+            if (first) Stars[stage] = 1;
+            int ink = Mathf.Max(0, collected);
             if (!DailyWinDone)
             {
                 DailyWinDone = true;
@@ -315,6 +335,24 @@ namespace InkLine
             Ink += ink;
             Save();
             return ink;
+        }
+
+        // 章底保底：随机挑一个还没攒满的技能给一枚碎片。全满了返回 -1。
+        int GrantOneShard()
+        {
+            SpellShards = Fit(SpellShards, SpellCatalog.Count);
+            SpellLevel = Fit(SpellLevel, SpellCatalog.Count);
+            var room = new System.Collections.Generic.List<int>();
+            for (int i = 0; i < SpellCatalog.Count; i++)
+            {
+                if (SpellLevel[i] >= SpellCatalog.MaxLevel) continue;
+                int cap = SpellCatalog.NextShards(SpellCatalog.Get(i), SpellLevel[i]);
+                if (SpellShards[i] < cap) room.Add(i);
+            }
+            if (room.Count == 0) return -1;
+            int pick = room[UnityEngine.Random.Range(0, room.Count)];
+            SpellShards[pick]++;
+            return pick;
         }
 
         public void AddInk(int n)
@@ -333,12 +371,12 @@ namespace InkLine
             ForgeDef d = ForgeCatalog.Get(line);
             if (lv >= d.MaxLevel) { why = "已满级"; return false; }
             int gate = ForgeCatalog.Gate(line, lv);
-            if (gate > GameConstants.ChapterStageCount * GameConstants.MaxStar)
+            if (gate > GameConstants.StageCount)
             {
                 why = string.IsNullOrEmpty(d.LockNote) ? "暂未开放" : d.LockNote;
                 return false;
             }
-            if (TotalStars() < gate) { why = $"需 {gate} 星"; return false; }
+            if (ClearedCount() < gate) { why = $"通关 {gate} 关"; return false; }
             int cost = ForgeCatalog.Cost(line, lv);
             if (Ink < cost) { why = $"差 {cost - Ink} 墨"; return false; }
             why = "";
@@ -358,8 +396,8 @@ namespace InkLine
         {
             SkinDef d = SkinCatalog.Get(i);
             if (SkinOwned[i]) { why = ""; return false; }
-            if (d.NeedClear && !ChapterCleared) { why = "通关解锁"; return false; }
-            if (TotalStars() < d.Gate) { why = $"需 {d.Gate} 星"; return false; }
+            if (d.NeedClear && !ChapterCleared(ClearGateChapter)) { why = "通关三章解锁"; return false; }
+            if (ClearedCount() < d.Gate) { why = $"通关 {d.Gate} 关"; return false; }
             if (Ink < d.Price) { why = $"差 {d.Price - Ink} 墨"; return false; }
             why = "";
             return true;

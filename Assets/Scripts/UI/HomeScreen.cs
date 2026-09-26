@@ -378,7 +378,7 @@ namespace InkLine
             if (_view.Skins != null)
                 for (int i = 0; i < _view.Skins.Length && i < SkinCatalog.Count; i++)
                     BindSkin(_view.Skins[i], i);
-            int stars = _meta.TotalStars();
+            int stars = _meta.ClearedCount();
             int locked = ForgeCatalog.NextLocked(stars, _meta.Forge);
             if (_view.Boosts == null) return;
             for (int i = 0; i < _view.Boosts.Length; i++)
@@ -410,7 +410,7 @@ namespace InkLine
             }
             Write(slot.Name, d.Name, owned ? InkTheme.TextDark : InkTheme.TextDim, true);
             Write(slot.Tail,
-                owned ? (on ? "使用中" : "") : (buyable ? d.Price + " 墨" : (d.NeedClear ? "通关" : $"需 {d.Gate} 星")),
+                owned ? (on ? "使用中" : "") : (buyable ? d.Price + " 墨" : (d.NeedClear ? "通关三章" : $"通关 {d.Gate} 关")),
                 on ? InkTheme.Seal : InkTheme.TextDim);
             if (slot.Button != null)
             {
@@ -561,7 +561,7 @@ namespace InkLine
             Write(slot.Title, d.Name, InkTheme.TextDim, true);
             Write(slot.Step, d.Step, InkTheme.TextDim);
             int need = Mathf.Max(0, d.Reveal - stars);
-            FitPrice(slot, need > 0 ? $"累积 {d.Reveal} 星" : d.LockNote, false);
+            FitPrice(slot, need > 0 ? $"通关 {d.Reveal} 关" : d.LockNote, false);
             if (slot.Button != null)
             {
                 slot.Button.interactable = false;
@@ -579,7 +579,7 @@ namespace InkLine
             if (_view.GoLabel != null)
                 _view.GoLabel.text = (_meta.Stars[next] > 0 ? "重打" : "继续") + $"  第 {next + 1} 关";
             if (_view.GoButton != null) _view.GoButton.interactable = canGo;
-            bool poor = _meta.Stamina < GameConstants.StaminaPerStage;
+            bool poor = _meta.Stamina < _meta.StageCost(next);
             bool ad = poor && _meta.CanAdStamina;
             if (_view.AdButton != null)
             {
@@ -590,7 +590,7 @@ namespace InkLine
             if (_view.Help != null) _view.Help.gameObject.SetActive(false);
             if (_view.Chapter != null) BindChapter(next);
             else if (_view.Seals != null)
-                for (int i = 0; i < _view.Seals.Length && i < GameConstants.ChapterStageCount; i++)
+                for (int i = 0; i < _view.Seals.Length && i < GameConstants.StageCount; i++)
                     BindSeal(_view.Seals[i], i);
             WireSides();
         }
@@ -608,7 +608,7 @@ namespace InkLine
             }
             if (board.Title != null) board.Title.text = SortiePageBuilder.ChapterTitle(_chapter);
             int count = Mathf.Min(SortiePageBuilder.PerChapter,
-                GameConstants.ChapterStageCount - _chapter * SortiePageBuilder.PerChapter);
+                GameConstants.StageCount - _chapter * SortiePageBuilder.PerChapter);
             if (board.Route != null)
             {
                 board.Route.color = InkTheme.Outline;
@@ -676,7 +676,7 @@ namespace InkLine
         {
             if (chapter <= 0) return true;
             int first = chapter * SortiePageBuilder.PerChapter;
-            return first < GameConstants.ChapterStageCount && _meta.Unlocked(first);
+            return first < GameConstants.StageCount && _meta.Unlocked(first);
         }
 
         void BindNode(HomeSealCell slot, int index, int frontier)
@@ -685,7 +685,7 @@ namespace InkLine
             bool cleared = open && _meta.Stars[index] > 0;
             bool current = open && index == frontier && !cleared;
             bool last = (index % SortiePageBuilder.PerChapter) == SortiePageBuilder.PerChapter - 1
-                || index == GameConstants.ChapterStageCount - 1;
+                || index == GameConstants.StageCount - 1;
             string key = "node_lock";
             if (cleared) key = "node_done";
             else if (current) key = "node_now";
@@ -744,10 +744,9 @@ namespace InkLine
                 slot.Number.text = (index + 1).ToString();
                 slot.Number.color = live ? InkTheme.TextDark : InkTheme.TextDim;
             }
-            int stars = open ? _meta.Stars[index] : 0;
             if (slot.Stars != null)
                 for (int s = 0; s < slot.Stars.Length; s++)
-                    if (slot.Stars[s] != null) slot.Stars[s].gameObject.SetActive(open && stars > 0 && s < stars);
+                    if (slot.Stars[s] != null) slot.Stars[s].gameObject.SetActive(false);
             if (slot.Tag != null)
             {
                 if (!open || afford) slot.Tag.text = "";
@@ -1107,7 +1106,7 @@ namespace InkLine
         int NextStage()
         {
             int last = 0;
-            for (int i = 0; i < GameConstants.ChapterStageCount; i++)
+            for (int i = 0; i < GameConstants.StageCount; i++)
             {
                 if (!_meta.Unlocked(i)) break;
                 last = i;
@@ -1126,7 +1125,7 @@ namespace InkLine
             var go = UiKit.Btn(page, "go", (_meta.Stars[next] > 0 ? "重打" : "继续") + $"  第 {next + 1} 关",
                 new Vector2(0f, 26f), new Vector2(460f, 106f), () => _start(next), true, Pin.Bottom);
             go.interactable = canGo;
-            bool poor = _meta.Stamina < GameConstants.StaminaPerStage;
+            bool poor = _meta.Stamina < _meta.StageCost(next);
             if (poor && _meta.CanAdStamina)
                 UiKit.Btn(page, "adstam", $"看广告  +{GameConstants.AdStaminaGain} 体力",
                     new Vector2(0f, 150f), new Vector2(400f, 84f), WatchStaminaAd, false, Pin.Bottom);
@@ -1313,7 +1312,7 @@ namespace InkLine
             n.color = owned ? InkTheme.TextDark : InkTheme.TextDim;
             string tail = owned
                 ? (on ? "使用中" : "")
-                : (buyable ? d.Price + " 墨" : (d.NeedClear ? "通关" : $"需 {d.Gate} 星"));
+                : (buyable ? d.Price + " 墨" : (d.NeedClear ? "通关三章" : $"通关 {d.Gate} 关"));
             if (tail.Length > 0)
             {
                 var s = UiKit.Label(box, "s", tail, 14, new Vector2(40f, -46f), new Vector2(72, 26),
@@ -1325,7 +1324,7 @@ namespace InkLine
 
         void BuildBoosts(RectTransform page, float topY)
         {
-            int stars = _meta.TotalStars();
+            int stars = _meta.ClearedCount();
             var shown = new System.Collections.Generic.List<int>();
             for (int i = 0; i < ForgeCatalog.LineCount; i++)
                 if (ForgeCatalog.Exposed(i, stars, _meta.ForgeLevel(i)))
@@ -1396,7 +1395,7 @@ namespace InkLine
                 TextAnchor.MiddleLeft);
             step.color = InkTheme.TextDim;
             int need = Mathf.Max(0, d.Reveal - stars);
-            string tail = need > 0 ? $"累积 {d.Reveal} 星" : d.LockNote;
+            string tail = need > 0 ? $"通关 {d.Reveal} 关" : d.LockNote;
             PricePill(box, new Vector2(238f, 0f), tail, false);
         }
 

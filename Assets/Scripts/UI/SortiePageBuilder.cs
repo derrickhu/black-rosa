@@ -9,16 +9,11 @@ namespace InkLine
     // 烘「重排出征页」时走同一份，避免两套坐标。
     public static class SortiePageBuilder
     {
-        public const int PerChapter = 9;
+        public const int PerChapter = GameConstants.ChapterSize;
         public const int Cols = 3;
 
-        static readonly string[] CnDigit =
-        {
-            "一", "二", "三", "四", "五", "六", "七", "八", "九", "十"
-        };
-
         public static int ChapterCount =>
-            (GameConstants.ChapterStageCount + PerChapter - 1) / PerChapter;
+            (GameConstants.StageCount + PerChapter - 1) / PerChapter;
 
         public static int ChapterOf(int stage) => Mathf.Clamp(stage / PerChapter, 0, ChapterCount - 1);
 
@@ -46,9 +41,9 @@ namespace InkLine
 
         public static string ChapterTitle(int chapter)
         {
-            int n = chapter + 1;
-            if (n >= 1 && n <= CnDigit.Length) return "第" + CnDigit[n - 1] + "章";
-            return "第" + n + "章";
+            string label = StageCatalog.ChapterLabel(chapter);
+            if (chapter < 0 || chapter >= StageCatalog.ChapterNames.Length) return label;
+            return label + " " + StageCatalog.ChapterNames[chapter];
         }
 
         public static void Ensure(HomeView view, RectTransform page)

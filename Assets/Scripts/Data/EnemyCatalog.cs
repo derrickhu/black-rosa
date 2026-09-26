@@ -1,3 +1,5 @@
+using UnityEngine;
+
 namespace InkLine
 {
     public readonly struct EnemyDef
@@ -92,9 +94,10 @@ namespace InkLine
             }
         }
 
-        public static EnemyDef Get(EnemyId id, int stageIndex)
+        // t 是关卡血量倍率，见 StageCatalog.HpOf。
+        public static EnemyDef Get(EnemyId id, float t)
         {
-            float t = 1f + stageIndex * 0.08f;
+            t = Mathf.Max(0.1f, t);
             switch (id)
             {
                 case EnemyId.Runner:
@@ -148,9 +151,8 @@ namespace InkLine
 
                 // 关底八只。colorPhase 只给真的会狂化的那几只 —— 半血染红这个
                 // 反馈现在专门表示「它加速了」，不再是单纯的装饰。
-                // 血量是按「算上关卡系数后、整个关底波的总血量单调上升」倒推的，
-                // 不是照机制强度随手写的。乘上 t 之后每关关底总血约
-                // 70 / 92 / 139 / 186 / 231 / 280 / 318 / 624，最后一关翻倍是章末该有的。
+                // 八只按章顺序当章底，基础血按出场顺序递增，乘上关卡倍率后
+                // 章底 boss 血量逐章单调上升（check_stages.py 会核）。
                 // 双首基础血特意压到别人一半 —— 它是两只，总量才对得上。
                 case EnemyId.BossDrum:      // 一关 · 鼓面：挡一发 + 横移，考基础输出
                     return new EnemyDef(id, 70f * t, 0.22f, 14, 0.62f,

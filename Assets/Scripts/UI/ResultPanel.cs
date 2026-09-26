@@ -5,25 +5,20 @@ namespace InkLine
 {
     public static class ResultPanel
     {
-        public static RectTransform Show(RectTransform layer, bool win, int stars, int ink,
+        public static RectTransform Show(RectTransform layer, bool win, int ink, string extra,
             bool canRevive, Action revive, Action doubleInk, Action lobby, Action next)
         {
             var dim = UiKit.Dimmer(layer);
             var board = UiKit.Stroke(dim, "end", Vector2.zero, new Vector2(560, 480), Pin.Center, 7f);
             UiKit.Label(board, "t", win ? "通关" : "防线失守", 40, new Vector2(0, 176), new Vector2(500, 56));
-            if (win)
-            {
-                float span = (stars - 1) * 36f;
-                for (int i = 0; i < stars; i++)
-                    UiKit.Icon(board, InkArt.Icon(InkShape.Diamond, 64), new Vector2(-span * 0.5f + i * 36f, 116f), 32f);
-            }
             if (win && ink > 0)
             {
-                var gain = UiKit.Label(board, "ink", $"墨  +{ink}", 30, new Vector2(0, 64), new Vector2(400, 40));
+                var gain = UiKit.Label(board, "ink", $"墨  +{ink}", 34, new Vector2(0, 96), new Vector2(400, 44));
                 UiKit.Bold(gain);
             }
-            UiKit.Label(board, "d",
-                win ? "棋盘已清空。墨可以在首页改造炮台。" : "体力已扣。可以看广告续命，或回首页。",
+            string desc = !win ? "体力已扣。可以看广告续命，或回首页。"
+                : string.IsNullOrEmpty(extra) ? "棋盘已清空。墨可以在首页改造炮台。" : extra;
+            UiKit.Label(board, "d", desc,
                 24, new Vector2(0, win ? 20 : 56), new Vector2(480, 70));
             if (win && doubleInk != null)
                 UiKit.Btn(board, "dbl", "看广告  墨翻倍", new Vector2(0, -30), new Vector2(300, 64), doubleInk);

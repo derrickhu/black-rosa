@@ -22,7 +22,6 @@ namespace InkLine
         int _inkEarned;
         bool _inkDoubled;
         bool _resultWin;
-        int _resultStars;
         CardId[] _offer = new CardId[3];
         CardId _held;
         bool _rerolled;
@@ -140,6 +139,7 @@ namespace InkLine
             _world.OfferShards(_meta.SpellLevel, _meta.SpellShards);
             if (_view != null) _view.Dispose();
             _view = new BattleView(null);
+            _view.SetBackdrop(_world.Stage.Chapter);
             _view.EmitterSkin = _meta.Skin;
             _view.EmitterTint = _meta.SkinTint;
             BuildBattleHud();
@@ -364,23 +364,19 @@ namespace InkLine
         }
 
         // 结算只算一次。看完双倍广告走 ShowResult 重画面板，不要再回 Finish，
-        // 否则 ApplyResult 会按「重刷」再发一笔墨。
+        // 否则 ApplyResult 会把这一局拾到的墨再入一次账。
         void Finish(bool win)
         {
             _screen = Screen.Result;
             _world.Paused = true;
             _resultWin = win;
-            _resultStars = 0;
             _inkEarned = 0;
             _inkDoubled = false;
             if (win) AudioBus.Win();
             else AudioBus.Lose();
             if (win)
             {
-                // 按丢了多少血算，不是按剩多少血。否则局外加基地血会自动放水。
-                int lost = _world.MaxBaseHp - _world.BaseHp;
-                _resultStars = _world.RevivesUsed > 0 ? 1 : (lost <= 1 ? 3 : 2);
-                _inkEarned = _meta.ApplyResult(_pickStage, _resultStars);
+                _inkEarned = _meta.ApplyResult(_pickStage, _world.Ink);
                 _meta.AddShards(_world.ShardGot);
             }
             ShowResult();
@@ -390,14 +386,14 @@ namespace InkLine
         {
             DropOverlay();
             bool next = _resultWin
-                        && _pickStage + 1 < GameConstants.ChapterStageCount
+                        && _pickStage + 1 < GameConstants.StageCount
                         && _meta.Unlocked(_pickStage + 1);
             int shownInk = _inkDoubled ? _inkEarned * 2 : _inkEarned;
             _overlay = ResultPanel.Show(
                 _layer,
                 _resultWin,
-                _resultStars,
                 shownInk,
+                _resultWin ? FinaleNote() : "",
                 !_resultWin && _world.RevivesUsed < GameConstants.MaxRevives,
                 () =>
                 {
@@ -420,6 +416,15 @@ namespace InkLine
                     : (System.Action)null,
                 ShowHome,
                 next ? () => StartStage(_pickStage + 1) : (System.Action)null);
+        }
+
+        string FinaleNote()
+        {
+            if (_meta.FinaleStamina <= 0 && _meta.FinaleShard < 0) return "";
+            string note = "章底奖励";
+            if (_meta.FinaleStamina > 0) note += $"  体力 +{_meta.FinaleStamina}";
+            if (_meta.FinaleShard >= 0) note += $"  {SpellCatalog.Get(_meta.FinaleShard).Name}碎片 +1";
+            return note;
         }
 
         void DropOverlay()

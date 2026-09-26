@@ -10,24 +10,27 @@ namespace InkLine
         public const int MaxRevives = 2;
         public const int FirstDraftCost = 4;
         public const int DraftCostStep = 2;
-        // 二十关。原来是 8 关，一路满速解锁，没有过渡就打完了。
+        // 八章，每章九关，第九关是章底。
         // MetaProgress.Normalize 里的 Fit() 会把旧存档的星数组补齐到新长度，
         // 改这个数字不会打坏已有存档。
-        public const int ChapterStageCount = 20;
+        public const int ChapterSize = 9;
+        public const int Chapters = 8;
+        public const int StageCount = ChapterSize * Chapters;
 
         // 局外：体力。每次进关都收，失败不退。见 MetaProgress.StageCost。
         public const int StaminaMax = 12;
         public const int StaminaPerStage = 2;
+        public const int StaminaFinale = 3;
+        public const int FinaleStamina = 6;
         public const int StaminaRegenMinutes = 15;
         public const int AdStaminaGain = 6;
         public const int AdStaminaPerDay = 5;
         public const int DailyWinStamina = 4;
-        public const int StarterInk = 60;
+        public const int StarterInk = 85;
 
-        // 局内墨和局外墨是两个池子，打完就清，不进存档。
-        // 技能花的是本局金币。击杀仍按赏金 ×2 往这只瓶子里攒墨。
-        public const int InkMax = 100;
-        public const int InkPerGold = 2;
+        // 局内墨是这一局拾到的墨，通关时整笔入账。击杀掉多少按关卡的 InkBudget 摊，
+        // 紫宝箱另给一份。技能花的是本局金币，不花墨。
+        public const int InkMax = 9999;
         public const int SpellSlots = 2;
 
         public const float WorldHalfHeight = 8f;
