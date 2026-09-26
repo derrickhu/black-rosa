@@ -675,17 +675,20 @@ namespace InkLine
             }
         }
 
+        // 过 N 发：这一发先占一格，满 N 格当发就生效并清零。
+        // 原先是满了再等下一发才放，格子会满着空等，和「进度满了就放」对不上。
         bool PullCharge(int col, int kind, int need)
         {
             if (PreviewFill) return true;
             if (need <= 0) return true;
-            if (_charge[col, kind] >= need)
+            int n = _charge[col, kind] + 1;
+            if (n < need)
             {
-                _charge[col, kind] = 0;
-                return true;
+                _charge[col, kind] = n;
+                return false;
             }
-            _charge[col, kind]++;
-            return false;
+            _charge[col, kind] = 0;
+            return true;
         }
 
         void RainArrows(int col, int star, BulletActor src)
@@ -860,6 +863,11 @@ namespace InkLine
         void Explode(Vector2 pos, ShotMods m, BulletActor src)
         {
             float r = m.ExplodeR;
+            // 火球只在爆心炸一次，烟圈正好盖住伤害范围；圈里的怪各自只播普通命中。
+            Bursts.Add(new FxBurst { Pos = pos, Kind = HitFx.Explode, Tint = InkTheme.Explode, Scale = r * BlastScale });
+            AudioBus.Boom();
+            PulseHitStop(0.10f);
+            AddShake(0.18f);
             for (int i = 0; i < Enemies.Count; i++)
             {
                 EnemyActor e = Enemies[i];
@@ -947,7 +955,7 @@ namespace InkLine
                 Recoil(e, src.Vel, heavy || execute ? 0.34f : 0.24f);
             // 普通命中不震屏。每秒六到二十下都震，屏幕就一直在抖，
             // 真正该有分量的那几下反而分不出来了。
-            AddShake(execute ? 0.34f : heavy || m.ExplodeR > 0.01f ? 0.18f : 0f);
+            AddShake(execute ? 0.34f : heavy ? 0.18f : 0f);
             Color ink = m.Color.r + m.Color.g + m.Color.b < 0.12f ? InkTheme.Ink : m.Color;
             ShowDamage(e, dmg, execute ? InkTheme.Heart : ink, heavy ? 1.42f : 1f, heavy || execute);
             if (e.Hp <= 0f) Kill(e, m);
@@ -1149,6 +1157,7 @@ namespace InkLine
             {
                 CardId id = HitOrder[i];
                 if (m.Star(id) <= 0) continue;
+                if (id == CardId.Explode && m.ExplodeR > 0.01f) continue;
                 if (shown == 0 && GlyphTable.Get(id).Hit == fx.Kind) { shown = 1; continue; }
                 Color c = CardCatalog.Accent(id);
                 if (fx.Dots == 0) fx.Dot0 = c;
@@ -1175,13 +1184,15 @@ namespace InkLine
             if (m.WordLook == WordId.ArrowRain) return HitFx.Arrow;
             if (m.Has(CardId.Fire) && m.Has(CardId.Ice)) return HitFx.FireIce;
             for (int i = 0; i < HitOrder.Length; i++)
-                if (m.Has(HitOrder[i])) return GlyphTable.Get(HitOrder[i]).Hit;
+                if (HitOrder[i] != CardId.Explode && m.Has(HitOrder[i])) return GlyphTable.Get(HitOrder[i]).Hit;
             return HitFx.Ink;
         }
 
+        // 爆炸帧的烟圈半径约是画布半宽的 0.85
+        public const float BlastScale = 1.18f;
+
         static float HitScale(ShotMods m, bool execute)
         {
-            if (m.ExplodeR > 0.01f) return 1.72f;
             if (execute) return 1.55f;
             if (m.Has(CardId.Heavy)) return 1.42f;
             return 1.2f;
@@ -1189,7 +1200,7 @@ namespace InkLine
 
         static void PlayHit(ShotMods m, bool execute)
         {
-            if (execute || m.ExplodeR > 0.01f || m.Has(CardId.Heavy)) AudioBus.Boom();
+            if (execute || m.Has(CardId.Heavy)) AudioBus.Boom();
             else if (m.Has(CardId.Fire)) AudioBus.HitFire();
             else if (m.Has(CardId.Ice)) AudioBus.HitIce();
             else AudioBus.Hit();
@@ -1209,7 +1220,7 @@ namespace InkLine
         static float HitStopOf(ShotMods m, bool execute)
         {
             if (execute) return 0.15f;
-            if (m.ExplodeR > 0.01f || m.Has(CardId.Heavy)) return 0.10f;
+            if (m.Has(CardId.Heavy)) return 0.10f;
             // 普通命中每秒好几下，整场停 0.07 读起来是卡。分量交给怪身上的闪白和后坐。
             return 0.025f;
         }
@@ -1606,7 +1617,7 @@ namespace InkLine
                 // 看不出哪个是刚打的；给点初速和重力，新的那个自己会跳出来。
                 f.Vel.y -= 5.2f * dt;
                 f.Pos += f.Vel * dt;
-                if (f.Punch > 0f) f.Punch = Mathf.Max(0f, f.Punch - dt * 6f);
+                if (f.Punch > 0f) f.Punch = Mathf.Max(0f, f.Punch - dt * 7f);
                 if (f.Life <= 0f) Floats.RemoveAt(i);
             }
         }

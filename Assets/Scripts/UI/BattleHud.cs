@@ -5,12 +5,13 @@ namespace InkLine
 {
     public sealed class BattleHud
     {
-        // 一个技能键：底板 + 径向充能 + 名字 + 耗量。
+        // 一个技能键：圆角牌 + 名字 + 金币花费 + 一条够不够放的细槽。
         public sealed class SpellKey
         {
             public RectTransform Root;
             public Button Btn;
             public Image Fill;
+            public Image Mark;
             public Text Name;
             public Text Cost;
             public int Slot;
@@ -29,12 +30,14 @@ namespace InkLine
         public readonly SpellKey[] Keys;
         readonly RectTransform _layer;
         readonly RectTransform _heartsWrap;
+        readonly RectTransform _wavePlate;
 
         BattleHud(RectTransform layer, Text gold, RectTransform goldChip, Image[] hearts,
-            RectTransform heartsWrap, Text wave, Text toast, Text ink, RectTransform inkChip,
+            RectTransform heartsWrap, RectTransform wavePlate, Text wave, Text toast, Text ink, RectTransform inkChip,
             Button draft, Button retreat, Text draftLabel, SpellKey[] keys)
         {
             _layer = layer;
+            _wavePlate = wavePlate;
             Gold = gold;
             GoldChip = goldChip;
             Hearts = hearts;
@@ -79,11 +82,10 @@ namespace InkLine
                 TextAnchor.MiddleCenter, Pin.Top);
             toast.color = InkTheme.TextDark;
 
-            // 底栏一行排开：撤退 | 改装 | 技能。技能不再往上叠 ——
-            // 叠上去正好盖住炮，16:9 上躲不开。
+            // 撤退在左上角。底栏只留改装和技能，不再把撤退挤在改装左边。
             var draftBtn = UiKit.Btn(layer, "draft", "改装", Vector2.zero, new Vector2(280, 84), draft, true, Pin.Bottom);
             var draftLabel = draftBtn.GetComponentInChildren<Text>();
-            var retreatBtn = UiKit.Btn(layer, "back", "撤退", Vector2.zero, new Vector2(132, 76), retreat, false, Pin.BottomLeft);
+            var retreatBtn = UiKit.Btn(layer, "back", "撤退", Vector2.zero, new Vector2(RetreatW, RetreatH), retreat, false, Pin.TopLeft);
 
             var keys = new SpellKey[GameConstants.SpellSlots];
             for (int i = 0; i < keys.Length; i++)
@@ -93,7 +95,7 @@ namespace InkLine
             var hearts = UiKit.Hearts(layer, Vector2.zero, 36f, maxHp, Pin.Center);
             var heartsWrap = hearts.Length > 0 ? hearts[0].transform.parent as RectTransform : null;
 
-            var hud = new BattleHud(layer, gold, goldChip, hearts, heartsWrap, wave, toast,
+            var hud = new BattleHud(layer, gold, goldChip, hearts, heartsWrap, wavePlate, wave, toast,
                 ink, inkChip, draftBtn, retreatBtn, draftLabel, keys);
             hud.Layout();
             return hud;
@@ -101,23 +103,56 @@ namespace InkLine
 
         static SpellKey MakeKey(RectTransform layer, int slot, Vector2 pos, System.Action<int> cast)
         {
-            var root = UiKit.Stroke(layer, "key" + slot, pos, new Vector2(84, 84), Pin.BottomRight, 5f, radius: 26f);
-            // 充能盘内缩 6px，正好落在描边环里侧，不会盖住边
-            var fill = UiKit.RadialFill(root, Vector2.zero, 72f, InkTheme.Violet);
-            var name = UiKit.Label(root, "n", "", 30, new Vector2(0f, 9f), new Vector2(84, 40));
+            var root = UiKit.Stroke(layer, "key" + slot, pos, new Vector2(KeyW, KeyH), Pin.BottomRight, 4f, radius: 16f);
+            var name = UiKit.Label(root, "n", "", 26, new Vector2(0f, 16f), new Vector2(KeyW - 12f, 36f));
             UiKit.Bold(name);
-            var cost = UiKit.Label(root, "c", "", 18, new Vector2(0f, -26f), new Vector2(84, 24));
-            cost.color = InkTheme.TextMid;
+            var mark = UiKit.Icon(root, InkSprites.Ui("gold"), new Vector2(-18f, -10f), 24f);
+            var cost = UiKit.Label(root, "c", "", 20, new Vector2(16f, -10f), new Vector2(52f, 28f), TextAnchor.MiddleLeft);
+            UiKit.Bold(cost);
+
+            // 细槽贴在牌的下沿。底是淡金，实心按已有金币 / 花费从左往右填。
+            var track = new GameObject("track", typeof(RectTransform), typeof(Image));
+            track.transform.SetParent(root, false);
+            var tr = track.GetComponent<RectTransform>();
+            tr.anchorMin = tr.anchorMax = new Vector2(0.5f, 0f);
+            tr.pivot = new Vector2(0.5f, 0f);
+            tr.anchoredPosition = new Vector2(0f, 8f);
+            tr.sizeDelta = new Vector2(KeyW - 28f, 8f);
+            var trackImg = track.GetComponent<Image>();
+            trackImg.sprite = UiSprites.Fill(4);
+            trackImg.type = Image.Type.Sliced;
+            trackImg.color = InkTheme.GoldHi;
+            trackImg.raycastTarget = false;
+
+            var bar = new GameObject("bar", typeof(RectTransform), typeof(Image));
+            bar.transform.SetParent(track.transform, false);
+            var br = bar.GetComponent<RectTransform>();
+            br.anchorMin = Vector2.zero;
+            br.anchorMax = Vector2.one;
+            br.offsetMin = Vector2.zero;
+            br.offsetMax = Vector2.zero;
+            var fill = bar.GetComponent<Image>();
+            fill.sprite = UiSprites.Fill(4);
+            fill.type = Image.Type.Sliced;
+            fill.color = InkTheme.CoinFace;
+            fill.raycastTarget = false;
+
             var btn = root.gameObject.AddComponent<Button>();
+            btn.transition = Selectable.Transition.None;
             btn.targetGraphic = root.GetComponent<Image>();
             int idx = slot;
             btn.onClick.AddListener(() => cast(idx));
-            return new SpellKey { Root = root, Btn = btn, Fill = fill, Name = name, Cost = cost, Slot = slot };
+            return new SpellKey
+            {
+                Root = root, Btn = btn, Fill = fill, Mark = mark, Name = name, Cost = cost, Slot = slot
+            };
         }
 
         const float RowH = 84f;
-        const float KeyS = 84f;
-        const float RetreatW = 132f;
+        const float KeyW = 120f;
+        const float KeyH = 84f;
+        const float RetreatW = 124f;
+        const float RetreatH = 52f;
         const float Side = 16f;
         const float Gap = 10f;
 
@@ -125,17 +160,30 @@ namespace InkLine
         {
             if (_layer == null) return;
             float bot = ScreenFit.BottomPad + 16f;
+            float pad = ScreenFit.TopPad;
+            float top = pad <= 36.1f ? 10f : pad;
+            float row = top + RetreatH + 8f;
             float canvasW = Mathf.Max(720f, _layer.rect.width);
             int slots = GameConstants.SpellSlots;
-            float keysW = slots * KeyS + Mathf.Max(0, slots - 1) * 8f;
+            float keysW = slots * KeyW + Mathf.Max(0, slots - 1) * 8f;
             float half = canvasW * 0.5f;
-            float left = -half + Side + RetreatW + Gap;
+            float left = -half + Side;
             float right = half - Side - keysW - Gap;
-            float draftW = Mathf.Clamp(right - left, 200f, 340f);
+            float draftW = Mathf.Clamp(right - left, 200f, 520f);
             float draftX = (left + right) * 0.5f;
 
-            PinBottom(Retreat.transform as RectTransform, new Vector2(Side, bot),
-                new Vector2(RetreatW, 76f), 8f, Pin.BottomLeft);
+            PinTop(Retreat.transform as RectTransform, new Vector2(Side, top),
+                new Vector2(RetreatW, RetreatH), 6f, Pin.TopLeft);
+            PinTop(GoldChip, new Vector2(18f, row), new Vector2(172f, 54f), 7f, Pin.TopLeft);
+            PinTop(_wavePlate, new Vector2(0f, row), new Vector2(196f, 54f), 7f, Pin.Top);
+            PinTop(InkChip, new Vector2(18f, row), new Vector2(172f, 54f), 7f, Pin.TopRight);
+            if (Toast != null)
+            {
+                var toastRt = Toast.rectTransform;
+                toastRt.anchorMin = toastRt.anchorMax = new Vector2(0.5f, 1f);
+                toastRt.pivot = new Vector2(0.5f, 1f);
+                toastRt.anchoredPosition = new Vector2(0f, -(row + 58f));
+            }
             PinBottom(Draft.transform as RectTransform, new Vector2(draftX, bot),
                 new Vector2(draftW, RowH), 8f, Pin.Bottom);
             if (DraftLabel != null)
@@ -144,8 +192,8 @@ namespace InkLine
                 if (box != null) box.sizeDelta = new Vector2(draftW, RowH);
             }
             for (int i = 0; i < Keys.Length; i++)
-                PinBottom(Keys[i].Root, new Vector2(Side + i * (KeyS + 8f), bot),
-                    new Vector2(KeyS, KeyS), 7f, Pin.BottomRight);
+                PinBottom(Keys[i].Root, new Vector2(Side + i * (KeyW + 8f), bot),
+                    new Vector2(KeyW, KeyH), 7f, Pin.BottomRight);
 
             if (_heartsWrap != null)
             {
@@ -197,6 +245,37 @@ namespace InkLine
             if (cam == null || layer == null) return Vector2.zero;
             Vector3 vp = cam.WorldToViewportPoint(world);
             return new Vector2((vp.x - 0.5f) * layer.rect.width, (vp.y - 0.5f) * layer.rect.height);
+        }
+
+        static void PinTop(RectTransform rt, Vector2 pos, Vector2 size, float shadowDy, Pin pin)
+        {
+            if (rt == null) return;
+            rt.sizeDelta = size;
+            switch (pin)
+            {
+                case Pin.Top:
+                    rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 1f);
+                    rt.pivot = new Vector2(0.5f, 1f);
+                    rt.anchoredPosition = new Vector2(pos.x, -pos.y);
+                    break;
+                case Pin.TopRight:
+                    rt.anchorMin = rt.anchorMax = new Vector2(1f, 1f);
+                    rt.pivot = new Vector2(1f, 1f);
+                    rt.anchoredPosition = new Vector2(-pos.x, -pos.y);
+                    break;
+                default:
+                    rt.anchorMin = rt.anchorMax = new Vector2(0f, 1f);
+                    rt.pivot = new Vector2(0f, 1f);
+                    rt.anchoredPosition = new Vector2(pos.x, -pos.y);
+                    break;
+            }
+            var sh = rt.parent != null ? rt.parent.Find(rt.name + "_sh") as RectTransform : null;
+            if (sh == null) return;
+            sh.sizeDelta = size;
+            sh.anchorMin = rt.anchorMin;
+            sh.anchorMax = rt.anchorMax;
+            sh.pivot = rt.pivot;
+            sh.anchoredPosition = rt.anchoredPosition + new Vector2(0f, -shadowDy);
         }
 
         static void PinBottom(RectTransform rt, Vector2 pos, Vector2 size, float shadowDy, Pin pin)
@@ -296,18 +375,21 @@ namespace InkLine
                 k.Name.text = d.Name;
                 k.Cost.text = d.GoldCost.ToString();
                 float need = Mathf.Max(1, d.GoldCost);
-                k.Fill.fillAmount = Mathf.Clamp01(world.Gold / need);
+                float got = Mathf.Clamp01(world.Gold / need);
+                var meter = k.Fill.rectTransform;
+                meter.anchorMin = Vector2.zero;
+                meter.anchorMax = new Vector2(got, 1f);
+                meter.offsetMin = Vector2.zero;
+                meter.offsetMax = Vector2.zero;
+                k.Fill.enabled = got > 0.03f;
                 bool ready = inBattle && world.CanCast(k.Slot);
                 k.Btn.interactable = ready;
-                Color tint = d.Tint;
-                k.Fill.color = ready
-                    ? new Color(tint.r, tint.g, tint.b, 0.55f)
-                    : new Color(tint.r, tint.g, tint.b, 0.22f);
                 k.Name.color = ready ? InkTheme.TextDark : InkTheme.TextDim;
+                k.Cost.color = ready ? InkTheme.TextDark : InkTheme.TextDim;
+                k.Mark.color = ready ? Color.white : new Color(1f, 1f, 1f, 0.45f);
+                k.Fill.color = ready ? InkTheme.CoinFace : InkTheme.Gold;
                 k.Root.GetComponent<Image>().color = ready ? InkTheme.CardFace : InkTheme.CardDim;
-                k.Root.localScale = ready
-                    ? Vector3.one * (1f + 0.03f * Mathf.Sin(Time.unscaledTime * 7f))
-                    : Vector3.one;
+                k.Root.localScale = Vector3.one;
             }
         }
     }

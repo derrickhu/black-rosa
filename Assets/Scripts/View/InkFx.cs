@@ -17,6 +17,7 @@ namespace InkLine
         static Sprite _coin;
         static Sprite _bead;
         static Sprite _mote;
+        static Sprite _star;
 
         public static Material AddMat()
         {
@@ -297,6 +298,40 @@ namespace InkLine
             return Sprite.Create(tex, new Rect(0, 0, n, n), new Vector2(0.5f, 0.5f), n);
         }
 
+        // 命中芯：八角硬边星，外圈一道酱油描边。白芯在宣纸上看不见，
+        // 要靠有色的实面 + 深边才读得出「啪」的一下。白色画，颜色走 SpriteRenderer.color，
+        // 描边写成半透明黑，上色后仍是同色系更深的一圈。
+        public static Sprite Star()
+        {
+            if (_star != null) return _star;
+            const int n = 96;
+            var tex = new Texture2D(n, n, TextureFormat.RGBA32, false);
+            tex.filterMode = FilterMode.Bilinear;
+            tex.wrapMode = TextureWrapMode.Clamp;
+            var px = new Color[n * n];
+            float mid = (n - 1) * 0.5f;
+            for (int y = 0; y < n; y++)
+            for (int x = 0; x < n; x++)
+            {
+                var p = new Vector2((x - mid) / mid, (y - mid) / mid);
+                float r = p.magnitude;
+                float ang = Mathf.Atan2(p.y, p.x);
+                // 长短两套尖交替，比规整的八角更像溅开
+                float spike = Mathf.Pow(Mathf.Abs(Mathf.Cos(ang * 4f)), 6f);
+                float longer = Mathf.Pow(Mathf.Abs(Mathf.Cos(ang * 2f)), 8f);
+                float edge = 0.40f + 0.34f * spike + 0.24f * longer * spike;
+                float d = (edge - r) * mid;
+                float a = Mathf.Clamp01(d * 0.6f + 0.5f);
+                if (a <= 0f) { px[y * n + x] = new Color(0f, 0f, 0f, 0f); continue; }
+                float shade = d < 4.5f ? 0.28f : 1f;
+                px[y * n + x] = new Color(shade, shade, shade, a);
+            }
+            tex.SetPixels(px);
+            tex.Apply(false, false);
+            _star = Sprite.Create(tex, new Rect(0, 0, n, n), new Vector2(0.5f, 0.5f), n);
+            return _star;
+        }
+
         public static Sprite Dot()
         {
             if (_dot != null) return _dot;
@@ -493,12 +528,10 @@ namespace InkLine
         SpriteRenderer _flash;
         SpriteRenderer _glow;
         SpriteRenderer _ring;
-        SpriteRenderer _ink;
         SpriteRenderer _elem;
         SpriteRenderer _event;
         SpriteRenderer[] _slash;
         SpriteRenderer[] _dot;
-        Sprite[] _inkFrames;
         Sprite[] _elemFrames;
         Sprite _eventSprite;
         Color _eventColor = Color.white;
@@ -510,12 +543,14 @@ namespace InkLine
         float _life = 0.16f;
         float _scale = 1f;
         Color _hi = Color.white;
+        Color _core = Color.white;
         Color _mid = Color.white;
         Color _ringC = Color.white;
         int _slashN;
         bool _spin;
         bool _on;
-        float _inkA = 0.55f;
+        float _elemS = 0.98f;
+        float _elemA = 0.92f;
 
         public bool Busy => _on;
 
@@ -538,8 +573,6 @@ namespace InkLine
                 _dropSize[i] = Random.Range(0.07f, 0.13f);
             }
 
-            // 底层：墨溅，永远在，负责「打到了」的手感
-            _inkFrames = InkVfx.Frames("hit_ink");
             // 元素层：只有一个，没专属图就拿白墨溅染成元素色
             string key = HitFx.Frames(fx.Kind);
             _elemFrames = InkVfx.Frames(key);
@@ -565,8 +598,10 @@ namespace InkLine
 
         void Tune(int kind, Color tint)
         {
-            _inkA = 0.55f;
+            _elemS = 0.98f;
+            _elemA = 0.92f;
             _soft = true;
+            _core = CoreOf(kind);
             switch (kind)
             {
                 case HitFx.Fire:
@@ -591,8 +626,10 @@ namespace InkLine
                     _hi = Color.Lerp(InkTheme.Explode, Color.white, 0.38f);
                     _mid = InkTheme.Explode;
                     _ringC = InkTheme.FireMid;
-                    _life = 0.24f;
-                    _scale *= 1.35f;
+                    // 尺寸由调用方按爆炸半径给，这里不再放大；拉长一点，让最后那帧烟团看得见
+                    _life = 0.36f;
+                    _elemS = 1f;
+                    _elemA = 2.4f;
                     break;
                 case HitFx.Heavy:
                     _hi = Color.white;
@@ -638,19 +675,36 @@ namespace InkLine
                     _slashN = 2;
                     break;
                 default:
-                    // 普通墨弹：白芯先亮一下，再炸出一圈实墨点。灰色在宣纸上等于没打到。
+                    // 普通墨弹：金芯火花 + 一圈实墨点。染成墨色的放射图在宣纸上只是一团灰刺。
                     _hi = Color.white;
                     _mid = InkTheme.Ink;
-                    _ringC = InkTheme.Ink;
+                    _ringC = InkTheme.CoinFace;
                     _life = 0.22f;
                     _scale *= 1.18f;
                     _slashN = 4;
-                    _inkA = 0.82f;
+                    _elemS = 0.62f;
                     _soft = false;
                     break;
             }
             if (tint.a > 0.4f && kind != HitFx.FireIce && kind != HitFx.Stun)
                 _mid = Color.Lerp(_mid, tint, 0.35f);
+        }
+
+        static Color CoreOf(int kind)
+        {
+            switch (kind)
+            {
+                case HitFx.Fire: return InkTheme.FireMid;
+                case HitFx.Ice: return InkTheme.IceMid;
+                case HitFx.FireIce: return InkTheme.FireHi;
+                case HitFx.Explode: return InkTheme.Fire;
+                case HitFx.Kill: return InkTheme.Heart;
+                case HitFx.Stun:
+                case HitFx.Cleave:
+                case HitFx.Knock: return InkTheme.Word;
+                case HitFx.Arrow: return InkTheme.FireHi;
+                default: return InkTheme.CoinFace;
+            }
         }
 
         void LateUpdate()
@@ -667,20 +721,24 @@ namespace InkLine
             float u = _life <= 0.01f ? 1f : Mathf.Clamp01(_t / _life);
             float e = 1f - (1f - u) * (1f - u) * (1f - u);
             float fade = 1f - u;
-            // 白芯只活前 40%，要的是「啪」一下，不是一团亮雾。
             float pop = Mathf.Clamp01(1f - u / 0.4f);
-            Paint(_flash, _hi, _scale * Mathf.Lerp(0.42f, 0.82f, e), pop * 0.98f);
+            // 命中芯：前 12% 猛地撑到最大，再回缩，45% 之前消失。实色硬边，不走柔光。
+            float coreS = u < 0.12f
+                ? Mathf.Lerp(0.2f, 0.58f, u / 0.12f)
+                : Mathf.Lerp(0.58f, 0.36f, Mathf.Clamp01((u - 0.12f) / 0.33f));
+            float coreA = u < 0.3f ? 1f : Mathf.Clamp01(1f - (u - 0.3f) / 0.15f);
+            Paint(_flash, _core, _scale * coreS, coreA);
+            if (_flash != null) _flash.transform.localRotation = Quaternion.Euler(0f, 0f, _rot + u * 40f);
             // 柔光在宣纸上只会化成一片雾。只给带色的命中留一层很淡、很小的底。
             Paint(_glow, _mid, _scale * Mathf.Lerp(0.4f, 0.95f, e), _soft ? fade * fade * 0.2f : 0f);
             Paint(_ring, _ringC, _scale * Mathf.Lerp(0.22f, 1.15f, e), Mathf.Pow(fade, 1.8f) * 0.6f);
             if (_spin && _ring != null)
                 _ring.transform.localRotation = Quaternion.Euler(0f, 0f, _t * 280f);
 
-            // 三层图序：墨溅底在下，元素层在中，事件层在上
-            Frame(_ink, _inkFrames, u, _scale * 0.78f, InkTheme.Ink, fade * _inkA);
-            if (_ink != null) _ink.transform.localRotation = Quaternion.Euler(0f, 0f, _rot);
-            Frame(_elem, _elemFrames, u, _scale * 0.98f,
-                _elemTinted ? _mid : Color.white, fade * 0.92f);
+            // 元素层在下，事件层在上
+            Frame(_elem, _elemFrames, u, _scale * _elemS,
+                _elemTinted ? _mid : Color.white, Mathf.Min(0.92f, fade * _elemA));
+            if (_elem != null) _elem.transform.localRotation = Quaternion.Euler(0f, 0f, _rot);
             if (_eventSprite != null)
                 Paint(_event, _eventColor, _scale * Mathf.Lerp(0.45f, 1.05f, e), Mathf.Pow(fade, 0.8f));
 
@@ -770,7 +828,6 @@ namespace InkLine
             if (_flash != null) _flash.enabled = on;
             if (_glow != null) _glow.enabled = on;
             if (_ring != null) _ring.enabled = on;
-            if (_ink != null) _ink.enabled = on && _inkFrames != null;
             if (_elem != null) _elem.enabled = on && _elemFrames != null;
             if (_event != null) _event.enabled = on && _eventSprite != null;
             if (_dot != null)
@@ -790,10 +847,10 @@ namespace InkLine
             // 域重载后引用丢了但子节点还挂着，先清掉再重建，免得越积越多
             for (int i = transform.childCount - 1; i >= 0; i--)
                 Destroy(transform.GetChild(i).gameObject);
-            _flash = Make("flash", InkFx.SoftDisc(), 12);
+            _flash = Make("flash", InkFx.Star(), 12);
+            InkFx.PaintSprite(_flash, Color.white);
             _glow = Make("glow", InkFx.SoftDisc(), 10);
             _ring = Make("ring", InkFx.SoftRing(), 11);
-            _ink = Make("ink", null, 9);
             _elem = Make("elem", null, 13);
             _event = Make("event", null, 15);
             _slash = new SpriteRenderer[SlashN];

@@ -34,6 +34,7 @@ namespace InkLine
                 case Ice: return "hit_ice";
                 case Explode: return "hit_explode";
                 case Heavy: return "hit_heavy";
+                case Ink: return "hit_gold";
                 default: return "hit_ink";
             }
         }

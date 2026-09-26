@@ -130,7 +130,7 @@ namespace InkLine
                 if ((e.Pos - at).sqrMagnitude > r * r) continue;
                 SpellHit(e, dmg, InkTheme.Explode);
             }
-            Bursts.Add(new FxBurst { Pos = at, Kind = HitFx.Explode, Tint = InkTheme.Explode, Scale = 1.7f + 0.08f * lv });
+            Bursts.Add(new FxBurst { Pos = at, Kind = HitFx.Explode, Tint = InkTheme.Explode, Scale = r * BlastScale });
             PulseHitStop(0.12f);
             AddShake(0.5f);
         }

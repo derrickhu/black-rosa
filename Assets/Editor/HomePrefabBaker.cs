@@ -381,7 +381,7 @@ namespace InkLine
             {
                 if (!System.IO.File.Exists(Out)) return;
                 string text = System.IO.File.ReadAllText(Out);
-                if (text.Contains("\n  m_Name: sortie_v5\n") || text.Contains("\r\n  m_Name: sortie_v5\r\n"))
+                if (text.Contains("\n  m_Name: sortie_v6\n") || text.Contains("\r\n  m_Name: sortie_v6\r\n"))
                     return;
                 BakeSortieMenu();
             }

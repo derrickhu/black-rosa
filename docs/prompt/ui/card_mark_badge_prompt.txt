@@ -1,0 +1,24 @@
+A flat 2D game UI prototype, straight-on, on a warm rice-paper background the colour of unbleached xuan paper (#F4EFE4). Four rounded-square tiles in one horizontal row, equal size, even gaps, generous paper margin around the row.
+
+Each tile is a calligraphy card. Fill is fresh xuan paper, almost white with a warm cream cast. Outline is one thick even stroke the colour of pine-soot ink (#1A1410), corner radius about one fifth of the tile side. Flat solid colour, hard edges, sticker-like, the same line weight on every tile.
+
+Inside every tile:
+- Center: one big Chinese calligraphy character in pine-soot ink, about half the tile height, centered, with empty paper above and below it.
+- Top-right, fully inside the outline: a small rounded badge holding one digit. The badge is about one fifth of the tile width, sitting in the corner with a margin of empty paper between the badge and the black outline, and between the badge and the big character. The digit is centered in the badge.
+- Bottom band, under the character and above the outline: a progress track of short rounded capsules, in its own empty strip.
+
+Filled capsules are a flat vivid green the colour of a fresh tea leaf (#3CB86A). Empty capsules are a flat pale celadon the colour of a light green-tea glaze (#C8E6C4).
+
+The left two tiles and the right two tiles use different badges, so the two treatments can be compared.
+
+Left two tiles — pale badge, green digit:
+The badge fill is pale celadon, the same light green-tea glaze as an empty capsule. The digit is fresh-tea-leaf green, the same green as a filled capsule.
+Tile 1: character 分, digit 2, one long capsule filled solid fresh-tea-leaf green.
+Tile 2: character 火, digit 1, one long capsule filled solid fresh-tea-leaf green. A small flat flame, cinnabar red with a persimmon-orange core, sits to the right of 火.
+
+Right two tiles — green badge, cream digit:
+The badge fill is solid fresh-tea-leaf green. The digit is warm xuan-paper cream, the same colour as the card fill.
+Tile 3: character 炸, digit 1. Two equal capsules with a gap. The left capsule is solid fresh-tea-leaf green. The right capsule is pale celadon.
+Tile 4: character 秒, digit 3. Three equal capsules with gaps. The left capsule and the middle capsule are solid fresh-tea-leaf green. The right capsule is pale celadon.
+
+Uniform flat light, hard colour boundaries, thick consistent outlines. The four tiles share one size and one line weight.

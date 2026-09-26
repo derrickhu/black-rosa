@@ -25,30 +25,32 @@ namespace InkLine
         public static void Stamp() => Cue("stamp", 0.9f, 0.06f, 0.02f);
         public static void Chime() => Cue("chime", 0.82f, 0.12f, 0f);
         public static void Draft() => Cue("draft", 0.75f, 0.2f, 0f);
-        public static void Shot(float pitch) => Cue("shot", 0.5f, 0.06f, 0.04f, pitch);
+        // 发弹是全场最密的声音，必须比命中轻一截，否则命中被它淹掉。
+        public static void Shot(float pitch) => Cue("shot", 0.3f, 0.07f, 0.05f, pitch);
         // 命中两层：上面是墨点的瞬态，下面垫一声低频的闷响，才有「砸进去」的身体。
         public static void Hit()
         {
-            Cue("hit", 0.82f, 0.04f, 0.07f);
-            Cue("hit_thud", 0.62f, 0.05f, 0.06f);
+            Cue("hit", 0.95f, 0.04f, 0.08f);
+            Cue("hit_thud", 0.8f, 0.05f, 0.06f);
         }
 
         public static void HitFire()
         {
-            Cue("hit_fire", 0.78f, 0.05f, 0.05f);
-            Cue("hit_thud", 0.55f, 0.05f, 0.06f);
+            Cue("hit_fire", 0.9f, 0.05f, 0.05f);
+            Cue("hit_thud", 0.72f, 0.05f, 0.06f);
         }
 
         public static void HitIce()
         {
-            Cue("hit_ice", 0.76f, 0.05f, 0.04f);
-            Cue("hit_thud", 0.5f, 0.05f, 0.06f, 1.1f);
+            Cue("hit_ice", 0.9f, 0.05f, 0.04f);
+            Cue("hit_thud", 0.66f, 0.05f, 0.06f, 1.1f);
         }
 
         public static void Boom()
         {
-            Cue("boom", 0.9f, 0.08f, 0.03f);
-            Cue("hit_thud", 0.85f, 0.08f, 0.03f, 0.82f);
+            Cue("boom", 1f, 0.07f, 0.03f);
+            Cue("hit_thud", 1f, 0.07f, 0.03f, 0.78f);
+            Cue("hit", 0.6f, 0.07f, 0.03f, 0.7f);
         }
 
         // 连杀：0.7 秒内每多杀一只，爆破音按五声音阶往上走一格，最多一个八度。
@@ -64,8 +66,8 @@ namespace InkLine
             _streak = now - _lastKill < StreakWindow ? Mathf.Min(_streak + 1, StreakSteps.Length - 1) : 0;
             _lastKill = now;
             float pitch = Mathf.Pow(2f, StreakSteps[_streak] / 12f);
-            Cue("kill_pop", 0.9f, 0.035f, 0f, pitch);
-            Cue("kill", 0.55f, 0.1f, 0.03f);
+            Cue("kill_pop", 1f, 0.035f, 0f, pitch);
+            Cue("kill", 0.6f, 0.1f, 0.03f);
         }
 
         public static void Boss()
@@ -148,7 +150,7 @@ namespace InkLine
             _music.playOnAwake = false;
             _music.loop = true;
             _music.spatialBlend = 0f;
-            _voices = new AudioSource[14];
+            _voices = new AudioSource[20];
             for (int i = 0; i < _voices.Length; i++)
             {
                 _voices[i] = go.AddComponent<AudioSource>();

@@ -64,7 +64,7 @@ namespace InkLine
         }
 
         // 卡片比合稿那张窄条宽一截、矮一截。底图是直角底边，尺寸跟这张卡对齐。
-        const float CardTop = 8f;
+        const float CardTop = 80f;
         const float CardW = 464f;
         const float CardH = 640f;
         const float NodeSize = 68f;
@@ -182,7 +182,7 @@ namespace InkLine
 
             view.Chapter = chapter;
             view.SideActs = BuildSides(page);
-            var mark = new GameObject("sortie_v5", typeof(RectTransform));
+            var mark = new GameObject("sortie_v6", typeof(RectTransform));
             mark.transform.SetParent(page, false);
             swipe.Moved = null;
         }

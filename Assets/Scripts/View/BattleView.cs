@@ -8,7 +8,12 @@ namespace InkLine
         readonly Transform _root;
         readonly List<SpriteRenderer> _grid = new List<SpriteRenderer>();
         readonly List<SpriteRenderer> _stamps = new List<SpriteRenderer>();
-        readonly List<SpriteRenderer> _stars = new List<SpriteRenderer>();
+        readonly List<SpriteRenderer> _plates = new List<SpriteRenderer>();
+        readonly List<TextMesh> _ranks = new List<TextMesh>();
+        readonly List<SpriteRenderer> _pips = new List<SpriteRenderer>();
+        readonly float[] _pipFlash = new float[GameConstants.Columns * GameConstants.Rows];
+        readonly int[] _pipWas = new int[GameConstants.Columns * GameConstants.Rows];
+        const int PipN = 4;
         readonly List<SpriteRenderer> _emitters = new List<SpriteRenderer>();
         readonly List<SpriteRenderer> _muzzles = new List<SpriteRenderer>();
         readonly List<SpriteRenderer> _skins = new List<SpriteRenderer>();
@@ -56,10 +61,20 @@ namespace InkLine
                 stamp.sortingOrder = 2;
                 stamp.enabled = false;
                 _stamps.Add(stamp);
-                var star = Make("star", InkArt.Heap(InkShape.Diamond, InkTheme.Ink, 48), FieldLayout.CellPos(c, r) + new Vector3(0.38f, 0.38f, 0), 0.22f);
-                star.sortingOrder = 3;
-                star.enabled = false;
-                _stars.Add(star);
+                var plate = Make("plate", LevelPlate(), FieldLayout.CellPos(c, r), 1f);
+                plate.sortingOrder = 4;
+                plate.enabled = false;
+                InkFx.PaintSprite(plate, Color.white);
+                _plates.Add(plate);
+                _ranks.Add(MakeRank());
+                for (int p = 0; p < PipN; p++)
+                {
+                    var pip = Make("pip", InkFx.Pill(), FieldLayout.CellPos(c, r), 1f);
+                    pip.sortingOrder = 3;
+                    pip.enabled = false;
+                    InkFx.PaintSprite(pip, Color.white);
+                    _pips.Add(pip);
+                }
             }
             for (int i = 0; i < GameConstants.MaxEmitters; i++)
             {
@@ -99,7 +114,6 @@ namespace InkLine
                     int star = Mathf.Max(1, w.Stars[c, r]);
                     PaintStamp(_stamps[i], id, star);
                     bool sleep = w.CellAsleep(c, r);
-                    bool lit = w.CellWordLit(c, r);
                     _stamps[i].color = sleep ? new Color(1f, 1f, 1f, 0.38f) : Color.white;
                     PaintZi(_stamps[i], id, sleep);
                     if (!sleep && (id == CardId.Fire || id == CardId.Ice))
@@ -108,25 +122,14 @@ namespace InkLine
                         InkVfx.StopAura(_stamps[i]);
                     if (!sleep) AccrueWash(c, id);
                     w.CellCharge(c, r, out int charged, out int need);
-                    if (need > 0)
-                    {
-                        _stars[i].enabled = true;
-                        _stars[i].sprite = InkArt.Heap(InkShape.Diamond, lit || charged > 0 ? InkTheme.Accent(id) : InkTheme.Graphite, 48);
-                        _stars[i].transform.localScale = Vector3.one * (0.10f + 0.07f * charged);
-                    }
-                    else
-                    {
-                        _stars[i].enabled = w.Stars[c, r] >= 2;
-                        _stars[i].sprite = InkArt.Heap(InkShape.Diamond, InkTheme.Accent(id), 48);
-                        _stars[i].transform.localScale = Vector3.one * (0.16f + 0.06f * w.Stars[c, r]);
-                    }
+                    PaintMark(i, _stamps[i], id, star, sleep, charged, need);
                 }
                 else
                 {
                     InkVfx.Stop(_stamps[i]);
                     InkVfx.StopAura(_stamps[i]);
                     _stamps[i].enabled = false;
-                    _stars[i].enabled = false;
+                    HideMark(i);
                     PaintZi(_stamps[i], CardId.None, true);
                 }
             }
@@ -181,8 +184,8 @@ namespace InkLine
                 {
                     float punch = Mathf.Clamp01(e.HitFlash / 0.16f);
                     punch *= punch;
-                    sx *= 1f + 0.24f * punch;
-                    sy *= 1f - 0.2f * punch;
+                    sx *= 1f + 0.32f * punch;
+                    sy *= 1f - 0.26f * punch;
                 }
                 // 命中位移直接加在绘制位上：碰撞和走位还按 e.Pos 算，
                 // 挨打顿一下只是看的人的事，不该影响谁先破防线。
@@ -331,6 +334,156 @@ namespace InkLine
             tm.text = CardCatalog.Get(id).Name;
             Color ink = CardCatalog.Get(id).Wake == CardWake.WordPart ? InkTheme.Word : InkTheme.Ink;
             tm.color = sleep ? new Color(ink.r, ink.g, ink.b, 0.5f) : ink;
+        }
+
+        // 蜂蜜黄，生蜂蜜那种。方块色标，不做成圆章，免得读成金币。
+        static readonly Color Honey = new Color(0.93f, 0.72f, 0.32f, 1f);
+
+        // 右上角方块是星级。下面的槽：常驻字一整条茶叶绿，每发都生效；
+        // 蓄力字按「过 N 发」分成 N 段，满格是茶叶绿，空格是淡青瓷。
+        void PaintMark(int i, SpriteRenderer stamp, CardId id, int star, bool sleep, int charged, int need)
+        {
+            Bounds card = stamp.bounds;
+            float half = Mathf.Min(card.extents.x, card.extents.y);
+            half = Mathf.Min(half, GameConstants.CellWidth * 0.40f);
+            Vector3 c = card.center;
+
+            float badge = half * 2f * 0.18f;
+            float margin = half * 2f * 0.08f;
+            var bp = new Vector3(
+                c.x + half - margin - badge * 0.5f,
+                c.y + half - margin - badge * 0.5f,
+                0f);
+            SpriteRenderer plate = _plates[i];
+            plate.enabled = true;
+            Color honey = Honey;
+            if (sleep) honey.a = 0.4f;
+            plate.color = honey;
+            plate.transform.position = bp;
+            plate.transform.localScale = Vector3.one * badge;
+
+            TextMesh rank = _ranks[i];
+            rank.gameObject.SetActive(true);
+            rank.text = star.ToString();
+            rank.characterSize = badge * 0.13f;
+            Color ink = InkTheme.Ink;
+            if (sleep) ink.a = 0.45f;
+            rank.color = ink;
+            rank.transform.position = bp;
+
+            int segs;
+            int filled;
+            bool metering;
+            if (CardCatalog.Get(id).Wake == CardWake.Always)
+            {
+                segs = 1;
+                filled = 1;
+                metering = false;
+            }
+            else if (need > 0)
+            {
+                segs = Mathf.Clamp(need, 1, PipN);
+                filled = Mathf.Clamp(charged, 0, segs);
+                metering = true;
+            }
+            else
+            {
+                segs = Mathf.Clamp(CardCatalog.Get(id).ChargeNeed, 1, PipN);
+                filled = 0;
+                metering = false;
+            }
+
+            if (metering && _pipWas[i] > 0 && filled < _pipWas[i])
+                _pipFlash[i] = 0.28f;
+            _pipWas[i] = metering ? filled : 0;
+            if (_pipFlash[i] > 0f) _pipFlash[i] -= Time.unscaledDeltaTime;
+            bool burst = _pipFlash[i] > 0f;
+
+            float width = half * 2f * 0.76f;
+            float gap = segs > 1 ? width * 0.06f : 0f;
+            float segW = (width - gap * (segs - 1)) / segs;
+            float left = c.x - width * 0.5f;
+            float h = half * 2f * (burst ? 0.09f : 0.07f);
+            float y = c.y - half + margin + h * 0.5f;
+            for (int p = 0; p < PipN; p++)
+            {
+                SpriteRenderer sr = _pips[i * PipN + p];
+                if (p >= segs)
+                {
+                    sr.enabled = false;
+                    continue;
+                }
+                bool on = burst || p < filled;
+                Color col = on ? (burst ? InkTheme.AccelMid : InkTheme.Accel) : InkTheme.AccelHi;
+                if (sleep) col.a = on ? 0.4f : 0.22f;
+                sr.enabled = true;
+                sr.color = col;
+                sr.transform.position = new Vector3(left + p * (segW + gap), y, 0f);
+                sr.transform.localScale = new Vector3(segW, h / InkFx.PillH, 1f);
+            }
+        }
+
+        void HideMark(int i)
+        {
+            _plates[i].enabled = false;
+            _ranks[i].gameObject.SetActive(false);
+            _pipFlash[i] = 0f;
+            _pipWas[i] = 0;
+            for (int p = 0; p < PipN; p++)
+                _pips[i * PipN + p].enabled = false;
+        }
+
+        TextMesh MakeRank()
+        {
+            var go = new GameObject("rank");
+            go.transform.SetParent(_root, false);
+            var tm = go.AddComponent<TextMesh>();
+            tm.font = UiKit.FontBold;
+            tm.fontSize = 72;
+            tm.characterSize = 0.03f;
+            tm.anchor = TextAnchor.MiddleCenter;
+            tm.alignment = TextAlignment.Center;
+            tm.color = InkTheme.Ink;
+            var mr = go.GetComponent<MeshRenderer>();
+            mr.sortingOrder = 5;
+            if (tm.font != null) mr.material = tm.font.material;
+            go.SetActive(false);
+            return tm;
+        }
+
+        static Sprite _plate;
+        static Sprite LevelPlate()
+        {
+            if (_plate != null) return _plate;
+            const int n = 48;
+            var tex = new Texture2D(n, n, TextureFormat.RGBA32, false);
+            tex.filterMode = FilterMode.Bilinear;
+            tex.wrapMode = TextureWrapMode.Clamp;
+            float rad = n * 0.22f;
+            var px = new Color[n * n];
+            for (int y = 0; y < n; y++)
+            for (int x = 0; x < n; x++)
+            {
+                float d = RoundBox(x + 0.5f, y + 0.5f, 1.2f, 1.2f, n - 2.2f, n - 2.2f, rad);
+                px[y * n + x] = new Color(1f, 1f, 1f, Mathf.Clamp01(0.9f - d));
+            }
+            tex.SetPixels(px);
+            tex.Apply(false, false);
+            _plate = Sprite.Create(tex, new Rect(0, 0, n, n), new Vector2(0.5f, 0.5f), n);
+            return _plate;
+        }
+
+        static float RoundBox(float px, float py, float x0, float y0, float x1, float y1, float rad)
+        {
+            float cx = (x0 + x1) * 0.5f;
+            float cy = (y0 + y1) * 0.5f;
+            float hx = (x1 - x0) * 0.5f - rad;
+            float hy = (y1 - y0) * 0.5f - rad;
+            float dx = Mathf.Abs(px - cx) - hx;
+            float dy = Mathf.Abs(py - cy) - hy;
+            float ax = Mathf.Max(dx, 0f);
+            float ay = Mathf.Max(dy, 0f);
+            return Mathf.Sqrt(ax * ax + ay * ay) + Mathf.Min(Mathf.Max(dx, dy), 0f) - rad;
         }
 
         SpriteRenderer Bind(Dictionary<int, SpriteRenderer> map, int id, Sprite sprite, Vector2 pos, float scale, int order, Color color)

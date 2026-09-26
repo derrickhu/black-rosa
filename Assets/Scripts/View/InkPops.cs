@@ -74,16 +74,17 @@ namespace InkLine
             float u = f.MaxLife > 0.01f ? Mathf.Clamp01(f.Life / f.MaxLife) : 0f;
             // 只在最后三分之一淡出。整段都在淡的话，刚飘出来的字就已经是半透明了。
             float fade = u > 0.34f ? 1f : Mathf.Clamp01(u / 0.34f);
-            // 每次并入新伤害都重新弹一次，弹的幅度比原来大 —— 那一下就是「又打中了」。
+            // 每次并入新伤害都重新弹一次：先撑到快两倍再砸回来，那一下就是「又打中了」。
             float pop = f.Punch * f.Punch;
-            float scale = Mathf.Min(2.1f, f.Scale * (1f + 0.22f * pop) * Body(f.Kind));
+            float scale = Mathf.Min(2.6f, f.Scale * (1f + 0.75f * pop) * Body(f.Kind));
             // 弹出的瞬间横着撑开、竖着压扁，收回来才像被打出来的，而不是一个标签在变大。
-            float sx = scale * (1f + 0.46f * pop);
-            float sy = scale * (1f - 0.3f * pop);
+            float sx = scale * (1f + 0.22f * pop);
+            float sy = scale * (1f - 0.12f * pop);
 
             Color fill = Face(f);
             fill.a = fade;
-            tm.text = f.Text;
+            string text = f.Kind == PopKind.Crit ? f.Text + "!" : f.Text;
+            tm.text = text;
             tm.color = fill;
             tm.transform.position = new Vector3(f.Pos.x, f.Pos.y, 0f);
             tm.transform.localScale = new Vector3(sx, sy, 1f);
@@ -94,13 +95,16 @@ namespace InkLine
 
             Color edge = InkTheme.Outline;
             edge.a = fade;
+            Color shade = InkTheme.Outline;
+            shade.a = fade * 0.45f;
             int n = tm.transform.childCount;
             for (int i = 0; i < n; i++)
             {
-                var rim = tm.transform.GetChild(i).GetComponent<TextMesh>();
+                Transform child = tm.transform.GetChild(i);
+                var rim = child.GetComponent<TextMesh>();
                 if (rim == null) continue;
-                rim.text = f.Text;
-                rim.color = edge;
+                rim.text = text;
+                rim.color = child.name == "shade" ? shade : edge;
             }
         }
 
@@ -108,10 +112,10 @@ namespace InkLine
         {
             switch (kind)
             {
-                case PopKind.Crit: return 1.3f;
+                case PopKind.Crit: return 1.45f;
                 case PopKind.Word: return 1f;
                 case PopKind.Heal: return 1.1f;
-                default: return 1.02f;
+                default: return 1.1f;
             }
         }
 
@@ -119,12 +123,17 @@ namespace InkLine
         {
             switch (f.Kind)
             {
-                // 奶油芯配酱油描边。黑字在墨怪身上会消失，白边放大一圈又把笔画吃成灰的。
+                // 白芯配酱油描边。黑字在墨怪身上会消失。带元素的弹淡淡染一层元素色，
+                // 一眼分得出是火还是冰打的。
                 case PopKind.Damage:
-                    return InkTheme.PaperInner;
+                    float sat = f.Color.maxColorComponent
+                                - Mathf.Min(f.Color.r, Mathf.Min(f.Color.g, f.Color.b));
+                    return sat > 0.2f ? Color.Lerp(Color.white, f.Color, 0.42f) : Color.white;
+                // 重击 / 斩杀：金币黄或红包红，实色不掺白，和普通伤害一眼分开。
                 case PopKind.Crit:
-                    Color c = f.Color.maxColorComponent > 0.35f ? f.Color : InkTheme.GoldHi;
-                    return Color.Lerp(c, Color.white, 0.28f);
+                    Color h = InkTheme.Heart;
+                    float near = Mathf.Abs(f.Color.r - h.r) + Mathf.Abs(f.Color.g - h.g) + Mathf.Abs(f.Color.b - h.b);
+                    return near < 0.12f ? InkTheme.Heart : InkTheme.CoinFace;
                 case PopKind.Heal:
                     return InkTheme.WoodHi;
                 default:
@@ -134,10 +143,10 @@ namespace InkLine
 
         static readonly Vector2[] EdgeAt =
         {
-            new Vector2(0.042f, 0f),
-            new Vector2(-0.042f, 0f),
-            new Vector2(0f, 0.042f),
-            new Vector2(0f, -0.042f)
+            new Vector2(0.056f, 0f),
+            new Vector2(-0.056f, 0f),
+            new Vector2(0f, 0.056f),
+            new Vector2(0f, -0.056f)
         };
 
         static TextMesh Make()
@@ -145,6 +154,11 @@ namespace InkLine
             var go = new GameObject("pop");
             go.transform.SetParent(_root, false);
             var tm = Stamp(go, 20);
+            // 描边外再垫一层偏右下的影子，字才从怪堆里浮起来
+            var shade = new GameObject("shade");
+            shade.transform.SetParent(go.transform, false);
+            shade.transform.localPosition = new Vector3(0.05f, -0.09f, 0.02f);
+            Stamp(shade, 18);
             for (int i = 0; i < EdgeAt.Length; i++)
             {
                 var edge = new GameObject("edge");
@@ -160,7 +174,7 @@ namespace InkLine
             var tm = go.AddComponent<TextMesh>();
             tm.font = UiKit.FontBold;
             tm.fontSize = 72;
-            tm.characterSize = 0.064f;
+            tm.characterSize = 0.07f;
             tm.anchor = TextAnchor.MiddleCenter;
             tm.alignment = TextAlignment.Center;
             tm.richText = false;

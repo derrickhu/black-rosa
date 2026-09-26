@@ -26,9 +26,7 @@ namespace InkLine
         CardId[] _offer = new CardId[3];
         CardId _held;
         bool _rerolled;
-        int _autoDrafts;
         int _draftPaid;
-        bool _draftHold;
         bool _taughtStar;
         bool _dragging;
         string _tip;
@@ -84,15 +82,6 @@ namespace InkLine
                 {
                     if (!uiHit) HandleRail();
                     _world.Tick(Time.deltaTime);
-                    if (_draftHold && !_world.CanDraft) _draftHold = false;
-                    if (!_draftHold && _world.CanDraft && _autoDrafts < AutoDraftLimit() && !(BattleWorld.PreviewFill && _world.BattleTime < 40f))
-                    {
-                        _autoDrafts++;
-                        _tip = _autoDrafts == 1
-                            ? "金币够了。选一张，点到格子上。"
-                            : "又能改装了。铺开占线，或叠到同牌上升星。";
-                        OpenDraft(true);
-                    }
                     if (_world.Victory) { Finish(true); return; }
                     if (_world.Defeat) { Finish(false); return; }
                 }
@@ -141,8 +130,6 @@ namespace InkLine
             }
             _home = null;
             _pickStage = index;
-            _autoDrafts = 0;
-            _draftHold = false;
             _taughtStar = false;
             _inkEarned = 0;
             _tip = index == 0 ? "滑到底下那一串，对准敌人。" : "";
@@ -166,7 +153,7 @@ namespace InkLine
             _hud = BattleHud.Build(_layer, _world, ShowHome, () =>
             {
                 if (_screen != Screen.Battle || !_world.CanDraft) return;
-                OpenDraft(false);
+                OpenDraft();
             }, slot =>
             {
                 if (_screen == Screen.Battle) _world.CastSpell(slot);
@@ -206,14 +193,9 @@ namespace InkLine
             return world.y < GameConstants.LeakY - 0.15f;
         }
 
-        // 自动弹三选一是教学推力，不是发牌渠道。头几关只开两三格，弹多了没处放，
-        // 反而是在教「字可以乱堆」。所以上限跟着这一关开放的格子数走。
-        int AutoDraftLimit() => Mathf.Clamp(_world.Stage.OpenCount / 3, 1, 3);
-
-        void OpenDraft(bool forced)
+        void OpenDraft()
         {
-            if (!_world.CanDraft && !forced) return;
-            if (_world.Gold < _world.DraftCost) return;
+            if (!_world.CanDraft) return;
             _draftPaid = _world.DraftCost;
             _world.Gold -= _draftPaid;
             _world.DraftCount++;
@@ -286,7 +268,6 @@ namespace InkLine
             if (_world == null || _screen != Screen.Draft) return;
             _world.Gold += _draftPaid;
             _world.DraftCount = Mathf.Max(0, _world.DraftCount - 1);
-            _draftHold = true;
             _tip = "";
             ResumeBattle();
             AudioBus.Back();
