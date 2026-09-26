@@ -23,7 +23,6 @@ namespace InkLine
         static CdnAssets _runner;
         static readonly Dictionary<string, Sprite> Sprites = new Dictionary<string, Sprite>();
         static readonly List<string> Recent = new List<string>();
-        static readonly Dictionary<string, AudioClip> Clips = new Dictionary<string, AudioClip>();
         static readonly Dictionary<string, List<Action>> Waiting = new Dictionary<string, List<Action>>();
         static readonly Dictionary<string, float> FailedAt = new Dictionary<string, float>();
         static readonly Queue<string> Pending = new Queue<string>();
@@ -72,14 +71,8 @@ namespace InkLine
 
         public static void Prefetch(string name)
         {
-            if (Has(name) && Cached(name) == null) Fetch(name, null);
-        }
-
-        // 编辑器和非微信平台的长音乐走这里；微信里 AudioBus 直接交给 InnerAudioContext。
-        public static void Clip(string name, Action<AudioClip> done)
-        {
-            if (Clips.TryGetValue(name, out AudioClip c)) { done(c); return; }
-            Fetch(name, () => { if (Clips.TryGetValue(name, out AudioClip got)) done(got); });
+            if (Has(name) && Cached(name) == null && !name.StartsWith("Audio/", StringComparison.Ordinal))
+                Fetch(name, null);
         }
 
         static Sprite Cached(string name)
@@ -121,22 +114,14 @@ namespace InkLine
 
         static IEnumerator Load(string name)
         {
+            // 微信播放器不带 UnityWebRequestAudioModule，长音乐不从这里下。
             string url = Url(name);
-            bool audio = name.StartsWith("Audio/", StringComparison.Ordinal);
-            UnityWebRequest req = audio
-                ? UnityWebRequestMultimedia.GetAudioClip(url, AudioType.MPEG)
-                : UnityWebRequestTexture.GetTexture(url, true);
+            UnityWebRequest req = UnityWebRequestTexture.GetTexture(url, true);
             req.timeout = TimeoutSec;
             yield return req.SendWebRequest();
 
             bool ok = req.result == UnityWebRequest.Result.Success;
-            if (ok && audio)
-            {
-                AudioClip clip = DownloadHandlerAudioClip.GetContent(req);
-                ok = clip != null;
-                if (ok) Clips[name] = clip;
-            }
-            else if (ok)
+            if (ok)
             {
                 Texture2D tex = DownloadHandlerTexture.GetContent(req);
                 ok = tex != null && tex.width > 8;

@@ -47,6 +47,8 @@ namespace InkLine
             h.FitFrame();
             h.Pick(TabSortie);
             h.RefreshTop();
+            // 排行榜上线前就有进度的老玩家，进大厅补报一次；报过的同样关数不会重发。
+            RankService.Submit(meta.ClearedCount());
             if (WxBridge.IsSimulator)
                 GmBar.Attach(layer, meta, reload, h.RefreshAfterGm);
             return h;
@@ -744,8 +746,12 @@ namespace InkLine
                 if (btn == null) continue;
                 btn.onClick.RemoveAllListeners();
                 btn.onClick.AddListener(() => AudioBus.Tap());
+                if (i == SideRank) btn.onClick.AddListener(() => RankPanel.Show(_layer, _meta));
             }
         }
+
+        // 出征页侧边四个贴纸：游戏圈、签到、活动、排行榜。
+        const int SideRank = 3;
 
         void BindSeal(HomeSealCell slot, int index)
         {

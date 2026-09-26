@@ -59,6 +59,7 @@ function getPlatformCredential(platform, field) {
 module.exports = {
   getGameKey,
   gameKeyUpper,
+  readEnvPrefer,
   getCollectionName,
   getJwtSecret,
   getTtlSec,

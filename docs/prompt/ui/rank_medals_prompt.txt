@@ -1,0 +1,12 @@
+A 2 by 2 grid of flat sticker icons on a pure solid magenta background (#FF00FF). Equal cells, generous magenta gutter between cells, each icon centered in its cell. The magenta is only the background.
+
+RENDERING: flat solid colour, hard crisp edges, uniform thick outline the colour of soy sauce (#3A2A20), straight-on, chunky shapes. At most three flat tones per colour. Warm casual mini-game stickers, the same line weight in every cell.
+
+Each medal is a round coin hanging from a short folded ribbon. The ribbon is two short straps meeting in a V above the coin, the colour of a red envelope. The coin has a thick rim ring and a flat inner face, with one big bold rounded digit centered on the face in soy-sauce brown. The coin fills most of the cell.
+
+CELL 1, top left: coin the colour of a new gold coin, rim a deeper honey-gold. Digit 1.
+CELL 2, top right: coin the colour of a polished silver spoon, pale cool grey, rim a slightly darker pewter grey. Digit 2.
+CELL 3, bottom left: coin the colour of a new copper penny, warm orange-brown, rim a deeper chestnut. Digit 3.
+CELL 4, bottom right: a plain round plate the colour of steamed-bun cream, thick soy-sauce outline, a thin inner ring the colour of milky tea, and a completely clear flat face.
+
+Each cell contains only its one object. The background of every cell is the same pure magenta.

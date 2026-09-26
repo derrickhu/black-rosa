@@ -394,6 +394,7 @@ namespace InkLine
             {
                 _inkEarned = _meta.ApplyResult(_pickStage, _world.Ink);
                 _meta.AddShards(_world.ShardGot);
+                RankService.Submit(_meta.ClearedCount());
             }
             ShowResult();
         }

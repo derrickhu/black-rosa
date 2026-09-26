@@ -21,8 +21,18 @@ namespace InkLine
         public CloudPayload payload;
     }
 
+    [Serializable]
+    public sealed class RankRow
+    {
+        public int rank;
+        public int cleared;
+        public string displayName;
+        public string avatarUrl;
+        public bool isMe;
+    }
+
     // 各接口的 data 字段并在一起：login 用 token 那几个，pull 用 exists/payload，
-    // push 用 updatedAt，409 STALE_UPDATE 带 remote。
+    // push 用 updatedAt，409 STALE_UPDATE 带 remote，rank/list 用 list/mine。
     [Serializable]
     public sealed class CloudData
     {
@@ -34,6 +44,8 @@ namespace InkLine
         public long updatedAt;
         public CloudPayload payload;
         public CloudRemote remote;
+        public RankRow[] list;
+        public RankRow mine;
     }
 
     [Serializable]

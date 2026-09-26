@@ -12,6 +12,9 @@ namespace InkLine
         public const string LoginPath = Prefix + "/login";
         public const string PullPath = Prefix + "/save/pull";
         public const string PushPath = Prefix + "/save/push";
+        public const string RankSubmitPath = Prefix + "/rank/submit";
+        public const string RankListPath = Prefix + "/rank/list";
+        public const int RankListLimit = 50;
 
         public const int RequestTimeoutSec = 10;
         public const int SchemaVersion = 1;
@@ -20,6 +23,8 @@ namespace InkLine
         public const string TokenKey = GameKey + "_token";
         public const string AnonKey = GameKey + "_anon_id";
         public const string SyncMetaKey = GameKey + "_cloud_meta";
+        public const string ProfileKey = GameKey + "_wx_profile";
+        public const string RankSentKey = GameKey + "_rank_sent";
 
         public const float StartupTimeout = 6f;
         public const float Debounce = 1.5f;

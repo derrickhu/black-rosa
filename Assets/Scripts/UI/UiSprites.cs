@@ -78,6 +78,17 @@ namespace InkLine
                 (x, y) => 0.5f - Sd(x, y, radius, 0.5f));
         }
 
+        // 实心圆，当头像遮罩和圆底用。Fill 的圆角最大 28，拼不出正圆。
+        public static Sprite Disc()
+        {
+            return Bake("disc", 2, (x, y) =>
+            {
+                float dx = x - Cell * 0.5f;
+                float dy = y - Cell * 0.5f;
+                return Cell * 0.5f - 1f - Mathf.Sqrt(dx * dx + dy * dy) + 0.5f;
+            });
+        }
+
         // 只有描边的环，画在 Fill 上面。outline 是烘死的像素宽度，拉伸不变。
         public static Sprite Line(int radius, int outline)
         {

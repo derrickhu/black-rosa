@@ -49,6 +49,88 @@ namespace InkLine
 #endif
         }
 
+        // 真机上才有微信原生的授权按钮；编辑器和开发者工具以外的平台一律没有。
+        public static bool CanAskProfile
+        {
+            get
+            {
+#if UNITY_MINIGAME || WEIXINMINIGAME || UNITY_WEIXINMINIGAME || MINIGAME_SUBPLATFORM_WEIXIN
+                return !Application.isEditor;
+#else
+                return false;
+#endif
+            }
+        }
+
+#if UNITY_MINIGAME || WEIXINMINIGAME || UNITY_WEIXINMINIGAME || MINIGAME_SUBPLATFORM_WEIXIN
+        static WeChatWASM.WXUserInfoButton _infoBtn;
+#endif
+
+        // 微信只允许用它自己画的透明按钮拿昵称头像，所以在 Unity 按钮正上方盖一个同样大小的。
+        // screenRect 是 Unity 屏幕像素（左下原点），这里换成微信窗口坐标（左上原点、逻辑像素）。
+        // got(nick, avatarUrl)：拒绝授权时不回调。
+        public static void ShowProfileButton(Rect screenRect, Action<string, string> got)
+        {
+            HideProfileButton();
+#if UNITY_MINIGAME || WEIXINMINIGAME || UNITY_WEIXINMINIGAME || MINIGAME_SUBPLATFORM_WEIXIN
+            if (Application.isEditor) return;
+            float winW = Num(SystemInfo(), "windowWidth");
+            float k = winW > 0f ? winW / Mathf.Max(1, Screen.width) : 1f;
+            int x = Mathf.RoundToInt(screenRect.xMin * k);
+            int y = Mathf.RoundToInt((Screen.height - screenRect.yMax) * k);
+            int w = Mathf.RoundToInt(screenRect.width * k);
+            int h = Mathf.RoundToInt(screenRect.height * k);
+            _infoBtn = WeChatWASM.WX.CreateUserInfoButton(x, y, w, h, "zh_CN", false);
+            _infoBtn.OnTap(res =>
+            {
+                // userInfo 是结构体，不能和 null 写在同一个三元表达式里。
+                if (res == null || string.IsNullOrEmpty(res.userInfo.nickName)) return;
+                got(res.userInfo.nickName, res.userInfo.avatarUrl ?? "");
+            });
+            _infoBtn.Show();
+#endif
+        }
+
+        public static void HideProfileButton()
+        {
+#if UNITY_MINIGAME || WEIXINMINIGAME || UNITY_WEIXINMINIGAME || MINIGAME_SUBPLATFORM_WEIXIN
+            if (_infoBtn == null) return;
+            _infoBtn.Destroy();
+            _infoBtn = null;
+#endif
+        }
+
+        // 玩家昵称什么字都可能有，游戏字体只切了用到的几百个字。
+        // 真机拿微信的系统字体；编辑器里用本机字体。拿不到回调 null。
+        static Font _sysFont;
+        static bool _sysFontAsked;
+        static Action<Font> _sysFontWait;
+
+        public static void SystemFont(Action<Font> done)
+        {
+            if (_sysFont != null || (_sysFontAsked && _sysFontWait == null)) { done(_sysFont); return; }
+            _sysFontWait += done;
+            if (_sysFontAsked) return;
+            _sysFontAsked = true;
+#if UNITY_MINIGAME || WEIXINMINIGAME || UNITY_WEIXINMINIGAME || MINIGAME_SUBPLATFORM_WEIXIN
+            if (!Application.isEditor)
+            {
+                WeChatWASM.WX.GetWXFont(null, f => FinishFont(f));
+                return;
+            }
+#endif
+            FinishFont(Font.CreateDynamicFontFromOSFont(
+                new[] { "PingFang SC", "Heiti SC", "Noto Sans CJK SC", "Arial Unicode MS" }, 28));
+        }
+
+        static void FinishFont(Font f)
+        {
+            _sysFont = f;
+            Action<Font> wait = _sysFontWait;
+            _sysFontWait = null;
+            wait?.Invoke(f);
+        }
+
         public static void KeepRuntime()
         {
             var wx = WxType();

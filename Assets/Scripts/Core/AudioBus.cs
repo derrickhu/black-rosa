@@ -107,6 +107,9 @@ namespace InkLine
             _music.Play();
         }
 
+        // 编辑器里由 CdnAudioHook 填上。微信包走 InnerAudioContext，不经过这里。
+        public static System.Func<string, AudioClip> EditorMusic;
+
         // 云上的长音乐提前拉好（大厅里调），进战斗时就不用等。
         public static void Warm(string name)
         {
@@ -118,7 +121,7 @@ namespace InkLine
                 return;
             }
 #endif
-            CdnAssets.Clip("Audio/" + name, _ => { });
+            if (EditorMusic != null) EditorMusic(name);
         }
 
         public static void Duck(bool on) => _duck = on;
@@ -152,10 +155,8 @@ namespace InkLine
                 return;
             }
 #endif
-            CdnAssets.Clip("Audio/" + name, clip =>
-            {
-                if (_musicName == name && _music.clip == null) PlayClip(clip);
-            });
+            AudioClip local = EditorMusic != null ? EditorMusic(name) : null;
+            if (local != null && _musicName == name) PlayClip(local);
         }
 
 #if UNITY_MINIGAME || WEIXINMINIGAME || UNITY_WEIXINMINIGAME || MINIGAME_SUBPLATFORM_WEIXIN
