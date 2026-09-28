@@ -28,6 +28,7 @@ namespace InkLine
         // 体
         FormFire, FormIce, FormWater, FormPoison, FormEarth, FormExplode,
         FormKill, FormCleave, FormKnock, FormArrow, FormPierce, FormSplit,
+        FormThunder, FormWind,
         // 体 · 招牌两两
         FormFrostFire, FormScorchBolt, FormHailBolt, FormBlightFire, FormConduct,
         FormMoltenGold, FormWardGold, FormRotLife, FormRamEarth, FormColdWind,
@@ -176,7 +177,7 @@ namespace InkLine
                 Time = new Tri(0.5f, 0.75f, 1.0f),
                 Radius = new Tri(0.5f, 0.7f, 0.9f),
                 Count = new Tri(1f, 2f, 3f),
-                Halo = ShotFx.HaloThunder, Hit = HitFx.Thunder
+                Form = ShotFx.FormThunder, Hit = HitFx.Thunder
             },
             new GlyphDef
             {
@@ -203,7 +204,7 @@ namespace InkLine
             {
                 Id = CardId.Wind, Family = GlyphFamily.Move, Axis = MoveAxis.Lateral,
                 Move = new Tri(1f, 2f, 2f), Time = new Tri(0f, 0f, 0.3f),
-                Trail = ShotFx.TrailWind, Orbit = ShotFx.OrbitWind, Hit = HitFx.Wind
+                Form = ShotFx.FormWind, Hit = HitFx.Wind
             },
 
             // ---- 道族 ----

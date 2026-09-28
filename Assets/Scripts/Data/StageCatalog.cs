@@ -218,6 +218,30 @@ namespace InkLine
 
         public static bool IsFinale(int index) => index % GameConstants.ChapterSize == GameConstants.ChapterSize - 1;
 
+        // 这一关第一次出现的字：前面所有关的字池和预置字里都没有过的。
+        // 不拿相邻两关做差 —— Limit 关的字池是缩过的，下一关会把老字「重新放出来」。
+        public static List<CardId> NewCards(int stage)
+        {
+            var list = new List<CardId>();
+            if (stage < 0 || stage >= GameConstants.StageCount) return list;
+            var seen = new HashSet<CardId>();
+            for (int i = 0; i < stage; i++) Collect(Get(i), seen);
+            var here = new HashSet<CardId>();
+            Collect(Get(stage), here);
+            foreach (CardId id in here)
+                if (!seen.Contains(id)) list.Add(id);
+            list.Sort();
+            return list;
+        }
+
+        static void Collect(StageDef s, HashSet<CardId> into)
+        {
+            if (s.Pool != null)
+                for (int i = 0; i < s.Pool.Length; i++) into.Add(s.Pool[i]);
+            if (s.Preset != null)
+                for (int i = 0; i < s.Preset.Length; i++) into.Add(s.Preset[i].Id);
+        }
+
         // ---------- 写关卡用的小工具 ----------
 
         sealed class Plan

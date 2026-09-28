@@ -8,9 +8,9 @@ namespace InkLine
     // 有 Prefabs/Home 就只绑定；没有才走下面那套临时代码搭壳。
     public sealed class HomeScreen
     {
-        const int TabForge = 0;
-        const int TabSortie = 1;
-        const int TabSpell = 2;
+        public const int TabForge = 0;
+        public const int TabSortie = 1;
+        public const int TabSpell = 2;
 
         const float CardW = 322f;
         const float CardH = 152f;
@@ -39,13 +39,14 @@ namespace InkLine
             _start = start;
         }
 
-        public static HomeScreen Build(RectTransform layer, MetaProgress meta, Action<int> start, Action reload)
+        public static HomeScreen Build(RectTransform layer, MetaProgress meta, Action<int> start, Action reload,
+            int tab = TabSortie)
         {
             var h = new HomeScreen(layer, meta, start);
             UiKit.PaperSheet(layer);
             if (!h.TryPrefab()) h.BuildShell();
             h.FitFrame();
-            h.Pick(TabSortie);
+            h.Pick(Mathf.Clamp(tab, TabForge, TabSpell));
             h.RefreshTop();
             // 排行榜上线前就有进度的老玩家，进大厅补报一次；报过的同样关数不会重发。
             RankService.Submit(meta.ClearedCount());
@@ -703,6 +704,35 @@ namespace InkLine
             return first < GameConstants.StageCount && _meta.Unlocked(first);
         }
 
+        // 过了的关在节点底下挂三颗小星，亮几颗看最高评星。预制体里没烘星星，
+        // 第一次用到时现挂到节点上，之后复用。
+        static void NodeStars(HomeSealCell slot, int stars)
+        {
+            if (slot.Stars == null || slot.Stars.Length < 3 || slot.Stars[0] == null)
+            {
+                if (stars <= 0) return;
+                var rt = slot.GetComponent<RectTransform>();
+                float size = rt != null ? rt.rect.width : 68f;
+                float s = Mathf.Max(18f, size * 0.34f);
+                slot.Stars = new Image[3];
+                for (int i = 0; i < 3; i++)
+                {
+                    float x = (i - 1) * s * 0.92f;
+                    float y = -size * 0.5f - s * 0.1f + (i == 1 ? -s * 0.18f : 0f);
+                    slot.Stars[i] = UiKit.Icon(slot.transform, InkSprites.Load("Ui/result_star_on"), new Vector2(x, y), s);
+                }
+            }
+            Sprite on = InkSprites.Load("Ui/result_star_on");
+            Sprite off = InkSprites.Load("Ui/result_star_off");
+            for (int i = 0; i < slot.Stars.Length; i++)
+            {
+                if (slot.Stars[i] == null) continue;
+                slot.Stars[i].gameObject.SetActive(stars > 0);
+                Sprite spr = i < stars ? on : off;
+                if (spr != null) slot.Stars[i].sprite = spr;
+            }
+        }
+
         void BindNode(HomeSealCell slot, int index, int frontier)
         {
             bool open = _meta.Unlocked(index);
@@ -717,9 +747,7 @@ namespace InkLine
             Sprite face = InkSprites.Ui(key);
             if (slot.Plate != null && face != null) slot.Plate.sprite = face;
             if (slot.Lock != null) slot.Lock.gameObject.SetActive(false);
-            if (slot.Stars != null)
-                for (int s = 0; s < slot.Stars.Length; s++)
-                    if (slot.Stars[s] != null) slot.Stars[s].gameObject.SetActive(false);
+            NodeStars(slot, cleared ? _meta.Stars[index] : 0);
             if (slot.Number != null)
             {
                 slot.Number.gameObject.SetActive(current);

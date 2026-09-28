@@ -40,7 +40,7 @@ namespace InkLine
         static readonly CardId[] FormRank =
         {
             CardId.Explode, CardId.Fire, CardId.Ice, CardId.Water, CardId.Poison,
-            CardId.Earth, CardId.Pierce
+            CardId.Earth, CardId.Thunder, CardId.Wind, CardId.Pierce
         };
 
         static readonly CardId[] TrailRank = { CardId.Accel, CardId.Track, CardId.Wind };

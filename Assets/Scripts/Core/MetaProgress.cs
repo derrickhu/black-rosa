@@ -343,37 +343,31 @@ namespace InkLine
         public int StartGold => Forged.StartGold;
         public Color SkinTint => SkinCatalog.Get(Skin).Tint;
 
-        // 章底首通的额外奖励，结算页拿去显示。ApplyResult 每次先清掉。
-        [NonSerialized] public int FinaleStamina;
-        [NonSerialized] public int FinaleShard = -1;
-
-        // 结算的墨就是这一局亲手拾到的墨，关卡不再另发一笔。返回入账数，
-        // GameFlow 拿去显示，也拿去算广告双倍要补多少。
-        public int ApplyResult(int stage, int collected)
+        // 结算的墨就是这一局亲手拾到的墨，关卡不再另发一笔。星级只留历史最高；
+        // 过没过仍按 Stars > 0 判，旧存档里只有 1 的照样算通关。
+        public ResultInfo ApplyResult(int stage, int collected, int stars)
         {
-            FinaleStamina = 0;
-            FinaleShard = -1;
-            if (stage < 0 || stage >= Stars.Length) return 0;
+            var r = new ResultInfo { FinaleShard = -1 };
+            if (stage < 0 || stage >= Stars.Length) return r;
             StageDef def = StageCatalog.Get(stage);
-            bool first = Stars[stage] <= 0;
-            if (first && def.Finale)
-            {
-                FinaleStamina = GameConstants.FinaleStamina;
-                Stamina = Mathf.Min(GameConstants.StaminaMax, Stamina + FinaleStamina);
-                FinaleShard = GrantOneShard();
-            }
-            // Stars 只剩「这关过没过」一层意思，旧存档里的 2、3 照样算通关。
-            if (first) Stars[stage] = 1;
+            stars = Mathf.Clamp(stars, 1, GameConstants.MaxStar);
+            r.Stars = stars;
+            r.FirstClear = Stars[stage] <= 0;
+            r.NewBest = stars > Stars[stage];
+            if (r.FirstClear && def.Finale)
+                r.FinaleShard = GrantOneShard();
+            if (r.NewBest) Stars[stage] = stars;
             int ink = Mathf.Max(0, collected);
             if (!DailyWinDone)
             {
                 DailyWinDone = true;
                 ink *= 2;
-                Stamina = Mathf.Min(GameConstants.StaminaMax, Stamina + GameConstants.DailyWinStamina);
+                r.DailyDouble = true;
             }
             Ink += ink;
+            r.Ink = ink;
             Save();
-            return ink;
+            return r;
         }
 
         // 章底保底：随机挑一个还没攒满的技能给一枚碎片。全满了返回 -1。

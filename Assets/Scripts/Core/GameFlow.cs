@@ -19,9 +19,8 @@ namespace InkLine
         RectTransform _layer;
         Screen _screen = Screen.Lobby;
         int _pickStage;
-        int _inkEarned;
+        ResultInfo _result;
         bool _inkDoubled;
-        bool _resultWin;
         CardId[] _offer = new CardId[3];
         CardId _held;
         bool _rerolled;
@@ -61,6 +60,7 @@ namespace InkLine
             _meta = MetaProgress.Load();
             _canvas = UiKit.CreateCanvas("InkUI");
             _layer = _canvas.GetComponent<RectTransform>();
+            GmBar.Preview = GmPreview;
             ScreenFit.Apply(Camera.main, _canvas);
             string force = Path.Combine(Application.dataPath, "../Library/ink_shot_preview.force");
             if (File.Exists(force))
@@ -124,7 +124,9 @@ namespace InkLine
             ShowHome();
         }
 
-        void ShowHome()
+        void ShowHome() => ShowHome(HomeScreen.TabSortie);
+
+        void ShowHome(int tab)
         {
             _screen = Screen.Lobby;
             ClearLayer();
@@ -132,7 +134,7 @@ namespace InkLine
             _world = null;
             _hud = null;
             BattleHud.ReleaseCamera();
-            _home = HomeScreen.Build(_layer, _meta, StartStage, ReloadSave);
+            _home = HomeScreen.Build(_layer, _meta, StartStage, ReloadSave, tab);
             AudioBus.Music("bgm_home");
             AudioBus.Warm("bgm_battle");
         }
@@ -148,7 +150,6 @@ namespace InkLine
             _home = null;
             _pickStage = index;
             _taughtStar = false;
-            _inkEarned = 0;
             _tip = index == 0 ? "滑到底下那一串，对准敌人。" : "";
             _world = new BattleWorld();
             _world.Begin(StageCatalog.Get(index), _meta.Forged, _meta.Equipped);
@@ -397,69 +398,116 @@ namespace InkLine
             _screen = Screen.Battle;
         }
 
-        // 结算只算一次。看完双倍广告走 ShowResult 重画面板，不要再回 Finish，
+        // 结算只算一次。翻倍广告只让面板把墨数再滚一遍，不要再回 Finish，
         // 否则 ApplyResult 会把这一局拾到的墨再入一次账。
+        // 输了先给续命页；没得续、不续、续了又死，才放失败动画和失败页。
         void Finish(bool win)
         {
             _screen = Screen.Result;
             _world.Paused = true;
-            _resultWin = win;
-            _inkEarned = 0;
             _inkDoubled = false;
-            if (win) AudioBus.Win();
-            else AudioBus.Lose();
             if (win)
             {
-                _inkEarned = _meta.ApplyResult(_pickStage, _world.Ink);
+                AudioBus.Win();
+                _result = _meta.ApplyResult(_pickStage, _world.Ink, _world.StarsEarned);
                 _meta.AddShards(_world.ShardGot);
+                _result.Shards = Sum(_world.ShardGot);
                 RankService.Submit(_meta.ClearedCount());
+                ShowVictory(_pickStage, _result);
             }
-            ShowResult();
+            else if (_world.RevivesUsed < GameConstants.MaxRevives) ShowRevive();
+            else ShowDefeat(_pickStage, _world.Progress);
         }
 
-        void ShowResult()
+        static int Sum(int[] a)
+        {
+            int s = 0;
+            if (a != null)
+                for (int i = 0; i < a.Length; i++) s += Mathf.Max(0, a[i]);
+            return s;
+        }
+
+        void ShowVictory(int stage, ResultInfo info, bool preview = false)
         {
             DropOverlay();
-            bool next = _resultWin
-                        && _pickStage + 1 < GameConstants.StageCount
-                        && _meta.Unlocked(_pickStage + 1);
-            int shownInk = _inkDoubled ? _inkEarned * 2 : _inkEarned;
-            _overlay = ResultPanel.Show(
-                _layer,
-                _resultWin,
-                shownInk,
-                _resultWin ? FinaleNote() : "",
-                !_resultWin && _world.RevivesUsed < GameConstants.MaxRevives,
-                () =>
+            int next = stage + 1;
+            bool hasNext = next < GameConstants.StageCount && (preview || _meta.Unlocked(next));
+            VictoryPanel panel = null;
+            panel = VictoryPanel.Show(_layer, new VictoryArgs
+            {
+                Stage = stage,
+                Info = info,
+                NextCost = hasNext ? _meta.StageCost(next) : -1,
+                NextAffordable = hasNext && (preview || _meta.CanEnter(next)),
+                Next = preview ? (System.Action)ShowHome : () => StartStage(next),
+                DoubleInk = info.Ink <= 0 ? (System.Action)null : () =>
                 {
-                    AdStub.Reward("revive", () =>
+                    if (_inkDoubled) return;
+                    AdStub.Reward("double", () =>
                     {
-                        if (_world.TryRevive())
-                        {
-                            DropOverlay();
-                            _screen = Screen.Battle;
-                        }
+                        if (_inkDoubled) return;
+                        _inkDoubled = true;
+                        if (!preview) _meta.AddInk(info.Ink);
+                        if (panel != null) panel.Doubled();
                     });
                 },
-                _resultWin && _inkEarned > 0 && !_inkDoubled
-                    ? () => AdStub.Reward("double", () =>
-                    {
-                        _meta.AddInk(_inkEarned);
-                        _inkDoubled = true;
-                        ShowResult();
-                    })
-                    : (System.Action)null,
-                ShowHome,
-                next ? () => StartStage(_pickStage + 1) : (System.Action)null);
+                Home = ShowHome
+            });
+            _overlay = panel.Root;
         }
 
-        string FinaleNote()
+        void ShowRevive()
         {
-            if (_meta.FinaleStamina <= 0 && _meta.FinaleShard < 0) return "";
-            string note = "章底奖励";
-            if (_meta.FinaleStamina > 0) note += $"  体力 +{_meta.FinaleStamina}";
-            if (_meta.FinaleShard >= 0) note += $"  {SpellCatalog.Get(_meta.FinaleShard).Name}碎片 +1";
-            return note;
+            DropOverlay();
+            int left = GameConstants.MaxRevives - _world.RevivesUsed;
+            _overlay = RevivePanel.Show(_layer, _world.Progress, left, () =>
+            {
+                AdStub.Reward("revive", () =>
+                {
+                    if (_world == null || !_world.TryRevive()) return;
+                    DropOverlay();
+                    _screen = Screen.Battle;
+                });
+            }, () => ShowDefeat(_pickStage, _world != null ? _world.Progress : 0f)).Root;
+        }
+
+        void ShowDefeat(int stage, float progress, bool preview = false)
+        {
+            DropOverlay();
+            _overlay = DefeatPanel.Show(_layer, new DefeatArgs
+            {
+                Stage = stage,
+                Progress = progress,
+                RetryCost = _meta.StageCost(stage),
+                CanRetry = preview || _meta.CanEnter(stage),
+                Advice = DefeatAdvice.Build(_meta),
+                Retry = preview ? (System.Action)ShowHome : () => StartStage(stage),
+                Improve = ShowHome,
+                Home = ShowHome
+            }).Root;
+        }
+
+        // GM 里预览三张结算页，不碰存档。
+        void GmPreview(int kind)
+        {
+            if (_screen != Screen.Lobby) return;
+            int stage = Mathf.Clamp(_meta.ClearedCount(), 0, GameConstants.StageCount - 2);
+            _inkDoubled = false;
+            if (kind == 0)
+            {
+                ShowVictory(stage, new ResultInfo
+                {
+                    Ink = 86, DailyDouble = true,
+                    Shards = 1, FinaleShard = -1, Stars = 3, NewBest = true, FirstClear = true
+                }, true);
+            }
+            else if (kind == 1)
+            {
+                DropOverlay();
+                _overlay = RevivePanel.Show(_layer, 0.83f, GameConstants.MaxRevives,
+                    DropOverlay, () => ShowDefeat(stage, 0.83f, true)).Root;
+            }
+            else ShowDefeat(stage, 0.64f, true);
         }
 
         void DropOverlay()

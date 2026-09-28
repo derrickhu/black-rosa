@@ -143,6 +143,48 @@
       "duration": 1.25,
       "output": "../../../Assets/Resources/Audio/lose.mp3",
       "notes": "失败"
+    },
+    {
+      "name": "res_star",
+      "text": "loud close-mic thud of a heavy brass seal slammed onto a wooden desk, followed by one bright ceramic bell ping that keeps ringing clearly for half a second, sharp attack, dry room, no music, no voice",
+      "duration": 0.55,
+      "output": "../../../Assets/Resources/Audio/res_star.mp3",
+      "notes": "结算星星砸进星座。三颗逐颗升调在代码里做"
+    },
+    {
+      "name": "res_confetti",
+      "text": "a paper party popper bursting open close to the microphone, then a quick shower of light paper flakes rustling down, bright and cheerful, dry, no music, no voice, no crowd",
+      "duration": 1.2,
+      "output": "../../../Assets/Resources/Audio/res_confetti.mp3",
+      "notes": "通关彩带喷出"
+    },
+    {
+      "name": "res_tick",
+      "text": "one tiny bright coin tick, a small copper coin tapped once on porcelain, sharp attack, very short, dry, no reverb, no music, no voice",
+      "duration": 0.12,
+      "output": "../../../Assets/Resources/Audio/res_tick.mp3",
+      "notes": "奖励数字滚动，会高频重复"
+    },
+    {
+      "name": "res_heart",
+      "text": "one deep double heartbeat thump, lub-dub, low and round, close and tight, dry, no music, no voice",
+      "duration": 0.5,
+      "output": "../../../Assets/Resources/Audio/res_heart.mp3",
+      "notes": "续命页心跳，倒计时越后越快"
+    },
+    {
+      "name": "res_crumble",
+      "text": "a heavy wooden cannon cracking and falling onto a stone floor, a loud crack then a short rumble of wood pieces settling, close microphone, short room, no explosion, no music, no voice",
+      "duration": 0.9,
+      "output": "../../../Assets/Resources/Audio/res_crumble.mp3",
+      "notes": "失败动画炮台砸地歪倒"
+    },
+    {
+      "name": "res_unlock",
+      "text": "a bright rising shimmer of small ceramic chimes ending on one clear high bell note, sparkling and hopeful, short tail, dry room, no orchestra, no music, no voice",
+      "duration": 0.9,
+      "output": "../../../Assets/Resources/Audio/res_unlock.mp3",
+      "notes": "下一关新字预告亮出"
     }
   ]
 }

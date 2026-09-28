@@ -574,6 +574,7 @@ namespace InkLine
         public void Dispose()
         {
             if (_root != null) Object.Destroy(_root.gameObject);
+            ShotSparks.Clear();
         }
     }
 }

@@ -82,6 +82,19 @@ namespace InkLine
         public static void Win() => Cue("win", 0.9f, 0.4f, 0f);
         public static void Lose() => Cue("lose", 0.85f, 0.4f, 0f);
 
+        // 结算页一套。新音效还没入库时退回相近的旧音效，别让演出变哑。
+        public static void StarLand(int i) => CueOr("res_star", "stamp", 0.95f, 0.05f, 1f + i * 0.14f);
+        public static void Confetti() => CueOr("res_confetti", "win", 0.85f, 0.4f, 1f);
+        public static void CountTick() => CueOr("res_tick", "pickup", 0.42f, 0.055f, 1.15f);
+        public static void Heartbeat() => CueOr("res_heart", "hit_thud", 0.8f, 0.35f, 0.8f);
+        public static void Crumble() => CueOr("res_crumble", "boom", 0.9f, 0.3f, 0.85f);
+        public static void Unlock() => CueOr("res_unlock", "chime", 0.9f, 0.3f, 1f);
+
+        static void CueOr(string name, string fallback, float volume, float gap, float pitch)
+        {
+            Cue(Clip(name) != null ? name : fallback, volume, gap, 0f, pitch);
+        }
+
         public static void Music(string name)
         {
             if (name == _musicName) return;

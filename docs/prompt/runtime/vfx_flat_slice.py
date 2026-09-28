@@ -78,6 +78,12 @@ JOBS = {
        for k in ("frostfire", "scorchbolt", "hailbolt", "blightfire", "conduct", "moltengold",
                  "wardgold", "rotlife", "ramearth", "coldwind", "blaze", "thundercut")},
 
+    # v3：给原来只有柔光的字补弹体。风的尾巴脱开球、又没有深边，只留球，拖尾交给粒子层。
+    "thunder_shot": dict(src="v3_shot_thunder", mode="ball", cols=4, rows=2, shave=14),
+    # 第 5 格颜色退回了浅色（下排重新起了一遍渐变），这样取才一路加深
+    "wind_shot":    dict(src="v3_shot_wind", mode="ball", cols=4, rows=2, shave=14, largest=True,
+                         pick=[0, 1, 2, 2, 5, 3, 6, 7]),
+
     "dot_marks":    dict(src="v2_dot_marks", mode="marks", cols=2, rows=2,
                          names=["dot_poison", "dot_stun", "dot_confuse", "dot_ripple"],
                          holes=True),
@@ -137,6 +143,25 @@ def keyed(cell, holes=False):
     return mask
 
 
+def largest(mask):
+    seen = np.zeros_like(mask)
+    best = np.zeros_like(mask)
+    for y, x in zip(*np.nonzero(mask)):
+        if seen[y, x]:
+            continue
+        blob = _fill(mask & ~seen, [(y, x)], mask.shape)
+        seen |= blob
+        if blob.sum() > best.sum():
+            best = blob
+    return best
+
+
+def head_width(path):
+    """输出帧里弹头的像素宽，给 InkVfx.Flat 的 Scale 用。"""
+    a = np.asarray(Image.open(path).convert("RGBA"))[..., 3] > 128
+    return int(a.sum(axis=1).max())
+
+
 def box(mask):
     ys, xs = np.nonzero(mask)
     return ys.min(), ys.max(), xs.min(), xs.max()
@@ -180,6 +205,8 @@ def run(key, cfg):
     cells = cut(sheet, cfg["cols"], cfg["rows"], cfg.get("shave", 10), cfg.get("pick"))
     holes = cfg.get("holes", False)
     masks = [keyed(c, holes) for c in cells]
+    if cfg.get("largest"):
+        masks = [largest(m) for m in masks]
     mode = cfg["mode"]
 
     if mode == "marks":

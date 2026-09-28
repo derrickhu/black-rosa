@@ -1721,7 +1721,8 @@ namespace InkLine
             RevivesUsed++;
             Defeat = false;
             Paused = false;
-            BaseHp = Mathf.Max(1, BaseHp);
+            // 看了广告就给满血：只补 1 格的续命，玩家下一只漏怪又死，广告等于白看。
+            BaseHp = MaxBaseHp;
             for (int i = Enemies.Count - 1; i >= 0; i--)
             {
                 if (Enemies[i].Pos.y < GameConstants.GridCenterY)
@@ -1729,6 +1730,48 @@ namespace InkLine
             }
             ShowToast("防线重整");
             return true;
+        }
+
+        // 通关评星：按剩余防线血量。续过命的最多两星 —— 三星得是自己守下来的。
+        public int StarsEarned
+        {
+            get
+            {
+                float ratio = BaseHp / (float)Mathf.Max(1, MaxBaseHp);
+                int s = ratio >= 0.7f ? 3 : ratio >= 0.35f ? 2 : 1;
+                if (RevivesUsed > 0) s = Mathf.Min(s, 2);
+                return s;
+            }
+        }
+
+        // 本关完成度，失败页说「已完成 xx%」用。按波次时间推进算，
+        // 有关底的关把最后两成留给 boss 的血量。封顶 99%：没赢就不能说 100%。
+        public float Progress
+        {
+            get
+            {
+                float total = 0f, done = 0f;
+                for (int i = 0; i < Stage.Waves.Length; i++)
+                {
+                    float d = Mathf.Max(0.01f, Stage.Waves[i].Duration);
+                    total += d;
+                    if (i < WaveIndex) done += d;
+                    else if (i == WaveIndex) done += Mathf.Min(WaveTime, d);
+                }
+                float time = total > 0f ? done / total : 0f;
+                float p;
+                if (Stage.HasBoss)
+                {
+                    float boss = BossKilled ? 1f : 0f;
+                    if (!BossKilled && BossSpawned)
+                        for (int i = 0; i < Enemies.Count; i++)
+                            if (Enemies[i].IsBoss && Enemies[i].MaxHp > 0f)
+                                boss = Mathf.Max(boss, 1f - Enemies[i].Hp / Enemies[i].MaxHp);
+                    p = time * 0.8f + boss * 0.2f;
+                }
+                else p = time * 0.95f;
+                return Mathf.Clamp(p, 0.01f, 0.99f);
+            }
         }
 
         public enum PlaceResult { Placed, Upgraded, NeedConfirm, RejectedMaxStar, LockedRow }

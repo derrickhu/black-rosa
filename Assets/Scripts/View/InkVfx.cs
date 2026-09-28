@@ -159,6 +159,8 @@ namespace InkLine
                 case ShotFx.FormPoison:  body = Ramp("poison_shot", 0.233f, 0.77f); return true;
                 case ShotFx.FormEarth:   body = Ramp("earth_shot", 0.116f, 0.80f); return true;
                 case ShotFx.FormExplode: body = Ramp("explode_shot", 0.007f, 0.90f); return true;
+                case ShotFx.FormThunder: body = Ramp("thunder_shot", 0.193f, 0.61f); return true;
+                case ShotFx.FormWind:    body = Ramp("wind_shot", -0.002f, 0.45f); return true;
 
                 // 道族 / 词组：墨黑骨白，不吃星级渐变（星改的是威力和动词，不是热度），
                 // 所以只有一帧。Scale 是按旧柔光图的实际可见高折算的 —— 新图是紧裁的，

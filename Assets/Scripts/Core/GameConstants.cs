@@ -21,11 +21,9 @@ namespace InkLine
         public const int StaminaMax = 12;
         public const int StaminaPerStage = 2;
         public const int StaminaFinale = 3;
-        public const int FinaleStamina = 6;
         public const int StaminaRegenMinutes = 15;
         public const int AdStaminaGain = 6;
         public const int AdStaminaPerDay = 5;
-        public const int DailyWinStamina = 4;
         public const int StarterInk = 85;
 
         // 新手礼包：看两次激励广告，领一次就没了。皮肤下标见 SkinCatalog（2 = 青瓷）。

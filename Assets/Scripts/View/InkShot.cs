@@ -20,6 +20,13 @@ namespace InkLine
         TrailRenderer _trail;
         bool _bodyOn;
         bool _trailOn;
+        SpriteRenderer _flare;
+        SpriteRenderer _glint;
+        readonly ShotTrail _sparks = new ShotTrail();
+        readonly Ornament[] _orn = new Ornament[ShotTrail.MaxOrnaments];
+        readonly System.Collections.Generic.List<SpriteRenderer> _ornSr = new System.Collections.Generic.List<SpriteRenderer>();
+        int _bid = -1;
+        Vector2 _last;
 
         public void Present(BulletActor b, int skin)
         {
@@ -61,7 +68,12 @@ namespace InkLine
             NakedShot look = naked ? NakedOf(skin) : default;
             if (naked && skin == 3)
                 look.GlowScale = 1.05f + 0.08f * Mathf.Sin(Time.unscaledTime * 9f + b.Id);
-            Color pelletTint = naked ? look.Pellet : Color.white;
+            bool bright = ShotSparks.Bright;
+            Color tone = ShotTrail.Tone(m, v);
+            // 只挂了道族 / 伤族字（速、瞄、分、重……）的弹没有元素色，原来落成一颗黑墨点。
+            // 「炫」档改用那个字自己的亮色，和它掉的粒子是一家。
+            Color pelletTint = naked ? look.Pellet
+                : (bright && v.Elements == 0 && tone.a > 0f ? Color.Lerp(tone, Color.white, 0.15f) : Color.white);
             Sprite pellet = InkArt.Heap(InkShape.Circle, Color.white, 64);
             Child(ref _pellet, "pellet", pellet, naked ? look.PelletScale : (heavyStar > 0 ? 0.24f : 0.20f), 6,
                 hasBody ? Color.clear : pelletTint);
@@ -81,6 +93,8 @@ namespace InkLine
             // 现在由小卫星来说（数得清、且是硬边），所以平涂体一概不垫柔光，
             // 只有重 / 金的晕光槽还留着 —— 那是另一件事。
             if (flat && !v.Bloom.On) glow = Color.clear;
+            // 「炫」档弹后已经有一团加法光，重 / 金那层柔光再垫就糊了。
+            if (bright && !naked) glow = Color.clear;
             if (naked)
             {
                 glow = look.Glow;
@@ -92,8 +106,9 @@ namespace InkLine
                     : (v.Elements > 0 && !flat ? Fade(Color.white, 0.34f) : Color.clear));
 
             // 元素小卫星：体槽图没画到的元素各挂一颗，绕着弹体转。
-            Mote(ref _moteA, "moteA", v.Motes > 0, v.MoteA, 0f);
-            Mote(ref _moteB, "moteB", v.Motes > 1, v.MoteB, Mathf.PI);
+            // 「炫」档每个字都有自己的粒子和绕身小件，卫星就不再挂，免得一颗弹身边挤满。
+            Mote(ref _moteA, "moteA", !bright && v.Motes > 0, v.MoteA, 0f);
+            Mote(ref _moteB, "moteB", !bright && v.Motes > 1, v.MoteB, Mathf.PI);
             if (naked && look.Orbit && v.Motes == 0)
                 Mote(ref _moteA, "moteA", true, look.OrbitTint, 0f);
 
@@ -105,17 +120,11 @@ namespace InkLine
                 Child(ref _form, "form", formSprite, FormScale(v.Form.Fx), 7,
                     formSprite == null ? Color.clear : Tint(v.Form.Tint));
 
-            // 环槽：晕 / 雷 / 金，一圈转着的柔环。
-            Sprite halo = v.Halo.On ? (InkVfx.Shot(v.Halo.Fx) ?? InkFx.SoftRing()) : null;
-            Child(ref _halo, "halo", halo,
-                1.44f + 0.05f * Mathf.Sin(Time.unscaledTime * 6f), 8,
-                halo == null ? Color.clear : Fade(v.Halo.Tint, 0.52f));
-            if (_halo != null && _halo.enabled)
-                _halo.transform.localRotation = Quaternion.Euler(0f, 0f, Time.unscaledTime * 90f);
-
-            // 绕槽：风 / 木，两团绕着弹体转的小影。分不占槽。
-            Orbit(ref _orbitA, "orbitA", v.Orbit, 0f);
-            Orbit(ref _orbitB, "orbitB", v.Orbit, Mathf.PI);
+            // 环槽 / 绕槽原来是柔环、柔光团，在纸面上发灰。现在一律换成 ShotTrail.Ornaments
+            // 给的硬边小件（电弧、金星、金闪、叶子、准星、漩涡），这两个槽只剩 ShotLook 里的记账。
+            if (_halo != null) _halo.enabled = false;
+            if (_orbitA != null) _orbitA.enabled = false;
+            if (_orbitB != null) _orbitB.enabled = false;
 
             // 速原来还在后面挂两片柔光残影（`Ghost`），已撤：速现在有自己的绿尾，
             // 那两片是同一件事说两遍，而且是软的 —— 正是「子弹过后留了脏」的来源之一。
@@ -156,6 +165,99 @@ namespace InkLine
                 Color.Lerp(v.Trail.Tint, Color.white, 0.2f), v.Trail.Tint,
                 (v.Trail.Fx == ShotFx.TrailAccel ? 0.15f : 0.14f) * ShotScale,
                 v.Trail.Fx == ShotFx.TrailAccel ? 0.17f : 0.15f);
+
+            if (flat && v.Form.Fx == ShotFx.FormWind && _form != null)
+                _form.transform.localRotation = Quaternion.Euler(0f, 0f, -Time.time * 540f + b.Id * 37f);
+            Ornaments(m, b.Id);
+            BrightFx(ShotTrail.Aura(m, v), naked);
+            Sparks(b, m);
+        }
+
+        // ---- 粒子层：按飞过的距离掉，停住（选牌暂停）就不再掉 ----
+
+        void Sparks(BulletActor b, ShotMods m)
+        {
+            if (b.Id != _bid)
+            {
+                _bid = b.Id;
+                _last = b.Pos;
+                _sparks.Reset();
+                return;
+            }
+            Vector2 delta = b.Pos - _last;
+            _last = b.Pos;
+            float d = delta.magnitude;
+            if (d <= 1e-4f || d > 1.5f) return;
+            Vector2 dir = b.Vel.sqrMagnitude > 1e-4f ? b.Vel.normalized : Vector2.up;
+            _sparks.Step(m, b.Pos, dir, d, ShotSparks.World);
+        }
+
+        // 绕身小件：每件一个子节点，按需要长，多出来的关掉。
+        void Ornaments(ShotMods m, int seed)
+        {
+            int sets = ShotTrail.Ornaments(m, _orn);
+            int used = 0;
+            float t = Time.time;
+            Undistort(out float kx, out float ky);
+            for (int s = 0; s < sets; s++)
+            {
+                Ornament o = _orn[s];
+                Sprite sprite = ShotSparks.SpriteOf(o.Kind);
+                Material mat = ShotSparks.MatOf(o.Glow);
+                for (int i = 0; i < o.Count; i++)
+                {
+                    if (used == _ornSr.Count) _ornSr.Add(Spawn("orn" + used));
+                    SpriteRenderer sr = _ornSr[used++];
+                    bool on = ShotTrail.Place(o, i, t, seed, out Vector2 p, out float rot, out float sc, out bool behind);
+                    sr.enabled = on;
+                    if (!on) continue;
+                    sr.sprite = sprite;
+                    sr.sharedMaterial = mat;
+                    sr.color = o.Tint;
+                    sr.sortingOrder = behind ? 5 : 9;
+                    sr.transform.localPosition = new Vector3(p.x * kx, p.y * ky, 0f);
+                    sr.transform.localRotation = Quaternion.Euler(0f, 0f, rot);
+                    sr.transform.localScale = new Vector3(sc * kx, sc * ky, 1f);
+                }
+            }
+            for (int i = used; i < _ornSr.Count; i++) _ornSr[i].enabled = false;
+        }
+
+        // 「炫」档：能量类的字在弹体后面垫一团加法光，雷 / 金 / 穿再在弹心加一颗星芒。
+        // 实心类的字和「实」档都不画。
+        void BrightFx(ShotAura aura, bool naked)
+        {
+            bool on = ShotSparks.Bright && !naked;
+            bool flare = on && aura.Glow.a > 0f;
+            bool glint = on && aura.Glint.a > 0f;
+            if (_flare != null) _flare.enabled = flare;
+            if (_glint != null) _glint.enabled = glint;
+            if (!flare && !glint) return;
+            Undistort(out float kx, out float ky);
+            float pulse = 1f + 0.12f * Mathf.Sin(Time.time * 14f + _bid);
+            if (flare)
+            {
+                if (_flare == null) _flare = Spawn("flare");
+                _flare.enabled = true;
+                _flare.sprite = InkFx.SoftDisc();
+                _flare.sortingOrder = 5;
+                InkFx.PaintAdd(_flare, aura.Glow);
+                _flare.transform.localPosition = Vector3.zero;
+                float f = aura.Flare * pulse;
+                _flare.transform.localScale = new Vector3(f * kx, f * ky, 1f);
+            }
+            if (glint)
+            {
+                if (_glint == null) _glint = Spawn("glint");
+                _glint.enabled = true;
+                _glint.sprite = ShotSparks.SpriteOf(SparkKind.Spark);
+                _glint.sortingOrder = 10;
+                InkFx.PaintAdd(_glint, aura.Glint);
+                _glint.transform.localPosition = Vector3.zero;
+                _glint.transform.localRotation = Quaternion.Euler(0f, 0f, Time.time * 180f);
+                float g = aura.GlintScale * pulse;
+                _glint.transform.localScale = new Vector3(g * kx, g * ky, 1f);
+            }
         }
 
         struct NakedShot
@@ -305,24 +407,6 @@ namespace InkLine
             sr.transform.localScale = new Vector3(body.Scale * kx, body.Scale * ky, 1f);
             sr.sortingOrder = 7;
             InkFx.PaintSprite(sr, tint);
-        }
-
-        void Orbit(ref SpriteRenderer sr, string name, SlotLook slot, float phase)
-        {
-            if (!slot.On)
-            {
-                if (sr != null) sr.enabled = false;
-                return;
-            }
-            if (sr == null) sr = Spawn(name);
-            float t = Time.unscaledTime * 3.4f + phase;
-            sr.enabled = true;
-            sr.sprite = InkFx.SoftDisc();
-            sr.transform.localPosition = new Vector3(Mathf.Cos(t) * 0.42f, Mathf.Sin(t) * 0.24f, 0f);
-            sr.transform.localRotation = Quaternion.identity;
-            sr.transform.localScale = Vector3.one * 0.22f;
-            sr.sortingOrder = 8;
-            InkFx.PaintSoft(sr, Fade(slot.Tint, 0.46f));
         }
 
         // 本节点的缩放是非等比的：穿把它拉成 0.68 x 1.32，呼吸再叠一层反向的挤压。
