@@ -149,7 +149,7 @@ early = [f"{r['ch'] + 1}-{r['slot'] + 1}" for r in rows[:size - 1] if r["bosses"
 check(not early, "第一章前 8 关没有 boss")
 
 base = {}
-for m in re.finditer(r"case EnemyId\.(Boss\w+):[^\n]*\n\s*return new EnemyDef\(id,\s*([\d.]+)f\s*\*\s*t", enemy_src):
+for m in re.finditer(r"case EnemyId\.(Boss\w+):[^\n]*\n\s*return new EnemyDef\(id,\s*([\d.]+)f,", enemy_src):
     base[m.group(1)] = float(m.group(2))
 check(len(base) == 8, f"从 EnemyCatalog 抓到八只 boss 的基础血: {len(base)}")
 
@@ -229,12 +229,25 @@ check(not unreadable, "全部 isReadable: 1（Flash 要 GetPixels）"
       if not unreadable else f"关掉了可读: {unreadable}")
 
 # ---------- 经济 ----------
-# 照 StageCatalog.Price 重算一遍：赏金按 Density 铺开、每只保底 1，击杀墨按 InkBudget，
-# 宝箱按掉率算期望。改装价格从钱袋推，墨价从 72 关首通总收入推。
+# 照 StageCatalog.Price 重算一遍：掉落是怪自己的固定属性，按 Density 铺开后每只掉满，
+# 章节系数 DropMul 和丰年/疾行倍率分两次套、每次保底 1；宝箱按掉率算期望。
+# 抽牌费用由「开放格数 × 目标抽牌数」反推，墨价从 72 关首通总收入推。
 print("\n经济（金币 / 改装 / 墨）")
-gold_of = {m.group(1): int(m.group(2)) for m in re.finditer(
-    r"case EnemyId\.(\w+):[^\n]*\n\s*return new EnemyDef\(id,\s*[\d.]+f\s*\*\s*t,\s*[\d.]+f,\s*(\d+)", enemy_src)}
-gold_of.setdefault("Walker", 2)
+drop_of = {m.group(1): (int(m.group(2)), float(m.group(3))) for m in re.finditer(
+    r"case EnemyId\.(\w+):[^\n]*\n\s*return new EnemyDef\(id,\s*[\d.]+f,\s*[\d.]+f,\s*(\d+),\s*([\d.]+)f", enemy_src)}
+drop_of.setdefault("Walker", (2, 0.28))
+hp_base = {m.group(1): float(m.group(2)) for m in re.finditer(
+    r"case EnemyId\.(\w+):[^\n]*\n\s*return new EnemyDef\(id,\s*([\d.]+)f,", enemy_src)}
+hp_base.setdefault("Walker", 4.5)
+drop_pow = float(re.search(r"DropMul\(float t\) => Mathf\.Pow\(.+,\s*([\d.]+)f\)", enemy_src).group(1))
+wave_span = [float(x) for x in re.findall(
+    r"[\d.]+", re.search(r"ChapterWaveSpan\s*=\s*\{([^}]*)\}", core_src).group(1))]
+picks_per_cell = float(re.search(r"DraftPicksPerCell\s*=\s*([\d.]+)f", core_src).group(1))
+budget_share = float(re.search(r"DraftBudgetShare\s*=\s*([\d.]+)f", core_src).group(1))
+
+
+def drop(v, mul):
+    return 0 if v <= 0 else max(1, round(v * mul))
 dens_body = re.search(r"static int Density\(EnemyId id\)(.*?)\n        \}", enemy_src, re.S).group(1)
 density = {}
 pending = []
@@ -249,77 +262,176 @@ for line in dens_body.splitlines():
         pending = []
 chest_chance = float(re.search(r"ChestChance\s*=\s*([\d.]+)f", core_src).group(1))
 chest_gold_share = float(re.search(r"ChestGoldShare\s*=\s*([\d.]+)f", core_src).group(1))
-draft_ref = float(re.search(r"DraftRefPurse\s*=\s*([\d.]+)f", core_src).group(1))
 first_cost = int(re.search(r"FirstDraftCost\s*=\s*(\d+)", const_src).group(1))
-cost_step = int(re.search(r"DraftCostStep\s*=\s*(\d+)", const_src).group(1))
 start_gold = 6
 
 
-def spawns_of(r):
+def call_args(src, at):
+    """从 '名字(' 的左括号开始，配对括号取出整段实参。"""
+    depth, i = 0, at
+    while i < len(src):
+        if src[i] == "(":
+            depth += 1
+        elif src[i] == ")":
+            depth -= 1
+            if depth == 0:
+                return src[at + 1:i], i + 1
+        i += 1
+    return "", len(src)
+
+
+def waves_of(r):
+    """逐波拆，并复刻 StageCatalog.Pace/Tile：非关底波按每章目标时长平铺。
+
+    平铺会把出场表整体后移一轮再追加一遍，所以怪量和波长都要跟着算，
+    不然经济和时长全对不上。
+    """
     src = read("Data", f"StageChapter{r['ch'] + 1}.cs")
     starts = [m.start() for m in re.finditer(r"s\.Add\(P\(", src)] + [len(src)]
     b = src[starts[r["slot"]]:starts[r["slot"] + 1]]
-    out = [(e, int(n) if n else 1) for e, _, n in
-           re.findall(r"S\([\d.]+f,\s*(\w+)(?:,\s*(-?\d+))?(?:,\s*(\d+))?\)", b)]
-    boss = re.search(r"\bBoss\((Boss\w+)", b)
-    if boss:
-        out += [(boss.group(1), 1)] * (2 if boss.group(1) == "BossTwin" else 1)
+    span = wave_span[min(r["ch"], len(wave_span) - 1)]
+
+    out, i = [], 0
+    while True:
+        m = re.compile(r"\b(W|Boss)\(").search(b, i)
+        if not m:
+            break
+        body, i = call_args(b, m.end() - 1)
+        specs = [(float(t), e, int(n) if n else 1) for t, e, _, n in
+                 re.findall(r"S\(([\d.]+)f,\s*(\w+)(?:,\s*(-?\d+))?(?:,\s*(\d+))?\)", body)]
+        if m.group(1) == "Boss":
+            boss = re.match(r"\s*(Boss\w+)", body).group(1)
+            n_boss = 2 if boss == "BossTwin" else 1
+            last = max([t for t, _, _ in specs], default=0.0)
+            out.append(dict(boss=True, dur=max(20.0, last + 10.0),
+                            specs=[(boss, n_boss)] + [(e, n) for _, e, n in specs]))
+            continue
+        if not specs:
+            continue
+        last = max(t for t, _, _ in specs)
+        step_t = last + 1.5
+        rounds = max(1, round(span / step_t)) if step_t > 0.1 else 1
+        end = last + (rounds - 1) * step_t
+        out.append(dict(boss=False, dur=max(span, end + 5.5),
+                        specs=[(e, n) for _, e, n in specs] * rounds))
     return out
 
 
 def econ(r):
     mul = (1.5 if "Rich" in r["rules"] else 1) * (1.2 if "Swift" in r["rules"] else 1)
+    t = hp_of(r["ch"], r["slot"])
+    dmul = max(0.1, t) ** drop_pow
     gold = kills = 0
-    for e, n in spawns_of(r):
-        boss = e.startswith("Boss")
-        count = n * density.get(e, 1)
-        if "Rich" in r["rules"] and not boss:
-            count = -(-count * 5 // 4)
-        purse = max(1, int(n * gold_of.get(e, 2) * mul + 0.5))
-        gold += sum(max(1, purse // count + (1 if i < purse % count else 0)) for i in range(count))
-        if not boss:
-            kills += count
-    finale = r["slot"] == size - 1
-    ink = round((10 + 6 * r["ch"] + r["slot"]) * (1.5 if finale else 1))
+    ink = hp_total = dur_total = 0.0
+    for w in waves_of(r):
+        dur_total += w["dur"]
+        for e, n in w["specs"]:
+            boss = e.startswith("Boss")
+            count = n * density.get(e, 1)
+            if "Rich" in r["rules"] and not boss:
+                count = -(-count * 5 // 4)
+            g, k = drop_of.get(e, (2, 1))
+            gold += count * drop(drop(g, dmul), mul)
+            ink += count * k * dmul * mul
+            hp_total += count * hp_base.get(e, 4.5) * t
+            if not boss:
+                kills += count
     cg = max(3, round(gold * 0.05))
     ci = max(2, round(ink * 0.15))
     chests = kills * chest_chance + (1 if r["bosses"] else 0)
     purse_all = gold + round(chests * chest_gold_share * cg)
-    m_ = max(1.0, (purse_all / draft_ref) ** 0.4)
-    first_d, step = round(first_cost * m_), max(1, round(cost_step * m_))
-    # 金币的七成花在改装上，余下留给技能。数一数买得起几次。
-    budget, n_d, spent = (purse_all + start_gold) * 0.7, 0, 0
-    while spent + first_d + n_d * step <= budget:
-        spent += first_d + n_d * step
+
+    open_n = max(1, len(open_cells(r)))
+    n_want = min(max(round(open_n * picks_per_cell), open_n + 2), open_n * 3)
+    budget = (purse_all + start_gold) * budget_share
+    first_d = max(first_cost, round(budget / n_want * 0.5))
+    step = max(0.0, 2 * (budget - n_want * first_d) / (n_want * (n_want - 1))) if n_want > 1 else 0.0
+    # 数一数这局的钱实际买得起几次抽牌。
+    n_d, spent = 0, 0.0
+    while spent + round(first_d + n_d * step) <= budget:
+        spent += round(first_d + n_d * step)
         n_d += 1
     ink_all = ink + chests * (1 - chest_gold_share) * ci
-    old = (6 + 3 * r["ch"] + r["slot"] + 12) * (2 if finale else 1)
-    if "Frail" in r["rules"] or "NoSpell" in r["rules"]:
-        old = old * 3 // 2
-    return dict(gold=gold, purse=purse_all, first=first_d, step=step, drafts=n_d, ink=ink_all, old=old)
+    return dict(gold=gold, purse=purse_all, first=first_d, step=step, drafts=n_d, ink=ink_all,
+                chests=chests, open=open_n, want=n_want, hp=hp_total, dur=dur_total)
 
 
 eco = [econ(r) for r in rows]
+# 抽牌起价现在是由「钱袋 ÷ 目标抽牌数」反推的，不再是一条自己写死的曲线，
+# 所以只看它别掉到下限以下、且后期确实比前期贵，逐关的小起伏是内容差异，正常。
 ch_first = [sum(e["first"] for e, r in zip(eco, rows) if r["ch"] == ch) / size for ch in range(chapters)]
-back = [f"第 {k + 1} 章" for k in range(1, chapters) if ch_first[k] < ch_first[k - 1]]
-check(not back, "改装起价（章均）逐章不降: " + " / ".join(f"{x:.1f}" for x in ch_first))
-fin_first = [e["first"] for e, r in zip(eco, rows) if r["slot"] == size - 1]
-back = [f"第 {k + 1} 章" for k in range(1, chapters) if fin_first[k] < fin_first[k - 1]]
-check(not back, "章底改装起价逐章不降: " + " / ".join(map(str, fin_first)))
+check(min(e["first"] for e in eco) >= first_cost, f"抽牌起价都不低于下限 {first_cost}")
+check(ch_first[-1] > ch_first[0] * 2, "抽牌起价末章明显高于首章: "
+      + " / ".join(f"{x:.1f}" for x in ch_first))
 ink_total = round(sum(e["ink"] for e in eco))
-old_total = sum(e["old"] for e in eco)
+
+# 单局成长：一局的钱至少要够把开放格子铺满，第三章起还要够把大半格子顶到二三星。
+# 铺不满，玩家一局里就永远看不到盘面长成型，也就没有「变强」那一下。
+thin = [f"{r['ch'] + 1}-{r['slot'] + 1}({e['drafts']}<{e['open']})"
+        for e, r in zip(eco, rows) if e["drafts"] < e["open"]]
+check(not thin, "每关的钱都够铺满棋盘" + ("" if not thin else ": " + ", ".join(thin)))
+off = [f"{r['ch'] + 1}-{r['slot'] + 1}({e['drafts']}/{e['open']})"
+       for e, r in zip(eco, rows) if r["ch"] >= 2 and not 1.5 <= e["drafts"] / e["open"] <= 2.2]
+check(not off, "第三章起单局抽牌数落在开放格数的 1.5~2.2 倍" + ("" if not off else ": " + ", ".join(off)))
+ch_draft = [sum(e["drafts"] for e, r in zip(eco, rows) if r["ch"] == ch) / size for ch in range(chapters)]
+print("  单局抽牌（章均）: " + " / ".join(f"{x:.1f}" for x in ch_draft))
+
+# 章间收入跨度：掉落跟着怪走之后整关收入是波次表加出来的和，没有公式兜底，
+# 手写波次很容易把经济带漂，所以这里盯住它逐章上升、总跨度不失控。
+ch_ink = [sum(e["ink"] for e, r in zip(eco, rows) if r["ch"] == ch) for ch in range(chapters)]
+# 留 5% 容差：相邻两章差个一两个百分点是编队差异，差出一成以上才是内容缺口。
+back = [f"第 {k + 1} 章" for k in range(1, chapters) if ch_ink[k] < ch_ink[k - 1] * 0.95]
+check(not back, "章墨收入逐章不明显下滑: " + " / ".join(f"{x:.0f}" for x in ch_ink)
+      + ("" if not back else "  回退于 " + ", ".join(back)))
+ink_span = ch_ink[-1] / max(1, ch_ink[0])
+check(8.0 <= ink_span <= 15.0,
+      f"末章 / 首章墨收入 = {ink_span:.2f}（要 8~15：末章一局约长两倍半也难得多，"
+      f"收益该高出一截，但高过 15 倍前期就白刷了）")
+
+# 战力裕度：需 DPS 是「整关总血 ÷ 波次总时长」，满配 DPS 按当时能买到的锻造等级算。
+# 单位任意，看的是比值的走势 —— 裕度应当逐章缓降，不能像原来那样从 5.6 塌到 2.9。
+def forged_at(cleared):
+    mul = 1.0
+    emit = 2
+    interval = 1.0
+    for m in re.finditer(r'Name = "([^"]+)", Stat[^\n]*Amount = ([\d.]+)f[^\n]*\n[^\n]*\n\s*'
+                         r'Cost = new\[\] \{[^}]*\},\s*Gate = new\[\] \{([^}]*)\}', forge_src):
+        name, amount = m.group(1), float(m.group(2))
+        lv = sum(1 for g in re.findall(r"\d+", m.group(3)) if int(g) <= cleared)
+        if name == "伤害":
+            mul = 1 + amount * 0.01 * lv
+        elif name == "炮台数":
+            emit = min(2 + int(amount) * lv, max_emitters)
+        elif name == "射速":
+            interval = max(0.2, 1 - amount * 0.01 * lv)
+    return emit / interval * mul
+
 
 forge_src = read("Data", "ForgeCatalog.cs")
+max_emitters = int(re.search(r"MaxEmitters\s*=\s*(\d+)", const_src).group(1))
+head = []
+for ch in range(chapters):
+    part = [e for e, r in zip(eco, rows) if r["ch"] == ch]
+    need = sum(e["hp"] for e in part) / max(1.0, sum(e["dur"] for e in part))
+    head.append(forged_at(ch * size) / need)
+# 解锁新炮台那几章会有台阶式的回弹，属于设计意图，所以不要求严格单调，
+# 只盯住整条曲线别塌：最低处不能比最高处低一半，末章不能比首章低三成。
+print("  战力裕度: " + " / ".join(f"{x:.2f}" for x in head))
+check(min(head) / max(head) >= 0.5,
+      f"战力裕度最低 / 最高 = {min(head) / max(head):.2f}（要 ≥0.50）")
+slump = head[-1] / head[0]
+check(slump >= 0.7, f"末章裕度 / 首章裕度 = {slump:.2f}（要 ≥0.70，低于此说明后期战力跟不上血量）")
 spell_src = read("Data", "SpellCatalog.cs")
 forge_cost = sum(int(x) for grp in re.findall(r"Cost = new\[\] \{([^}]*)\}", forge_src) for x in re.findall(r"\d+", grp))
 spell_prices = [int(x) for x in re.findall(r"GoldCost = \d+, Price = (\d+)", spell_src)]
 max_lv = int(re.search(r"MaxLevel = (\d+)", spell_src).group(1))
-spell_cost = sum(p + lv * max(8, p // 4) for p in spell_prices for lv in range(max_lv))
+price_step = int(re.search(r"step = Mathf\.Max\(40, d\.Price / (\d+)\)", spell_src).group(1))
+spell_cost = sum(p + lv * max(40, p // price_step) for p in spell_prices for lv in range(max_lv))
 skin_cost = sum(int(x) for x in re.findall(r"Name = \"[^\"]+\",[^\n]*Price = (\d+)", spell_src))
 sink = forge_cost + spell_cost + skin_cost
 # 买满的节奏和旧版一致：总价约为首通收入的 2.4~3 倍（旧版 2.7），剩下的靠重刷和每日首胜。
 ratio = sink / max(1, ink_total)
-check(2.4 <= ratio <= 3.0, f"墨价 / 首通墨收入 = {sink} / {ink_total} = {ratio:.2f}（旧收入 {old_total}）")
+check(2.4 <= ratio <= 3.0, f"墨价 / 首通墨收入 = {sink} / {ink_total} = {ratio:.2f}")
 print(f"  墨价明细：锻造 {forge_cost}  技能 {spell_cost}  皮肤 {skin_cost}")
 
 # 炮台升级门槛：逐级不降、不超总关数、露面那一关就能买第一级，最后一级留到后几章。
@@ -333,8 +445,9 @@ for m in re.finditer(r'Name = "([^"]+)", Stat[^\n]*\n[^\n]*Reveal = (\d+)[^\n]*\
     check(ok, f"炮台 {name}：门槛 {gate}  墨价 {cost}")
 for ch in range(chapters):
     part = [(e, r) for e, r in zip(eco, rows) if r["ch"] == ch]
-    print(f"  第 {ch + 1} 章  金币 " + " ".join(f"{e['purse']:>3}" for e, _ in part)
-          + "  改装 " + " ".join(f"{e['first']}+{e['step']}×{e['drafts']}" for e, _ in part)
+    print(f"  第 {ch + 1} 章  金币 " + " ".join(f"{e['purse']:>4}" for e, _ in part)
+          + "  抽牌 " + " ".join(f"{e['drafts']:>2}" for e, _ in part)
+          + f"  时长 {sum(e['dur'] for e, _ in part) / size:>5.0f}s"
           + f"  墨 {round(sum(e['ink'] for e, _ in part))}")
 
 # ---------- 明细表 ----------

@@ -17,6 +17,11 @@ namespace InkLine
 
         public int SlotSpell(int slot) => slot >= 0 && slot < _slots.Length ? _slots[slot] : -1;
 
+        // 技能伤害的标尺：一发不带字的炮弹打多少，含皮肤加成和锻造伤害线。
+        // 技能全写成它的倍数，否则「满级墨爆 14 点」打第八章 140 血的墨尊毫无意义。
+        // 「强攻」不进来 —— 它是临时增益，叠上技能会让一套连招直接抹掉半场。
+        public float ShotBase => (ShotMods.DefaultBase + _skinDamage) * _damageMul;
+
         public int SlotGoldCost(int slot)
         {
             int id = SlotSpell(slot);
@@ -122,7 +127,7 @@ namespace InkLine
             if (head == null) return;
             int lv = RankOf((int)SpellId.Burst);
             float r = 1.05f + 0.12f * lv;
-            float dmg = 4f + 2f * lv;
+            float dmg = ShotBase * SpellCatalog.BurstMul(lv);
             Vector2 at = head.Pos;
             for (int i = 0; i < Enemies.Count; i++)
             {
@@ -166,7 +171,7 @@ namespace InkLine
         void CastSweep()
         {
             int lv = RankOf((int)SpellId.Sweep);
-            float dmg = 3f + 2f * lv;
+            float dmg = ShotBase * SpellCatalog.SweepMul(lv);
             float knock = 0.7f + 0.2f * lv;
             for (int i = 0; i < Enemies.Count; i++)
             {
@@ -202,7 +207,7 @@ namespace InkLine
             }
             if (best < 0) return;
             int lv = RankOf((int)SpellId.Splash);
-            float dps = 2f + lv;
+            float dps = ShotBase * SpellCatalog.SplashMul(lv);
             float time = 2.2f + 0.6f * lv;
             float bx = FieldLayout.ColumnX(best);
             for (int i = 0; i < Enemies.Count; i++)
@@ -232,7 +237,7 @@ namespace InkLine
         void CastFrost()
         {
             int lv = RankOf((int)SpellId.Frost);
-            float dmg = 3f + lv;
+            float dmg = ShotBase * SpellCatalog.FrostMul(lv);
             float factor = Mathf.Max(0.4f, 0.58f - 0.04f * (lv - 1));
             float time = 1.6f + 0.3f * lv;
             for (int i = 0; i < Enemies.Count; i++)
@@ -277,7 +282,7 @@ namespace InkLine
             EnemyActor head = FrontMost();
             if (head == null) return;
             int lv = RankOf((int)SpellId.Snipe);
-            SpellHit(head, 10f + 5f * lv, InkTheme.Thunder);
+            SpellHit(head, ShotBase * SpellCatalog.SnipeMul(lv), InkTheme.Thunder);
             Bursts.Add(new FxBurst { Pos = head.Pos, Kind = HitFx.Heavy, Tint = InkTheme.ThunderHi, Scale = 1.6f });
             PulseHitStop(0.08f);
             AddShake(0.32f);

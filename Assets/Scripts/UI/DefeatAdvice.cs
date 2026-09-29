@@ -52,7 +52,7 @@ namespace InkLine
             ForgeDef d = ForgeCatalog.Get(best);
             into.Add(new Advice
             {
-                Icon = InkSprites.Ui(d.Icon), Title = "升级" + d.Name, Line = d.Step,
+                Icon = InkSprites.Ui(d.Icon), Title = "升级" + d.Name, Line = ForgeCatalog.Step(best),
                 Need = NeedInk(meta.Ink, bestCost), Ready = meta.Ink >= bestCost, Tab = HomeScreen.TabForge
             });
         }

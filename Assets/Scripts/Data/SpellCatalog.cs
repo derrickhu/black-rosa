@@ -86,44 +86,58 @@ namespace InkLine
             return d.Shards + Mathf.Max(0, level) * step;
         }
 
-        // 墨价同样从解锁价往上爬，每级大约再贵三分之一，避免升满只比解锁贵一截。
+        // 墨价同样从解锁价往上爬。每级再贵四分之一 —— 三分之一那档把技能推成了
+        // 局外消耗的七成，练满一个技能比练满整条锻造线还贵，没人会去点第五级。
         public static int NextPrice(SpellDef d, int level)
         {
             if (level >= MaxLevel) return 0;
-            int step = Mathf.Max(40, d.Price / 3);
+            int step = Mathf.Max(40, d.Price / 4);
             return d.Price + Mathf.Max(0, level) * step;
         }
 
         // 按已经练到的等级写效果。0 级先展示 1 级会是什么样。
-        public static string Blurb(SpellDef d, int level)
+        // 伤害类技能一律写成「基础弹伤的几倍」。倍数就放在这里，
+        // BattleSpells 算伤害和加成页写文案读的是同一份，不会各写一遍再走岔。
+        public static float BurstMul(int lv) => 2.2f + 1.1f * lv;
+        public static float SweepMul(int lv) => 1.7f + 1.1f * lv;
+        public static float FrostMul(int lv) => 1.7f + 0.55f * lv;
+        public static float SnipeMul(int lv) => 5.6f + 2.8f * lv;
+        public static float SplashMul(int lv) => 1.1f + 0.55f * lv;   // 每秒
+
+        // shotBase 传玩家当前的基础弹伤（MetaProgress.ShotBase），
+        // 文案上仍然显示点数 —— 「7.7 倍弹伤」玩家换算不过来。
+        public static string Blurb(SpellDef d, int level, float shotBase)
         {
             int lv = Mathf.Clamp(level <= 0 ? 1 : level, 1, MaxLevel);
+            float b = shotBase > 0f ? shotBase : ShotMods.DefaultBase;
             switch (d.Id)
             {
                 case SpellId.Burst:
-                    return "最前排炸开一圈，" + (4 + 2 * lv) + " 点伤害";
+                    return "最前排炸开一圈，" + Pts(b * BurstMul(lv)) + " 点伤害";
                 case SpellId.Halt:
                     return "全场敌人定住 " + Sec(1.2f + 0.4f * lv) + " 秒";
                 case SpellId.Rage:
                     return (4 + lv) + " 秒内炮弹伤害 " + (2 + (lv - 1) / 2) + " 倍";
                 case SpellId.Sweep:
-                    return "全屏 " + (3 + 2 * lv) + " 点伤害并击退";
+                    return "全屏 " + Pts(b * SweepMul(lv)) + " 点伤害并击退";
                 case SpellId.Splash:
-                    return "那一列灼烧 " + Sec(2.2f + 0.6f * lv) + " 秒";
+                    return "那一列灼烧 " + Sec(2.2f + 0.6f * lv) + " 秒，每秒 " + Pts(b * SplashMul(lv)) + " 点";
                 case SpellId.Mend:
                     return "基地回 " + (1 + (lv - 1) / 2) + " 血" + (lv >= MaxLevel ? "，可放两次" : "，每局限一次");
                 case SpellId.Frost:
-                    return "全场 " + (3 + lv) + " 点冰伤，并减速";
+                    return "全场 " + Pts(b * FrostMul(lv)) + " 点冰伤，并减速";
                 case SpellId.Slow:
                     return "全场减速 " + Sec(2.4f + 0.45f * lv) + " 秒";
                 case SpellId.Snipe:
-                    return "最前一个 " + (10 + 5 * lv) + " 点";
+                    return "最前一个 " + Pts(b * SnipeMul(lv)) + " 点";
                 default:
                     return d.Desc;
             }
         }
 
         static string Sec(float t) => t.ToString("0.0");
+
+        static string Pts(float v) => Mathf.Max(1, Mathf.RoundToInt(v)).ToString();
     }
 
     public struct SkinDef

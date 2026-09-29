@@ -14,6 +14,7 @@ namespace InkLine
         public float Speed;
         public float Radius;
         public int Gold;
+        public float Ink;
         public bool Shield;
         public bool Strafe;
         public bool PreferEmpty;
@@ -236,7 +237,7 @@ namespace InkLine
         int[] _stunStar;
 
         public int DraftCost => Stage != null
-            ? Stage.DraftFirst + DraftCount * Stage.DraftStep
+            ? Mathf.RoundToInt(Stage.DraftFirst + DraftCount * Stage.DraftStep)
             : GameConstants.FirstDraftCost + DraftCount * GameConstants.DraftCostStep;
         public bool CanDraft => Gold >= DraftCost && !Victory && !Defeat;
         public int AliveEnemies
@@ -479,10 +480,10 @@ namespace InkLine
             int count = spec.Count * mul;
             if (Stage.Has(StageRule.Rich) && !EnemyIds.IsBoss(spec.Id))
                 count = Mathf.CeilToInt(count * 1.25f);
-            // 只摊赏金，不摊血。原先连血一起除，墨丁 4.5 ÷ 2 = 2.25，
-            // 开局弹伤 2.4，铺开的每一只都是一发死 —— 场上人多，难度反而没了。
-            // 赏金保底 1，总收入仍按关卡表原来那几只算。
-            int purse = Mathf.Max(1, Mathf.RoundToInt(spec.Count * EnemyCatalog.Get(spec.Id, Stage.Hp).Gold * GoldMul));
+            // 密度只管铺开身位，血和掉落都不摊 —— 每只吃满表血、掉满自己那份。
+            // 原先连血一起除，墨丁 4.5 ÷ 2 = 2.25，开局弹伤 2.4，铺开的每一只
+            // 都是一发死，场上人多难度反而没了；而只摊赏金又让同一只怪在不同关
+            // 掉的钱不一样，玩家学不到「先打谁更值」。
             for (int i = 0; i < count; i++)
             {
                 int col = spec.Column;
@@ -492,8 +493,7 @@ namespace InkLine
                 var at = new Vector2(
                     FieldLayout.ColumnX(col) + UnityEngine.Random.Range(-0.1f, 0.1f),
                     GameConstants.SpawnY + i / 3 * 0.62f + UnityEngine.Random.Range(0f, 0.12f));
-                int gold = Mathf.Max(1, purse / count + (i < purse % count ? 1 : 0));
-                Enemies.Add(Make(spec.Id, at, 1f, gold));
+                Enemies.Add(Make(spec.Id, at));
             }
         }
 
@@ -506,11 +506,13 @@ namespace InkLine
 
         // 特性拷贝只写这一遍。裂出来的墨粒也走这里 —— 否则哪天加了新特性，
         // 很容易只在 Spawn 里拷了，分裂出来的那批悄悄少一个字段。
-        EnemyActor Make(EnemyId id, Vector2 at, float hpShare = 1f, int gold = -1)
+        EnemyActor Make(EnemyId id, Vector2 at, float hpShare = 1f)
         {
             EnemyDef def = EnemyCatalog.Get(id, Stage.Hp);
             float hp = Mathf.Max(1f, def.Hp * hpShare);
             float speed = Stage.Has(StageRule.Swift) ? def.Speed * 1.2f : def.Speed;
+            // 丰年、疾行按只加成。以前是把整波的钱袋乘完再摊，玩家看不出哪一只变值钱了。
+            float drop = GoldMul;
             var e = new EnemyActor
             {
                 Id = NextActorId++,
@@ -521,7 +523,8 @@ namespace InkLine
                 HpShare = hpShare,
                 Speed = speed,
                 Radius = def.Radius,
-                Gold = gold >= 0 ? gold : def.Gold,
+                Gold = EnemyCatalog.Drop(def.Gold, drop),
+                Ink = def.Ink * drop,
                 Shield = def.HasShield,
                 Strafe = def.Strafe,
                 PreferEmpty = def.PreferEmpty,
@@ -580,10 +583,10 @@ namespace InkLine
                 Vel = dir.normalized * GameConstants.BulletSpeed,
                 NextRow = 0
             };
-            // 皮肤先把单发默认伤害加上，炮台伤害和「强攻」照旧乘。分裂弹靠 CopyFrom 继承。
+            // 皮肤加的是单发默认伤害，算在基础里；炮台伤害线和「强攻」是终乘，
+            // 要连金字的加算一起放大。分裂弹靠 CopyFrom 继承。
             b.Mods.BaseDamage += _skinDamage;
-            b.Mods.BaseDamage *= _damageMul;
-            if (RageTime > 0f) b.Mods.BaseDamage *= RageMul;
+            b.Mods.FinalMul = _damageMul * (RageTime > 0f ? RageMul : 1f);
             Bullets.Add(b);
             return b;
         }
@@ -733,7 +736,9 @@ namespace InkLine
         void RainArrows(int col, int star, BulletActor src)
         {
             WordDef w = GlyphTable.Word(WordId.ArrowRain);
-            float dmg = w.Damage.At(star);
+            // 表里存的是倍数。这里只乘皮肤那部分，锻造伤害线由 ResolveHit 的
+            // FinalMul 统一乘，不然会乘两遍。
+            float dmg = (ShotMods.DefaultBase + _skinDamage) * w.Damage.At(star);
             int cap = w.Count.IntAt(star);
             int n = 0;
             float x = FieldLayout.ColumnX(col);
@@ -986,6 +991,8 @@ namespace InkLine
             else dmg = dmg * m.MulDamage + m.AddDamage;
             // 霰雷：打在已冻结的目标上算碎冰
             if (m.Shatter && e.Frozen) dmg *= 1.4f;
+            // 4.2 局外成长的终乘。排在盘面加算之后，炮台伤害线才真的在放大整发伤害。
+            dmg *= m.FinalMul;
 
             // 4.5 甲：每发固定减伤，放在乘算之后、斩杀之前。
             // 放这里有两个原因：一是减伤要吃满所有增伤，不然重击流被削两次；
@@ -1362,10 +1369,10 @@ namespace InkLine
         void DropLoot(EnemyActor e)
         {
             Scatter(e, DropKind.Gold, e.Gold, Mathf.Clamp(e.Gold, 1, e.IsBoss ? 14 : 4));
-            // 墨按关卡预算摊到赏金上，一只小兵常常不到 1 滴，零头攒着，满 1 才淌一摊。
+            // 墨是怪自己的掉落。杂兵写 0，中段以上才出墨 —— 零头攒着，满 1 才淌一摊。
             // 墨只出一摊。它是尸体留在地上那摊，不是一把零钱 ——
             // 一只怪摊开好几摊，看着就不像同一具身体流出来的了。
-            _inkCarry += e.Gold * (float)Stage.InkBudget / Mathf.Max(1, Stage.KillGold);
+            _inkCarry += e.Ink;
             int ink = Mathf.FloorToInt(_inkCarry);
             if (ink > 0)
             {

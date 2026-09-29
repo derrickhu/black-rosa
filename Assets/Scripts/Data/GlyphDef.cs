@@ -44,24 +44,54 @@ namespace InkLine
     }
 
     // 三档数值。星只放大数字，★3 才允许加新动词。
+    // 每星一个数。名字还叫 Tri 是因为现在 MaxStar = 3，但内部按数组存：
+    // 以后把星级上限提到四星五星，超出表长的那几星按末两项的比例等比往上续，
+    // 25 个字不用逐条补表。
     public readonly struct Tri
     {
-        readonly float _s1;
-        readonly float _s2;
-        readonly float _s3;
+        readonly float[] _v;
 
         public Tri(float s1, float s2, float s3)
         {
-            _s1 = s1;
-            _s2 = s2;
-            _s3 = s3;
+            _v = new[] { s1, s2, s3 };
         }
 
-        public Tri(float flat) : this(flat, flat, flat) { }
+        public Tri(float flat)
+        {
+            _v = new[] { flat };
+        }
 
-        public float At(int star) => star <= 1 ? _s1 : star == 2 ? _s2 : _s3;
+        public Tri(params float[] perStar)
+        {
+            _v = perStar != null && perStar.Length > 0 ? perStar : null;
+        }
+
+        public float At(int star)
+        {
+            if (_v == null) return 0f;
+            int i = Mathf.Max(1, star) - 1;
+            if (i < _v.Length) return _v[i];
+            int n = _v.Length;
+            float last = _v[n - 1];
+            if (n < 2 || _v[n - 2] == 0f) return last;
+            // 末两项的比值就是这条线自己的成长节奏，照着它往上推。
+            // 夹一下上限，免得某条表末两项差得离谱时外推炸掉。
+            float ratio = Mathf.Clamp(last / _v[n - 2], 1f, 4f);
+            return last * Mathf.Pow(ratio, i - (n - 1));
+        }
+
         public int IntAt(int star) => Mathf.RoundToInt(At(star));
-        public bool Any => _s1 != 0f || _s2 != 0f || _s3 != 0f;
+
+        public bool Any
+        {
+            get
+            {
+                if (_v == null) return false;
+                for (int i = 0; i < _v.Length; i++)
+                    if (_v[i] != 0f) return true;
+                return false;
+            }
+        }
     }
 
     public sealed class GlyphDef
@@ -265,7 +295,8 @@ namespace InkLine
             {
                 Id = WordId.ArrowRain, Charge = 4,
                 Count = new Tri(3f, 4f, 6f),
-                Damage = new Tri(2.2f, 3.2f, 4.4f),
+                // 基础弹伤的倍数，不是点数 —— 写死点数的话新章节一定失效。
+                Damage = new Tri(1.2f, 1.75f, 2.4f),
                 Form = ShotFx.FormArrow, Hit = HitFx.Arrow
             },
             new WordDef

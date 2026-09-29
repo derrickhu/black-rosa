@@ -146,12 +146,13 @@ namespace InkLine
             _cast.text = d.GoldCost.ToString();
             _cast.color = InkTheme.TextDark;
 
-            string cur = SpellCatalog.Blurb(d, rank);
+            float shotBase = meta.ShotBase;
+            string cur = SpellCatalog.Blurb(d, rank, shotBase);
             _now.text = owned ? Tag("当前", Mid) + cur : Tag("当前", Mid) + "<color=#" + Mid + ">未解锁</color>";
             _now.color = InkTheme.TextDark;
             if (maxed) _next.text = Tag("下一级", Mid) + "<color=#" + Mid + ">已满级</color>";
             else if (!owned) _next.text = Tag("解锁后", Green) + cur;
-            else _next.text = Tag("下一级", Green) + Lift(cur, SpellCatalog.Blurb(d, rank + 1));
+            else _next.text = Tag("下一级", Green) + Lift(cur, SpellCatalog.Blurb(d, rank + 1, shotBase));
             _next.color = InkTheme.TextDark;
 
             bool showNeed = !maxed;

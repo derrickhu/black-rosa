@@ -22,9 +22,17 @@ namespace InkLine
         readonly int[] _star = new int[CardCatalog.IdCount];
         readonly List<StatusHit> _status = new List<StatusHit>();
 
-        public float BaseDamage = 1.8f;
+        // 一发不带任何字的炮弹打多少。技能和成词伤害都按它的倍数写，
+        // 这样锻造伤害线一升，它们跟着涨，新章节也不会失效。
+        public const float DefaultBase = 1.8f;
+
+        public float BaseDamage = DefaultBase;
         public float AddDamage;        // 金，加算池，最先算
         public float MulDamage = 1f;   // 重，乘算池，最后算
+        // 局外成长（炮台伤害线、强攻）走这里，乘在加算和乘算都算完之后。
+        // 乘在 BaseDamage 上的话，同列三个金字★3 那 +10.8 的加算完全吃不到，
+        // 满级伤害线对一发总伤只剩 +19%。
+        public float FinalMul = 1f;
         public float Decay = 1f;       // 道族衰减：分裂 / 穿透
         public float Leech;            // 木，结算总伤转吸血的比例
         public float LeechCap;
@@ -151,6 +159,7 @@ namespace InkLine
             BaseDamage = src.BaseDamage;
             AddDamage = src.AddDamage;
             MulDamage = src.MulDamage;
+            FinalMul = src.FinalMul;
             Decay = src.Decay;
             Leech = src.Leech;
             LeechCap = src.LeechCap;

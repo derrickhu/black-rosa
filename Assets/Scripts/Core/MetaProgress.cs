@@ -339,6 +339,11 @@ namespace InkLine
                 return ForgeCatalog.Stats(Forge);
             }
         }
+        // 技能和成词伤害的标尺：一发不带字的炮弹打多少。加成页要按玩家当前的
+        // 锻造和皮肤把倍数换算成点数显示，所以这里也要有一份。
+        public float ShotBase =>
+            (ShotMods.DefaultBase + SkinCatalog.Get(Skin).DamageAdd) * Forged.DamageMul;
+
         public int StartEmitters => Forged.Emitters;
         public int StartGold => Forged.StartGold;
         public Color SkinTint => SkinCatalog.Get(Skin).Tint;

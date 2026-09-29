@@ -42,7 +42,7 @@ namespace InkLine
         public const int ClubInk = 50;
         public const int ClubShards = 1;
 
-        // 局内墨是这一局拾到的墨，通关时整笔入账。击杀掉多少按关卡的 InkBudget 摊，
+        // 局内墨是这一局拾到的墨，通关时整笔入账。每只怪掉多少写在 EnemyCatalog 里，
         // 紫宝箱另给一份。技能花的是本局金币，不花墨。
         public const int InkMax = 9999;
         public const int SpellSlots = 2;

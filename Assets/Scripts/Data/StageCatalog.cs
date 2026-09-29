@@ -91,12 +91,14 @@ namespace InkLine
         // KillGold 是击杀赏金总和；GoldPurse 再加上黄箱的期望值，改装定价按它走。
         public int KillGold;
         public int GoldPurse;
-        // 击杀墨预算：整关打完大约掉多少墨，按赏金比例摊到每只怪。
+        // 整关打完大约掉多少墨。掉落跟着怪走，这里只是把波次表加了一遍当统计用
+        // ——宝箱定价、结算页和校验脚本读它，它不再反过来决定每只怪掉多少。
         public int InkBudget;
         public int ChestGold;
         public int ChestInk;
         public int DraftFirst = GameConstants.FirstDraftCost;
-        public int DraftStep = GameConstants.DraftCostStep;
+        // 小数。由 Price 按目标抽牌数反推，凑整会让曲线一下差出好几次抽牌。
+        public float DraftStep = GameConstants.DraftCostStep;
 
         public bool Has(StageRule r) => (Rules & r) != 0;
 
@@ -317,6 +319,46 @@ namespace InkLine
             return new WaveDef(Mathf.Max(20f, last + 10f), list.ToArray());
         }
 
+        // 每章非关底波的目标时长。前两章短快，第三章格子开满之后拉长 ——
+        // 一局要够走完「铺满棋盘 → 升星」这条弧，否则棋盘永远是半空的，
+        // 玩家一局里根本体会不到变强。以后加章只往这张表后面加一个数。
+        static readonly float[] ChapterWaveSpan = { 12f, 14f, 18f, 19f, 23f, 22f, 23f, 23f };
+
+        // 把作者写的出场表按它自己的跨度平铺到目标时长。72 关手工加波次不现实，
+        // 也不利于扩章；平铺出来的后半段和前半段是同一套编队，节奏不会走样。
+        static WaveDef[] Pace(WaveDef[] waves, int chapter)
+        {
+            float span = ChapterWaveSpan[Mathf.Clamp(chapter, 0, ChapterWaveSpan.Length - 1)];
+            var outp = new WaveDef[waves.Length];
+            for (int i = 0; i < waves.Length; i++) outp[i] = Tile(waves[i], span);
+            return outp;
+        }
+
+        static WaveDef Tile(WaveDef w, float span)
+        {
+            SpawnSpec[] s = w.Spawns;
+            if (s.Length == 0) return w;
+            // 关底波不动：它不靠时间收尾，boss 不死不算过，铺第二遍就是刷两个 boss。
+            for (int i = 0; i < s.Length; i++)
+                if (EnemyIds.IsBoss(s[i].Id)) return w;
+
+            float last = 0f;
+            for (int i = 0; i < s.Length; i++) last = Mathf.Max(last, s[i].Time);
+            float step = last + 1.5f;   // 一轮的跨度，留一点呼吸再接下一轮
+            int rounds = step > 0.1f ? Mathf.Max(1, Mathf.RoundToInt(span / step)) : 1;
+            if (rounds <= 1) return new WaveDef(Mathf.Max(span, last + 5.5f), s);
+
+            var list = new List<SpawnSpec>(s.Length * rounds);
+            for (int r = 0; r < rounds; r++)
+            for (int i = 0; i < s.Length; i++)
+            {
+                SpawnSpec sp = s[i];
+                list.Add(new SpawnSpec(sp.Time + r * step, sp.Id, sp.Column, sp.Count));
+            }
+            float end = last + (rounds - 1) * step;
+            return new WaveDef(Mathf.Max(span, end + 5.5f), list.ToArray());
+        }
+
         static StageDef[] Build()
         {
             var plans = new List<Plan>();
@@ -349,7 +391,7 @@ namespace InkLine
                     OpenCells = p.Cells,
                     Mask = p.Mask,
                     Pool = p.Only ?? have.ToArray(),
-                    Waves = p.Waves,
+                    Waves = Pace(p.Waves, ch),
                     TeachDraft = p.TeachDraft,
                     TeachStar = p.TeachStar,
                     Rules = p.Rules,
@@ -367,16 +409,24 @@ namespace InkLine
         // 宝箱：普通怪的掉落率、黄箱占比。BattleWorld 掉箱和这里算期望用的是同一组数。
         public const float ChestChance = 0.08f;
         public const float ChestGoldShare = 0.7f;
-        const float DraftRefPurse = 45f;
+        // 一局的目标抽牌数：先把开放格子铺满，再把大半格子顶到二三星。
+        // 抽牌费用由它反推，所以以后加章、改棋盘大小都自动对得上，不用手调。
+        const float DraftPicksPerCell = 1.8f;
+        // 金币的七成花在改装上，余下留给技能。
+        const float DraftBudgetShare = 0.7f;
 
         public static float GoldMulOf(StageRule rules) =>
             ((rules & StageRule.Rich) != 0 ? 1.5f : 1f) * ((rules & StageRule.Swift) != 0 ? 1.2f : 1f);
 
-        // 和 BattleWorld.Spawn 同一套摊法：一行表按 Density 铺开，赏金按表里原来的只数摊，每只保底 1。
+        // 掉落跟着怪走，这里只是把整关加一遍当统计用：校验脚本、抽牌定价和结算页读它。
+        // 算法和 BattleWorld.Spawn + Make 必须一致 —— 按 Density 铺开，每只掉满自己那份，
+        // 章节系数和丰年/疾行倍率分两次套，每次都保底 1。
         static void Price(StageDef s)
         {
             float mul = GoldMulOf(s.Rules);
+            float drop = EnemyCatalog.DropMul(s.Hp);
             int gold = 0, kills = 0;
+            float ink = 0f;
             for (int w = 0; w < s.Waves.Length; w++)
             {
                 SpawnSpec[] list = s.Waves[w].Spawns;
@@ -386,21 +436,28 @@ namespace InkLine
                     bool boss = EnemyIds.IsBoss(sp.Id);
                     int count = sp.Count * EnemyCatalog.Density(sp.Id);
                     if (s.Has(StageRule.Rich) && !boss) count = Mathf.CeilToInt(count * 1.25f);
-                    int purse = Mathf.Max(1, Mathf.RoundToInt(sp.Count * EnemyCatalog.Get(sp.Id, 1f).Gold * mul));
-                    for (int i = 0; i < count; i++)
-                        gold += Mathf.Max(1, purse / count + (i < purse % count ? 1 : 0));
+                    EnemyDef d = EnemyCatalog.Base(sp.Id);
+                    gold += count * EnemyCatalog.Drop(EnemyCatalog.Drop(d.Gold, drop), mul);
+                    ink += count * d.Ink * drop * mul;
                     if (!boss) kills += count;
                 }
             }
             s.KillGold = Mathf.Max(1, gold);
-            s.InkBudget = Mathf.RoundToInt((10 + 6 * s.Chapter + s.Slot) * (s.Finale ? 1.5f : 1f));
+            s.InkBudget = Mathf.Max(1, Mathf.RoundToInt(ink));
             s.ChestGold = Mathf.Max(3, Mathf.RoundToInt(s.KillGold * 0.05f));
             s.ChestInk = Mathf.Max(2, Mathf.RoundToInt(s.InkBudget * 0.15f));
             float chests = kills * ChestChance + (s.HasBoss ? 1f : 0f);
             s.GoldPurse = s.KillGold + Mathf.RoundToInt(chests * ChestGoldShare * s.ChestGold);
-            float m = Mathf.Max(1f, Mathf.Pow(s.GoldPurse / DraftRefPurse, 0.4f));
-            s.DraftFirst = Mathf.RoundToInt(GameConstants.FirstDraftCost * m);
-            s.DraftStep = Mathf.Max(1, Mathf.RoundToInt(GameConstants.DraftCostStep * m));
+
+            int open = Mathf.Max(1, s.OpenCount);
+            int n = Mathf.Clamp(Mathf.RoundToInt(open * DraftPicksPerCell), open + 2, open * 3);
+            float budget = (s.GoldPurse + ForgeStats.Default.StartGold) * DraftBudgetShare;
+            // 起价定成平均价的一半，步长再反推，费用就从便宜缓缓爬到贵，
+            // 而整条曲线累计下来刚好吃满预算。
+            s.DraftFirst = Mathf.Max(GameConstants.FirstDraftCost, Mathf.RoundToInt(budget / n * 0.5f));
+            s.DraftStep = n > 1
+                ? Mathf.Max(0f, 2f * (budget - n * s.DraftFirst) / (n * (n - 1f)))
+                : 0f;
         }
     }
 }
