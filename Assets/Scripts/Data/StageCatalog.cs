@@ -78,6 +78,9 @@ namespace InkLine
 
         public CardId[] Pool;
         public WaveDef[] Waves;
+        // 和 Waves 一一对应的实际出怪只数：已经乘过密度、丰年，并按开局疏、收尾密摊过。
+        // 战斗刷怪和 Price 都读它，避免两处各算一遍。
+        public int[][] Bodies;
         public bool TeachDraft;
         public bool TeachStar;
         public StageRule Rules;
@@ -359,6 +362,127 @@ namespace InkLine
             return new WaveDef(Mathf.Max(span, end + 5.5f), list.ToArray());
         }
 
+        // 开局权重、收尾权重、时间的次方。次方大于 1，前半段爬得慢，后半段才密起来。
+        // 校验脚本按这三个名字读，改曲线只改这里。
+        const float RampOpen = 0.32f;
+        const float RampLate = 1.72f;
+        const float RampPow = 1.4f;
+
+        // 整关出怪按时间从疏排到密，再归一回原来的总只数。
+        // 总血量、总掉落不变，变的是它们挤在开局还是挤在后段。
+        // 关底本人不参与：双首还是两只，墨王还是一只。护送和小兵一起爬。
+        static int[][] RampCounts(WaveDef[] waves, bool rich)
+        {
+            int nW = waves.Length;
+            float total = 0f;
+            int n = 0;
+            for (int w = 0; w < nW; w++)
+            {
+                total += Mathf.Max(0.01f, waves[w].Duration);
+                n += waves[w].Spawns.Length;
+            }
+
+            var raw = new int[n];
+            var weight = new float[n];
+            var boss = new bool[n];
+            var waveOf = new int[n];
+            var idxOf = new int[n];
+            int p = 0;
+            float cursor = 0f;
+            int rawSum = 0;
+            float wSum = 0f;
+            for (int w = 0; w < nW; w++)
+            {
+                WaveDef wave = waves[w];
+                float dur = Mathf.Max(0.01f, wave.Duration);
+                SpawnSpec[] list = wave.Spawns;
+                for (int k = 0; k < list.Length; k++)
+                {
+                    SpawnSpec sp = list[k];
+                    bool isBoss = EnemyIds.IsBoss(sp.Id);
+                    int count = sp.Count * EnemyCatalog.Density(sp.Id);
+                    if (rich && !isBoss) count = Mathf.CeilToInt(count * 1.25f);
+                    float u = total > 0.01f
+                        ? Mathf.Clamp01((cursor + Mathf.Clamp(sp.Time, 0f, dur)) / total)
+                        : 1f;
+                    float shaped = Mathf.Pow(u, RampPow);
+                    raw[p] = count;
+                    boss[p] = isBoss;
+                    weight[p] = RampOpen + (RampLate - RampOpen) * shaped;
+                    waveOf[p] = w;
+                    idxOf[p] = k;
+                    if (!isBoss)
+                    {
+                        rawSum += count;
+                        wSum += count * weight[p];
+                    }
+                    p++;
+                }
+                cursor += dur;
+            }
+
+            float scale = wSum > 0.01f ? rawSum / wSum : 1f;
+            var final = new int[n];
+            var frac = new float[n];
+            int got = 0;
+            for (int i = 0; i < n; i++)
+            {
+                if (boss[i])
+                {
+                    final[i] = raw[i];
+                    frac[i] = -1f;
+                    continue;
+                }
+                float exact = raw[i] * weight[i] * scale;
+                int baseN = Mathf.FloorToInt(exact);
+                if (raw[i] >= 1 && baseN < 1) baseN = 1;
+                final[i] = baseN;
+                frac[i] = exact - Mathf.FloorToInt(exact);
+                got += baseN;
+            }
+
+            int diff = rawSum - got;
+            var order = new int[n];
+            for (int i = 0; i < n; i++) order[i] = i;
+            System.Array.Sort(order, (a, b) =>
+            {
+                int c = frac[b].CompareTo(frac[a]);
+                return c != 0 ? c : b.CompareTo(a);
+            });
+            for (int k = 0; k < n && diff > 0; k++)
+            {
+                int i = order[k];
+                if (boss[i]) continue;
+                final[i]++;
+                diff--;
+            }
+            if (diff > 0)
+            {
+                for (int i = n - 1; i >= 0 && diff > 0; i--)
+                {
+                    if (boss[i]) continue;
+                    final[i] += diff;
+                    diff = 0;
+                }
+            }
+            while (diff < 0)
+            {
+                int best = -1;
+                for (int i = n - 1; i >= 0; i--)
+                {
+                    if (!boss[i] && final[i] > 1) { best = i; break; }
+                }
+                if (best < 0) break;
+                final[best]--;
+                diff++;
+            }
+
+            var grid = new int[nW][];
+            for (int w = 0; w < nW; w++) grid[w] = new int[waves[w].Spawns.Length];
+            for (int i = 0; i < n; i++) grid[waveOf[i]][idxOf[i]] = final[i];
+            return grid;
+        }
+
         static StageDef[] Build()
         {
             var plans = new List<Plan>();
@@ -401,6 +525,7 @@ namespace InkLine
                     Mini = slot == 4 && ch > 0,
                     StaminaCost = finale ? GameConstants.StaminaFinale : GameConstants.StaminaPerStage
                 };
+                s[i].Bodies = RampCounts(s[i].Waves, s[i].Has(StageRule.Rich));
                 Price(s[i]);
             }
             return s;
@@ -419,8 +544,8 @@ namespace InkLine
             ((rules & StageRule.Rich) != 0 ? 1.5f : 1f) * ((rules & StageRule.Swift) != 0 ? 1.2f : 1f);
 
         // 掉落跟着怪走，这里只是把整关加一遍当统计用：校验脚本、抽牌定价和结算页读它。
-        // 算法和 BattleWorld.Spawn + Make 必须一致 —— 按 Density 铺开，每只掉满自己那份，
-        // 章节系数和丰年/疾行倍率分两次套，每次都保底 1。
+        // 算法和 BattleWorld.Spawn + Make 必须一致 —— 只数用 RampCounts 摊过的 Bodies，
+        // 每只掉满自己那份，章节系数和丰年/疾行倍率分两次套，每次都保底 1。
         static void Price(StageDef s)
         {
             float mul = GoldMulOf(s.Rules);
@@ -434,8 +559,8 @@ namespace InkLine
                 {
                     SpawnSpec sp = list[k];
                     bool boss = EnemyIds.IsBoss(sp.Id);
-                    int count = sp.Count * EnemyCatalog.Density(sp.Id);
-                    if (s.Has(StageRule.Rich) && !boss) count = Mathf.CeilToInt(count * 1.25f);
+                    int count = s.Bodies != null ? s.Bodies[w][k]
+                        : sp.Count * EnemyCatalog.Density(sp.Id);
                     EnemyDef d = EnemyCatalog.Base(sp.Id);
                     gold += count * EnemyCatalog.Drop(EnemyCatalog.Drop(d.Gold, drop), mul);
                     ink += count * d.Ink * drop * mul;

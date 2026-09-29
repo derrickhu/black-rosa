@@ -354,7 +354,7 @@ namespace InkLine
             Draft.interactable = inBattle;
             DraftLabel.text = can ? $"改装  {world.DraftCost}" : $"差  {Mathf.Max(0, world.DraftCost - world.Gold)}";
             if (can) UiKit.PaintBtn(Draft, InkTheme.Cta, InkTheme.CtaDeep, InkTheme.CardFace);
-            else UiKit.PaintBtn(Draft, InkTheme.CardDim, InkTheme.LineDim, InkTheme.TextDim);
+            else UiKit.PaintBtn(Draft, InkTheme.CardDim, InkTheme.LineDim, InkTheme.TextDark);
             Draft.transform.localScale = can
                 ? Vector3.one * (1f + 0.04f * Mathf.Sin(Time.unscaledTime * 8f))
                 : Vector3.one;

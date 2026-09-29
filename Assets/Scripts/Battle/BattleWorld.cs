@@ -464,7 +464,7 @@ namespace InkLine
             {
                 SpawnSpec s = wave.Spawns[i];
                 if (WaveTime - dt < s.Time && WaveTime >= s.Time)
-                    Spawn(s);
+                    Spawn(s, i);
             }
             if (WaveTime >= wave.Duration)
             {
@@ -474,16 +474,11 @@ namespace InkLine
             }
         }
 
-        void Spawn(SpawnSpec spec)
+        void Spawn(SpawnSpec spec, int spawnIndex)
         {
-            int mul = EnemyCatalog.Density(spec.Id);
-            int count = spec.Count * mul;
-            if (Stage.Has(StageRule.Rich) && !EnemyIds.IsBoss(spec.Id))
-                count = Mathf.CeilToInt(count * 1.25f);
-            // 密度只管铺开身位，血和掉落都不摊 —— 每只吃满表血、掉满自己那份。
-            // 原先连血一起除，墨丁 4.5 ÷ 2 = 2.25，开局弹伤 2.4，铺开的每一只
-            // 都是一发死，场上人多难度反而没了；而只摊赏金又让同一只怪在不同关
-            // 掉的钱不一样，玩家学不到「先打谁更值」。
+            int count = BodyCount(spawnIndex, spec);
+            // 只数在关卡表里已经按「开局疏、收尾密」摊过，这里只负责把它们铺开。
+            // 血和掉落都不摊 —— 每只吃满表血、掉满自己那份。
             for (int i = 0; i < count; i++)
             {
                 int col = spec.Column;
@@ -495,6 +490,21 @@ namespace InkLine
                     GameConstants.SpawnY + i / 3 * 0.62f + UnityEngine.Random.Range(0f, 0.12f));
                 Enemies.Add(Make(spec.Id, at));
             }
+        }
+
+        // Bodies 是这一拨摊过密度、丰年和开局曲线之后的只数。表没铺上时退回旧算法。
+        int BodyCount(int spawnIndex, SpawnSpec spec)
+        {
+            int[][] grid = Stage.Bodies;
+            if (grid != null && WaveIndex >= 0 && WaveIndex < grid.Length)
+            {
+                int[] row = grid[WaveIndex];
+                if (row != null && spawnIndex >= 0 && spawnIndex < row.Length) return row[spawnIndex];
+            }
+            int count = spec.Count * EnemyCatalog.Density(spec.Id);
+            if (Stage.Has(StageRule.Rich) && !EnemyIds.IsBoss(spec.Id))
+                count = Mathf.CeilToInt(count * 1.25f);
+            return count;
         }
 
         // 成群进场时第 i 只站哪一列：从中间往两边交替铺开。
@@ -1318,6 +1328,7 @@ namespace InkLine
             if (e.IsBoss) BossKilled = true;
             if (e.SplitCount > 0) SpawnSplit(e, e.SplitCount);
             if (m != null && m.BurnPop) BurnPop(e.Pos, m);
+            if (CodexHit != null && !PreviewFill) CodexHit(CodexKind.Enemy, (int)e.Type);
         }
 
         public void AddShake(float amount)

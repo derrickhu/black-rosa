@@ -94,6 +94,92 @@ namespace InkLine
 
     public static class EnemyCatalog
     {
+        // 给按 EnemyId 索引的数组用，加怪时跟着枚举一起长。
+        public const int IdCount = (int)EnemyId.BossKing + 1;
+
+        public static string Name(EnemyId id)
+        {
+            switch (id)
+            {
+                case EnemyId.Walker: return "墨丁";
+                case EnemyId.Runner: return "快脚";
+                case EnemyId.Shield: return "盾墨";
+                case EnemyId.Swarm: return "墨粒";
+                case EnemyId.Strafer: return "横掠";
+                case EnemyId.Chubby: return "胖墨";
+                case EnemyId.Tall: return "高墨";
+                case EnemyId.Ball: return "团墨";
+                case EnemyId.BigHead: return "大头墨";
+                case EnemyId.Belt: return "束墨";
+                case EnemyId.Crawler: return "爬子";
+                case EnemyId.Splitter: return "双生";
+                case EnemyId.Sprinter: return "惊风";
+                case EnemyId.Mender: return "补墨";
+                case EnemyId.Bulwark: return "厚甲";
+                case EnemyId.Elite: return "墨尊";
+                case EnemyId.Warden: return "镇守";
+                case EnemyId.BossDrum: return "鼓面";
+                case EnemyId.BossInkbag: return "墨囊";
+                case EnemyId.BossIron: return "铁桶";
+                case EnemyId.BossTwin: return "双首";
+                case EnemyId.BossWarden: return "牢头";
+                case EnemyId.BossThunder: return "奔雷";
+                case EnemyId.BossMedic: return "墨医";
+                case EnemyId.BossKing: return "墨王";
+                default: return "墨丁";
+            }
+        }
+
+        public static string Lore(EnemyId id)
+        {
+            switch (id)
+            {
+                case EnemyId.Walker: return "最普通的一团墨。大的慢、小的快，这条最朴素的规矩从它身上摸起。";
+                case EnemyId.Runner: return "专走空列。中间堆满字也挡不住它从边上溜过去。";
+                case EnemyId.Shield: return "身上挡一发。第一发炮弹只会敲掉盾，打空了才知道要准备第二发。";
+                case EnemyId.Swarm: return "一小撮墨粒。一只不值几个钱，成群涌上来才难缠。";
+                case EnemyId.Strafer: return "边走边横移。瞄着一列打会打空，得跟着它换列。";
+                case EnemyId.Chubby: return "矮胖、血厚、步慢。好打、也好挡路。";
+                case EnemyId.Tall: return "瘦高、步子大。和胖墨比，同样是纯墨，一个肉一个快。";
+                case EnemyId.Ball: return "圆球。最快也最脆，一发就能拍扁。";
+                case EnemyId.BigHead: return "头大身小。个头大，炮弹好命中。";
+                case EnemyId.Belt: return "第一个带颜色的兵。走空列，但比快脚慢、比快脚肉。";
+                case EnemyId.Crawler: return "走得慢，推不动。只堆位移的配法在它身上没用。";
+                case EnemyId.Splitter: return "死后裂成两只墨粒。无脑范围清场会把自己淹没。";
+                case EnemyId.Sprinter: return "半血之后突然加速。打到一半就换目标，它会从你眼皮底下冲过去。";
+                case EnemyId.Mender: return "给周围的同伴回血，不奶自己。先杀它，别慢慢磨。";
+                case EnemyId.Bulwark: return "每发炮弹都要削掉一点。多段小伤害打它像挠痒，得用重击。";
+                case EnemyId.Elite: return "横着走，半血还会狂化。火力不够就拖成消耗战。";
+                case EnemyId.Warden: return "挡一发，还吃不了定身。纯控制流打到它就卡死。";
+                case EnemyId.BossDrum: return "章底。挡一发、还会横移，考的是最基本的输出和跟列。";
+                case EnemyId.BossInkbag: return "章底。倒下还会裂成四只墨粒，死的时候别松懈。";
+                case EnemyId.BossIron: return "章底。每发减得更狠，还推不动。不带重击就只能磨。";
+                case EnemyId.BossTwin: return "章底。成对进场，半血加速。火力得分给两只。";
+                case EnemyId.BossWarden: return "章底。免定身，还奶周围。控制流到这里要换思路。";
+                case EnemyId.BossThunder: return "章底。半血速度翻倍，专走空列。收尾慢了就漏。";
+                case EnemyId.BossMedic: return "章底。群奶又挡一发。先杀谁，这一课考到这里。";
+                case EnemyId.BossKing: return "章底。前面七关的规矩各来一点，是整本墨谱的最后一页。";
+                default: return "一团墨。";
+            }
+        }
+
+        // 图鉴里那一行特性。只写玩家能看见、能据此换配法的。
+        public static string TraitLine(EnemyDef d)
+        {
+            var parts = new System.Collections.Generic.List<string>();
+            if (d.IsBoss) parts.Add("关底");
+            if (d.HasShield) parts.Add("挡一发");
+            if (d.Strafe) parts.Add("横移");
+            if (d.PreferEmpty) parts.Add("走空列");
+            if (d.Armor > 0f) parts.Add("每发减 " + d.Armor.ToString(d.Armor == Mathf.Round(d.Armor) ? "0" : "0.#"));
+            if (d.RageSpeed > 1.01f) parts.Add("半血加速 ×" + d.RageSpeed.ToString("0.#"));
+            if (d.StunImmune) parts.Add("免定身");
+            if (d.NoKnock) parts.Add("推不动");
+            if (d.HealAura > 0f) parts.Add("给周围回血");
+            if (d.SplitCount > 0) parts.Add("死后裂成 " + d.SplitCount + " 只");
+            return parts.Count == 0 ? "没有特别的本事" : string.Join(" · ", parts);
+        }
+
         // 奶光环的半径，约一格半。再大就会隔着好几列偷偷奶到，玩家看不出因果。
         public const float HealRange = 1.4f;
 

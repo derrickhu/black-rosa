@@ -171,7 +171,8 @@ namespace InkLine
         void OnCodex(CodexKind kind, int index)
         {
             if (_world == null || !_meta.CodexLearn(kind, index)) return;
-            string head = kind == CodexKind.Pair ? "秘卷现世" : "图鉴收录";
+            string head = kind == CodexKind.Pair ? "秘卷现世"
+                : kind == CodexKind.Enemy ? "墨谱新页" : "图鉴收录";
             _codexToasts.Enqueue($"{head} · {CodexCatalog.Title(kind, index)}");
         }
 

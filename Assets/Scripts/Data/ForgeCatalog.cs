@@ -10,7 +10,7 @@ namespace InkLine
         public ForgeLine Line;
         public string Name;
         public string Stat;      // 加成项的名字，「当前 → 下一级」那行开头
-        // 每级加多少，按展示口径写：百分比线写 8 表示 8%，其余写绝对值。
+        // 每级加多少，按展示口径写：百分比线写 16 表示每级 16%，其余写绝对值。
         // Stats()、Value() 和 ForgeCatalog.Step() 全读它，调一条线只改这一个数。
         public float Amount;
         public string Icon;      // Resources/Art/Ui/ico_<Icon>.png
@@ -53,11 +53,11 @@ namespace InkLine
         // 多一门炮、加一滴血比加伤害贵，这两条单独上浮。
         static readonly ForgeDef[] Lines =
         {
-            // 伤害线 12 级，门槛一路铺到第 69 关。八级封顶时玩家第六章就点满了，
-            // 之后四章再没有任何战力成长，需求血量却还在涨。
+            // 伤害线 12 级，每级 +16%，满级 +192%，门槛铺到第 69 关。
+            // 百分比乘在整发炮弹上，后几章每一级都还能把伤害抬上去一截。
             new ForgeDef
             {
-                Line = ForgeLine.Damage, Name = "伤害", Stat = "炮弹伤害", Amount = 8f,
+                Line = ForgeLine.Damage, Name = "伤害", Stat = "炮弹伤害", Amount = 16f,
                 Icon = "damage", Reveal = 0,
                 Cost = new[] { 120, 140, 170, 200, 240, 300, 380, 470, 580, 700, 840, 1000 },
                 Gate = new[] { 0, 2, 6, 12, 20, 28, 36, 44, 52, 58, 64, 69 }
@@ -76,12 +76,14 @@ namespace InkLine
                 Cost = new[] { 130, 160, 220, 300, 400 },
                 Gate = new[] { 3, 9, 24, 45, 62 }
             },
+            // 开局金币 8 级，每级 +8，满级开局 70。门槛铺到第七、八章，
+            // 后期一张改装要几十金币，开局要够先拿下一张。
             new ForgeDef
             {
-                Line = ForgeLine.StartGold, Name = "开局金币", Stat = "开局金币", Amount = 2f,
+                Line = ForgeLine.StartGold, Name = "开局金币", Stat = "开局金币", Amount = 8f,
                 Icon = "gold", Reveal = 4,
-                Cost = new[] { 140, 160, 210, 270, 360 },
-                Gate = new[] { 4, 10, 22, 36, 54 }
+                Cost = new[] { 140, 160, 210, 270, 360, 480, 640, 820 },
+                Gate = new[] { 4, 10, 22, 36, 48, 56, 62, 68 }
             },
             new ForgeDef
             {

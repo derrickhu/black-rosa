@@ -172,7 +172,7 @@ namespace InkLine
             SetText(_act, maxed ? "已满级" : (owned ? "升级" : "解锁"));
             _act.interactable = can;
             if (can) UiKit.PaintBtn(_act, InkTheme.Cta, InkTheme.CtaDeep, InkTheme.CardFace);
-            else UiKit.PaintBtn(_act, InkTheme.CardDim, InkTheme.LineDim, InkTheme.TextDim);
+            else UiKit.PaintBtn(_act, InkTheme.CardDim, InkTheme.LineDim, InkTheme.TextDark);
             _act.onClick.RemoveAllListeners();
             _act.onClick.AddListener(() => act());
 

@@ -242,6 +242,9 @@ hp_base.setdefault("Walker", 4.5)
 drop_pow = float(re.search(r"DropMul\(float t\) => Mathf\.Pow\(.+,\s*([\d.]+)f\)", enemy_src).group(1))
 wave_span = [float(x) for x in re.findall(
     r"[\d.]+", re.search(r"ChapterWaveSpan\s*=\s*\{([^}]*)\}", core_src).group(1))]
+ramp_open = float(re.search(r"RampOpen\s*=\s*([\d.]+)f", core_src).group(1))
+ramp_late = float(re.search(r"RampLate\s*=\s*([\d.]+)f", core_src).group(1))
+ramp_pow = float(re.search(r"RampPow\s*=\s*([\d.]+)f", core_src).group(1))
 picks_per_cell = float(re.search(r"DraftPicksPerCell\s*=\s*([\d.]+)f", core_src).group(1))
 budget_share = float(re.search(r"DraftBudgetShare\s*=\s*([\d.]+)f", core_src).group(1))
 
@@ -281,10 +284,10 @@ def call_args(src, at):
 
 
 def waves_of(r):
-    """逐波拆，并复刻 StageCatalog.Pace/Tile：非关底波按每章目标时长平铺。
+    """逐波拆，并复刻 StageCatalog.Pace/Tile 和 RampCounts。
 
-    平铺会把出场表整体后移一轮再追加一遍，所以怪量和波长都要跟着算，
-    不然经济和时长全对不上。
+    平铺会把出场表整体后移一轮再追加一遍。RampCounts 再把只数按时间
+    从疏排到密，总只数不变。怪量和波长都要跟着算，不然经济和时长对不上。
     """
     src = read("Data", f"StageChapter{r['ch'] + 1}.cs")
     starts = [m.start() for m in re.finditer(r"s\.Add\(P\(", src)] + [len(src)]
@@ -303,8 +306,8 @@ def waves_of(r):
             boss = re.match(r"\s*(Boss\w+)", body).group(1)
             n_boss = 2 if boss == "BossTwin" else 1
             last = max([t for t, _, _ in specs], default=0.0)
-            out.append(dict(boss=True, dur=max(20.0, last + 10.0),
-                            specs=[(boss, n_boss)] + [(e, n) for _, e, n in specs]))
+            ev = [(0.3, boss, n_boss)] + [(t, e, n) for t, e, n in specs]
+            out.append(dict(boss=True, dur=max(20.0, last + 10.0), specs=ev))
             continue
         if not specs:
             continue
@@ -312,8 +315,78 @@ def waves_of(r):
         step_t = last + 1.5
         rounds = max(1, round(span / step_t)) if step_t > 0.1 else 1
         end = last + (rounds - 1) * step_t
-        out.append(dict(boss=False, dur=max(span, end + 5.5),
-                        specs=[(e, n) for _, e, n in specs] * rounds))
+        tiled = [(t + r * step_t, e, n) for r in range(rounds) for t, e, n in specs]
+        out.append(dict(boss=False, dur=max(span, end + 5.5), specs=tiled))
+    return ramp_bodies(out, "Rich" in r["rules"])
+
+
+def ramp_weight(u):
+    u = min(1.0, max(0.0, u))
+    return ramp_open + (ramp_late - ramp_open) * (u ** ramp_pow)
+
+
+def ramp_bodies(waves, rich):
+    """复刻 StageCatalog.RampCounts：只数按时间加权后再归一，关底本人不动。"""
+    import math
+    total = sum(max(0.01, w["dur"]) for w in waves)
+    ev = []
+    cursor = 0.0
+    for w in waves:
+        dur = max(0.01, w["dur"])
+        for t, e, n in w["specs"]:
+            boss = e.startswith("Boss")
+            count = n * density.get(e, 1)
+            if rich and not boss:
+                count = math.ceil(count * 1.25)
+            u = min(1.0, max(0.0, (cursor + min(dur, max(0.0, t))) / total)) if total > 0.01 else 1.0
+            ev.append(dict(t=cursor + t, e=e, raw=count, boss=boss, w=ramp_weight(u)))
+        cursor += dur
+    raw_sum = sum(e["raw"] for e in ev if not e["boss"])
+    w_sum = sum(e["raw"] * e["w"] for e in ev if not e["boss"])
+    scale = raw_sum / w_sum if w_sum > 0.01 else 1.0
+    final, frac, got = [], [], 0
+    for e in ev:
+        if e["boss"]:
+            final.append(e["raw"])
+            frac.append(-1.0)
+            continue
+        exact = e["raw"] * e["w"] * scale
+        base = math.floor(exact)
+        if e["raw"] >= 1 and base < 1:
+            base = 1
+        final.append(base)
+        frac.append(exact - math.floor(exact))
+        got += base
+    diff = raw_sum - got
+    order = sorted(range(len(ev)), key=lambda i: (frac[i], i), reverse=True)
+    for i in order:
+        if diff <= 0:
+            break
+        if ev[i]["boss"]:
+            continue
+        final[i] += 1
+        diff -= 1
+    if diff > 0:
+        for i in range(len(ev) - 1, -1, -1):
+            if ev[i]["boss"]:
+                continue
+            final[i] += diff
+            break
+    while diff < 0:
+        best = next((i for i in range(len(ev) - 1, -1, -1) if not ev[i]["boss"] and final[i] > 1), None)
+        if best is None:
+            break
+        final[best] -= 1
+        diff += 1
+    p = 0
+    out = []
+    for w in waves:
+        specs = []
+        for _ in w["specs"]:
+            e = ev[p]
+            specs.append((e["t"], e["e"], final[p], e["boss"]))
+            p += 1
+        out.append(dict(boss=w["boss"], dur=w["dur"], specs=specs))
     return out
 
 
@@ -321,21 +394,26 @@ def econ(r):
     mul = (1.5 if "Rich" in r["rules"] else 1) * (1.2 if "Swift" in r["rules"] else 1)
     t = hp_of(r["ch"], r["slot"])
     dmul = max(0.1, t) ** drop_pow
+    waves = waves_of(r)
+    dur_total = sum(w["dur"] for w in waves)
     gold = kills = 0
-    ink = hp_total = dur_total = 0.0
-    for w in waves_of(r):
-        dur_total += w["dur"]
-        for e, n in w["specs"]:
-            boss = e.startswith("Boss")
-            count = n * density.get(e, 1)
-            if "Rich" in r["rules"] and not boss:
-                count = -(-count * 5 // 4)
-            g, k = drop_of.get(e, (2, 1))
+    ink = hp_total = 0.0
+    open1 = early = late = 0
+    for w in waves:
+        for t_abs, e, count, boss in w["specs"]:
+            g, ink_one = drop_of.get(e, (2, 1))
             gold += count * drop(drop(g, dmul), mul)
-            ink += count * k * dmul * mul
+            ink += count * ink_one * dmul * mul
             hp_total += count * hp_base.get(e, 4.5) * t
-            if not boss:
-                kills += count
+            if boss:
+                continue
+            kills += count
+            if t_abs <= 1.2:
+                open1 += count
+            if t_abs <= dur_total * 0.25:
+                early += count
+            if dur_total * 0.55 <= t_abs <= dur_total * 0.85:
+                late += count
     cg = max(3, round(gold * 0.05))
     ci = max(2, round(ink * 0.15))
     chests = kills * chest_chance + (1 if r["bosses"] else 0)
@@ -353,7 +431,8 @@ def econ(r):
         n_d += 1
     ink_all = ink + chests * (1 - chest_gold_share) * ci
     return dict(gold=gold, purse=purse_all, first=first_d, step=step, drafts=n_d, ink=ink_all,
-                chests=chests, open=open_n, want=n_want, hp=hp_total, dur=dur_total)
+                chests=chests, open=open_n, want=n_want, hp=hp_total, dur=dur_total,
+                open1=open1, early=early, late=late)
 
 
 eco = [econ(r) for r in rows]
@@ -364,6 +443,13 @@ check(min(e["first"] for e in eco) >= first_cost, f"抽牌起价都不低于下�
 check(ch_first[-1] > ch_first[0] * 2, "抽牌起价末章明显高于首章: "
       + " / ".join(f"{x:.1f}" for x in ch_first))
 ink_total = round(sum(e["ink"] for e in eco))
+
+# 开局疏、后段密。总只数没变，所以钱和血还在；变的是它们挤在什么时候。
+flat = [f"{r['ch'] + 1}-{r['slot'] + 1}({e['early']}>={e['late']})"
+        for e, r in zip(eco, rows) if e["early"] >= e["late"]]
+check(not flat, "每关前 25% 时间的怪少于 55%~85% 那一段" + ("" if not flat else ": " + ", ".join(flat)))
+print(f"  开局 1 秒出怪（全关合计）{sum(e['open1'] for e in eco)}，"
+      f"前 25% {sum(e['early'] for e in eco)}，中后段 {sum(e['late'] for e in eco)}")
 
 # 单局成长：一局的钱至少要够把开放格子铺满，第三章起还要够把大半格子顶到二三星。
 # 铺不满，玩家一局里就永远看不到盘面长成型，也就没有「变强」那一下。

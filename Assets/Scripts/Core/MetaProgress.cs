@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace InkLine
@@ -40,6 +41,10 @@ namespace InkLine
         public long CodexNewGlyph;
         public int CodexNewWord;
         public int CodexNewPair;
+        public int CodexEnemy;
+        public int CodexNewEnemy;
+        // 三栏各三枚印，第 tab*3+i 位表示第 i 枚已经领过。
+        public int CodexMileClaim;
 
         public static MetaProgress Load()
         {
@@ -540,6 +545,7 @@ namespace InkLine
             {
                 case CodexKind.Glyph: return (CodexGlyph & (1L << i)) != 0;
                 case CodexKind.Word: return (CodexWord & (1 << i)) != 0;
+                case CodexKind.Enemy: return (CodexEnemy & (1 << i)) != 0;
                 default: return (CodexPair & (1 << i)) != 0;
             }
         }
@@ -550,13 +556,55 @@ namespace InkLine
             {
                 case CodexKind.Glyph: return (CodexNewGlyph & (1L << i)) != 0;
                 case CodexKind.Word: return (CodexNewWord & (1 << i)) != 0;
+                case CodexKind.Enemy: return (CodexNewEnemy & (1 << i)) != 0;
                 default: return (CodexNewPair & (1 << i)) != 0;
             }
         }
 
-        public bool CodexHasNew => CodexNewGlyph != 0 || CodexNewWord != 0 || CodexNewPair != 0;
+        public bool CodexHasNew =>
+            CodexNewGlyph != 0 || CodexNewWord != 0 || CodexNewPair != 0
+            || CodexNewEnemy != 0 || CodexHasMile;
         public bool CodexPairNew => CodexNewPair != 0;
         public bool CodexBaseNew => CodexNewGlyph != 0 || CodexNewWord != 0;
+        public bool CodexEnemyNew => CodexNewEnemy != 0;
+
+        public bool CodexTabNew(CodexTab tab)
+        {
+            switch (tab)
+            {
+                case CodexTab.Pair: return CodexPairNew || TabHasMile(tab);
+                case CodexTab.Enemy: return CodexEnemyNew || TabHasMile(tab);
+                default: return CodexBaseNew || TabHasMile(tab);
+            }
+        }
+
+        public bool CodexHasMile =>
+            TabHasMile(CodexTab.Glyph) || TabHasMile(CodexTab.Pair) || TabHasMile(CodexTab.Enemy);
+
+        public bool TabHasMile(CodexTab tab)
+        {
+            IReadOnlyList<CodexEntry> list = CodexCatalog.Of(tab);
+            int known = CodexCatalog.CountKnown(this, list);
+            CodexMile[] miles = CodexCatalog.Miles(tab);
+            for (int i = 0; i < miles.Length; i++)
+                if (known >= miles[i].Need && !MileClaimed(tab, i)) return true;
+            return false;
+        }
+
+        public bool MileClaimed(CodexTab tab, int i) =>
+            (CodexMileClaim & (1 << ((int)tab * 3 + i))) != 0;
+
+        // 领到了返回墨数，还没到或已经领过返回 0。
+        public int ClaimMile(CodexTab tab, int i)
+        {
+            CodexMile[] miles = CodexCatalog.Miles(tab);
+            if (i < 0 || i >= miles.Length) return 0;
+            if (MileClaimed(tab, i)) return 0;
+            if (CodexCatalog.CountKnown(this, CodexCatalog.Of(tab)) < miles[i].Need) return 0;
+            CodexMileClaim |= 1 << ((int)tab * 3 + i);
+            AddInk(miles[i].Ink);
+            return miles[i].Ink;
+        }
 
         // 第一次收录返回 true。
         public bool CodexLearn(CodexKind kind, int i)
@@ -566,6 +614,7 @@ namespace InkLine
             {
                 case CodexKind.Glyph: CodexGlyph |= 1L << i; CodexNewGlyph |= 1L << i; break;
                 case CodexKind.Word: CodexWord |= 1 << i; CodexNewWord |= 1 << i; break;
+                case CodexKind.Enemy: CodexEnemy |= 1 << i; CodexNewEnemy |= 1 << i; break;
                 default: CodexPair |= 1 << i; CodexNewPair |= 1 << i; break;
             }
             Save();
@@ -579,6 +628,7 @@ namespace InkLine
             {
                 case CodexKind.Glyph: CodexNewGlyph &= ~(1L << i); break;
                 case CodexKind.Word: CodexNewWord &= ~(1 << i); break;
+                case CodexKind.Enemy: CodexNewEnemy &= ~(1 << i); break;
                 default: CodexNewPair &= ~(1 << i); break;
             }
             Save();
@@ -590,6 +640,7 @@ namespace InkLine
                 if (CardCatalog.Get((CardId)i).Wake != CardWake.WordPart) CodexLearn(CodexKind.Glyph, i);
             for (int i = (int)WordId.InstantKill; i <= (int)WordId.Cleave; i++) CodexLearn(CodexKind.Word, i);
             for (int i = 0; i < SignaturePairs.All.Length; i++) CodexLearn(CodexKind.Pair, i);
+            for (int i = 0; i < EnemyCatalog.IdCount; i++) CodexLearn(CodexKind.Enemy, i);
         }
 
         public void AddInk(int n)

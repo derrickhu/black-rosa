@@ -3,7 +3,10 @@ using UnityEngine;
 
 namespace InkLine
 {
-    public enum CodexKind { Glyph, Word, Pair }
+    public enum CodexKind { Glyph, Word, Pair, Enemy }
+
+    // 图鉴顶上三栏。字谱把单字和词收在一起，秘卷收招牌两两，墨谱收怪。
+    public enum CodexTab { Glyph, Pair, Enemy }
 
     // 图鉴一格。Glyph 的 Index 是 CardId，Word 是 WordId，Pair 是 SignaturePairs.All 的下标。
     public readonly struct CodexEntry
@@ -20,12 +23,25 @@ namespace InkLine
 
     public enum CodexState { Unknown, Seen, Known }
 
-    // 字谱 = 单字 + 词（词的两个字算一格）；秘卷 = 招牌两两。
-    // 数值一律现读 GlyphTable，改平衡不用回来改文案。
+    // 字谱 = 单字 + 词（词的两个字算一格）；秘卷 = 招牌两两；墨谱 = 怪。
+    // 数值一律现读 GlyphTable / EnemyCatalog，改平衡不用回来改文案。
+    public readonly struct CodexMile
+    {
+        public readonly int Need;
+        public readonly int Ink;
+
+        public CodexMile(int need, int ink)
+        {
+            Need = need;
+            Ink = ink;
+        }
+    }
+
     public static class CodexCatalog
     {
         static List<CodexEntry> _base;
         static CodexEntry[] _pairs;
+        static CodexEntry[] _enemies;
 
         // 按关卡里第一次出现的先后排，没进任何关的字垫在最后。
         public static IReadOnlyList<CodexEntry> Base
@@ -46,6 +62,86 @@ namespace InkLine
                 for (int i = 1; i < CardCatalog.IdCount; i++) AddCard((CardId)i, added);
                 return _base;
             }
+        }
+
+        public static IReadOnlyList<CodexEntry> Enemies
+        {
+            get
+            {
+                if (_enemies != null) return _enemies;
+                var list = new List<CodexEntry>();
+                var added = new HashSet<int>();
+                for (int s = 0; s < GameConstants.StageCount; s++)
+                {
+                    StageDef st = StageCatalog.Get(s);
+                    if (st.Waves == null) continue;
+                    for (int w = 0; w < st.Waves.Length; w++)
+                    {
+                        SpawnSpec[] sp = st.Waves[w].Spawns;
+                        for (int k = 0; k < sp.Length; k++)
+                        {
+                            int id = (int)sp[k].Id;
+                            if (added.Add(id)) list.Add(new CodexEntry(CodexKind.Enemy, id));
+                        }
+                    }
+                }
+                for (int i = 0; i < EnemyCatalog.IdCount; i++)
+                    if (added.Add(i)) list.Add(new CodexEntry(CodexKind.Enemy, i));
+                _enemies = list.ToArray();
+                return _enemies;
+            }
+        }
+
+        public static IReadOnlyList<CodexEntry> Of(CodexTab tab)
+        {
+            switch (tab)
+            {
+                case CodexTab.Pair: return Pairs;
+                case CodexTab.Enemy: return Enemies;
+                default: return Base;
+            }
+        }
+
+        public static string TabName(CodexTab tab)
+        {
+            switch (tab)
+            {
+                case CodexTab.Pair: return "秘卷";
+                case CodexTab.Enemy: return "墨谱";
+                default: return "字谱";
+            }
+        }
+
+        public static string TabHint(CodexTab tab)
+        {
+            switch (tab)
+            {
+                case CodexTab.Pair: return "两个字叠在同一发炮弹上，会化出新的形";
+                case CodexTab.Enemy: return "打倒过的怪才会写进墨谱，见过的只露个影";
+                default: return "在关卡里用过一次的字，才会显出真本事";
+            }
+        }
+
+        public static string TabIcon(CodexTab tab)
+        {
+            switch (tab)
+            {
+                case CodexTab.Pair: return "Ui/codex_tab_pair";
+                case CodexTab.Enemy: return "Ui/codex_tab_enemy";
+                default: return "Ui/codex_tab_glyph";
+            }
+        }
+
+        // 每栏三枚印：约三分之一、三分之二、收齐。字谱和墨谱条目多，收齐给得更厚。
+        public static CodexMile[] Miles(CodexTab tab)
+        {
+            int n = Of(tab).Count;
+            int a = Mathf.Max(1, (n + 2) / 3);
+            int b = Mathf.Max(a + 1, (n * 2 + 2) / 3);
+            int inkA = tab == CodexTab.Pair ? 100 : 80;
+            int inkB = tab == CodexTab.Pair ? 200 : 160;
+            int inkC = tab == CodexTab.Pair ? 320 : tab == CodexTab.Enemy ? 320 : 280;
+            return new[] { new CodexMile(a, inkA), new CodexMile(b, inkB), new CodexMile(n, inkC) };
         }
 
         public static IReadOnlyList<CodexEntry> Pairs
@@ -90,6 +186,7 @@ namespace InkLine
             {
                 case CodexKind.Glyph: return CardCatalog.Get((CardId)index).Name;
                 case CodexKind.Word: return CardCatalog.WordName((WordId)index);
+                case CodexKind.Enemy: return EnemyCatalog.Name((EnemyId)index);
                 default: return SignaturePairs.All[index].Name;
             }
         }
@@ -112,10 +209,32 @@ namespace InkLine
             return seen;
         }
 
+        // 已解锁关卡出场表里出现过的怪，算「见过」：只露影子和名字。
+        public static bool[] SeenEnemies(MetaProgress meta)
+        {
+            var seen = new bool[EnemyCatalog.IdCount];
+            for (int s = 0; s < GameConstants.StageCount; s++)
+            {
+                if (!meta.Unlocked(s)) break;
+                StageDef st = StageCatalog.Get(s);
+                if (st.Waves == null) continue;
+                for (int w = 0; w < st.Waves.Length; w++)
+                {
+                    SpawnSpec[] sp = st.Waves[w].Spawns;
+                    for (int k = 0; k < sp.Length; k++)
+                        seen[(int)sp[k].Id] = true;
+                }
+            }
+            return seen;
+        }
+
         public static CodexState StateOf(MetaProgress meta, CodexEntry e, bool[] seen)
         {
             if (meta.CodexKnows(e.Kind, e.Index)) return CodexState.Known;
             if (e.Kind == CodexKind.Pair) return CodexState.Unknown;
+            if (e.Kind == CodexKind.Enemy)
+                return seen != null && e.Index < seen.Length && seen[e.Index]
+                    ? CodexState.Seen : CodexState.Unknown;
             if (e.Kind == CodexKind.Glyph) return seen[e.Index] ? CodexState.Seen : CodexState.Unknown;
             CardId[] parts = PartsOf((WordId)e.Index);
             for (int i = 0; i < parts.Length; i++)
