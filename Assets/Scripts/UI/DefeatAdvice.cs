@@ -43,7 +43,8 @@ namespace InkLine
             for (int i = 0; i < ForgeCatalog.LineCount; i++)
             {
                 int lv = meta.ForgeLevel(i);
-                if (!ForgeCatalog.Exposed(i, cleared, lv) || lv >= ForgeCatalog.MaxLevel(i)) continue;
+                if (ForgeCatalog.Get(i).Coin != ForgeCoin.Ink) continue;
+                if (!meta.ForgeShown(i) || lv >= ForgeCatalog.MaxLevel(i)) continue;
                 if (cleared < ForgeCatalog.Gate(i, lv)) continue;
                 int cost = ForgeCatalog.Cost(i, lv);
                 if (cost < bestCost) { bestCost = cost; best = i; }
@@ -85,21 +86,19 @@ namespace InkLine
             });
         }
 
-        static readonly string[] SkinIcon = { "skin_plain", "skin_cinnabar", "skin_celadon", "skin_gilt" };
-
         static void Skin(MetaProgress meta, List<Advice> into)
         {
             for (int i = 0; i < SkinCatalog.Count; i++)
             {
                 SkinDef d = SkinCatalog.Get(i);
-                if (d.DamageAdd <= 0.01f && d.GoldAdd <= 0) continue;
+                if (d.DamageAdd <= 0.01f && d.GoldAdd <= 0 && SkinCatalog.LineOf(i) < 0) continue;
                 if (meta.SkinOwned[i]) continue;
                 bool ok = meta.CanBuySkin(i, out string why);
                 if (!ok && !why.StartsWith("差")) continue;
                 into.Add(new Advice
                 {
-                    Icon = InkSprites.Ui(SkinIcon[Mathf.Clamp(i, 0, SkinIcon.Length - 1)]),
-                    Title = "换上" + d.Name, Line = d.Perk,
+                    Icon = InkSprites.Ui("skin_" + d.Key),
+                    Title = "换上" + d.Name, Line = SkinCatalog.PerkOf(i),
                     Need = ok ? "现在就能换" : "还" + why, Ready = ok, Tab = HomeScreen.TabForge
                 });
                 return;

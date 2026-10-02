@@ -19,7 +19,7 @@ namespace InkLine
         readonly List<SpriteRenderer> _skins = new List<SpriteRenderer>();
         readonly List<SpriteRenderer> _washes = new List<SpriteRenderer>();
 
-        // 皮肤直接换炮身图，底下再垫一团同色的光。素笔的 tint 是透明，不能拿它判断换没换皮肤。
+        // 皮肤直接换炮身图，底下再垫一团同色的光。小钢炮的 tint 是透明，不能拿它判断换没换皮肤。
         public int EmitterSkin;
         public Color EmitterTint = Color.clear;
         int _skinPainted = -1;
@@ -78,7 +78,7 @@ namespace InkLine
                     _pips.Add(pip);
                 }
             }
-            for (int i = 0; i < GameConstants.MaxEmitters; i++)
+            for (int i = 0; i < GameConstants.AdEmitterCap; i++)
             {
                 var skin = Make("skin", InkFx.SoftDisc(), new Vector3(0, GameConstants.EmitterY, 0), 1f);
                 skin.sortingOrder = 4;
@@ -86,7 +86,8 @@ namespace InkLine
                 skin.enabled = false;
                 InkFx.PaintAdd(skin, Color.clear);
                 _skins.Add(skin);
-                var gun = Make("gun", InkSprites.CannonSkin(0), new Vector3(0, GameConstants.EmitterY, 0), 0.64f);
+                // 炮图内容约占 256 画布的 85%，0.60 时一门约 1.0 宽，相邻两格（1.16）之间还留一道缝。
+                var gun = Make("gun", InkSprites.CannonSkin(0), new Vector3(0, GameConstants.EmitterY, 0), 0.60f);
                 gun.sortingOrder = 5;
                 _emitters.Add(gun);
                 var muzzle = Make("muzzle", InkFx.SoftDisc(), new Vector3(0, GameConstants.EmitterY, 0), 0.22f);
@@ -181,7 +182,7 @@ namespace InkLine
                     _emitters[e].color = Color.white;
                 }
             }
-            for (int e = 0; e < GameConstants.MaxEmitters; e++)
+            for (int e = 0; e < _emitters.Count; e++)
             {
                 bool on = e < w.EmitterCount;
                 _emitters[e].enabled = on;

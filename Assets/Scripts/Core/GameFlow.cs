@@ -98,13 +98,18 @@ namespace InkLine
                     if (!uiHit) HandleRail();
                     _world.Tick(Time.deltaTime);
                     PumpCodexToast();
-                    if (_world.Victory) { Finish(true); return; }
-                    if (_world.Defeat) { Finish(false); return; }
                 }
                 if (_world != null && _view != null)
                 {
                     _view.Sync(_world);
                     if (_screen == Screen.Place) PaintPlaceHighlights();
+                }
+                // 先把最后一帧画出来再结算。原先胜负一成立就 return，
+                // 死亡当帧的画面被跳过，怪还站在场上通关页就盖上来了。
+                if (_world != null && _screen == Screen.Battle)
+                {
+                    if (_world.Victory) { Finish(true); return; }
+                    if (_world.Defeat) { Finish(false); return; }
                 }
                 if (_hud != null)
                 {
@@ -193,6 +198,14 @@ namespace InkLine
             }, slot =>
             {
                 if (_screen == Screen.Battle) _world.CastSpell(slot);
+            }, () =>
+            {
+                if (_screen != Screen.Battle || _world == null) return;
+                if (_world.EmitterCount >= GameConstants.AdEmitterCap) return;
+                AdStub.Reward("emitter", () =>
+                {
+                    if (_world != null) _world.AddEmitter();
+                });
             });
         }
 
@@ -452,7 +465,13 @@ namespace InkLine
                         if (panel != null) panel.Doubled();
                     });
                 },
-                Home = ShowHome
+                Home = ShowHome,
+                Forge = () => ShowHome(HomeScreen.TabForge),
+                Skin = skin =>
+                {
+                    ShowHome(HomeScreen.TabForge);
+                    _home?.FocusSkin(skin);
+                }
             });
             _overlay = panel.Root;
         }
@@ -499,7 +518,9 @@ namespace InkLine
                 ShowVictory(stage, new ResultInfo
                 {
                     Ink = 86, DailyDouble = true,
-                    Shards = 1, FinaleShard = -1, Stars = 3, NewBest = true, FirstClear = true
+                    Shards = 1, FinaleShard = -1, Stars = 3, NewBest = true, FirstClear = true,
+                    NewSkins = new[] { SkinCatalog.Flame, SkinCatalog.Lucky },
+                    NewLines = new[] { (int)ForgeLine.BaseHp }
                 }, true);
             }
             else if (kind == 1)

@@ -10,5 +10,7 @@ namespace InkLine
         public int Stars;
         public bool NewBest;
         public bool FirstClear;
+        public int[] NewLines;      // 这次过关新亮相的词条下标，结算页逐张弹解锁卡
+        public int[] NewSkins;      // 这次过关新开放（可以买了）的皮肤
     }
 }

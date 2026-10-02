@@ -6,6 +6,8 @@ namespace InkLine
         public const int Rows = 3;
         public const int MaxStar = 3;
         public const int MaxEmitters = 4;
+        // 局里看广告加炮的上限，和列数对齐。局外锻造仍然停在 MaxEmitters。
+        public const int AdEmitterCap = 6;
         public const int BaseHp = 3;
         public const int MaxRevives = 2;
         public const int FirstDraftCost = 4;
@@ -26,16 +28,15 @@ namespace InkLine
         public const int AdStaminaPerDay = 5;
         public const int StarterInk = 85;
 
-        // 新手礼包：看两次激励广告，领一次就没了。皮肤下标见 SkinCatalog（2 = 青瓷）。
+        // 新手礼包：看两次激励广告，领一次就没了。皮肤改由签到送，礼包不再带炮。
         public const int GiftAds = 2;
-        public const int GiftSkin = 2;
         public const int GiftShards = 10;
         public const int GiftInk = 100;
-        // 七日签到：断一天从第 1 天重来；第一次连签满 7 天送鎏金（SkinCatalog 3）。
+        // 七日签到：断一天从第 1 天重来；第一次连签满 7 天送机甲炮（SkinCatalog 2）。
         public const int CheckDays = 7;
         public const int CheckStamina = 5;
         public const int CheckInk = 30;
-        public const int CheckSkin = 3;
+        public const int CheckSkin = 2;
         // 第一轮没有。第二轮起，第 7 天在当天奖励之外再给碎片。
         public const int CheckShardDay7 = 5;
         // 游戏圈：每天发一条帖子领一次。

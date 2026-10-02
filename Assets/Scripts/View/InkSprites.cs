@@ -13,15 +13,7 @@ namespace InkLine
         // 和首页皮肤卡是同一门炮，只是炮口朝上，好坐在战场底边。
         public static Sprite CannonSkin(int skin)
         {
-            string name;
-            switch (skin)
-            {
-                case 1: name = "cannon_cinnabar"; break;
-                case 2: name = "cannon_celadon"; break;
-                case 3: name = "cannon_gilt"; break;
-                default: name = "cannon_plain"; break;
-            }
-            return Load(name) ?? Cannon();
+            return Load("cannon_" + SkinCatalog.Get(skin).Key) ?? Load("cannon_plain") ?? Cannon();
         }
 
         public static Sprite Person(EnemyId id)

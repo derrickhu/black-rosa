@@ -41,15 +41,10 @@ namespace InkLine
             sub.color = InkTheme.TextMid;
 
             var cardSize = new Vector2(172f, 214f);
-            bool hasSkin = _meta.SkinOwned != null && GameConstants.GiftSkin < _meta.SkinOwned.Length
-                           && _meta.SkinOwned[GameConstants.GiftSkin];
-            string skinName = SkinCatalog.Get(GameConstants.GiftSkin).Name;
-            PanelKit.Reward(board, "Ui/ico_skin_celadon", skinName + "皮肤", hasSkin ? "已拥有" : "×1",
-                new Vector2(-194f, 124f), cardSize);
             PanelKit.Reward(board, "Ui/ico_shard", "技能碎片", "×" + GameConstants.GiftShards,
-                new Vector2(0f, 124f), cardSize);
+                new Vector2(-110f, 124f), cardSize);
             PanelKit.Reward(board, "Ui/ico_ink", "墨", "×" + GameConstants.GiftInk,
-                new Vector2(194f, 124f), cardSize);
+                new Vector2(110f, 124f), cardSize);
 
             _progress = UiKit.Label(board, "progress", "", 26, new Vector2(-40f, 386f), new Vector2(240f, 40f),
                 TextAnchor.MiddleCenter, Pin.Top);
@@ -80,10 +75,9 @@ namespace InkLine
             AudioBus.Tap();
             if (_meta.GiftReady)
             {
-                int skinBefore = _meta.Skin;
                 if (!_meta.ClaimGift()) return;
                 RectTransform layer = (RectTransform)transform.parent;
-                InkToast.Show(layer, _meta.Skin != skinBefore ? "新手礼包已领取，青瓷皮肤已换上" : "新手礼包已领取");
+                InkToast.Show(layer, "新手礼包已领取");
                 _changed?.Invoke();
                 Destroy(gameObject);
                 return;

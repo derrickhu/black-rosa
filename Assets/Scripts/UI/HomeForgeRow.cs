@@ -25,6 +25,8 @@ namespace InkLine
         Image _inkIco;
         Text _ink;
         Button _act;
+        RectTransform _fresh;
+        RectTransform _own;
 
         public static HomeForgeRow Ensure(HomeBoostRow slot, RectTransform card)
         {
@@ -92,10 +94,29 @@ namespace InkLine
             r._act = UiKit.Btn(root, "act", "升级", new Vector2(right - 84f, 8f), new Vector2(136f, 62f), () => { }, true);
             var t = r._act.GetComponentInChildren<Text>();
             if (t != null) t.fontSize = 26;
+
+            // 刚解锁的词条在图标左上角盖一枚「新」，炮台页看过一次就摘。
+            r._fresh = Badge(root, "fresh", "新", new Vector2(left + 28f, 46f), new Vector2(48f, 32f), InkTheme.Rose);
+            r._fresh.localRotation = Quaternion.Euler(0f, 0f, 12f);
+            r._own = Badge(root, "own", "专属", new Vector2(left + 58f, -42f), new Vector2(64f, 28f), InkTheme.Seal);
             return r;
         }
 
-        public void Bind(MetaProgress meta, int line, Action buy)
+        static RectTransform Badge(RectTransform root, string name, string text, Vector2 pos, Vector2 size, Color fill)
+        {
+            var b = UiKit.Panel(root, name, pos, size, fill);
+            var img = b.GetComponent<Image>();
+            img.sprite = UiSprites.Fill(12);
+            img.type = Image.Type.Sliced;
+            img.raycastTarget = false;
+            var t = UiKit.Label(b, "t", text, 18, Vector2.zero, size);
+            t.color = InkTheme.CardFace;
+            UiKit.Bold(t);
+            b.gameObject.SetActive(false);
+            return b;
+        }
+
+        public void Bind(MetaProgress meta, int line, Action buy, bool fresh = false)
         {
             ForgeDef d = ForgeCatalog.Get(line);
             int lv = meta.ForgeLevel(line);
@@ -104,15 +125,22 @@ namespace InkLine
             int gate = max ? 0 : ForgeCatalog.Gate(line, lv);
             int cost = max ? 0 : ForgeCatalog.Cost(line, lv);
             bool gateOk = cleared >= gate;
-            bool inkOk = meta.Ink >= cost;
+            bool inkOk = meta.Wallet(d.Coin) >= cost;
             bool can = !max && gateOk && inkOk && gate <= GameConstants.StageCount;
 
             _icon.sprite = InkSprites.Ui(d.Icon);
             _icon.color = Color.white;
+            _inkIco.sprite = InkSprites.Ui(ForgeCatalog.CoinIcon(d.Coin));
+            _fresh.gameObject.SetActive(fresh);
+            _own.gameObject.SetActive(d.Exclusive);
             _name.text = d.Name;
             _name.color = InkTheme.TextDark;
             _lv.text = "Lv." + lv + "/" + d.MaxLevel;
+            // 专属词条只在装着那款皮肤时算数，换下来就写「未装备」，免得以为还在生效。
+            bool worn = !d.Exclusive || meta.Skin == d.Skin;
             _live.gameObject.SetActive(lv > 0);
+            _live.GetComponent<Image>().color = worn ? InkTheme.Accel : InkTheme.LineDim;
+            _live.GetComponentInChildren<Text>().text = worn ? "生效中" : "未装备";
             FlowTitle();
 
             string cur = ForgeCatalog.Value(line, lv);
@@ -144,6 +172,32 @@ namespace InkLine
             _act.onClick.AddListener(() => buy());
         }
 
+        // 展台上正看着一款还没买的炮：它的专属词条照常摆出来，只是不能升。开放条件写在展台上，这里不重复。
+        public void BindPreview(MetaProgress meta, int line)
+        {
+            ForgeDef d = ForgeCatalog.Get(line);
+            _icon.sprite = InkSprites.Ui(d.Icon);
+            _icon.color = Color.white;
+            _fresh.gameObject.SetActive(false);
+            _own.gameObject.SetActive(true);
+            _name.text = d.Name;
+            _name.color = InkTheme.TextDark;
+            _lv.text = "Lv.0/" + d.MaxLevel;
+            _live.gameObject.SetActive(false);
+            FlowTitle();
+            _value.color = InkTheme.TextDark;
+            _value.text = d.Stat + " " + ForgeCatalog.Value(line, 0)
+                + "  <color=#" + Green + ">→ " + ForgeCatalog.Value(line, 1) + "</color>";
+            _needTag.gameObject.SetActive(true);
+            _needTag.text = "拥有" + SkinCatalog.Get(d.Skin).Name + "后可升级";
+            _gate.gameObject.SetActive(false);
+            _inkIco.gameObject.SetActive(false);
+            _ink.gameObject.SetActive(false);
+            SetText("未拥有");
+            Paint(false);
+            _act.onClick.RemoveAllListeners();
+        }
+
         // 还没露面的下一条线：只做预告，写清楚通关多少关开放。
         public void BindTease(MetaProgress meta, int line)
         {
@@ -151,6 +205,8 @@ namespace InkLine
             int cleared = meta.ClearedCount();
             _icon.sprite = InkSprites.Ui("lock");
             _icon.color = new Color(1f, 1f, 1f, 0.6f);
+            _fresh.gameObject.SetActive(false);
+            _own.gameObject.SetActive(false);
             _name.text = d.Name;
             _name.color = InkTheme.TextDim;
             _lv.text = "";

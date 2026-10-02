@@ -40,7 +40,9 @@ public sealed class InkArtImporter : AssetPostprocessor
         // 屏幕上最大的用法是 160px 的抽卡字面，256 已经是两倍超采样。
         // 章节图、战斗背景这类大图的高清版在 CdnArt/，这里只是先顶上的缩略图。
         bool panel = path.Contains("/panel_") || path.EndsWith("/tab_dock.png") || path.EndsWith("/tab_plaque.png");
-        importer.maxTextureSize = panel ? 1024 : 256;
+        // 展台在炮台页上铺到 640 宽，256 会被拉糊。按两倍超采样留 2048。
+        bool stage = path.EndsWith("/skin_stage.png");
+        importer.maxTextureSize = stage ? 2048 : (panel ? 1024 : 256);
         if (panel) importer.spritePixelsPerUnit = 100;
         // 面板要给 Sprite.Create 做九宫格兜底，得留 CPU 副本。
         if (panel) importer.isReadable = true;

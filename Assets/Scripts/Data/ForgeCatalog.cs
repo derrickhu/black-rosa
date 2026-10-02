@@ -2,9 +2,14 @@ using UnityEngine;
 
 namespace InkLine
 {
-    public enum ForgeLine { Damage, Emitters, FireRate, StartGold, BaseHp }
+    // 词条的效果种类。存档下标不看这个，看词条在 ForgeCatalog.Lines 里的位置。
+    // 通用词条的位置和枚举值一一对应；专属词条排在通用后面，效果可以和通用的重名。
+    public enum ForgeLine { Damage, Emitters, FireRate, StartGold, BaseHp, Crit, GoldGain }
 
-    // 一条升级线。Cost[i] 是从 i 级升到 i+1 级的价，Gate[i] 是那一级要求的已通关关数。
+    // 升级用什么付。通用词条一律用墨；Token 留给皮肤专属词条，由活动发放。
+    public enum ForgeCoin { Ink, Token }
+
+    // 一条词条。Cost[i] 是从 i 级升到 i+1 级的价，Gate[i] 是那一级要求的已通关关数。
     public struct ForgeDef
     {
         public ForgeLine Line;
@@ -16,8 +21,13 @@ namespace InkLine
         public string Icon;      // Resources/Art/Ui/ico_<Icon>.png
         public int[] Cost;
         public int[] Gate;
-        public int Reveal;       // 通关这么多关才在加成页露面。0 = 开局就有
+        public int Reveal;       // 通关这么多关才在炮台页露面。0 = 开局就有
         public string LockNote;  // 门槛超出总关数时改显示这句
+        public string Brief;     // 过关解锁卡上那句「这条词条干什么」
+        // 专属词条只在拥有对应皮肤时露面，只在装着那款皮肤时生效。
+        public bool Exclusive;
+        public int Skin;
+        public ForgeCoin Coin;
 
         public int MaxLevel => Cost.Length;
     }
@@ -30,6 +40,8 @@ namespace InkLine
         public int Emitters;
         public int StartGold;
         public int BaseHp;
+        public float CritChance;
+        public float GoldMul;
 
         public static ForgeStats Default => new ForgeStats
         {
@@ -37,15 +49,18 @@ namespace InkLine
             IntervalMul = 1f,
             Emitters = 2,
             StartGold = 6,
-            BaseHp = GameConstants.BaseHp
+            BaseHp = GameConstants.BaseHp,
+            CritChance = 0f,
+            GoldMul = 1f
         };
     }
 
     public static class ForgeCatalog
     {
-        public const int LineCount = 5;
+        // 暴击打几倍。改这里要同步 check_stages 的战力裕度（它从这一行读）。
+        public const float CritMul = 2f;
 
-        // 开局只亮伤害。别的线按通关关数陆续露面，不能五张一起铺开。
+        // 前期每 2~3 关亮一样新东西：通用词条 0/2/4/6/9 关，之后是 12、15 关的新皮肤和它们的专属词条。
         // 已经点过的线永远留着，免得存档玩家看见自己买过的东西消失。
         // 门槛铺满 72 关：每章都有几级可升，最后一级落在第七、八章。
         // 价 = 门槛那一关的墨 ×4 再加 80，同一条线每级再贵一截。
@@ -58,55 +73,80 @@ namespace InkLine
             new ForgeDef
             {
                 Line = ForgeLine.Damage, Name = "伤害", Stat = "炮弹伤害", Amount = 16f,
-                Icon = "damage", Reveal = 0,
+                Icon = "damage", Reveal = 0, Brief = "所有炮弹的伤害一起涨",
                 Cost = new[] { 120, 140, 170, 200, 240, 300, 380, 470, 580, 700, 840, 1000 },
                 Gate = new[] { 0, 2, 6, 12, 20, 28, 36, 44, 52, 58, 64, 69 }
             },
             new ForgeDef
             {
                 Line = ForgeLine.Emitters, Name = "炮台数", Stat = "炮台", Amount = 1f,
-                Icon = "guns", Reveal = 9,
+                Icon = "guns", Reveal = 9, Brief = "开局多架一门炮",
                 Cost = new[] { 260, 420 },
                 Gate = new[] { 9, 40 }
             },
             new ForgeDef
             {
                 Line = ForgeLine.FireRate, Name = "射速", Stat = "开火间隔", Amount = 8f,
-                Icon = "rate", Reveal = 3,
+                Icon = "rate", Reveal = 2, Brief = "每门炮开火更快",
                 Cost = new[] { 130, 160, 220, 300, 400 },
-                Gate = new[] { 3, 9, 24, 45, 62 }
+                Gate = new[] { 2, 9, 24, 45, 62 }
             },
             // 开局金币 8 级，每级 +8，满级开局 70。门槛铺到第七、八章，
             // 后期一张改装要几十金币，开局要够先拿下一张。
             new ForgeDef
             {
                 Line = ForgeLine.StartGold, Name = "开局金币", Stat = "开局金币", Amount = 8f,
-                Icon = "gold", Reveal = 4,
+                Icon = "gold", Reveal = 4, Brief = "开局多带金币，先手改装",
                 Cost = new[] { 140, 160, 210, 270, 360, 480, 640, 820 },
                 Gate = new[] { 4, 10, 22, 36, 48, 56, 62, 68 }
             },
             new ForgeDef
             {
                 Line = ForgeLine.BaseHp, Name = "基地生命", Stat = "基地生命", Amount = 1f,
-                Icon = "hp", Reveal = 7,
+                Icon = "hp", Reveal = 6, Brief = "基地多扛一次突破",
                 Cost = new[] { 190, 280, 420 },
-                Gate = new[] { 7, 27, 50 }
+                Gate = new[] { 6, 27, 50 }
+            },
+            // ---- 皮肤专属：拥有皮肤才露面，装着才生效。Reveal 写皮肤的开放关，和 Gate[0] 对齐 ----
+            // 赤焰 · 暴击 5 级，每级 +4%，满级 20% 的炮弹打双倍。跳出来的大红字是最直接的爽点。
+            new ForgeDef
+            {
+                Line = ForgeLine.Crit, Name = "暴击", Stat = "暴击率", Amount = 4f,
+                Icon = "crit", Reveal = 12, Brief = "炮弹有几率打出双倍伤害", Exclusive = true, Skin = SkinCatalog.Flame,
+                Cost = new[] { 150, 200, 270, 360, 480 },
+                Gate = new[] { 12, 24, 38, 52, 64 }
+            },
+            // 福袋 · 金币收益：只加局内金币，不碰墨 —— 墨是局外总账，check_stages 的墨价比按它算。
+            new ForgeDef
+            {
+                Line = ForgeLine.GoldGain, Name = "金币收益", Stat = "局内金币", Amount = 6f,
+                Icon = "goldgain", Reveal = 15, Brief = "打怪掉的金币更多", Exclusive = true, Skin = SkinCatalog.Lucky,
+                Cost = new[] { 160, 220, 290, 380, 500 },
+                Gate = new[] { 15, 30, 44, 58, 68 }
             }
+            // 以后的专属词条接在这里。活动货币升级的写 Coin = ForgeCoin.Token。
         };
 
+        public static readonly int LineCount = Lines.Length;
+
         public static ForgeDef Get(int i) => Lines[Mathf.Clamp(i, 0, LineCount - 1)];
-        public static ForgeDef Get(ForgeLine line) => Lines[(int)line];
 
-        // 点过，或通关关数到了露面门槛，才在加成页出现。
-        public static bool Exposed(int line, int cleared, int level) =>
-            level > 0 || cleared >= Get(line).Reveal;
+        // 通用词条：通关关数到了露面门槛，或者已经点过，就在炮台页出现。
+        // 专属词条另由 MetaProgress.ForgeShown 按皮肤判断。
+        public static bool Exposed(int line, int cleared, int level)
+        {
+            ForgeDef d = Get(line);
+            if (d.Exclusive) return false;
+            return level > 0 || cleared >= d.Reveal;
+        }
 
-        // 下一张要解锁的线。加成页只挂这一张「还没到」的预告，不把后面全摊开。
+        // 下一条要解锁的通用词条。炮台页只挂这一张预告，不把后面全摊开。
         public static int NextLocked(int cleared, int[] levels)
         {
             int best = -1, bestR = int.MaxValue;
             for (int i = 0; i < LineCount; i++)
             {
+                if (Get(i).Exclusive) continue;
                 int lv = levels != null && i < levels.Length ? levels[i] : 0;
                 if (Exposed(i, cleared, lv)) continue;
                 int r = Get(i).Reveal;
@@ -115,9 +155,16 @@ namespace InkLine
             return best;
         }
 
+        // 炮台页的排列：专属在最上，通用按解锁先后。
+        public static int Rank(int line)
+        {
+            ForgeDef d = Get(line);
+            return (d.Exclusive ? 0 : 1000) + d.Reveal * 10 + line;
+        }
+
         public static int MaxLevel(int i) => Get(i).MaxLevel;
 
-        // 从 level 级升到 level+1 级要多少墨。已满级返回 0。
+        // 从 level 级升到 level+1 级要多少。已满级返回 0。币种看 Get(i).Coin。
         public static int Cost(int i, int level)
         {
             ForgeDef d = Get(i);
@@ -130,6 +177,8 @@ namespace InkLine
             return level < 0 || level >= d.Gate.Length ? 0 : d.Gate[level];
         }
 
+        public static string CoinIcon(ForgeCoin coin) => coin == ForgeCoin.Token ? "token" : "ink";
+
         // 升到 level 级之后这条线一共加了多少，卡面「当前 → 下一级」用。
         public static string Value(int i, int level)
         {
@@ -140,6 +189,8 @@ namespace InkLine
             {
                 case ForgeLine.Damage: return "+" + n + "%";
                 case ForgeLine.FireRate: return "-" + n + "%";
+                case ForgeLine.Crit: return n + "%";
+                case ForgeLine.GoldGain: return "+" + n + "%";
                 case ForgeLine.StartGold: return "+" + n;
                 case ForgeLine.BaseHp: return "+" + n;
                 case ForgeLine.Emitters: return (ForgeStats.Default.Emitters + lv) + " 门";
@@ -156,6 +207,8 @@ namespace InkLine
             {
                 case ForgeLine.Damage: return d.Stat + " +" + n + "%";
                 case ForgeLine.FireRate: return d.Stat + " -" + n + "%";
+                case ForgeLine.Crit: return d.Stat + " +" + n + "%";
+                case ForgeLine.GoldGain: return d.Stat + " +" + n + "%";
                 case ForgeLine.Emitters: return "多一门炮";
                 default: return d.Stat + " +" + n;
             }
@@ -167,32 +220,38 @@ namespace InkLine
                 ? Mathf.RoundToInt(v).ToString()
                 : v.ToString("0.#");
 
-        public static ForgeStats Stats(int[] levels)
+        // skin 是当前装着的皮肤，专属词条只认它。
+        public static ForgeStats Stats(int[] levels, int skin)
         {
             ForgeStats s = ForgeStats.Default;
             if (levels == null) return s;
-            int dmg = Lv(levels, ForgeLine.Damage);
-            int gun = Lv(levels, ForgeLine.Emitters);
-            int rate = Lv(levels, ForgeLine.FireRate);
-            int gold = Lv(levels, ForgeLine.StartGold);
-            int hp = Lv(levels, ForgeLine.BaseHp);
-            s.DamageMul = 1f + Amount(ForgeLine.Damage) * 0.01f * dmg;
-            s.IntervalMul = Mathf.Max(0.2f, 1f - Amount(ForgeLine.FireRate) * 0.01f * rate);
-            s.Emitters = Mathf.Clamp(
-                ForgeStats.Default.Emitters + Mathf.RoundToInt(Amount(ForgeLine.Emitters)) * gun,
-                1, GameConstants.MaxEmitters);
-            s.StartGold = ForgeStats.Default.StartGold + Mathf.RoundToInt(Amount(ForgeLine.StartGold)) * gold;
-            s.BaseHp = GameConstants.BaseHp + Mathf.RoundToInt(Amount(ForgeLine.BaseHp)) * hp;
+            float dmg = 0f, rate = 0f, crit = 0f, gain = 0f;
+            int gun = 0, gold = 0, hp = 0;
+            for (int i = 0; i < LineCount && i < levels.Length; i++)
+            {
+                ForgeDef d = Lines[i];
+                if (d.Exclusive && d.Skin != skin) continue;
+                int lv = Mathf.Clamp(levels[i], 0, d.MaxLevel);
+                if (lv <= 0) continue;
+                switch (d.Line)
+                {
+                    case ForgeLine.Damage: dmg += d.Amount * lv; break;
+                    case ForgeLine.FireRate: rate += d.Amount * lv; break;
+                    case ForgeLine.Crit: crit += d.Amount * lv; break;
+                    case ForgeLine.GoldGain: gain += d.Amount * lv; break;
+                    case ForgeLine.Emitters: gun += Mathf.RoundToInt(d.Amount) * lv; break;
+                    case ForgeLine.StartGold: gold += Mathf.RoundToInt(d.Amount) * lv; break;
+                    case ForgeLine.BaseHp: hp += Mathf.RoundToInt(d.Amount) * lv; break;
+                }
+            }
+            s.DamageMul = 1f + dmg * 0.01f;
+            s.IntervalMul = Mathf.Max(0.2f, 1f - rate * 0.01f);
+            s.Emitters = Mathf.Clamp(ForgeStats.Default.Emitters + gun, 1, GameConstants.MaxEmitters);
+            s.StartGold = ForgeStats.Default.StartGold + gold;
+            s.BaseHp = GameConstants.BaseHp + hp;
+            s.CritChance = Mathf.Clamp01(crit * 0.01f);
+            s.GoldMul = 1f + gain * 0.01f;
             return s;
-        }
-
-        static float Amount(ForgeLine line) => Get(line).Amount;
-
-        static int Lv(int[] levels, ForgeLine line)
-        {
-            int i = (int)line;
-            if (i < 0 || i >= levels.Length) return 0;
-            return Mathf.Clamp(levels[i], 0, MaxLevel(i));
         }
     }
 }

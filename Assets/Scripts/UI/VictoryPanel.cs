@@ -14,6 +14,8 @@ namespace InkLine
         public Action Next;
         public Action DoubleInk;          // null：这局不给翻倍（没捡到墨 / 已翻过）
         public Action Home;
+        public Action Forge;              // 解锁卡上「去炮台」
+        public Action<int> Skin;          // 新炮台卡上「去看看」，炮台页停在那一款
     }
 
     // 通关页。一整段编排：光芒转起来 → 横幅砸下 → 三颗星依次砸进星座 → 彩带 →
@@ -88,6 +90,122 @@ namespace InkLine
             t = BuildRewards(stage0, info, t + 0.1f);
             t = BuildTeaser(stage0, a, t + 0.1f);
             BuildButtons(stage0, a, t + 0.1f);
+            int[] cards = RevealCards(info);
+            if (cards.Length > 0)
+                _anim.At(t + 0.7f, () => Reveal(a, cards, 0));
+        }
+
+        // 新炮台排在新词条前面：炮台是大件，先看。皮肤记成 -(下标+1)，词条照原下标。
+        static int[] RevealCards(ResultInfo info)
+        {
+            var all = new List<int>();
+            if (info.NewSkins != null)
+                foreach (int s in info.NewSkins) all.Add(-(s + 1));
+            if (info.NewLines != null) all.AddRange(info.NewLines);
+            return all.ToArray();
+        }
+
+        // 解锁卡：结算演完再整屏盖上来，一样一张，点「知道了」看下一张。新炮台和新词条共用这套编排。
+        void Reveal(VictoryArgs a, int[] lines, int k)
+        {
+            if (k >= lines.Length) return;
+            int line = lines[k];
+            bool skin = line < 0;
+            int skinId = skin ? -line - 1 : -1;
+            string ribbon, title, briefText, stepText, footText, goText;
+            Sprite art;
+            float artSize;
+            if (skin)
+            {
+                SkinDef sd = SkinCatalog.Get(skinId);
+                ribbon = "新炮台开放";
+                title = sd.Name;
+                briefText = sd.Note;
+                stepText = SkinCatalog.PerkOf(skinId) + "  ·  " + sd.Shot;
+                footText = sd.Way == SkinWay.Ink
+                    ? sd.Price + " 墨就能买，买下自动换上"
+                    : SkinCatalog.LockText(sd);
+                goText = "去看看";
+                art = InkSprites.Ui("skin_" + sd.Key);
+                artSize = 270f;
+            }
+            else
+            {
+                ForgeDef d = ForgeCatalog.Get(line);
+                ribbon = "新词条解锁";
+                title = d.Name;
+                briefText = d.Brief;
+                stepText = "每升一级  " + ForgeCatalog.Step(line);
+                footText = "去炮台页升级，下一局就生效";
+                goText = "去炮台";
+                art = InkSprites.Ui(d.Icon);
+                artSize = 210f;
+            }
+            var dim = UiKit.Dimmer(_root);
+            dim.GetComponent<Image>().color = new Color(0.08f, 0.05f, 0.03f, 0.82f);
+            dim.SetAsLastSibling();
+            ResultKit.SkipCatcher(dim, Skip);
+            var g = ResultKit.Group(dim, "unlock", Vector2.zero, new Vector2(ScreenFit.DesignW, ScreenFit.DesignH));
+
+            var rays = ResultKit.Rays(g, new Vector2(0f, 120f), 780f, new Color(1f, 0.82f, 0.42f, 0.9f));
+            _anim.Fade(rays, 0f, 0.4f, 0f, 0.9f).Spin(rays.transform, 22f).Pop(rays.transform, 0f, 0.5f, 0.3f);
+
+            var rib = UiKit.Stroke(g, "rib", new Vector2(0f, 340f), new Vector2(340f, 66f), Pin.Center, 5f,
+                fill: InkTheme.Seal, radius: 30f);
+            var rt = UiKit.Label(rib, "t", ribbon, 34, Vector2.zero, new Vector2(340f, 66f));
+            rt.color = Color.white;
+            UiKit.Bold(rt);
+            _anim.Move(rib, new Vector2(0f, 700f), new Vector2(0f, 340f), 0.05f, 0.36f, Ease.OutBack)
+                 .Punch(rib, 0.41f, 0.12f, 0.3f)
+                 .At(0.38f, AudioBus.Stamp);
+            if (lines.Length > 1)
+            {
+                var n = UiKit.Label(g, "count", (k + 1) + "/" + lines.Length, 24,
+                    new Vector2(220f, 340f), new Vector2(80f, 36f));
+                n.color = InkTheme.Hex("FFE7B8");
+                UiKit.Bold(n);
+            }
+
+            var icon = UiKit.Icon(g, art, new Vector2(0f, 130f), artSize);
+            _anim.Pop(icon.transform, 0.45f, 0.45f, 0f)
+                 .Breathe(icon.transform, 1.0f, 0.05f, 1.2f)
+                 .At(0.6f, () =>
+                 {
+                     AudioBus.Unlock();
+                     UiConfetti.Sparks(_root, new Vector2(0f, 130f), InkTheme.GoldHi, 22, 640f);
+                 });
+
+            var name = ResultKit.Headline(g, "name", title, 60, new Vector2(0f, -30f),
+                InkTheme.Hex("FFF3C8"), InkTheme.Hex("7A1E14"), 3f);
+            var brief = UiKit.Label(g, "brief", briefText, 28, new Vector2(0f, -100f), new Vector2(600f, 40f));
+            brief.color = InkTheme.Hex("FFE7B8");
+            var step = UiKit.Label(g, "step", stepText, 26,
+                new Vector2(0f, -150f), new Vector2(600f, 38f));
+            step.color = InkTheme.Hex("8FE3A2");
+            UiKit.Bold(step);
+            var foot = UiKit.Label(g, "foot", footText, 22,
+                new Vector2(0f, -196f), new Vector2(600f, 32f));
+            foot.color = InkTheme.Hex("CDBFA8");
+            _anim.Fade(name, 0.75f, 0.25f, 0f, 1f).Pop(name.transform, 0.75f, 0.3f, 1.6f)
+                 .Fade(brief, 0.9f, 0.25f, 0f, 1f)
+                 .Fade(step, 1.0f, 0.25f, 0f, 1f)
+                 .Fade(foot, 1.1f, 0.25f, 0f, 1f);
+
+            bool last = k + 1 >= lines.Length;
+            var go = ResultKit.Group(g, "go", new Vector2(-136f, -310f), new Vector2(232f, 88f));
+            UiKit.Btn(go, "b", goText, Vector2.zero, new Vector2(232f, 88f), () =>
+            {
+                if (skin && a.Skin != null) a.Skin(skinId);
+                else if (a.Forge != null) a.Forge();
+                else Destroy(dim.gameObject);
+            }, false);
+            var ok = ResultKit.Group(g, "ok", new Vector2(136f, -310f), new Vector2(232f, 88f));
+            UiKit.Btn(ok, "b", last ? "知道了" : "下一个", Vector2.zero, new Vector2(232f, 88f), () =>
+            {
+                Destroy(dim.gameObject);
+                if (!last) Reveal(a, lines, k + 1);
+            }, true);
+            _anim.Pop(go, 1.2f, 0.3f).Pop(ok, 1.28f, 0.3f).Breathe(ok, 1.6f, 0.045f, 1.3f);
         }
 
         void BuildStars(RectTransform parent, ResultInfo info)

@@ -127,7 +127,8 @@ namespace InkLine
             view.Board = Pic(page, "board", "panel_board", new Vector2(0f, 8f), new Vector2(640f, 415f), Pin.Top);
             view.Board.raycastTarget = false;
 
-            var skins = new HomeSkinCell[SkinCatalog.Count];
+            // 运行时由 SkinShowcase 接管并藏掉，这里只留旧的四格占位，HomeScreen 靠它认出预制体。
+            var skins = new HomeSkinCell[4];
             float[] xs = { -119f, 119f };
             float[] ys = { 46f, -86f };
             string[] guns = { "ico_skin_plain", "ico_skin_cinnabar", "ico_skin_ghost", "ico_skin_ghost" };

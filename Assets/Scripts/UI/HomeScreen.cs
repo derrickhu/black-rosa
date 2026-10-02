@@ -30,7 +30,6 @@ namespace InkLine
         Text _stamina;
         Text _stamTip;
         int _tab = TabSortie;
-        int _skinTip = -1;
 
         HomeScreen(RectTransform layer, MetaProgress meta, Action<int> start)
         {
@@ -136,25 +135,6 @@ namespace InkLine
                 live ? Color.white : new Color(1f, 1f, 1f, 0.50f);
         }
 
-        static void PaintCannon(Transform parent, Vector2 pos, int skin, bool owned, float size)
-        {
-            UiKit.Icon(parent, SkinGun(skin, owned), pos, size);
-        }
-
-        static Sprite SkinGun(int skin, bool owned)
-        {
-            string key;
-            switch (skin)
-            {
-                case 1: key = "skin_cinnabar"; break;
-                case 2: key = "skin_celadon"; break;
-                case 3: key = "skin_gilt"; break;
-                default: key = "skin_plain"; break;
-            }
-            Sprite spr = InkSprites.Ui(key);
-            return spr != null ? spr : InkSprites.Ui(owned ? "skin_plain" : "skin_ghost");
-        }
-
         RectTransform Page(string name)
         {
             var rt = UiKit.Panel(_layer, name, Vector2.zero, Vector2.zero, Color.clear);
@@ -195,6 +175,7 @@ namespace InkLine
                 else if (tab == TabSortie) BindSortie();
                 else BindSpells();
                 RefreshTop();
+                ForgeTabDot();
                 return;
             }
             RectTransform page = _pages[tab];
@@ -354,26 +335,60 @@ namespace InkLine
         void BindForge()
         {
             LayoutForgeTray();
-            HideSkinTip();
-            if (_view.Skins != null)
-                for (int i = 0; i < _view.Skins.Length && i < SkinCatalog.Count; i++)
-                    BindSkin(_view.Skins[i], i);
+            var page = _view.Board != null ? _view.Board.transform.parent as RectTransform : _pages[TabForge];
+            if (page != null) BindShowcase(page, ShowcaseTop);
+            BindBoostList();
+        }
+
+        // 专属词条不论买没买那款炮，都只跟着展台上正在看的那一款出现，排在列表最上面。
+        int SkinInView => _skinFocus >= 0 ? _skinFocus : _meta.Skin;
+
+        bool ListShown(int line)
+        {
+            ForgeDef d = ForgeCatalog.Get(line);
+            return d.Exclusive ? d.Skin == SkinInView : _meta.ForgeShown(line);
+        }
+
+        // 展台换了一款炮，只刷词条列表，展台自己的滑入动画不打断。
+        void RefreshBoosts()
+        {
+            if (_view != null)
+            {
+                BindBoostList();
+                return;
+            }
+            RectTransform page = _pages[TabForge];
+            Transform old = page != null ? page.Find("boosts") : null;
+            if (old == null) return;
+            old.name = "boosts_old";
+            UnityEngine.Object.Destroy(old.gameObject);
+            BuildBoosts(page, 2f + SkinShowcase.H + 10f);
+        }
+
+        void BindBoostList()
+        {
             int stars = _meta.ClearedCount();
             int locked = ForgeCatalog.NextLocked(stars, _meta.Forge);
-            if (_view.Boosts == null) return;
+            _forgeFresh |= _meta.TakeForgeNew();
+            if (_view.Boosts == null || _view.Boosts.Length == 0 || _view.Boosts[0] == null) return;
+            EnsureBoostRows();
             EnsureBoostScroll();
             for (int i = 0; i < _view.Boosts.Length; i++)
             {
                 var row = _view.Boosts[i];
                 if (row == null) continue;
-                bool shown = i < ForgeCatalog.LineCount &&
-                             ForgeCatalog.Exposed(i, stars, _meta.ForgeLevel(i));
+                bool shown = i < ForgeCatalog.LineCount && ListShown(i);
                 bool tease = i == locked;
                 row.gameObject.SetActive(shown || tease);
                 var le = row.GetComponent<LayoutElement>();
                 if (le != null) le.minHeight = le.preferredHeight = HomeForgeRow.Height;
             }
-            var list = _view.Boosts[0] != null ? _view.Boosts[0].transform.parent as RectTransform : null;
+            // 列表按解锁先后排，专属在顶，预告垫底。预制体里是按词条下标烘的。
+            int[] order = ForgeOrder();
+            for (int k = 0; k < order.Length; k++)
+                if (_view.Boosts[order[k]] != null) _view.Boosts[order[k]].transform.SetSiblingIndex(k);
+            if (locked >= 0 && _view.Boosts[locked] != null) _view.Boosts[locked].transform.SetAsLastSibling();
+            var list = _view.Boosts[0].transform.parent as RectTransform;
             if (list != null) LayoutRebuilder.ForceRebuildLayoutImmediate(list);
             for (int i = 0; i < _view.Boosts.Length && i < ForgeCatalog.LineCount; i++)
             {
@@ -382,6 +397,35 @@ namespace InkLine
                 if (i == locked) BindBoostTease(row, i);
                 else BindBoost(row, i);
             }
+        }
+
+        long _forgeFresh;
+
+        int[] ForgeOrder()
+        {
+            var ids = new System.Collections.Generic.List<int>();
+            for (int i = 0; i < ForgeCatalog.LineCount; i++) ids.Add(i);
+            ids.Sort((a, b) => ForgeCatalog.Rank(a).CompareTo(ForgeCatalog.Rank(b)));
+            return ids.ToArray();
+        }
+
+        // 预制体只烘了当时那几条。新加的词条照第一行复制，不用回去重烘整页。
+        void EnsureBoostRows()
+        {
+            int have = _view.Boosts.Length;
+            if (have >= ForgeCatalog.LineCount) return;
+            var src = _view.Boosts[0];
+            var rows = new HomeBoostRow[ForgeCatalog.LineCount];
+            for (int i = 0; i < have; i++) rows[i] = _view.Boosts[i];
+            for (int i = have; i < rows.Length; i++)
+            {
+                var go = UnityEngine.Object.Instantiate(src.gameObject, src.transform.parent, false);
+                go.name = "fg" + i;
+                var slot = go.GetComponent<HomeBoostRow>();
+                slot.Ui = null;
+                rows[i] = slot;
+            }
+            _view.Boosts = rows;
         }
 
         // 五条线加高之后超出页面，挂一层竖向滚动。底栏卷轴会盖住页脚，视口在它上面停住。
@@ -400,7 +444,7 @@ namespace InkLine
                 layout.spacing = 10f;
                 layout.padding = new RectOffset(0, 0, 4, 20);
             }
-            float top = 8f + BoardH + 12f;
+            float top = ShowcaseTop + SkinShowcase.H + 12f;
             RectTransform view = box.parent != null && box.parent.name == "boostView" ? box.parent as RectTransform : null;
             if (view == null)
             {
@@ -432,130 +476,30 @@ namespace InkLine
             box.sizeDelta = new Vector2(HomeForgeRow.Width, box.sizeDelta.y);
         }
 
-        void BindSkin(HomeSkinCell slot, int i)
+        SkinShowcase _showcase;
+        int _skinFocus = -1;
+        const float ShowcaseTop = 8f;
+
+        // 展台记着上次看到哪一款；第一次进来、或者刚买完换上，停在正在用的那款。
+        void BindShowcase(RectTransform page, float top)
         {
-            if (slot == null) return;
-            SkinDef d = SkinCatalog.Get(i);
-            bool owned = _meta.SkinOwned[i];
-            bool on = _meta.Skin == i;
-            bool buyable = _meta.CanBuySkin(i, out _);
-            bool live = owned || buyable;
-            Paint(slot.Card, on ? "Ui/panel_skin_on" : (owned ? "Ui/panel_skin" : "Ui/panel_skin_dim"), SkinSlice);
-            if (slot.Gun != null)
+            _showcase = SkinShowcase.Ensure(_showcase, page, top, _meta,
+                f => { _skinFocus = f; RefreshBoosts(); },
+                () => { _skinFocus = _meta.Skin; Rebuild(TabForge); });
+            _showcase.Root.SetAsFirstSibling();
+            _showcase.Bind(_skinFocus >= 0 ? _skinFocus : _meta.Skin);
+            if (_meta.SkinNew != 0)
             {
-                slot.Gun.sprite = SkinGun(i, owned || on);
-                slot.Gun.color = owned || on ? Color.white : new Color(1f, 1f, 1f, 0.72f);
+                _meta.SkinNew = 0;
+                _meta.Save();
             }
-            Write(slot.Name, d.Name, owned ? InkTheme.TextDark : InkTheme.TextDim, true);
-            Write(slot.Tail,
-                owned ? (on ? "使用中" : "") : (buyable ? d.Price + " 墨" : (d.NeedClear ? "通关三章" : $"通关 {d.Gate} 关")),
-                on ? InkTheme.Seal : InkTheme.TextDim);
-            if (slot.Button != null)
-            {
-                slot.Button.interactable = live;
-                slot.Button.onClick.RemoveAllListeners();
-                int idx = i;
-                slot.Button.onClick.AddListener(() =>
-                {
-                    if (_meta.SkinOwned[idx]) _meta.EquipSkin(idx);
-                    else _meta.BuySkin(idx);
-                    Rebuild(TabForge);
-                });
-            }
-            var card = slot.Card != null ? slot.Card.rectTransform : slot.GetComponent<RectTransform>();
-            EnsureSkinMark(card, i);
         }
 
-        void EnsureSkinMark(RectTransform card, int i)
+        // 结算页「去看看」新开放的炮台时，炮台页直接停在那一款上。
+        public void FocusSkin(int skin)
         {
-            if (card == null) return;
-            var mark = card.Find("mark") as RectTransform;
-            if (mark == null)
-            {
-                var go = new GameObject("mark", typeof(RectTransform), typeof(Image), typeof(Button));
-                go.transform.SetParent(card, false);
-                mark = go.GetComponent<RectTransform>();
-                mark.anchorMin = mark.anchorMax = new Vector2(0.5f, 0.5f);
-                mark.pivot = new Vector2(0.5f, 0.5f);
-                float x = card.sizeDelta.x * 0.5f - 26f;
-                float y = card.sizeDelta.y * 0.5f - 24f;
-                mark.anchoredPosition = new Vector2(x, y);
-                mark.sizeDelta = new Vector2(34f, 34f);
-                var img = go.GetComponent<Image>();
-                img.sprite = UiSprites.Fill(17);
-                img.color = InkTheme.Seal;
-                img.raycastTarget = true;
-                var ringGo = new GameObject("ring", typeof(RectTransform), typeof(Image));
-                ringGo.transform.SetParent(mark, false);
-                var ringRt = ringGo.GetComponent<RectTransform>();
-                ringRt.anchorMin = ringRt.anchorMax = new Vector2(0.5f, 0.5f);
-                ringRt.sizeDelta = new Vector2(34f, 34f);
-                var ring = ringGo.GetComponent<Image>();
-                ring.sprite = UiSprites.Line(14, 3);
-                ring.color = InkTheme.TextDark;
-                ring.raycastTarget = false;
-                var bang = UiKit.Label(mark, "t", "!", 22, Vector2.zero, new Vector2(34f, 34f));
-                bang.color = Color.white;
-                UiKit.Bold(bang);
-                var btn = go.GetComponent<Button>();
-                btn.targetGraphic = img;
-                btn.transition = Selectable.Transition.None;
-            }
-            mark.SetAsLastSibling();
-            var button = mark.GetComponent<Button>();
-            button.onClick.RemoveAllListeners();
-            int idx = i;
-            button.onClick.AddListener(() => ToggleSkinTip(idx, card));
-        }
-
-        void HideSkinTip()
-        {
-            _skinTip = -1;
-            if (_view == null || _view.Board == null) return;
-            var tip = _view.Board.rectTransform.Find("skinTip");
-            if (tip != null) tip.gameObject.SetActive(false);
-        }
-
-        void ToggleSkinTip(int i, RectTransform card)
-        {
-            var board = card.parent as RectTransform;
-            if (board == null) return;
-            var tip = board.Find("skinTip") as RectTransform;
-            if (_skinTip == i && tip != null && tip.gameObject.activeSelf)
-            {
-                tip.gameObject.SetActive(false);
-                _skinTip = -1;
-                return;
-            }
-            _skinTip = i;
-            if (tip == null)
-            {
-                tip = UiKit.Art(board, "skinTip", "Ui/panel_card", Vector2.zero,
-                    new Vector2(208f, 84f), Pin.Center, CardSlice);
-                var plate = tip.GetComponent<Image>();
-                var closer = tip.gameObject.AddComponent<Button>();
-                closer.transition = Selectable.Transition.None;
-                closer.targetGraphic = plate;
-                closer.onClick.AddListener(() =>
-                {
-                    tip.gameObject.SetActive(false);
-                    _skinTip = -1;
-                });
-                var note = UiKit.Label(tip, "note", "", 15, new Vector2(0f, 14f), new Vector2(188f, 40f));
-                note.horizontalOverflow = HorizontalWrapMode.Wrap;
-                note.color = InkTheme.TextDark;
-                var perk = UiKit.Label(tip, "perk", "", 16, new Vector2(0f, -22f), new Vector2(188f, 28f));
-                UiKit.Bold(perk);
-            }
-            tip.gameObject.SetActive(true);
-            tip.SetAsLastSibling();
-            tip.anchoredPosition = card.anchoredPosition + new Vector2(0f, -18f);
-            SkinDef d = SkinCatalog.Get(i);
-            var noteT = tip.Find("note").GetComponent<Text>();
-            var perkT = tip.Find("perk").GetComponent<Text>();
-            noteT.text = d.Note;
-            perkT.text = d.Perk;
-            perkT.color = d.DamageAdd > 0.01f || d.GoldAdd > 0 ? InkTheme.Seal : InkTheme.TextDim;
+            _skinFocus = Mathf.Clamp(skin, 0, SkinCatalog.Count - 1);
+            if (_tab == TabForge) Rebuild(TabForge);
         }
 
         void BindBoost(HomeBoostRow slot, int line)
@@ -564,8 +508,16 @@ namespace InkLine
             if (slot.Row != null) slot.Row.color = Color.white;
             var ui = HomeForgeRow.Ensure(slot, slot.transform as RectTransform);
             if (ui == null) return;
+            ForgeDef d = ForgeCatalog.Get(line);
+            if (d.Exclusive && !_meta.ForgeShown(line))
+            {
+                ui.BindPreview(_meta, line);
+                MuteRow(slot);
+                return;
+            }
             int idx = line;
-            ui.Bind(_meta, line, () => { if (_meta.BuyForge(idx)) Rebuild(TabForge); });
+            ui.Bind(_meta, line, () => { if (_meta.BuyForge(idx)) Rebuild(TabForge); },
+                (_forgeFresh & (1L << line)) != 0);
             MuteRow(slot);
         }
 
@@ -798,6 +750,25 @@ namespace InkLine
         {
             _shownSec = -1;
             Rebuild(_tab);
+        }
+
+        // 有刚解锁、还没看过的词条时，底栏「炮台」的牌匾右上角挂红点。
+        void ForgeTabDot()
+        {
+            if (_tabs == null || _tabs.Length <= TabForge || _tabs[TabForge] == null) return;
+            Transform btn = _tabs[TabForge].transform;
+            bool on = _meta.ForgeNew != 0 || _meta.SkinNew != 0;
+            Transform dot = btn.Find("dot");
+            if (dot == null)
+            {
+                if (!on) return;
+                var ring = UiKit.Icon(btn, UiSprites.Disc(), new Vector2(42f, 88f), 28f);
+                ring.gameObject.name = "dot";
+                ring.color = InkTheme.CardFace;
+                UiKit.Icon(ring.transform, UiSprites.Disc(), Vector2.zero, 22f).color = InkTheme.Seal;
+                dot = ring.transform;
+            }
+            dot.gameObject.SetActive(on);
         }
 
         static void RedDot(Button btn, bool on)
@@ -1050,122 +1021,38 @@ namespace InkLine
 
         // ---------- 炮台（无预制体时） ----------
 
-        // 棕盘原图 640×415，字牌在图里。方框必须同比例，卡才落在深色盘底里。
-        const float BoardW = 640f;
-        const float BoardH = 415f;
-        const float SkinCardW = 224f;
-        const float SkinCardH = 124f;
         const float RowGap = 8f;
 
         static readonly Vector4 CardSlice = new Vector4(18f, 18f, 18f, 18f);
-        // 皮肤卡自带白边、描边和底唇，边要比普通票面宽，拉到 224×124 时唇才不会被拉扁。
+        // 词条行底图自带白边、描边和底唇，边要比普通票面宽，拉长时唇才不会被拉扁。
         static readonly Vector4 SkinSlice = new Vector4(30f, 34f, 30f, 30f);
         static readonly Vector4 PillSlice = new Vector4(44f, 8f, 44f, 8f);
 
         void BuildForge(RectTransform page)
         {
-            var board = UiKit.Art(page, "board", "Ui/panel_board", new Vector2(0f, 2f),
-                new Vector2(BoardW, BoardH), Pin.Top);
-            board.GetComponent<Image>().raycastTarget = false;
-
-            var card = new Vector2(SkinCardW, SkinCardH);
-            for (int i = 0; i < SkinCatalog.Count; i++)
-                SkinCell(board, i, SkinSlot(i), card);
-
-            BuildBoosts(page, 2f + BoardH + 10f);
+            _showcase = null;
+            BindShowcase(page, 2f);
+            BuildBoosts(page, 2f + SkinShowcase.H + 10f);
         }
 
-        static Vector2 SkinSlot(int i)
-        {
-            return new Vector2(i % 2 == 0 ? -119f : 119f, i / 2 == 0 ? 46f : -86f);
-        }
-
+        // 预制体里还烘着旧的棕盘和 2×2 皮肤卡，展台接管之后全部藏掉。
         void LayoutForgeTray()
         {
-            if (_view.Board != null)
-            {
-                var board = _view.Board.rectTransform;
-                board.sizeDelta = new Vector2(BoardW, BoardH);
-                var tag = board.Find("tag");
-                if (tag != null) tag.gameObject.SetActive(false);
-            }
+            if (_view.Board != null) _view.Board.gameObject.SetActive(false);
             if (_view.GunSummary != null)
                 _view.GunSummary.transform.parent.gameObject.SetActive(false);
             if (_view.Skins != null)
-            {
-                var size = new Vector2(SkinCardW, SkinCardH);
-                for (int i = 0; i < _view.Skins.Length && i < SkinCatalog.Count; i++)
-                {
-                    var slot = _view.Skins[i];
-                    if (slot == null) continue;
-                    var rt = slot.GetComponent<RectTransform>();
-                    rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
-                    rt.pivot = new Vector2(0.5f, 0.5f);
-                    rt.anchoredPosition = SkinSlot(i);
-                    rt.sizeDelta = size;
-                    if (slot.Gun != null)
-                    {
-                        slot.Gun.rectTransform.anchoredPosition = new Vector2(0f, 14f);
-                        slot.Gun.rectTransform.sizeDelta = new Vector2(64f, 64f);
-                    }
-                    if (slot.Name != null)
-                    {
-                        slot.Name.rectTransform.anchoredPosition = new Vector2(0f, -28f);
-                        slot.Name.rectTransform.sizeDelta = new Vector2(200f, 24f);
-                        slot.Name.alignment = TextAnchor.MiddleCenter;
-                    }
-                    if (slot.Tail != null)
-                    {
-                        slot.Tail.rectTransform.anchoredPosition = new Vector2(0f, -48f);
-                        slot.Tail.rectTransform.sizeDelta = new Vector2(200f, 20f);
-                        slot.Tail.alignment = TextAnchor.MiddleCenter;
-                    }
-                }
-            }
-        }
-
-        void SkinCell(RectTransform board, int i, Vector2 pos, Vector2 size)
-        {
-            SkinDef d = SkinCatalog.Get(i);
-            bool owned = _meta.SkinOwned[i];
-            bool on = _meta.Skin == i;
-            bool buyable = _meta.CanBuySkin(i, out string why);
-            bool live = owned || buyable;
-            string key = on ? "Ui/panel_skin_on" : (owned ? "Ui/panel_skin" : "Ui/panel_skin_dim");
-            var box = UiKit.Art(board, "sk" + i, key, pos, size, Pin.Center, SkinSlice);
-            var btn = box.gameObject.AddComponent<Button>();
-            btn.targetGraphic = box.GetComponent<Image>();
-            btn.interactable = live;
-            int idx = i;
-            btn.onClick.AddListener(() =>
-            {
-                if (_meta.SkinOwned[idx]) _meta.EquipSkin(idx);
-                else _meta.BuySkin(idx);
-                Rebuild(TabForge);
-            });
-            PaintCannon(box, new Vector2(0f, 10f), i, owned || on, 78f);
-            var n = UiKit.Label(box, "n", d.Name, 18, new Vector2(-22f, -46f), new Vector2(80, 28),
-                TextAnchor.MiddleRight);
-            UiKit.Bold(n);
-            n.color = owned ? InkTheme.TextDark : InkTheme.TextDim;
-            string tail = owned
-                ? (on ? "使用中" : "")
-                : (buyable ? d.Price + " 墨" : (d.NeedClear ? "通关三章" : $"通关 {d.Gate} 关"));
-            if (tail.Length > 0)
-            {
-                var s = UiKit.Label(box, "s", tail, 14, new Vector2(40f, -46f), new Vector2(72, 26),
-                    TextAnchor.MiddleLeft);
-                s.color = on ? InkTheme.Seal : InkTheme.TextDim;
-            }
-            EnsureSkinMark(box, i);
+                foreach (var slot in _view.Skins)
+                    if (slot != null) slot.gameObject.SetActive(false);
         }
 
         void BuildBoosts(RectTransform page, float topY)
         {
             int stars = _meta.ClearedCount();
+            _forgeFresh |= _meta.TakeForgeNew();
             var shown = new System.Collections.Generic.List<int>();
-            for (int i = 0; i < ForgeCatalog.LineCount; i++)
-                if (ForgeCatalog.Exposed(i, stars, _meta.ForgeLevel(i)))
+            foreach (int i in ForgeOrder())
+                if (ListShown(i))
                     shown.Add(i);
             int locked = ForgeCatalog.NextLocked(stars, _meta.Forge);
             int n = shown.Count + (locked >= 0 ? 1 : 0);

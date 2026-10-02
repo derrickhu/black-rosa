@@ -145,9 +145,11 @@ namespace InkLine
         public string Name;
         public Color Tint;
         public int Price;
-        public int Gate;
-        public bool NeedClear;
+        public SkinWay Way;
+        public int Chapter;      // Way 是 Ink 时，通关这章（从 0 数）才能买
         public string Note;
+        public string Shot;      // 不带字时打出去的炮弹叫什么，展台上写给玩家看
+        public string Key;       // 美术名：Ui/ico_skin_<Key>、cannon_<Key>
         // 加在单发默认伤害上，之后炮台伤害、强攻照旧乘上去。
         public float DamageAdd;
         // 加在开局金币上，之后金币改装照旧再加。
@@ -164,32 +166,95 @@ namespace InkLine
         }
     }
 
-    // 素笔、朱砂只换样子。青瓷、鎏金的加成写在说明里，并真的进战斗。
+    public enum SkinWay
+    {
+        Free,     // 一开始就有
+        Ink,      // 到了章节门槛，花墨买
+        Ad,       // 看一次广告
+        Check,    // 第一轮七日签到的第 7 天
+        Event     // 活动送，活动还没接上，现在领不了
+    }
+
+    // 小钢炮白给。糖果炮看广告，机甲炮第一周签到，黄金炮通关第二章后花墨买。
+    // 赤焰、福袋先挂「活动获取」，各带一条专属词条，只在装着时生效。
     public static class SkinCatalog
     {
-        public const int Count = 4;
+        public const int Count = 6;
+        public const int Flame = 4;
+        public const int Lucky = 5;
 
         static readonly SkinDef[] All =
         {
-            new SkinDef { Name = "素笔", Tint = Color.clear, Price = 0, Note = "素木炮架，墨还没染。" },
             new SkinDef
             {
-                Name = "朱砂", Tint = InkTheme.Hex("C0392B"), Price = 110, Gate = 2,
-                Note = "红得像一盒印泥。"
+                Name = "小钢炮", Key = "plain", Tint = Color.clear, Price = 0,
+                Note = "老木架扛着铁炮管，皮实耐打。", Shot = "铁球弹"
             },
             new SkinDef
             {
-                Name = "青瓷", Tint = InkTheme.Hex("4A7C8C"), Price = 210, Gate = 6,
-                Note = "窑火里拉出的细管。", DamageAdd = 1f
+                Name = "糖果炮", Key = "cinnabar", Price = 0, Way = SkinWay.Ad,
+                Tint = InkTheme.Hex("FF5C8A"), Note = "礼物盒上架着拐杖糖，轮子是棒棒糖。", Shot = "糖果弹"
             },
             new SkinDef
             {
-                Name = "鎏金", Tint = InkTheme.Hex("E8B43A"), Price = 365, NeedClear = true,
-                Note = "炮座是一叠金币。", GoldAdd = 20
+                Name = "机甲炮", Key = "celadon", Price = 0, Way = SkinWay.Check,
+                Tint = InkTheme.Hex("3FA9F5"), Note = "履带小车扛着机甲炮管，打得更狠。", Shot = "能量弹", DamageAdd = 1f
+            },
+            new SkinDef
+            {
+                Name = "黄金炮", Key = "gilt", Price = 365, Way = SkinWay.Ink, Chapter = 1,
+                Tint = InkTheme.Hex("E8B43A"), Note = "坐在宝箱上，金币多到溢出来。", Shot = "金光弹", GoldAdd = 20
+            },
+            new SkinDef
+            {
+                Name = "赤焰", Key = "flame", Price = 0, Way = SkinWay.Event,
+                Tint = InkTheme.Hex("E2552B"), Note = "龙口衔火，一炮一颗流星。", Shot = "火焰流星弹"
+            },
+            new SkinDef
+            {
+                Name = "福袋", Key = "lucky", Price = 0, Way = SkinWay.Event,
+                Tint = InkTheme.Hex("D9A23A"), Note = "招财猫抱着炮，打出去全是铜钱。", Shot = "铜钱弹"
             }
         };
 
         public static SkinDef Get(int i) => All[Mathf.Clamp(i, 0, Count - 1)];
+
+        // 这款皮肤自带的专属词条下标，没有返回 -1。
+        public static int LineOf(int skin)
+        {
+            for (int i = 0; i < ForgeCatalog.LineCount; i++)
+            {
+                ForgeDef d = ForgeCatalog.Get(i);
+                if (d.Exclusive && d.Skin == skin) return i;
+            }
+            return -1;
+        }
+
+        public static string PerkOf(int skin)
+        {
+            int line = LineOf(skin);
+            return line >= 0 ? "专属词条 · " + ForgeCatalog.Get(line).Name : Get(skin).Perk;
+        }
+
+        // 展台上没拿到时，写在炮身上的那句。
+        public static string LockText(SkinDef d)
+        {
+            switch (d.Way)
+            {
+                case SkinWay.Ad: return "看广告获取";
+                case SkinWay.Check: return "七日签到获得";
+                case SkinWay.Event: return "活动获取";
+                case SkinWay.Ink: return "通关第" + ChapterNo(d.Chapter) + "章开放";
+                default: return "";
+            }
+        }
+
+        static string ChapterNo(int chapter)
+        {
+            const string n = "一二三四五六七八";
+            if (chapter < 0 || chapter >= n.Length) return (chapter + 1).ToString();
+            return n[chapter].ToString();
+        }
 
         // 已有的全亮，后面只挂下一档 —— 四张一起摊开就没有「攒星解锁」的过程。
         public static bool Listed(int i, bool[] owned)

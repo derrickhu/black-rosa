@@ -45,6 +45,17 @@ namespace InkLine
         public int CodexNewEnemy;
         // 三栏各三枚印，第 tab*3+i 位表示第 i 枚已经领过。
         public int CodexMileClaim;
+        // 词条：Seen 是「已经亮过相」，过关时没亮过的才弹解锁卡；
+        // New 是「亮了还没在炮台页看过」，给那一行挂「新」。位下标是词条下标。
+        public long ForgeSeen;
+        public long ForgeNew;
+        public int ForgeSeenVer;
+        // 皮肤开放（到了门槛、可以买）有没有弹过「新炮台开放」卡。位下标是皮肤下标。
+        public int SkinSeen;
+        // 开放了、炮台页还没去看过的皮肤，底栏炮台页签挂红点。
+        public int SkinNew;
+        // 活动货币，留给皮肤专属词条。ForgeCoin.Token 从这里扣。
+        public int Token;
 
         public static MetaProgress Load()
         {
@@ -119,7 +130,52 @@ namespace InkLine
             }
             if (Equipped[0] == Equipped[1]) Equipped[1] = -1;
             Ink = Mathf.Max(0, Ink);
+            Token = Mathf.Max(0, Token);
             Stamina = Mathf.Clamp(Stamina, 0, GameConstants.StaminaMax);
+            if (ForgeSeenVer < 1)
+            {
+                // 加解锁卡之前就有的五条，老存档早就见过，不再补弹。
+                for (int i = 0; i < ForgeCatalog.LineCount && i <= (int)ForgeLine.BaseHp; i++)
+                    if (ForgeShown(i)) ForgeSeen |= 1L << i;
+                ForgeSeenVer = 1;
+            }
+            if (ForgeSeenVer < 2)
+            {
+                // 暴击、金币收益改成了赤焰、福袋的专属词条，词条本身不再弹卡，跟着皮肤一起亮。
+                // 原有四款皮肤早就摆在炮台页上，只给新加的两款补「新炮台开放」。
+                for (int i = 0; i < ForgeCatalog.LineCount; i++)
+                    if (ForgeCatalog.Get(i).Exclusive) ForgeSeen |= 1L << i;
+                for (int i = 0; i < SkinCatalog.Count && i < SkinCatalog.Flame; i++) SkinSeen |= 1 << i;
+                ForgeSeenVer = 2;
+            }
+        }
+
+        // 花墨买的皮肤到了章节门槛，结算页弹「新炮台开放」。买没买另说。
+        public bool SkinOpened(int i)
+        {
+            SkinDef d = SkinCatalog.Get(i);
+            return d.Way == SkinWay.Ink && (d.Chapter < 0 || ChapterCleared(d.Chapter));
+        }
+
+        // 炮台页上现在就能拿到：看广告，或者章节到了可以花钱。签到和活动不在这一页领。
+        public bool SkinReady(int i)
+        {
+            SkinDef d = SkinCatalog.Get(i);
+            return d.Way == SkinWay.Ad || SkinOpened(i);
+        }
+
+        int[] TakeSkinReveals()
+        {
+            var got = new List<int>();
+            for (int i = 0; i < SkinCatalog.Count; i++)
+            {
+                int bit = 1 << i;
+                if ((SkinSeen & bit) != 0 || SkinOwned[i] || !SkinOpened(i)) continue;
+                SkinSeen |= bit;
+                SkinNew |= bit;
+                got.Add(i);
+            }
+            return got.ToArray();
         }
 
         static int[] Fit(int[] src, int len)
@@ -334,14 +390,14 @@ namespace InkLine
             return last >= 0 && last < Stars.Length && Stars[last] > 0;
         }
 
-        // 皮肤、技能上的「通关解锁」指通关第三章。
+        // 技能上的「通关解锁」指通关第三章。皮肤各自写在 SkinDef 上。
         public const int ClearGateChapter = 2;
 
         public ForgeStats Forged
         {
             get
             {
-                return ForgeCatalog.Stats(Forge);
+                return ForgeCatalog.Stats(Forge, Skin);
             }
         }
         // 技能和成词伤害的标尺：一发不带字的炮弹打多少。加成页要按玩家当前的
@@ -367,6 +423,8 @@ namespace InkLine
             if (r.FirstClear && def.Finale)
                 r.FinaleShard = GrantOneShard();
             if (r.NewBest) Stars[stage] = stars;
+            r.NewLines = TakeForgeReveals();
+            r.NewSkins = TakeSkinReveals();
             int ink = Mathf.Max(0, collected);
             if (!DailyWinDone)
             {
@@ -407,17 +465,10 @@ namespace InkLine
             Save();
         }
 
-        // 已经买过青瓷的也照样给碎片和墨；碎片随机撒，攒满的技能不再给。
+        // 碎片随机撒，攒满的技能不再给。
         public bool ClaimGift()
         {
             if (!GiftReady) return false;
-            int skin = GameConstants.GiftSkin;
-            SkinOwned = Fit(SkinOwned, SkinCatalog.Count);
-            if (skin >= 0 && skin < SkinOwned.Length && !SkinOwned[skin])
-            {
-                SkinOwned[skin] = true;
-                Skin = skin;
-            }
             for (int i = 0; i < GameConstants.GiftShards; i++)
                 if (GrantOneShard() < 0) break;
             Ink += GameConstants.GiftInk;
@@ -455,7 +506,7 @@ namespace InkLine
             }
         }
 
-        // 第 7 天是否还送鎏金：没送过，而且玩家还没自己买。
+        // 第 7 天是否还送皮肤：没送过，而且玩家还没有那一款。
         public bool CheckSkinPending => !CheckSkinDone && !(GameConstants.CheckSkin < SkinOwned.Length
                                                             && SkinOwned[GameConstants.CheckSkin]);
 
@@ -469,7 +520,7 @@ namespace InkLine
             return GameConstants.CheckShardDay7;
         }
 
-        // 返回今天是第几天（1~7），签过了返回 0。skin 表示这一签送了鎏金。shards 是实际入账的碎片。
+        // 返回今天是第几天（1~7），签过了返回 0。skin 表示这一签送了签到皮肤。shards 是实际入账的碎片。
         public int CheckIn(bool doubled, out bool skin, out int shards)
         {
             skin = false;
@@ -491,14 +542,7 @@ namespace InkLine
                 if (!CheckSkinDone)
                 {
                     CheckSkinDone = true;
-                    SkinOwned = Fit(SkinOwned, SkinCatalog.Count);
-                    int s = GameConstants.CheckSkin;
-                    if (s < SkinOwned.Length && !SkinOwned[s])
-                    {
-                        SkinOwned[s] = true;
-                        Skin = s;
-                        skin = true;
-                    }
+                    if (GrantSkin(GameConstants.CheckSkin)) skin = true;
                 }
             }
             Save();
@@ -652,11 +696,53 @@ namespace InkLine
 
         public int ForgeLevel(int line) => Forge[Mathf.Clamp(line, 0, ForgeCatalog.LineCount - 1)];
 
+        // 炮台页上有没有这一行。通用看通关数，专属看有没有那款皮肤。
+        public bool ForgeShown(int line)
+        {
+            ForgeDef d = ForgeCatalog.Get(line);
+            int lv = ForgeLevel(line);
+            if (!d.Exclusive) return ForgeCatalog.Exposed(line, ClearedCount(), lv);
+            return lv > 0 || (d.Skin >= 0 && d.Skin < SkinOwned.Length && SkinOwned[d.Skin]);
+        }
+
+        public bool ForgeFresh(int line) => (ForgeNew & (1L << line)) != 0;
+
+        // 炮台页看过就摘掉「新」。返回摘之前的那份，好让这一屏还能接着显示。
+        public long TakeForgeNew()
+        {
+            long fresh = ForgeNew;
+            if (fresh == 0) return 0;
+            ForgeNew = 0;
+            Save();
+            return fresh;
+        }
+
+        // 刚亮相、还没弹过解锁卡的词条。按炮台页的排列给，取了就算弹过。
+        int[] TakeForgeReveals()
+        {
+            var got = new List<int>();
+            for (int i = 0; i < ForgeCatalog.LineCount; i++)
+            {
+                long bit = 1L << i;
+                if ((ForgeSeen & bit) != 0 || !ForgeShown(i)) continue;
+                ForgeSeen |= bit;
+                ForgeNew |= bit;
+                got.Add(i);
+            }
+            got.Sort((a, b) => ForgeCatalog.Rank(a).CompareTo(ForgeCatalog.Rank(b)));
+            return got.ToArray();
+        }
+
+        public int Wallet(ForgeCoin coin) => coin == ForgeCoin.Token ? Token : Ink;
+
+        static string CoinName(ForgeCoin coin) => coin == ForgeCoin.Token ? "活动币" : "墨";
+
         // 买不起 / 没到门槛时 why 里放要显示给玩家的那句话。
         public bool CanBuyForge(int line, out string why)
         {
             int lv = ForgeLevel(line);
             ForgeDef d = ForgeCatalog.Get(line);
+            if (!ForgeShown(line)) { why = "未开放"; return false; }
             if (lv >= d.MaxLevel) { why = "已满级"; return false; }
             int gate = ForgeCatalog.Gate(line, lv);
             if (gate > GameConstants.StageCount)
@@ -666,7 +752,8 @@ namespace InkLine
             }
             if (ClearedCount() < gate) { why = $"通关 {gate} 关"; return false; }
             int cost = ForgeCatalog.Cost(line, lv);
-            if (Ink < cost) { why = $"差 {cost - Ink} 墨"; return false; }
+            int have = Wallet(d.Coin);
+            if (have < cost) { why = $"差 {cost - have} {CoinName(d.Coin)}"; return false; }
             why = "";
             return true;
         }
@@ -674,7 +761,9 @@ namespace InkLine
         public bool BuyForge(int line)
         {
             if (!CanBuyForge(line, out _)) return false;
-            Ink -= ForgeCatalog.Cost(line, ForgeLevel(line));
+            int cost = ForgeCatalog.Cost(line, ForgeLevel(line));
+            if (ForgeCatalog.Get(line).Coin == ForgeCoin.Token) Token -= cost;
+            else Ink -= cost;
             Forge[line]++;
             Save();
             return true;
@@ -683,9 +772,9 @@ namespace InkLine
         public bool CanBuySkin(int i, out string why)
         {
             SkinDef d = SkinCatalog.Get(i);
-            if (SkinOwned[i]) { why = ""; return false; }
-            if (d.NeedClear && !ChapterCleared(ClearGateChapter)) { why = "通关三章解锁"; return false; }
-            if (ClearedCount() < d.Gate) { why = $"通关 {d.Gate} 关"; return false; }
+            if (i < 0 || i >= SkinOwned.Length || SkinOwned[i]) { why = ""; return false; }
+            if (d.Way != SkinWay.Ink) { why = SkinCatalog.LockText(d); return false; }
+            if (d.Chapter >= 0 && !ChapterCleared(d.Chapter)) { why = SkinCatalog.LockText(d); return false; }
             if (Ink < d.Price) { why = $"差 {d.Price - Ink} 墨"; return false; }
             why = "";
             return true;
@@ -695,8 +784,26 @@ namespace InkLine
         {
             if (!CanBuySkin(i, out _)) return false;
             Ink -= SkinCatalog.Get(i).Price;
+            return GrantSkin(i);
+        }
+
+        // 广告、签到、活动发皮肤都走这里。到手就换上，专属词条跟着挂「新」。
+        public bool GrantSkin(int i)
+        {
+            if (i < 0 || i >= SkinCatalog.Count) return false;
+            SkinOwned = Fit(SkinOwned, SkinCatalog.Count);
+            if (SkinOwned[i]) return false;
             SkinOwned[i] = true;
             Skin = i;
+            SkinSeen |= 1 << i;
+            SkinNew |= 1 << i;
+            for (int k = 0; k < ForgeCatalog.LineCount; k++)
+            {
+                ForgeDef d = ForgeCatalog.Get(k);
+                if (!d.Exclusive || d.Skin != i) continue;
+                ForgeSeen |= 1L << k;
+                ForgeNew |= 1L << k;
+            }
             Save();
             return true;
         }

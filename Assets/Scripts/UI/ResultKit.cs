@@ -129,6 +129,8 @@ namespace InkLine
             return n;
         }
 
+        public static Sprite AdBadge() => AdSprite();
+
         static Sprite _ad;
 
         static Sprite AdSprite()

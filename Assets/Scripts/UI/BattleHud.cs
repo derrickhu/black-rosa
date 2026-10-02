@@ -32,6 +32,10 @@ namespace InkLine
         readonly RectTransform _layer;
         readonly RectTransform _heartsWrap;
         readonly RectTransform _wavePlate;
+        RectTransform _adGun;
+        RectTransform _adShadow;
+        Image _adGhost;
+        Image _adMark;
 
         BattleHud(RectTransform layer, Text gold, RectTransform goldChip, Image[] hearts,
             RectTransform heartsWrap, RectTransform wavePlate, Text wave, Text toast, Text ink, RectTransform inkChip,
@@ -54,7 +58,7 @@ namespace InkLine
         }
 
         public static BattleHud Build(RectTransform layer, BattleWorld world,
-            System.Action retreat, System.Action draft, System.Action<int> cast)
+            System.Action retreat, System.Action draft, System.Action<int> cast, System.Action addEmitter)
         {
             // ScreenFit 在没有刘海时也保底 36，那是给首页顶栏的呼吸。
             // 战斗页再加 8，三个药丸就掉进走怪区，像浮在战场当中。
@@ -98,6 +102,7 @@ namespace InkLine
 
             var hud = new BattleHud(layer, gold, goldChip, hearts, heartsWrap, wavePlate, wave, toast,
                 ink, inkChip, draftBtn, retreatBtn, draftLabel, keys);
+            hud.BuildAdGun(addEmitter);
             hud.Layout();
             return hud;
         }
@@ -358,6 +363,46 @@ namespace InkLine
             Draft.transform.localScale = can
                 ? Vector3.one * (1f + 0.04f * Mathf.Sin(Time.unscaledTime * 8f))
                 : Vector3.one;
+            PlaceAdGun(world, inBattle);
+        }
+
+        void BuildAdGun(System.Action addEmitter)
+        {
+            _adGun = UiKit.Stroke(_layer, "adgun", Vector2.zero, new Vector2(88f, 88f), Pin.Center, 5f, radius: 16f);
+            var btn = _adGun.gameObject.AddComponent<Button>();
+            btn.targetGraphic = _adGun.GetComponent<Image>();
+            btn.onClick.AddListener(() => addEmitter?.Invoke());
+            _adGhost = UiKit.Icon(_adGun, InkSprites.CannonSkin(0), new Vector2(0f, -2f), 52f);
+            _adGhost.color = new Color(1f, 1f, 1f, 0.38f);
+            _adMark = UiKit.Icon(_adGun, ResultKit.AdBadge(), Vector2.zero, 40f);
+            Transform sh = _layer.Find("adgun_sh");
+            _adShadow = sh as RectTransform;
+            _adGun.gameObject.SetActive(false);
+            if (_adShadow != null) _adShadow.gameObject.SetActive(false);
+        }
+
+        void PlaceAdGun(BattleWorld world, bool inBattle)
+        {
+            if (_adGun == null) return;
+            bool show = inBattle && world.EmitterCount < GameConstants.AdEmitterCap;
+            _adGun.gameObject.SetActive(show);
+            if (_adShadow != null) _adShadow.gameObject.SetActive(show);
+            if (!show) return;
+            Vector3 at = new Vector3(world.AdSlotPos.x, world.AdSlotPos.y, 0f);
+            Vector2 c = WorldToCanvas(_layer, at);
+            Vector2 c2 = WorldToCanvas(_layer, at + new Vector3(GameConstants.CellWidth, 0f, 0f));
+            float s = Mathf.Clamp(Mathf.Abs(c2.x - c.x) * 0.88f, 52f, 128f);
+            _adGun.anchorMin = _adGun.anchorMax = _adGun.pivot = new Vector2(0.5f, 0.5f);
+            _adGun.sizeDelta = new Vector2(s, s);
+            _adGun.anchoredPosition = c;
+            if (_adShadow != null)
+            {
+                _adShadow.anchorMin = _adShadow.anchorMax = _adShadow.pivot = new Vector2(0.5f, 0.5f);
+                _adShadow.sizeDelta = new Vector2(s, s);
+                _adShadow.anchoredPosition = c + new Vector2(0f, -7f);
+            }
+            if (_adGhost != null) _adGhost.rectTransform.sizeDelta = new Vector2(s * 0.62f, s * 0.62f);
+            if (_adMark != null) _adMark.rectTransform.sizeDelta = new Vector2(s * 0.46f, s * 0.46f);
         }
 
         // 收到一笔就把药丸顶一下、数字染一下色。飞过去的金币要在这儿落地有声，

@@ -63,7 +63,7 @@ namespace InkLine
                 formSprite = InkVfx.Shot(v.Form.Fx);
             }
             bool hasBody = formSprite != null;
-            // 没吃字的弹按炮台皮肤走。素笔是黑墨点，朱砂是红点，青瓷是瓷青珠，鎏金才用紫芯金边。
+            // 没吃字的弹按炮台皮肤走。小钢炮是黑铁球，糖果炮是粉红糖球，机甲炮是青蓝能量球，黄金炮才用紫芯金边。
             bool naked = !hasBody && v.Elements == 0 && !v.Form.On && !v.Trail.On && !v.Halo.On && !v.Orbit.On && !v.Bloom.On;
             NakedShot look = naked ? NakedOf(skin) : default;
             if (naked && skin == 3)
@@ -78,6 +78,7 @@ namespace InkLine
             Child(ref _pellet, "pellet", pellet, naked ? look.PelletScale : (heavyStar > 0 ? 0.24f : 0.20f), 6,
                 hasBody ? Color.clear : pelletTint);
             if (hasBody && _pellet != null) _pellet.enabled = false;
+            SkinArt(naked ? SkinShot(skin) : null, skin, b.Id);
 
             // 晕光槽：重和金只放一层柔光，不换形。
             Color glow = v.Elements > 0 ? Fade(v.Mixed, 0.26f) : Color.clear;
@@ -276,9 +277,76 @@ namespace InkLine
             public float Time;
         }
 
-        // 0 素笔黑点，1 朱砂红点，2 青瓷珠，3 鎏金紫芯绕金。
+        static Sprite SkinShot(int skin)
+        {
+            if (skin == SkinCatalog.Flame) return InkSprites.Load("shot_flame");
+            if (skin == SkinCatalog.Lucky) return InkSprites.Load("shot_coin");
+            return null;
+        }
+
+        // 赤焰、福袋的裸弹是一张画好的弹体图（火流星 / 铜钱），图是「弹头在上、尾巴在下」画的，
+        // 本节点已经转到飞行方向，这里只把弹头沉回子弹位置。
+        void SkinArt(Sprite sprite, int skin, int seed)
+        {
+            if (sprite == null)
+            {
+                if (_skinArt != null) _skinArt.enabled = false;
+                return;
+            }
+            if (_skinArt == null) _skinArt = Spawn("skinShot");
+            _skinArt.enabled = true;
+            _skinArt.sprite = sprite;
+            Undistort(out float kx, out float ky);
+            bool flame = skin == SkinCatalog.Flame;
+            float size = flame ? 0.95f : 0.62f;
+            float sink = flame ? 0.20f : 0.10f;
+            _skinArt.transform.localPosition = new Vector3(0f, -sink * size * ky * sprite.bounds.size.y, 0f);
+            float wobble = flame ? 0f : Mathf.Sin(Time.time * 9f + seed * 1.3f) * 14f;
+            _skinArt.transform.localRotation = Quaternion.Euler(0f, 0f, wobble);
+            _skinArt.transform.localScale = new Vector3(size * kx, size * ky, 1f);
+            _skinArt.sortingOrder = 7;
+            InkFx.PaintSprite(_skinArt, Color.white);
+        }
+
+        SpriteRenderer _skinArt;
+
+        // 0 小钢炮黑球，1 糖果粉球，2 机甲能量球，3 黄金紫芯绕金，4 火流星，5 铜钱。
         static NakedShot NakedOf(int skin)
         {
+            if (skin == SkinCatalog.Flame)
+            {
+                return new NakedShot
+                {
+                    Pellet = Color.clear,
+                    PelletScale = 0.2f,
+                    Glow = Fade(InkTheme.FireMid, 0.30f),
+                    GlowScale = 0.78f,
+                    Hot = Color.clear,
+                    HotScale = 0.1f,
+                    Head = InkTheme.FireHi,
+                    Tail = InkTheme.Fire,
+                    Width = 0.13f,
+                    Time = 0.12f
+                };
+            }
+            if (skin == SkinCatalog.Lucky)
+            {
+                return new NakedShot
+                {
+                    Pellet = Color.clear,
+                    PelletScale = 0.2f,
+                    Glow = Fade(InkTheme.GoldHi, 0.22f),
+                    GlowScale = 0.62f,
+                    Hot = Color.clear,
+                    HotScale = 0.1f,
+                    Orbit = true,
+                    OrbitTint = InkTheme.GoldHi,
+                    Head = InkTheme.GoldHi,
+                    Tail = InkTheme.Gold,
+                    Width = 0.07f,
+                    Time = 0.07f
+                };
+            }
             if (skin == 3)
             {
                 return new NakedShot
@@ -299,34 +367,34 @@ namespace InkLine
             }
             if (skin == 1)
             {
-                Color red = InkTheme.Seal;
+                Color candy = InkTheme.Hex("FF5C8A");
                 return new NakedShot
                 {
-                    Pellet = red,
+                    Pellet = candy,
                     PelletScale = 0.26f,
-                    Glow = Fade(red, 0.35f),
+                    Glow = Fade(candy, 0.35f),
                     GlowScale = 0.72f,
-                    Hot = Fade(InkTheme.Hex("FF6A5A"), 0.9f),
+                    Hot = Fade(InkTheme.Hex("FFF0F5"), 0.9f),
                     HotScale = 0.12f,
-                    Head = InkTheme.Hex("FF8A78"),
-                    Tail = red,
+                    Head = InkTheme.Hex("FFB3CC"),
+                    Tail = candy,
                     Width = 0.08f,
                     Time = 0.06f
                 };
             }
             if (skin == 2)
             {
-                Color jade = InkTheme.Hex("7EAEA0");
+                Color neon = InkTheme.Hex("3FD0FF");
                 return new NakedShot
                 {
-                    Pellet = jade,
+                    Pellet = neon,
                     PelletScale = 0.24f,
-                    Glow = Fade(jade, 0.28f),
+                    Glow = Fade(neon, 0.28f),
                     GlowScale = 0.70f,
                     Hot = Fade(InkTheme.Hex("F4F7F2"), 0.95f),
                     HotScale = 0.12f,
-                    Head = InkTheme.Hex("E7F3EE"),
-                    Tail = jade,
+                    Head = InkTheme.Hex("D8F6FF"),
+                    Tail = neon,
                     Width = 0.09f,
                     Time = 0.08f
                 };

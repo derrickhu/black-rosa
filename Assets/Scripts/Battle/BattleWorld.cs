@@ -218,7 +218,7 @@ namespace InkLine
         int _skinId;
         float _intervalMul = 1f;
 
-        readonly float[] _fireCd = new float[GameConstants.MaxEmitters];
+        readonly float[] _fireCd = new float[GameConstants.AdEmitterCap];
         readonly List<int> _deadBullets = new List<int>();
         float _leechPool;
         float _leechGiven;
@@ -229,6 +229,9 @@ namespace InkLine
         const int ChWord = 4;
         const int ChCount = 5;
         int[,] _charge;
+        float _critChance;
+        float _goldGain = 1f;
+        float _goldFrac;
         WordId[] _word;
         int[] _wordStar;
         int[] _pierceStar;
@@ -271,6 +274,9 @@ namespace InkLine
             RailX = FieldLayout.ColumnX(Mathf.Max(0, (GameConstants.Columns - EmitterCount) / 2));
             _damageMul = Mathf.Max(0.1f, forge.DamageMul);
             _intervalMul = Mathf.Clamp(forge.IntervalMul, 0.3f, 2f);
+            _critChance = Mathf.Clamp01(forge.CritChance);
+            _goldGain = Mathf.Max(1f, forge.GoldMul);
+            _goldFrac = 0f;
             MaxBaseHp = stage.Has(StageRule.Frail) ? 1 : Mathf.Max(1, forge.BaseHp);
             BaseHp = MaxBaseHp;
             BeginSpells(equipped);
@@ -295,6 +301,7 @@ namespace InkLine
                 PlacePreset(stage.Preset);
                 if (stage.Rules != StageRule.None) ShowToast(StageCatalog.RuleHint(stage.Rules), 3.2f);
             }
+            ClampRail();
             for (int c = 0; c < GameConstants.Columns; c++) RefreshCol(c);
         }
 
@@ -452,7 +459,7 @@ namespace InkLine
             TickDrops(dt);
             if (ToastTime > 0f) ToastTime -= dt;
             if (RevealTime > 0f) RevealTime -= dt;
-            CheckEnd();
+            CheckEnd(dt);
         }
 
         void TickWaves(float dt)
@@ -566,11 +573,33 @@ namespace InkLine
             ShowFloat(from.Pos + Vector2.up * 0.3f, "裂", InkTheme.Explode, 1.15f);
         }
 
-        void TickEmitters(float dt)
+        // 广告格跟在最后一门右边，不占列。滑到头时格子可以出屏。
+        int RailSpan => Mathf.Clamp(EmitterCount, 1, GameConstants.Columns);
+
+        public Vector2 AdSlotPos => new Vector2(
+            RailX + EmitterCount * GameConstants.CellWidth, GameConstants.EmitterY);
+
+        void ClampRail()
         {
             float maxLeft = FieldLayout.ColumnX(0);
-            float maxRight = FieldLayout.ColumnX(GameConstants.Columns - EmitterCount);
+            float maxRight = FieldLayout.ColumnX(Mathf.Max(0, GameConstants.Columns - RailSpan));
             RailX = Mathf.Clamp(RailX, maxLeft, maxRight);
+        }
+
+        public bool AddEmitter()
+        {
+            if (EmitterCount >= GameConstants.AdEmitterCap) return false;
+            int i = EmitterCount;
+            EmitterCount++;
+            if (i >= 0 && i < _fireCd.Length) _fireCd[i] = 0.15f;
+            ClampRail();
+            ShowToast("多一门炮");
+            return true;
+        }
+
+        void TickEmitters(float dt)
+        {
+            ClampRail();
             for (int i = 0; i < EmitterCount; i++)
             {
                 int col = FieldLayout.ColumnAtX(RailX + i * GameConstants.CellWidth);
@@ -660,40 +689,37 @@ namespace InkLine
         {
             b.ChargedMask |= 1 << col;
             ShotMods m = b.Mods;
-            // 先记下这列有什么，蓄力没满也要让炮弹带上对应的长相。
-            if (_pierceStar[col] > 0) m.Mark(CardId.Pierce, _pierceStar[col]);
-            if (_explodeStar[col] > 0) m.Mark(CardId.Explode, _explodeStar[col]);
-            if (_heavyStar[col] > 0) m.Mark(CardId.Heavy, _heavyStar[col]);
-            if (_stunStar[col] > 0) m.Mark(CardId.Stun, _stunStar[col]);
-            if (_word[col] != WordId.None) m.WordLook = _word[col];
-            // 「斩」是词组字、不走 ApplyMod，成了连斩才算这发带着它 —— 否则雷决永远点不亮。
-            if (_word[col] == WordId.Cleave) m.Mark(CardId.Slash, Mathf.Max(1, _wordStar[col]));
+            // 图鉴按「这列摆过」记。这一发蓄满没有，跟收录无关。
             if (_pierceStar[col] > 0) NoteGlyph(CardId.Pierce);
             if (_explodeStar[col] > 0) NoteGlyph(CardId.Explode);
             if (_heavyStar[col] > 0) NoteGlyph(CardId.Heavy);
             if (_stunStar[col] > 0) NoteGlyph(CardId.Stun);
             if (_word[col] != WordId.None) NoteWord(_word[col]);
-            NotePairs(m);
 
-            if (_pierceStar[col] > 0 && PullCharge(col, ChPierce, 2))
+            // 没蓄满就不算带上这个字：不换弹形，也不加它的伤、状态和招牌。
+            if (_pierceStar[col] > 0 && PullCharge(col, ChPierce, CardCatalog.Get(CardId.Pierce).ChargeNeed))
             {
                 GlyphDef g = GlyphTable.Get(CardId.Pierce);
+                m.Mark(CardId.Pierce, _pierceStar[col]);
                 m.Pierce += g.Count.IntAt(_pierceStar[col]);
                 m.PierceDecay = g.Decay.At(_pierceStar[col]);
             }
-            if (_explodeStar[col] > 0 && PullCharge(col, ChExplode, 2))
+            if (_explodeStar[col] > 0 && PullCharge(col, ChExplode, CardCatalog.Get(CardId.Explode).ChargeNeed))
             {
                 GlyphDef g = GlyphTable.Get(CardId.Explode);
+                m.Mark(CardId.Explode, _explodeStar[col]);
                 m.ExplodeR = Mathf.Max(m.ExplodeR, g.Radius.At(_explodeStar[col]));
                 m.ExplodeShare = g.Decay.At(_explodeStar[col]);
             }
-            if (_heavyStar[col] > 0 && PullCharge(col, ChHeavy, 2))
+            if (_heavyStar[col] > 0 && PullCharge(col, ChHeavy, CardCatalog.Get(CardId.Heavy).ChargeNeed))
             {
                 // 只放大视觉，碰撞半径不动 —— 之前连 Radius 一起乘，炮弹会撑满格。
+                m.Mark(CardId.Heavy, _heavyStar[col]);
                 m.MulDamage *= GlyphTable.Get(CardId.Heavy).MulDamage.At(_heavyStar[col]);
             }
-            if (_stunStar[col] > 0 && PullCharge(col, ChStun, 2))
+            if (_stunStar[col] > 0 && PullCharge(col, ChStun, CardCatalog.Get(CardId.Stun).ChargeNeed))
             {
+                m.Mark(CardId.Stun, _stunStar[col]);
                 m.AddStatus(new StatusHit
                 {
                     Kind = StatusKind.Stun,
@@ -706,6 +732,9 @@ namespace InkLine
                 WordDef w = GlyphTable.Word(id);
                 int ws = Mathf.Max(1, _wordStar[col]);
                 m.Word = id;
+                m.WordLook = id;
+                // 「斩」不走 ApplyMod。只有连斩这一发真正打出来，才算带着它，雷决才会亮。
+                if (id == WordId.Cleave) m.Mark(CardId.Slash, Mathf.Max(1, ws));
                 switch (id)
                 {
                     case WordId.InstantKill:
@@ -725,6 +754,7 @@ namespace InkLine
                         break;
                 }
             }
+            NotePairs(m);
         }
 
         // 过 N 发：这一发先占一格，满 N 格当发就生效并清零。
@@ -1003,6 +1033,9 @@ namespace InkLine
             if (m.Shatter && e.Frozen) dmg *= 1.4f;
             // 4.2 局外成长的终乘。排在盘面加算之后，炮台伤害线才真的在放大整发伤害。
             dmg *= m.FinalMul;
+            // 4.3 暴击词条，同样乘整发
+            bool crit = _critChance > 0f && UnityEngine.Random.value < _critChance;
+            if (crit) dmg *= ForgeCatalog.CritMul;
 
             // 4.5 甲：每发固定减伤，放在乘算之后、斩杀之前。
             // 放这里有两个原因：一是减伤要吃满所有增伤，不然重击流被削两次；
@@ -1042,7 +1075,7 @@ namespace InkLine
             // 真正该有分量的那几下反而分不出来了。
             AddShake(execute ? 0.34f : heavy ? 0.18f : 0f);
             Color ink = m.Color.r + m.Color.g + m.Color.b < 0.12f ? InkTheme.Ink : m.Color;
-            ShowDamage(e, dmg, execute ? InkTheme.Heart : ink, heavy ? 1.42f : 1f, heavy || execute);
+            ShowDamage(e, dmg, execute || crit ? InkTheme.Heart : ink, heavy || crit ? 1.42f : 1f, heavy || execute || crit);
             if (e.Hp <= 0f) Kill(e, m);
         }
 
@@ -1298,6 +1331,8 @@ namespace InkLine
                 case 1: return 0.94f;
                 case 2: return 1.08f;
                 case 3: return 0.9f;
+                case SkinCatalog.Flame: return 0.84f;
+                case SkinCatalog.Lucky: return 1.16f;
                 default: return 1f;
             }
         }
@@ -1526,7 +1561,11 @@ namespace InkLine
             if (sound) AudioBus.Pickup();
             if (kind == DropKind.Gold)
             {
-                Gold += amount;
+                // 单枚掉落只有一两块，按枚取整会把加成全吞掉，零头攒着凑整。
+                _goldFrac += amount * (_goldGain - 1f);
+                int extra = Mathf.FloorToInt(_goldFrac);
+                _goldFrac -= extra;
+                Gold += amount + extra;
                 GoldPop = 1f;
             }
             else if (kind == DropKind.Shard)
@@ -1658,11 +1697,13 @@ namespace InkLine
                 }
                 if (e.Pos.y <= GameConstants.LeakY)
                 {
-                    e.Dead = true;
+                    // 漏进基地只扣血，不算出死。送回入口，打死才算清掉，
+                    // 否则最后一只撞线的瞬间场上没人，会直接判过关。
                     BaseHp = Mathf.Max(0, BaseHp - 1);
                     AudioBus.Leak();
                     AddShake(0.7f);
                     ShowToast("防线被突破");
+                    SendBack(e);
                 }
             }
             Enemies.RemoveAll(e => e.Dead);
@@ -1718,19 +1759,42 @@ namespace InkLine
             }
         }
 
-        void CheckEnd()
+        // 最后一只打死之后留一拍，死亡动画先播出来，再盖通关页。
+        const float ClearHold = 0.4f;
+        float _clearHold;
+
+        void CheckEnd(float dt)
         {
-            if (BaseHp <= 0) { Defeat = true; Paused = true; FlushDrops(); return; }
+            if (BaseHp <= 0)
+            {
+                _clearHold = 0f;
+                Defeat = true;
+                Paused = true;
+                FlushDrops();
+                return;
+            }
             // 前两关是教学关，没有关底。原来这里硬要求 BossKilled，
             // 无 boss 的关会永远停在最后一波打不完。
             bool bossDone = !Stage.HasBoss || BossKilled;
-            if (bossDone && AliveEnemies == 0 && WaveIndex >= Stage.Waves.Length)
+            bool clear = bossDone && AliveEnemies == 0 && WaveIndex >= Stage.Waves.Length;
+            if (!clear)
             {
-                Victory = true;
-                Paused = true;
-                FlushDrops();
-                Chests.Clear();
+                _clearHold = 0f;
+                return;
             }
+            _clearHold += dt;
+            if (_clearHold < ClearHold) return;
+            Victory = true;
+            Paused = true;
+            FlushDrops();
+            Chests.Clear();
+        }
+
+        // 漏怪或续命时把怪送回入口。叠在同一高度会糊成一团，按编号错开一点。
+        static void SendBack(EnemyActor e)
+        {
+            e.Pos.y = GameConstants.SpawnY - 0.4f - (e.Id % 4) * 0.28f;
+            e.Recoil = Vector2.zero;
         }
 
         public bool TryRevive()
@@ -1740,11 +1804,14 @@ namespace InkLine
             Defeat = false;
             Paused = false;
             // 看了广告就给满血：只补 1 格的续命，玩家下一只漏怪又死，广告等于白看。
+            // 下半场的怪留着送回入口。原先直接删掉，波次又已经走完时，
+            // 下一帧场上没人，续命会立刻变成胜利。
             BaseHp = MaxBaseHp;
-            for (int i = Enemies.Count - 1; i >= 0; i--)
+            for (int i = 0; i < Enemies.Count; i++)
             {
-                if (Enemies[i].Pos.y < GameConstants.GridCenterY)
-                    Enemies.RemoveAt(i);
+                EnemyActor e = Enemies[i];
+                if (e.Dead) continue;
+                if (e.Pos.y < GameConstants.GridCenterY) SendBack(e);
             }
             ShowToast("防线重整");
             return true;
@@ -1981,12 +2048,12 @@ namespace InkLine
         {
             float left = x - (EmitterCount - 1) * GameConstants.CellWidth * 0.5f;
             float maxLeft = FieldLayout.ColumnX(0);
-            float maxRight = FieldLayout.ColumnX(GameConstants.Columns - EmitterCount);
+            float maxRight = FieldLayout.ColumnX(Mathf.Max(0, GameConstants.Columns - RailSpan));
             left = Mathf.Clamp(left, maxLeft, maxRight);
             if (snap)
             {
                 int col = FieldLayout.ColumnAtX(left);
-                col = Mathf.Clamp(col, 0, GameConstants.Columns - EmitterCount);
+                col = Mathf.Clamp(col, 0, Mathf.Max(0, GameConstants.Columns - RailSpan));
                 RailX = FieldLayout.ColumnX(col);
             }
             else RailX = left;

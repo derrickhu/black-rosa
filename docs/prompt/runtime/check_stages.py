@@ -490,6 +490,7 @@ def forged_at(cleared):
             emit = min(2 + int(amount) * lv, max_emitters)
         elif name == "射速":
             interval = max(0.2, 1 - amount * 0.01 * lv)
+    # 暴击是赤焰皮肤的专属词条，不是人人都有，裕度按通用词条算。
     return emit / interval * mul
 
 
