@@ -245,6 +245,8 @@ wave_span = [float(x) for x in re.findall(
 ramp_open = float(re.search(r"RampOpen\s*=\s*([\d.]+)f", core_src).group(1))
 ramp_late = float(re.search(r"RampLate\s*=\s*([\d.]+)f", core_src).group(1))
 ramp_pow = float(re.search(r"RampPow\s*=\s*([\d.]+)f", core_src).group(1))
+chapter_bodies = [float(x) for x in re.findall(
+    r"[\d.]+", re.search(r"ChapterBodies\s*=\s*\{([^}]*)\}", core_src).group(1))]
 picks_per_cell = float(re.search(r"DraftPicksPerCell\s*=\s*([\d.]+)f", core_src).group(1))
 budget_share = float(re.search(r"DraftBudgetShare\s*=\s*([\d.]+)f", core_src).group(1))
 
@@ -317,7 +319,7 @@ def waves_of(r):
         end = last + (rounds - 1) * step_t
         tiled = [(t + r * step_t, e, n) for r in range(rounds) for t, e, n in specs]
         out.append(dict(boss=False, dur=max(span, end + 5.5), specs=tiled))
-    return ramp_bodies(out, "Rich" in r["rules"])
+    return ramp_bodies(out, "Rich" in r["rules"], chapter_bodies[min(r["ch"], len(chapter_bodies) - 1)])
 
 
 def ramp_weight(u):
@@ -325,7 +327,7 @@ def ramp_weight(u):
     return ramp_open + (ramp_late - ramp_open) * (u ** ramp_pow)
 
 
-def ramp_bodies(waves, rich):
+def ramp_bodies(waves, rich, body_mul=1.0):
     """复刻 StageCatalog.RampCounts：只数按时间加权后再归一，关底本人不动。"""
     import math
     total = sum(max(0.01, w["dur"]) for w in waves)
@@ -343,6 +345,7 @@ def ramp_bodies(waves, rich):
         cursor += dur
     raw_sum = sum(e["raw"] for e in ev if not e["boss"])
     w_sum = sum(e["raw"] * e["w"] for e in ev if not e["boss"])
+    raw_sum = max(1, round(raw_sum * body_mul))
     scale = raw_sum / w_sum if w_sum > 0.01 else 1.0
     final, frac, got = [], [], 0
     for e in ev:

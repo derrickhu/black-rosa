@@ -13,11 +13,14 @@ namespace InkLine
         readonly List<SpriteRenderer> _pips = new List<SpriteRenderer>();
         readonly float[] _pipFlash = new float[GameConstants.Columns * GameConstants.Rows];
         readonly int[] _pipWas = new int[GameConstants.Columns * GameConstants.Rows];
+        readonly float[] _pipTick = new float[GameConstants.Columns * GameConstants.Rows];
         const int PipN = 4;
         readonly List<SpriteRenderer> _emitters = new List<SpriteRenderer>();
         readonly List<SpriteRenderer> _muzzles = new List<SpriteRenderer>();
         readonly List<SpriteRenderer> _skins = new List<SpriteRenderer>();
         readonly List<SpriteRenderer> _washes = new List<SpriteRenderer>();
+        readonly List<SpriteRenderer> _glints = new List<SpriteRenderer>();
+        readonly CellJuice _juice;
 
         // 皮肤直接换炮身图，底下再垫一团同色的光。小钢炮的 tint 是透明，不能拿它判断换没换皮肤。
         public int EmitterSkin;
@@ -63,6 +66,14 @@ namespace InkLine
                 stamp.sortingOrder = 2;
                 stamp.enabled = false;
                 _stamps.Add(stamp);
+                var glint = Make("glint", stamp.sprite, FieldLayout.CellPos(c, r), 1f);
+                glint.transform.SetParent(stamp.transform, false);
+                glint.transform.localPosition = Vector3.zero;
+                glint.transform.localScale = Vector3.one;
+                glint.sortingOrder = 3;
+                glint.enabled = false;
+                InkFx.PaintAdd(glint, Color.clear);
+                _glints.Add(glint);
                 var plate = Make("plate", LevelPlate(), FieldLayout.CellPos(c, r), 1f);
                 plate.sortingOrder = 4;
                 plate.enabled = false;
@@ -98,6 +109,7 @@ namespace InkLine
             _leak = Make("leak", InkArt.Heap(InkShape.Bar, new Color(InkTheme.Ink.r, InkTheme.Ink.g, InkTheme.Ink.b, 0.35f), 64), new Vector3(0, GameConstants.LeakY, 0), 1f);
             _leak.sortingOrder = 1;
             _leak.transform.localScale = new Vector3(FieldLayout.FieldWidth, 0.05f, 1f);
+            _juice = new CellJuice(_root);
         }
 
         SpriteRenderer _backdrop;
@@ -136,14 +148,19 @@ namespace InkLine
         public void Sync(BattleWorld w)
         {
             FitBackdrop();
+            _juice.Consume(w);
+            _juice.Tick();
             int i = 0;
             for (int c = 0; c < GameConstants.Columns; c++) _colWash[c] = Color.clear;
             for (int c = 0; c < GameConstants.Columns; c++)
             for (int r = 0; r < GameConstants.Rows; r++, i++)
             {
                 bool open = w.IsOpen(c, r);
+                Vector3 home = FieldLayout.CellPos(c, r);
                 _grid[i].enabled = open;
-                _grid[i].color = Color.white;
+                _juice.Base(c, r, out Vector2 baseShift, out Color baseTint);
+                _grid[i].color = baseTint;
+                _grid[i].transform.position = home + (Vector3)baseShift;
                 if (open && w.Grid[c, r].HasValue)
                 {
                     CardId id = w.Grid[c, r].Value;
@@ -151,7 +168,12 @@ namespace InkLine
                     int star = Mathf.Max(1, w.Stars[c, r]);
                     PaintStamp(_stamps[i], id, star);
                     bool sleep = w.CellAsleep(c, r);
-                    _stamps[i].color = sleep ? new Color(1f, 1f, 1f, 0.38f) : Color.white;
+                    _juice.Shape(c, r, out Vector2 squash, out Vector2 shift, out float alpha, out Color glint);
+                    Transform st = _stamps[i].transform;
+                    st.localScale = new Vector3(st.localScale.x * squash.x, st.localScale.y * squash.y, 1f);
+                    st.position = home + (Vector3)shift;
+                    _stamps[i].color = new Color(1f, 1f, 1f, (sleep ? 0.38f : 1f) * alpha);
+                    PaintGlint(i, glint);
                     PaintZi(_stamps[i], id, sleep);
                     if (!sleep && (id == CardId.Fire || id == CardId.Ice))
                         InkVfx.PlayGlow(_stamps[i], id == CardId.Fire ? InkTheme.Fire : InkTheme.Ice, 1.08f);
@@ -159,13 +181,14 @@ namespace InkLine
                         InkVfx.StopAura(_stamps[i]);
                     if (!sleep) AccrueWash(c, id);
                     w.CellCharge(c, r, out int charged, out int need);
-                    PaintMark(i, _stamps[i], id, star, sleep, charged, need);
+                    PaintMark(i, _stamps[i], id, star, sleep, charged, need, _juice.Badge(c, r));
                 }
                 else
                 {
                     InkVfx.Stop(_stamps[i]);
                     InkVfx.StopAura(_stamps[i]);
                     _stamps[i].enabled = false;
+                    _glints[i].enabled = false;
                     HideMark(i);
                     PaintZi(_stamps[i], CardId.None, true);
                 }
@@ -379,18 +402,33 @@ namespace InkLine
 
         // 右上角方块是星级。下面的槽：常驻字一整条茶叶绿，每发都生效；
         // 蓄力字按「过 N 发」分成 N 段，满格是茶叶绿，空格是淡青瓷。
-        void PaintMark(int i, SpriteRenderer stamp, CardId id, int star, bool sleep, int charged, int need)
+        void PaintGlint(int i, Color glint)
+        {
+            SpriteRenderer g = _glints[i];
+            if (glint.a <= 0.01f)
+            {
+                g.enabled = false;
+                return;
+            }
+            g.sprite = _stamps[i].sprite;
+            g.enabled = true;
+            g.color = glint;
+        }
+
+        void PaintMark(int i, SpriteRenderer stamp, CardId id, int star, bool sleep, int charged, int need, float pop)
         {
             Bounds card = stamp.bounds;
             float half = Mathf.Min(card.extents.x, card.extents.y);
             half = Mathf.Min(half, GameConstants.CellWidth * 0.40f);
             Vector3 c = card.center;
 
-            float badge = half * 2f * 0.18f;
             float margin = half * 2f * 0.08f;
+            float badge = half * 2f * 0.18f;
+            float corner = badge;
+            badge *= pop;
             var bp = new Vector3(
-                c.x + half - margin - badge * 0.5f,
-                c.y + half - margin - badge * 0.5f,
+                c.x + half - margin - corner * 0.5f,
+                c.y + half - margin - corner * 0.5f,
                 0f);
             SpriteRenderer plate = _plates[i];
             plate.enabled = true;
@@ -433,9 +471,13 @@ namespace InkLine
 
             if (metering && _pipWas[i] > 0 && filled < _pipWas[i])
                 _pipFlash[i] = 0.28f;
+            if (metering && filled > _pipWas[i])
+                _pipTick[i] = 0.2f;
             _pipWas[i] = metering ? filled : 0;
             if (_pipFlash[i] > 0f) _pipFlash[i] -= Time.unscaledDeltaTime;
+            if (_pipTick[i] > 0f) _pipTick[i] -= Time.unscaledDeltaTime;
             bool burst = _pipFlash[i] > 0f;
+            float tick = Mathf.Clamp01(_pipTick[i] / 0.2f);
 
             float width = half * 2f * 0.76f;
             float gap = segs > 1 ? width * 0.06f : 0f;
@@ -455,9 +497,12 @@ namespace InkLine
                 Color col = on ? (burst ? InkTheme.AccelMid : InkTheme.Accel) : InkTheme.AccelHi;
                 if (sleep) col.a = on ? 0.4f : 0.22f;
                 sr.enabled = true;
+                // 刚攒上的那一段鼓一下，看得出「这一发算进去了」。
+                float grow = !burst && p == filled - 1 ? 1f + 0.9f * tick : 1f;
+                if (grow > 1f) col = Color.Lerp(col, Color.white, 0.45f * tick);
                 sr.color = col;
                 sr.transform.position = new Vector3(left + p * (segW + gap), y, 0f);
-                sr.transform.localScale = new Vector3(segW, h / InkFx.PillH, 1f);
+                sr.transform.localScale = new Vector3(segW * (1f + 0.15f * (grow - 1f)), h * grow / InkFx.PillH, 1f);
             }
         }
 
@@ -466,6 +511,7 @@ namespace InkLine
             _plates[i].enabled = false;
             _ranks[i].gameObject.SetActive(false);
             _pipFlash[i] = 0f;
+            _pipTick[i] = 0f;
             _pipWas[i] = 0;
             for (int p = 0; p < PipN; p++)
                 _pips[i * PipN + p].enabled = false;
@@ -568,8 +614,7 @@ namespace InkLine
         {
             int i = col * GameConstants.Rows + row;
             if (i < 0 || i >= _grid.Count || !_grid[i].enabled) return;
-            // 能放的格子始终是黑框。这里不再把整格乘成绿色。
-            _grid[i].color = Color.white;
+            // 能放的格子始终是黑框，不再把整格乘成绿色。颜色归 Sync 管，拒绝时那一下红才留得住。
         }
 
         public void Dispose()

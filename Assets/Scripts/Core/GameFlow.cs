@@ -8,7 +8,7 @@ namespace InkLine
 {
     public sealed class GameFlow : MonoBehaviour
     {
-        enum Screen { Lobby, Battle, Draft, Place, Confirm, Result }
+        enum Screen { Lobby, Intro, Battle, Draft, Place, Confirm, Result }
 
         MetaProgress _meta;
         BattleWorld _world;
@@ -27,6 +27,12 @@ namespace InkLine
         int _draftPaid;
         bool _taughtStar;
         bool _dragging;
+        // 金币够了自动弹改装。够了先等一小下再弹，免得刚捡到钱画面就被盖住；
+        // 玩家自己关掉改装框，说明这会儿想攒钱，静默一阵再弹。
+        float _autoWait;
+        float _autoMute;
+        const float AutoDelay = 0.35f;
+        const float AutoMuteAfterClose = 6f;
         string _tip;
         Transform _overlay;
         int _shotPage = -1;
@@ -84,7 +90,7 @@ namespace InkLine
             InkPointer.Pump();
             bool uiHit = EventSystemOverUi();
             if (_screen == Screen.Lobby && _home != null) _home.Tick();
-            if (_screen == Screen.Battle || _screen == Screen.Place || _screen == Screen.Draft || _screen == Screen.Confirm)
+            if (_screen == Screen.Intro || _screen == Screen.Battle || _screen == Screen.Place || _screen == Screen.Draft || _screen == Screen.Confirm)
             {
                 if (_world != null && _hud != null)
                 {
@@ -98,6 +104,7 @@ namespace InkLine
                     if (!uiHit) HandleRail();
                     _world.Tick(Time.deltaTime);
                     PumpCodexToast();
+                    TickAutoDraft();
                 }
                 if (_world != null && _view != null)
                 {
@@ -169,8 +176,38 @@ namespace InkLine
             _view.EmitterSkin = _meta.Skin;
             _view.EmitterTint = _meta.SkinTint;
             BuildBattleHud();
-            _screen = Screen.Battle;
+            _autoWait = 0f;
+            _autoMute = 0f;
             AudioBus.Music("bgm_battle");
+            if (BattleWorld.PreviewFill)
+            {
+                _screen = Screen.Battle;
+                return;
+            }
+            _screen = Screen.Intro;
+            BattleBanner.Show(_layer, _world.Stage, () =>
+            {
+                if (_world == null || _screen != Screen.Intro) return;
+                _screen = Screen.Battle;
+            });
+        }
+
+        void TickAutoDraft()
+        {
+            if (_world == null || BattleWorld.PreviewFill || _world.Victory || _world.Defeat) return;
+            float dt = Time.unscaledDeltaTime;
+            if (_autoMute > 0f) _autoMute -= dt;
+            if (!_world.CanDraft || _autoMute > 0f)
+            {
+                _autoWait = 0f;
+                return;
+            }
+            // 正按着滑炮台的时候不弹，否则松手那一下会点到牌上。
+            if (_dragging || InkPointer.Held) return;
+            _autoWait += dt;
+            if (_autoWait < AutoDelay) return;
+            _autoWait = 0f;
+            OpenDraft();
         }
 
         void OnCodex(CodexKind kind, int index)
@@ -207,6 +244,7 @@ namespace InkLine
                     if (_world != null) _world.AddEmitter();
                 });
             });
+            _hud.GunSkin = _meta.Skin;
         }
 
         static bool EventSystemOverUi()
@@ -317,6 +355,7 @@ namespace InkLine
             if (_world == null || _screen != Screen.Draft) return;
             _world.Gold += _draftPaid;
             _world.DraftCount = Mathf.Max(0, _world.DraftCount - 1);
+            _autoMute = AutoMuteAfterClose;
             _tip = "";
             ResumeBattle();
             AudioBus.Back();
@@ -353,13 +392,13 @@ namespace InkLine
             // 否则会悄悄放进一个画成灰底的格子里。
             if (result == BattleWorld.PlaceResult.LockedRow)
             {
-                AudioBus.Deny();
+                _world.DenyCell(col, row);
                 _world.ShowToast("这格还没开");
                 return;
             }
             if (result == BattleWorld.PlaceResult.RejectedMaxStar)
             {
-                AudioBus.Deny();
+                _world.DenyCell(col, row);
                 _world.ShowToast("已满星");
                 return;
             }

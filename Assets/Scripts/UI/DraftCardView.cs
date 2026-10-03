@@ -10,5 +10,6 @@ namespace InkLine
         public Image Heap;
         public Text Name;
         public Text Desc;
+        public GameObject WordTag;
     }
 }

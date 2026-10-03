@@ -185,6 +185,55 @@
       "duration": 0.9,
       "output": "../../../Assets/Resources/Audio/res_unlock.mp3",
       "notes": "下一关新字预告亮出"
+    },
+    {
+      "name": "cell_drop",
+      "text": "loud punchy pop of a soft rubber toy block dropped onto a wooden table, round bouncy thump with a tiny bright click on top, close microphone, dry, no reverb, no music, no voice",
+      "duration": 0.32,
+      "output": "../../../Assets/Resources/Audio/cell_drop.mp3",
+      "notes": "字落空格：软胶积木落桌"
+    },
+    {
+      "name": "cell_upgrade",
+      "text": "bright cheerful three-note rising toy xylophone run, quick and clear, each note ringing, ending in a tiny glittery sparkle, close and dry, no music bed, no voice",
+      "duration": 0.62,
+      "output": "../../../Assets/Resources/Audio/cell_upgrade.mp3",
+      "notes": "同字升星，音高按星级往上推"
+    },
+    {
+      "name": "cell_swap",
+      "text": "quick cartoon swish of a card flicked away, then immediately a soft bouncy rubber toy block thump, close microphone, dry, no reverb, no music, no voice",
+      "duration": 0.42,
+      "output": "../../../Assets/Resources/Audio/cell_swap.mp3",
+      "notes": "异字替换：旧字甩走、新字落下"
+    },
+    {
+      "name": "word_form",
+      "text": "loud cheerful mobile game combo power-up, four bright bell notes rising quickly, then a long warm sparkling shimmer that rings out and slowly fades, clear and joyful, short room, no voice",
+      "duration": 1.1,
+      "output": "../../../Assets/Resources/Audio/word_form.mp3",
+      "notes": "两字成词"
+    },
+    {
+      "name": "word_break",
+      "text": "loud cartoon descending slide whistle, short falling pitch then a soft muted wooden plonk, close microphone, dry, no music, no voice",
+      "duration": 0.45,
+      "output": "../../../Assets/Resources/Audio/word_break.mp3",
+      "notes": "替换掉一半，词散了"
+    },
+    {
+      "name": "charge_fire",
+      "text": "short bright energy release, a quick rising rubbery pluck with a tiny sparkle on top, light and snappy, close and dry, no gunshot, no explosion, no reverb, no music, no voice",
+      "duration": 0.26,
+      "output": "../../../Assets/Resources/Audio/charge_fire.mp3",
+      "notes": "蓄力字蓄满，这一发带上效果"
+    },
+    {
+      "name": "battle_start",
+      "text": "two quick soft wooden toy drum taps followed by a bright cheerful rising marimba run of three notes ending on a little sparkle, playful and light, close and dry, no brass, no orchestra, no voice",
+      "duration": 0.8,
+      "output": "../../../Assets/Resources/Audio/battle_start.mp3",
+      "notes": "进关「战斗开始」横幅"
     }
   ]
 }

@@ -33,7 +33,6 @@ namespace InkLine
         readonly RectTransform _heartsWrap;
         readonly RectTransform _wavePlate;
         RectTransform _adGun;
-        RectTransform _adShadow;
         Image _adGhost;
         Image _adMark;
 
@@ -253,7 +252,7 @@ namespace InkLine
             InkShake.Pin(cam);
         }
 
-        static Vector2 WorldToCanvas(RectTransform layer, Vector3 world)
+        public static Vector2 WorldToCanvas(RectTransform layer, Vector3 world)
         {
             Camera cam = Camera.main;
             if (cam == null || layer == null) return Vector2.zero;
@@ -366,43 +365,64 @@ namespace InkLine
             PlaceAdGun(world, inBattle);
         }
 
+        // 广告炮位：不再套白框。原地摆一门和真炮一样大的淡色炮，角上压一枚广告章，
+        // 一眼读成「这里还能再来一门，看个广告就是你的」。整块透明区域都能点。
         void BuildAdGun(System.Action addEmitter)
         {
-            _adGun = UiKit.Stroke(_layer, "adgun", Vector2.zero, new Vector2(88f, 88f), Pin.Center, 5f, radius: 16f);
+            _adGun = UiKit.Panel(_layer, "adgun", Vector2.zero, new Vector2(88f, 88f), Color.clear);
             var btn = _adGun.gameObject.AddComponent<Button>();
             btn.targetGraphic = _adGun.GetComponent<Image>();
+            btn.transition = Selectable.Transition.None;
             btn.onClick.AddListener(() => addEmitter?.Invoke());
-            _adGhost = UiKit.Icon(_adGun, InkSprites.CannonSkin(0), new Vector2(0f, -2f), 52f);
-            _adGhost.color = new Color(1f, 1f, 1f, 0.38f);
+            _adGhost = UiKit.Icon(_adGun, InkSprites.CannonSkin(GunSkin), Vector2.zero, 88f);
             _adMark = UiKit.Icon(_adGun, ResultKit.AdBadge(), Vector2.zero, 40f);
-            Transform sh = _layer.Find("adgun_sh");
-            _adShadow = sh as RectTransform;
             _adGun.gameObject.SetActive(false);
-            if (_adShadow != null) _adShadow.gameObject.SetActive(false);
         }
+
+        // 和 BattleView 里的炮同一张图、同一个缩放，淡色版本才对得上真炮的大小。
+        public int GunSkin;
+        int _ghostSkin = -1;
+        const float GunScale = 0.60f;
 
         void PlaceAdGun(BattleWorld world, bool inBattle)
         {
             if (_adGun == null) return;
             bool show = inBattle && world.EmitterCount < GameConstants.AdEmitterCap;
             _adGun.gameObject.SetActive(show);
-            if (_adShadow != null) _adShadow.gameObject.SetActive(show);
             if (!show) return;
+            if (_ghostSkin != GunSkin && _adGhost != null)
+            {
+                _ghostSkin = GunSkin;
+                _adGhost.sprite = InkSprites.CannonSkin(GunSkin);
+            }
             Vector3 at = new Vector3(world.AdSlotPos.x, world.AdSlotPos.y, 0f);
             Vector2 c = WorldToCanvas(_layer, at);
             Vector2 c2 = WorldToCanvas(_layer, at + new Vector3(GameConstants.CellWidth, 0f, 0f));
-            float s = Mathf.Clamp(Mathf.Abs(c2.x - c.x) * 0.88f, 52f, 128f);
+            float perWorld = Mathf.Abs(c2.x - c.x) / GameConstants.CellWidth;
+            float hit = Mathf.Clamp(perWorld * GameConstants.CellWidth * 0.92f, 52f, 140f);
             _adGun.anchorMin = _adGun.anchorMax = _adGun.pivot = new Vector2(0.5f, 0.5f);
-            _adGun.sizeDelta = new Vector2(s, s);
+            _adGun.sizeDelta = new Vector2(hit, hit);
             _adGun.anchoredPosition = c;
-            if (_adShadow != null)
+
+            float t = Time.unscaledTime;
+            if (_adGhost != null)
             {
-                _adShadow.anchorMin = _adShadow.anchorMax = _adShadow.pivot = new Vector2(0.5f, 0.5f);
-                _adShadow.sizeDelta = new Vector2(s, s);
-                _adShadow.anchoredPosition = c + new Vector2(0f, -7f);
+                Sprite spr = _adGhost.sprite;
+                float gun = spr != null ? Mathf.Max(spr.bounds.size.x, spr.bounds.size.y) * GunScale * perWorld : hit;
+                _adGhost.rectTransform.sizeDelta = new Vector2(gun, gun);
+                // 淡，但会轻轻呼吸，像在等人来领。
+                float a = 0.42f + 0.10f * Mathf.Sin(t * 3.2f);
+                _adGhost.color = new Color(1f, 1f, 1f, a);
             }
-            if (_adGhost != null) _adGhost.rectTransform.sizeDelta = new Vector2(s * 0.62f, s * 0.62f);
-            if (_adMark != null) _adMark.rectTransform.sizeDelta = new Vector2(s * 0.46f, s * 0.46f);
+            if (_adMark != null)
+            {
+                float m = hit * 0.40f;
+                float bob = 1f + 0.08f * Mathf.Sin(t * 5.5f);
+                var mr = _adMark.rectTransform;
+                mr.sizeDelta = new Vector2(m, m);
+                mr.anchoredPosition = new Vector2(hit * 0.30f, -hit * 0.24f);
+                mr.localScale = new Vector3(bob, bob, 1f);
+            }
         }
 
         // 收到一笔就把药丸顶一下、数字染一下色。飞过去的金币要在这儿落地有声，

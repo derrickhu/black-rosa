@@ -26,6 +26,16 @@ namespace InkLine
         public static void Stamp() => Cue("stamp", 0.9f, 0.06f, 0.02f);
         public static void Chime() => Cue("chime", 0.82f, 0.12f, 0f);
         public static void Draft() => Cue("draft", 0.75f, 0.2f, 0f);
+        public static void BattleStart() => CueOr("battle_start", "draft", 1f, 0.5f, 1f);
+
+        // 格子上的变化。一套软胶玩具的音色：落是闷弹一下，升星往上走，成词是一串铃。
+        public static void CellDrop() => CueOr("cell_drop", "stamp", 0.95f, 0.05f, 1f);
+        public static void CellUpgrade(int star) => CueOr("cell_upgrade", "chime", 0.9f, 0.08f, 1f + 0.12f * Mathf.Max(0, star - 2));
+        public static void CellSwap() => CueOr("cell_swap", "stamp", 0.95f, 0.06f, 1f);
+        public static void WordForm() => CueOr("word_form", "chime", 1f, 0.3f, 1f);
+        public static void WordBreak() => CueOr("word_break", "ui_deny", 0.8f, 0.15f, 1f);
+        // 蓄满一发就响一下，射速快的时候很密，压低音量、拉开间隔。
+        public static void ChargeFire(bool word) => Cue("charge_fire", word ? 0.7f : 0.42f, word ? 0.12f : 0.09f, 0.04f, word ? 0.86f : 1.08f);
         // 发弹是全场最密的声音，必须比命中轻一截，否则命中被它淹掉。
         public static void Shot(float pitch) => Cue("shot", 0.3f, 0.07f, 0.05f, pitch);
         // 命中两层：上面是墨点的瞬态，下面垫一声低频的闷响，才有「砸进去」的身体。

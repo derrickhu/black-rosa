@@ -94,6 +94,21 @@ namespace InkLine
         public float MaxLife = 0.72f;
     }
 
+    // 格子上的每一次变化。世界只记「发生了什么」，手感和声音都归视图。
+    public enum CellBeat { Drop, Upgrade, Replace, Word, Unword, Fire, Pass, Deny }
+
+    public struct CellPulse
+    {
+        public int Col, Row;
+        public CellBeat Beat;
+        public CardId Card;
+        public CardId Old;
+        public int Star;
+        public WordId Word;
+        // 成词时另一半在哪一行，没有就是 -1。
+        public int Mate;
+    }
+
     public enum DropKind { Gold, Ink, Shard }
 
     // 掉落物。弹出来、落地、躺一下，然后飞进顶栏的药丸里。
@@ -188,6 +203,7 @@ namespace InkLine
         public readonly List<FxBurst> Bursts = new List<FxBurst>();
         public readonly List<DropItem> Drops = new List<DropItem>();
         public readonly List<DeathFx> Deaths = new List<DeathFx>();
+        public readonly List<CellPulse> Pulses = new List<CellPulse>();
 
         // 顶栏两个药丸在世界里的位置，由 BattleView 每帧按画布算好塞进来。
         // 给一组兜底值，省得视图还没跑起来时掉落物往原点飞。
@@ -286,6 +302,7 @@ namespace InkLine
             Bursts.Clear();
             Drops.Clear();
             Deaths.Clear();
+            Pulses.Clear();
             ResetChests();
             if (PreviewFill)
             {
@@ -486,11 +503,15 @@ namespace InkLine
             int count = BodyCount(spawnIndex, spec);
             // 只数在关卡表里已经按「开局疏、收尾密」摊过，这里只负责把它们铺开。
             // 血和掉落都不摊 —— 每只吃满表血、掉满自己那份。
+            bool boss = EnemyIds.IsBoss(spec.Id);
             for (int i = 0; i < count; i++)
             {
                 int col = spec.Column;
-                if (col < 0) col = UnityEngine.Random.Range(0, GameConstants.Columns);
+                if (col < 0) col = boss ? UnityEngine.Random.Range(0, GameConstants.Columns) : PickColumn();
+                int picked = spec.Column < 0 ? col : -1;
                 col = Mathf.Clamp(col + Fan(i), 0, GameConstants.Columns - 1);
+                // 随机挑中的空列已经是按份额给的，不再挪；指定列和铺开落进空列的才挪。
+                if (!boss && col != picked) col = SteerColumn(col);
                 // 每三只往上退一排，进场是一队一队而不是叠在一个点上。
                 var at = new Vector2(
                     FieldLayout.ColumnX(col) + UnityEngine.Random.Range(-0.1f, 0.1f),
@@ -512,6 +533,61 @@ namespace InkLine
             if (Stage.Has(StageRule.Rich) && !EnemyIds.IsBoss(spec.Id))
                 count = Mathf.CeilToInt(count * 1.25f);
             return count;
+        }
+
+        // 前几章格子没开满，怪要多走有格子的列，玩家放的字才打得着。
+        // 没格子的列不是不出：随机出场的怪固定分它们一小份，作者指定列或成群铺开落进去的，也留一部分照走。
+        const float EmptyColumnShare = 0.15f;
+        const float EmptyColumnKeep = 0.3f;
+
+        int ColumnCells(int col)
+        {
+            int n = 0;
+            for (int r = 0; r < OpenRows; r++)
+                if (IsOpen(col, r)) n++;
+            return n;
+        }
+
+        // 随机出场列：先按固定份额决定落不落空列，落有格子的列再按格子数加权。
+        int PickColumn()
+        {
+            int empty = 0;
+            float sum = 0f;
+            for (int c = 0; c < GameConstants.Columns; c++)
+            {
+                int cells = ColumnCells(c);
+                if (cells == 0) empty++;
+                else sum += 1f + cells;
+            }
+            if (empty > 0 && (sum <= 0f || UnityEngine.Random.value < EmptyColumnShare))
+            {
+                int k = UnityEngine.Random.Range(0, empty);
+                for (int c = 0; c < GameConstants.Columns; c++)
+                    if (ColumnCells(c) == 0 && k-- == 0) return c;
+            }
+            float roll = UnityEngine.Random.value * sum;
+            for (int c = 0; c < GameConstants.Columns; c++)
+            {
+                int cells = ColumnCells(c);
+                if (cells == 0) continue;
+                roll -= 1f + cells;
+                if (roll <= 0f) return c;
+            }
+            return GameConstants.Columns - 1;
+        }
+
+        // 落在没格子的列上：大多挪到最近的有格子的列，留一小部分照走。
+        int SteerColumn(int col)
+        {
+            if (ColumnCells(col) > 0 || UnityEngine.Random.value < EmptyColumnKeep) return col;
+            int best = -1, bestD = 99;
+            for (int c = 0; c < GameConstants.Columns; c++)
+            {
+                if (ColumnCells(c) == 0) continue;
+                int d = Mathf.Abs(c - col);
+                if (d < bestD || (d == bestD && UnityEngine.Random.value < 0.5f)) { best = c; bestD = d; }
+            }
+            return best >= 0 ? best : col;
         }
 
         // 成群进场时第 i 只站哪一列：从中间往两边交替铺开。
@@ -679,7 +755,10 @@ namespace InkLine
                 {
                     CardDef def = CardCatalog.Get(id.Value);
                     if (def.Wake == CardWake.Always)
+                    {
                         ApplyMod(b, id.Value, Stars[col, b.NextRow]);
+                        if (b.Mother) Beat(CellBeat.Pass, col, b.NextRow);
+                    }
                 }
                 b.NextRow++;
             }
@@ -770,8 +849,42 @@ namespace InkLine
                 return false;
             }
             _charge[col, kind] = 0;
+            BeatCharged(col, kind);
             return true;
         }
+
+        void BeatCharged(int col, int kind)
+        {
+            for (int r = 0; r < OpenRows; r++)
+            {
+                if (!Grid[col, r].HasValue) continue;
+                CardDef def = CardCatalog.Get(Grid[col, r].Value);
+                bool mine = kind == ChWord
+                    ? def.Wake == CardWake.WordPart && def.Word == _word[col]
+                    : def.Wake == CardWake.Charge && ChargeKind(def.Id) == kind;
+                if (!mine) continue;
+                var p = Pulse(CellBeat.Fire, col, r);
+                p.Word = kind == ChWord ? _word[col] : WordId.None;
+                Pulses.Add(p);
+            }
+        }
+
+        CellPulse Pulse(CellBeat beat, int col, int row)
+        {
+            CardId? id = Grid != null ? Grid[col, row] : null;
+            return new CellPulse
+            {
+                Col = col, Row = row, Beat = beat,
+                Card = id ?? CardId.None,
+                Old = CardId.None,
+                Star = Stars != null ? Stars[col, row] : 0,
+                Mate = -1
+            };
+        }
+
+        void Beat(CellBeat beat, int col, int row) => Pulses.Add(Pulse(beat, col, row));
+
+        public void DenyCell(int col, int row) => Beat(CellBeat.Deny, col, row);
 
         void RainArrows(int col, int star, BulletActor src)
         {
@@ -1875,6 +1988,7 @@ namespace InkLine
             PlaceResult peek = PeekPlace(id, col, row);
             if (peek == PlaceResult.LockedRow || peek == PlaceResult.RejectedMaxStar) return peek;
             if (peek == PlaceResult.NeedConfirm && !overwrite) return peek;
+            CardId old = Grid[col, row] ?? CardId.None;
             if (peek == PlaceResult.Upgraded)
             {
                 Stars[col, row]++;
@@ -1887,16 +2001,72 @@ namespace InkLine
             }
             WordId before = _word != null ? _word[col] : WordId.None;
             RefreshCol(col);
+            // 换了字，这一格原来攒的蓄力就不算数了；同字升星接着攒。
+            if (peek == PlaceResult.NeedConfirm) ClearCharge(col, old);
+
+            var beat = Pulse(peek == PlaceResult.Upgraded ? CellBeat.Upgrade
+                : peek == PlaceResult.NeedConfirm ? CellBeat.Replace : CellBeat.Drop, col, row);
+            beat.Old = old;
+            Pulses.Add(beat);
+
             if (_word[col] != WordId.None && _word[col] != before)
             {
                 LastReveal = CardCatalog.WordName(_word[col]);
                 RevealTime = 1.6f;
                 ShowToast("成词 · " + LastReveal);
-                AudioBus.Chime();
+                BeatWord(col, _word[col]);
             }
-            else if (peek == PlaceResult.Upgraded) AudioBus.Chime();
-            else AudioBus.Stamp();
+            else if (before != WordId.None && _word[col] != before)
+            {
+                for (int r = 0; r < OpenRows; r++)
+                {
+                    if (r == row || !Grid[col, r].HasValue) continue;
+                    CardDef def = CardCatalog.Get(Grid[col, r].Value);
+                    if (def.Wake == CardWake.WordPart && def.Word == before)
+                    {
+                        var p = Pulse(CellBeat.Unword, col, r);
+                        p.Word = before;
+                        Pulses.Add(p);
+                    }
+                }
+            }
             return peek == PlaceResult.NeedConfirm ? PlaceResult.Placed : peek;
+        }
+
+        void BeatWord(int col, WordId word)
+        {
+            int a = -1, b = -1;
+            for (int r = 0; r < OpenRows; r++)
+            {
+                if (!Grid[col, r].HasValue) continue;
+                CardDef def = CardCatalog.Get(Grid[col, r].Value);
+                if (def.Wake != CardWake.WordPart || def.Word != word) continue;
+                if (a < 0) a = r;
+                else if (b < 0) b = r;
+            }
+            if (a < 0) return;
+            var p = Pulse(CellBeat.Word, col, a);
+            p.Word = word;
+            p.Mate = b;
+            Pulses.Add(p);
+            if (b < 0) return;
+            var q = Pulse(CellBeat.Word, col, b);
+            q.Word = word;
+            q.Mate = a;
+            Pulses.Add(q);
+        }
+
+        void ClearCharge(int col, CardId old)
+        {
+            if (old == CardId.None || _charge == null) return;
+            CardDef def = CardCatalog.Get(old);
+            if (def.Wake == CardWake.Charge)
+            {
+                for (int r = 0; r < OpenRows; r++)
+                    if (Grid[col, r] == old) return;
+                _charge[col, ChargeKind(old)] = 0;
+            }
+            else if (def.Wake == CardWake.WordPart && _word[col] != def.Word) _charge[col, ChWord] = 0;
         }
 
         void RefreshCol(int col)

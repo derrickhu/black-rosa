@@ -364,16 +364,21 @@ namespace InkLine
 
         // 开局权重、收尾权重、时间的次方。次方大于 1，前半段爬得慢，后半段才密起来。
         // 校验脚本按这三个名字读，改曲线只改这里。
-        const float RampOpen = 0.32f;
-        const float RampLate = 1.72f;
-        const float RampPow = 1.4f;
+        const float RampOpen = 0.14f;
+        const float RampLate = 1.9f;
+        const float RampPow = 1.7f;
+
+        // 每章杂兵只数的折扣。前两章格子少、字少，同样的怪量压不住；第三章起格子开满，按表出。
+        // 钱跟着怪少一截，抽牌价由钱袋反推，会一起降下来。
+        static readonly float[] ChapterBodies = { 0.82f, 0.9f, 1f, 1f, 1f, 1f, 1f, 1f };
 
         // 整关出怪按时间从疏排到密，再归一回原来的总只数。
         // 总血量、总掉落不变，变的是它们挤在开局还是挤在后段。
         // 关底本人不参与：双首还是两只，墨王还是一只。护送和小兵一起爬。
-        static int[][] RampCounts(WaveDef[] waves, bool rich)
+        static int[][] RampCounts(WaveDef[] waves, bool rich, int chapter)
         {
             int nW = waves.Length;
+            float bodyMul = ChapterBodies[Mathf.Clamp(chapter, 0, ChapterBodies.Length - 1)];
             float total = 0f;
             int n = 0;
             for (int w = 0; w < nW; w++)
@@ -421,6 +426,8 @@ namespace InkLine
                 cursor += dur;
             }
 
+            // 折扣打在整关总数上：单拨只有一两只，逐拨乘完再取整等于没打。
+            rawSum = Mathf.Max(1, Mathf.RoundToInt(rawSum * bodyMul));
             float scale = wSum > 0.01f ? rawSum / wSum : 1f;
             var final = new int[n];
             var frac = new float[n];
@@ -525,7 +532,7 @@ namespace InkLine
                     Mini = slot == 4 && ch > 0,
                     StaminaCost = finale ? GameConstants.StaminaFinale : GameConstants.StaminaPerStage
                 };
-                s[i].Bodies = RampCounts(s[i].Waves, s[i].Has(StageRule.Rich));
+                s[i].Bodies = RampCounts(s[i].Waves, s[i].Has(StageRule.Rich), ch);
                 Price(s[i]);
             }
             return s;
