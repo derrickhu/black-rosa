@@ -153,6 +153,9 @@ namespace InkLine
             }
         }
 
+        // 整页重绑时用：循环轨也一起丢掉，缩放由调用方复位。
+        public void Clear() => _tracks.Clear();
+
         public bool Playing
         {
             get

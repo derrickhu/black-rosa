@@ -1,0 +1,13 @@
+The attached images only show the drawing style of this mobile game: flat printed sticker art, solid colour fills with one flat shadow tone, one thick even outline the colour of soy sauce (#3A2A20), hard crisp edges like cut paper, chunky rounded corners.
+
+Draw four flat game UI pieces in a 2 by 2 grid on one pure solid magenta background (#FF00FF). Each piece sits in the centre of its own cell with a wide band of empty magenta on all four sides, seen perfectly straight-on, symmetric left to right, each filling about 70% of its cell.
+
+Top left: an empty round item socket. A thick circular ring the warm reddish brown of polished walnut wood, a thin bright line the yellow of a new gold coin running just inside the ring, and a recessed round floor the soft colour of steamed-bun cream, a little darker near the ring so it reads as a shallow dish. A thicker darker walnut lip along the bottom of the ring gives it a little front thickness.
+
+Top right: the very same round socket, with the ring painted the bright yellow of a new gold coin, a lighter buttery highlight along its top, and the floor the warm pale gold of the inside of a lit paper lantern.
+
+Bottom left: the very same round socket in a resting state: the ring the cool grey of an old slate roof tile, the floor a darker flat grey like wet stone, and a chunky closed padlock the yellow of a brass door lock sitting in the middle of the floor.
+
+Bottom right: a short wide rounded badge, about two and a half times wider than tall, like a small enamel pin: a flat face the deep green of a fresh tea leaf, a thin gold-coin-yellow line just inside the outline, blank face.
+
+Pure flat colours, crisp outline, clean magenta background between the pieces.

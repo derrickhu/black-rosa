@@ -28,25 +28,36 @@ namespace InkLine
         public const int AdStaminaPerDay = 5;
         public const int StarterInk = 85;
 
-        // 新手礼包：看两次激励广告，领一次就没了。皮肤改由签到送，礼包不再带炮。
+        // 新手礼包：看两次激励广告，领一次就没了。附带一个当场打开的银宝箱。
         public const int GiftAds = 2;
-        public const int GiftShards = 10;
         public const int GiftInk = 100;
+        public const int GiftDiamond = 30;
+        public const ChestTier GiftChest = ChestTier.Silver;
         // 七日签到：断一天从第 1 天重来；第一次连签满 7 天送机甲炮（SkinCatalog 2）。
+        // 每天给钻石，第 7 天另给一个金宝箱。
         public const int CheckDays = 7;
         public const int CheckStamina = 5;
         public const int CheckInk = 30;
         public const int CheckSkin = 2;
-        // 第一轮没有。第二轮起，第 7 天在当天奖励之外再给碎片。
-        public const int CheckShardDay7 = 5;
-        // 游戏圈：每天发一条帖子领一次。
+        public static readonly int[] CheckDiamonds = { 3, 3, 4, 4, 5, 5, 20 };
+        // 游戏圈：每天发一条帖子领一次，墨加一个木宝箱。
         public const int ClubInk = 50;
-        public const int ClubShards = 1;
+
+        // 首通给钻石。重复通关不给。
+        public const int DiamondStage = 2;
+        public const int DiamondBoss = 5;
+        public const int DiamondFinale = 15;
+        // 钻石补体力：10 钻换 10 体力，每天限次。
+        public const int DiamondStaminaGain = 10;
+        public const int DiamondStaminaPrice = 10;
+        public const int DiamondStaminaPerDay = 3;
 
         // 局内墨是这一局拾到的墨，通关时整笔入账。每只怪掉多少写在 EnemyCatalog 里，
-        // 紫宝箱另给一份。技能花的是本局金币，不花墨。
+        // 紫钱袋另给一份。道具不花金币也不花墨。
         public const int InkMax = 9999;
-        public const int SpellSlots = 2;
+        // 道具栏：开局一格，通关第三章开第二格，通关第六章开第三格。值是要通关的章下标。
+        public const int ItemSlots = 3;
+        public static readonly int[] ItemSlotChapter = { -1, 2, 5 };
 
         public const float WorldHalfHeight = 8f;
         public const float CellWidth = 1.16f;

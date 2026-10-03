@@ -76,7 +76,7 @@ namespace InkLine
                 W(S(0.3f, Elite, 0), S(1.5f, Elite, 5), S(5.5f, Shield, -1, 3), S(9.5f, Swarm, -1, 6)),
                 W(S(0.3f, Mender, 2), S(0.9f, Bulwark, 2), S(4.5f, Mender, 3), S(5.1f, Bulwark, 3), S(9.5f, Runner, -1, 4)),
                 W(S(0.3f, Splitter, -1, 4), S(4f, Elite, -1, 2), S(8.5f, Sprinter, -1, 3))
-            ).Rule(StageRule.NoSpell));
+            ).Rule(StageRule.NoItem));
 
             // 残局：中间被封，只剩两侧几条窄巷能放字。
             s.Add(P("窄巷", Full,

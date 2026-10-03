@@ -68,7 +68,7 @@ namespace InkLine
 
             var cardSize = new Vector2(190f, 214f);
             PanelKit.Reward(board, "Ui/ico_ink", "墨", "×" + GameConstants.ClubInk, new Vector2(-110f, 124f), cardSize);
-            PanelKit.Reward(board, "Ui/ico_shard", "技能碎片", "×" + GameConstants.ClubShards, new Vector2(110f, 124f), cardSize);
+            PanelKit.Reward(board, "Ui/chest_wood", ChestCatalog.Get(ChestTier.Wood).Name, "×1", new Vector2(110f, 124f), cardSize);
 
             _task = UiKit.Label(board, "task", "", 26, new Vector2(0f, 382f), new Vector2(BoardW - 60f, 40f),
                 TextAnchor.MiddleCenter, Pin.Top);
@@ -163,10 +163,10 @@ namespace InkLine
                 if (!_asking) Ask();
                 return;
             }
-            if (!_meta.ClaimClub(out int shards)) return;
-            string msg = shards > 0
-                ? $"已领取 墨×{GameConstants.ClubInk}、碎片×{shards}"
-                : $"已领取 墨×{GameConstants.ClubInk}，技能碎片已满";
+            if (!_meta.ClaimClub(out int slot)) return;
+            string msg = slot >= 0
+                ? $"已领取 墨×{GameConstants.ClubInk}，木宝箱已放进宝箱位"
+                : $"已领取 墨×{GameConstants.ClubInk}，宝箱位满了，木宝箱折成墨";
             InkToast.Show(_layer, msg);
             _changed?.Invoke();
             Refresh();

@@ -57,8 +57,8 @@ namespace InkLine
         static void Paint(Piece p, ChestActor c)
         {
             bool gold = c.Kind == ChestKind.Gold;
-            Sprite art = InkSprites.Load(gold ? (c.Cracked ? "chest_gold_crack" : "chest_gold")
-                : (c.Cracked ? "chest_ink_crack" : "chest_ink"));
+            Sprite art = InkSprites.Load(gold ? (c.Cracked ? "bag_gold_torn" : "bag_gold")
+                : (c.Cracked ? "bag_ink_torn" : "bag_ink"));
             p.Body.sprite = art;
             float native = art != null ? Mathf.Max(0.01f, art.bounds.size.x) : 1f;
             float size = Width / native;

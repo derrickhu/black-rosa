@@ -54,6 +54,7 @@ FLAT = _opt("--flat", int, FLAT)
 # 所以这三项可以从命令行覆盖，不用再抄一份两百行的切图流程。
 COLS = _opt("--cols", int, COLS)
 ROWS = _opt("--rows", int, ROWS)
+CANVAS = _opt("--canvas", int, CANVAS)
 _names = _opt("--names", str)
 if _names:
     NAMES = _names.split(",")

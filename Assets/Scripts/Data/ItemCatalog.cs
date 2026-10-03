@@ -2,133 +2,165 @@ using UnityEngine;
 
 namespace InkLine
 {
-    public enum SpellId { Burst, Halt, Rage, Sweep, Splash, Mend, Frost, Slow, Snipe }
+    public enum ItemId { Burst, Halt, Rage, Sweep, Splash, Mend, Frost, Slow, Snipe }
 
-    // 全局技能。和改装字牌完全分开：不进牌池、不占格子、不吃星。
-    public struct SpellDef
+    public enum ItemQuality { Green, Blue, Purple }
+
+    // 道具：带进关的实物。不花本局金币，冷却好了、场面对得上就自动丢出去。
+    // 和改装字牌完全分开：不进牌池、不占格子、不吃星。
+    public struct ItemDef
     {
-        public SpellId Id;
+        public ItemId Id;
         public string Name;
         public string Desc;
-        public int GoldCost;   // 释放一次要多少本局金币
-        public int Price;      // 碎片集满后的解锁价，单位墨
-        public int Shards;     // 解锁前要攒的碎片数。关底 boss 随机掉
-        public int Gate;       // 旧的通关关数门槛，解锁已改走碎片
-        public bool NeedClear; // 旧的通关门槛，解锁已改走碎片
+        public string When;      // 自动触发的条件，写给玩家看
+        public ItemQuality Quality;
+        public float Cooldown;   // 1 级冷却秒数，往上每级缩一点
         public Color Tint;
     }
 
-    public static class SpellCatalog
+    public static class ItemCatalog
     {
         public const int Count = 9;
         public const int MaxLevel = 5;
+        public const ItemId Starter = ItemId.Burst;
 
-        // 和改装抢同一笔本局金币，贵的技能放一次就少一次抽牌。
-        // Price / Shards 是解锁的底数。升级见 NextPrice / NextShards，每一级都比上一级贵。
-        // 新手礼包一次给 10 碎片、100 墨，定得比这个高，领完礼包也凑不齐一门。
-        static readonly SpellDef[] All =
+        static readonly ItemDef[] All =
         {
-            new SpellDef
+            new ItemDef
             {
-                Id = SpellId.Burst, Name = "墨爆", Desc = "最前排炸开一圈，6 点伤害",
-                GoldCost = 25, Price = 150, Shards = 12, Gate = 0, Tint = InkTheme.Explode
+                Id = ItemId.Burst, Name = "鞭炮", Desc = "最前排炸开一圈",
+                When = "最前排有 2 个敌人", Quality = ItemQuality.Green, Cooldown = 13f, Tint = InkTheme.Explode
             },
-            new SpellDef
+            new ItemDef
             {
-                Id = SpellId.Halt, Name = "定身", Desc = "全场敌人定住 1.6 秒",
-                GoldCost = 35, Price = 180, Shards = 14, Gate = 0, Tint = InkTheme.Word
+                Id = ItemId.Halt, Name = "闹钟", Desc = "全场敌人定住",
+                When = "敌人逼近或场上 5 个以上", Quality = ItemQuality.Blue, Cooldown = 20f, Tint = InkTheme.Word
             },
-            new SpellDef
+            new ItemDef
             {
-                Id = SpellId.Rage, Name = "强攻", Desc = "5 秒内炮弹伤害翻倍",
-                GoldCost = 45, Price = 320, Shards = 16, Gate = 0, Tint = InkTheme.Fire
+                Id = ItemId.Rage, Name = "能量饮料", Desc = "一阵子炮弹伤害翻倍",
+                When = "场上 3 个以上或首领在场", Quality = ItemQuality.Blue, Cooldown = 22f, Tint = InkTheme.Fire
             },
-            new SpellDef
+            new ItemDef
             {
-                Id = SpellId.Sweep, Name = "横扫", Desc = "全屏 5 点伤害并击退",
-                GoldCost = 55, Price = 420, Shards = 18, Gate = 5, Tint = InkTheme.Ink
+                Id = ItemId.Sweep, Name = "大扫把", Desc = "全屏伤害并击退",
+                When = "场上 6 个以上或敌人逼近", Quality = ItemQuality.Purple, Cooldown = 30f, Tint = InkTheme.Ink
             },
-            new SpellDef
+            new ItemDef
             {
-                Id = SpellId.Splash, Name = "泼墨", Desc = "敌人最多那一列灼烧 3 秒",
-                GoldCost = 50, Price = 560, Shards = 18, Gate = 6, Tint = InkTheme.Poison
+                Id = ItemId.Splash, Name = "辣椒酱", Desc = "敌人最多那一列灼烧",
+                When = "同一列有 3 个敌人", Quality = ItemQuality.Purple, Cooldown = 26f, Tint = InkTheme.Poison
             },
-            new SpellDef
+            new ItemDef
             {
-                Id = SpellId.Mend, Name = "回血", Desc = "基地回 1 血，每局限一次",
-                GoldCost = 70, Price = 760, Shards = 22, Gate = 0, NeedClear = true, Tint = InkTheme.Heart
+                Id = ItemId.Mend, Name = "急救包", Desc = "基地回血",
+                When = "基地掉血后", Quality = ItemQuality.Purple, Cooldown = 35f, Tint = InkTheme.Heart
             },
-            new SpellDef
+            new ItemDef
             {
-                Id = SpellId.Frost, Name = "冰封", Desc = "全场冰伤并减速",
-                GoldCost = 40, Price = 240, Shards = 14, Tint = InkTheme.Ice
+                Id = ItemId.Frost, Name = "冰块", Desc = "全场冰伤并减速",
+                When = "场上 4 个以上", Quality = ItemQuality.Blue, Cooldown = 18f, Tint = InkTheme.Ice
             },
-            new SpellDef
+            new ItemDef
             {
-                Id = SpellId.Slow, Name = "迟缓", Desc = "全场减速一阵",
-                GoldCost = 30, Price = 200, Shards = 14, Tint = InkTheme.Water
+                Id = ItemId.Slow, Name = "胶水", Desc = "全场减速一阵",
+                When = "有敌人过了半场", Quality = ItemQuality.Green, Cooldown = 14f, Tint = InkTheme.Water
             },
-            new SpellDef
+            new ItemDef
             {
-                Id = SpellId.Snipe, Name = "贯击", Desc = "最前一个吃一记重击",
-                GoldCost = 35, Price = 220, Shards = 14, Tint = InkTheme.Thunder
+                Id = ItemId.Snipe, Name = "弹弓", Desc = "最前一个吃一记重击",
+                When = "场上有敌人", Quality = ItemQuality.Green, Cooldown = 12f, Tint = InkTheme.Thunder
             }
         };
 
-        public static SpellDef Get(int i) => All[Mathf.Clamp(i, 0, Count - 1)];
-        public static SpellDef Get(SpellId id) => All[(int)id];
+        public static ItemDef Get(int i) => All[Mathf.Clamp(i, 0, Count - 1)];
+        public static ItemDef Get(ItemId id) => All[(int)id];
 
-        // 当前等级再升一级要的碎片。0 级是解锁，之后每一级比上一级多半份底数。
-        public static int NextShards(SpellDef d, int level)
+        // 下标是当前等级：[0] 是解锁要的卡，[1] 是 1→2 级，以此类推。紫卡稀有，要得少。
+        static readonly int[][] CardNeed =
+        {
+            new[] { 6, 10, 18, 30, 50 },
+            new[] { 4, 6, 10, 16, 26 },
+            new[] { 2, 3, 5, 8, 12 }
+        };
+
+        static readonly float[] InkMul = { 1f, 1.6f, 2.6f };
+        const int InkBase = 190;
+
+        // 满级之后再开到的卡折成墨。
+        static readonly int[] SpareInk = { 2, 6, 20 };
+
+        public static int NextCards(ItemDef d, int level)
         {
             if (level >= MaxLevel) return 0;
-            int step = Mathf.Max(2, d.Shards / 2);
-            return d.Shards + Mathf.Max(0, level) * step;
+            return CardNeed[(int)d.Quality][Mathf.Max(0, level)];
         }
 
-        // 墨价同样从解锁价往上爬。每级再贵四分之一 —— 三分之一那档把技能推成了
-        // 局外消耗的七成，练满一个技能比练满整条锻造线还贵，没人会去点第五级。
-        public static int NextPrice(SpellDef d, int level)
+        // 解锁只要卡，升级才花墨。每级比上一级贵六成五的底数。
+        public static int NextPrice(ItemDef d, int level)
         {
-            if (level >= MaxLevel) return 0;
-            int step = Mathf.Max(40, d.Price / 4);
-            return d.Price + Mathf.Max(0, level) * step;
+            if (level <= 0 || level >= MaxLevel) return 0;
+            float raw = InkBase * InkMul[(int)d.Quality] * (1f + 0.65f * (level - 1));
+            return Mathf.RoundToInt(raw / 5f) * 5;
         }
 
-        // 按已经练到的等级写效果。0 级先展示 1 级会是什么样。
-        // 伤害类技能一律写成「基础弹伤的几倍」。倍数就放在这里，
-        // BattleSpells 算伤害和加成页写文案读的是同一份，不会各写一遍再走岔。
+        public static int SpareInkOf(ItemDef d) => SpareInk[(int)d.Quality];
+
+        public static float CooldownAt(ItemDef d, int level)
+        {
+            int lv = Mathf.Clamp(level, 1, MaxLevel);
+            return d.Cooldown * (1f - 0.06f * (lv - 1));
+        }
+
+        public static string QualityName(ItemQuality q) =>
+            q == ItemQuality.Purple ? "稀有" : q == ItemQuality.Blue ? "高级" : "普通";
+
+        public static Color QualityColor(ItemQuality q) =>
+            q == ItemQuality.Purple ? InkTheme.Hex("9B5DE5")
+            : q == ItemQuality.Blue ? InkTheme.Hex("3A8EE6")
+            : InkTheme.Hex("3DAE5A");
+
+        public static Color QualityDeep(ItemQuality q) =>
+            q == ItemQuality.Purple ? InkTheme.Hex("6A3BA8")
+            : q == ItemQuality.Blue ? InkTheme.Hex("2563A8")
+            : InkTheme.Hex("2A7D40");
+
+        // 伤害类道具一律写成「基础弹伤的几倍」。倍数就放在这里，
+        // BattleItems 算伤害和道具页写文案读的是同一份，不会各写一遍再走岔。
         public static float BurstMul(int lv) => 2.2f + 1.1f * lv;
         public static float SweepMul(int lv) => 1.7f + 1.1f * lv;
         public static float FrostMul(int lv) => 1.7f + 0.55f * lv;
         public static float SnipeMul(int lv) => 5.6f + 2.8f * lv;
         public static float SplashMul(int lv) => 1.1f + 0.55f * lv;   // 每秒
 
+        public static int MendCap(int lv) => lv >= MaxLevel ? 2 : 1;
+
         // shotBase 传玩家当前的基础弹伤（MetaProgress.ShotBase），
         // 文案上仍然显示点数 —— 「7.7 倍弹伤」玩家换算不过来。
-        public static string Blurb(SpellDef d, int level, float shotBase)
+        public static string Blurb(ItemDef d, int level, float shotBase)
         {
             int lv = Mathf.Clamp(level <= 0 ? 1 : level, 1, MaxLevel);
             float b = shotBase > 0f ? shotBase : ShotMods.DefaultBase;
             switch (d.Id)
             {
-                case SpellId.Burst:
+                case ItemId.Burst:
                     return "最前排炸开一圈，" + Pts(b * BurstMul(lv)) + " 点伤害";
-                case SpellId.Halt:
+                case ItemId.Halt:
                     return "全场敌人定住 " + Sec(1.2f + 0.4f * lv) + " 秒";
-                case SpellId.Rage:
+                case ItemId.Rage:
                     return (4 + lv) + " 秒内炮弹伤害 " + (2 + (lv - 1) / 2) + " 倍";
-                case SpellId.Sweep:
+                case ItemId.Sweep:
                     return "全屏 " + Pts(b * SweepMul(lv)) + " 点伤害并击退";
-                case SpellId.Splash:
+                case ItemId.Splash:
                     return "那一列灼烧 " + Sec(2.2f + 0.6f * lv) + " 秒，每秒 " + Pts(b * SplashMul(lv)) + " 点";
-                case SpellId.Mend:
-                    return "基地回 " + (1 + (lv - 1) / 2) + " 血" + (lv >= MaxLevel ? "，可放两次" : "，每局限一次");
-                case SpellId.Frost:
+                case ItemId.Mend:
+                    return "基地回 " + (1 + (lv - 1) / 2) + " 血" + (lv >= MaxLevel ? "，每局两次" : "，每局一次");
+                case ItemId.Frost:
                     return "全场 " + Pts(b * FrostMul(lv)) + " 点冰伤，并减速";
-                case SpellId.Slow:
+                case ItemId.Slow:
                     return "全场减速 " + Sec(2.4f + 0.45f * lv) + " 秒";
-                case SpellId.Snipe:
+                case ItemId.Snipe:
                     return "最前一个 " + Pts(b * SnipeMul(lv)) + " 点";
                 default:
                     return d.Desc;

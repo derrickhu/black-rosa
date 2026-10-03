@@ -89,6 +89,20 @@ namespace InkLine
         public static void Leak() => Cue("leak", 0.86f, 0.2f, 0f);
         public static void Pickup() => Cue("pickup", 0.58f, 0.07f, 0.05f);
         public static void Spell(float pitch) => Cue("spell", 0.86f, 0.18f, 0f, pitch);
+        public static void ItemFire(float pitch) => CueOr("item_fire", "spell", 0.8f, 0.12f, pitch);
+        // 每个道具一段专属音，从起手一路响到生效。没入库时退回通用的丢出声。
+        public static void Item(ItemId id)
+        {
+            string name = "item_" + id.ToString().ToLowerInvariant();
+            if (Clip(name) != null) Cue(name, 1f, 0.2f, 0f, 1f);
+            else ItemFire(1f);
+        }
+        public static void ItemReady() => CueOr("item_ready", "chime", 0.55f, 0.3f, 1f);
+        public static void ChestLand() => CueOr("chest_land", "stamp", 0.9f, 0.2f, 1f);
+        public static void ChestUnlock() => CueOr("chest_unlock", "chime", 0.85f, 0.2f, 1f);
+        public static void ChestOpen() => CueOr("chest_open", "res_unlock", 0.95f, 0.4f, 1f);
+        public static void CardFlip(float pitch) => CueOr("card_flip", "ui_tap", 0.8f, 0.05f, pitch);
+        public static void CardRare() => CueOr("card_rare", "res_unlock", 0.9f, 0.3f, 1f);
         public static void Win() => Cue("win", 0.9f, 0.4f, 0f);
         public static void Lose() => Cue("lose", 0.85f, 0.4f, 0f);
 

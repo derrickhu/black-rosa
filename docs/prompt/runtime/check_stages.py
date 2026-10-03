@@ -511,18 +511,53 @@ check(min(head) / max(head) >= 0.5,
       f"战力裕度最低 / 最高 = {min(head) / max(head):.2f}（要 ≥0.50）")
 slump = head[-1] / head[0]
 check(slump >= 0.7, f"末章裕度 / 首章裕度 = {slump:.2f}（要 ≥0.70，低于此说明后期战力跟不上血量）")
-spell_src = read("Data", "SpellCatalog.cs")
+item_src = read("Data", "ItemCatalog.cs")
+chest_src = read("Data", "ChestCatalog.cs")
 forge_cost = sum(int(x) for grp in re.findall(r"Cost = new\[\] \{([^}]*)\}", forge_src) for x in re.findall(r"\d+", grp))
-spell_prices = [int(x) for x in re.findall(r"GoldCost = \d+, Price = (\d+)", spell_src)]
-max_lv = int(re.search(r"MaxLevel = (\d+)", spell_src).group(1))
-price_step = int(re.search(r"step = Mathf\.Max\(40, d\.Price / (\d+)\)", spell_src).group(1))
-spell_cost = sum(p + lv * max(40, p // price_step) for p in spell_prices for lv in range(max_lv))
-skin_cost = sum(int(x) for x in re.findall(r"Name = \"[^\"]+\",[^\n]*Price = (\d+)", spell_src))
-sink = forge_cost + spell_cost + skin_cost
+# 道具：解锁只要卡，2~满级每级花墨，复刻 ItemCatalog.NextPrice。
+max_lv = int(re.search(r"MaxLevel = (\d+)", item_src).group(1))
+ink_base = int(re.search(r"InkBase = (\d+)", item_src).group(1))
+ink_mul = [float(x) for x in re.search(r"InkMul = \{([^}]*)\}", item_src).group(1).replace("f", "").split(",")]
+q_of = {"Green": 0, "Blue": 1, "Purple": 2}
+quals = [q_of[q] for q in re.findall(r"Quality = ItemQuality\.(\w+), Cooldown", item_src)]
+check(len(quals) == 9, f"道具 9 件，读到 {len(quals)} 件")
+item_cost = sum(round(ink_base * ink_mul[q] * (1 + 0.65 * (lv - 1)) / 5) * 5
+                for q in quals for lv in range(1, max_lv))
+skin_cost = sum(int(x) for x in re.findall(r"Name = \"[^\"]+\",[^\n]*Price = (\d+)", item_src))
+sink = forge_cost + item_cost + skin_cost
+# 胜利宝箱：普通关按轮换表发，boss 关金箱，章底首通皇家箱。首通一遍拿到的箱子墨算额外收入。
+tiers = re.findall(r"Tier = ChestTier\.(\w+),[^\n]*\n\s*InkMin = (\d+), InkMax = (\d+)", chest_src)
+chest_ink_of = {t: (int(a) + int(b)) / 2 for t, a, b in tiers}
+cycle = re.findall(r"ChestTier\.(\w+)", re.search(r"Cycle =\s*\{([^}]*)\}", chest_src).group(1))
+chest_ink, n_cycle, got = 0.0, 0, {}
+for r in rows:
+    if r["slot"] == size - 1:
+        t = "Royal"
+    elif r["bosses"]:
+        t = "Gold"
+    else:
+        t = cycle[n_cycle % len(cycle)]
+        n_cycle += 1
+    got[t] = got.get(t, 0) + 1
+    chest_ink += chest_ink_of[t]
+chest_ink = round(chest_ink)
+income = ink_total + chest_ink
 # 买满的节奏和旧版一致：总价约为首通收入的 2.4~3 倍（旧版 2.7），剩下的靠重刷和每日首胜。
-ratio = sink / max(1, ink_total)
-check(2.4 <= ratio <= 3.0, f"墨价 / 首通墨收入 = {sink} / {ink_total} = {ratio:.2f}")
-print(f"  墨价明细：锻造 {forge_cost}  技能 {spell_cost}  皮肤 {skin_cost}")
+# 宝箱墨是额外收入，算进分母；超线就该降箱子里的墨，而不是砍通关墨。
+ratio = sink / max(1, income)
+check(2.4 <= ratio <= 3.0, f"墨价 / 首通墨收入 = {sink} / ({ink_total} + 宝箱 {chest_ink}) = {ratio:.2f}")
+share = chest_ink / max(1, income)
+check(share <= 0.2, f"宝箱墨占首通墨收入 {share:.0%}（要 ≤20%，箱子是添头，主收入还是打怪）")
+print(f"  墨价明细：锻造 {forge_cost}  道具 {item_cost}  皮肤 {skin_cost}")
+print("  首通宝箱: " + "  ".join(f"{k} {v}" for k, v in got.items()))
+# 钻石：首通全关 + 新手礼包 + 一轮签到，够开几次箱、补几次体力。
+const_dia = {k: int(v) for k, v in re.findall(r"(Diamond(?:Stage|Boss|Finale)|GiftDiamond)\s*=\s*(\d+)", const_src)}
+check_dia = sum(int(x) for x in re.search(r"CheckDiamonds = \{([^}]*)\}", const_src).group(1).split(","))
+dia = const_dia["GiftDiamond"] + sum(const_dia["DiamondFinale"] if r["slot"] == size - 1
+                                     else const_dia["DiamondBoss"] if r["bosses"] else const_dia["DiamondStage"]
+                                     for r in rows)
+print(f"  钻石：首通全关 + 礼包 {dia}，一轮签到 {check_dia}")
+check(dia >= 150, f"首通全关 + 礼包的钻石 {dia} 至少够开几只金箱（要 ≥150）")
 
 # 炮台升级门槛：逐级不降、不超总关数、露面那一关就能买第一级，最后一级留到后几章。
 stage_total = chapters * size

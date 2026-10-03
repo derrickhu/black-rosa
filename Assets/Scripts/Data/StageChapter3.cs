@@ -84,7 +84,7 @@ namespace InkLine
                 W(S(0.3f, Strafer, -1, 3), S(4f, Belt, -1, 2), S(8.5f, Chubby, -1, 3)),
                 W(S(0.3f, Shield, -1, 3), S(3.5f, Sprinter, -1, 2), S(8f, Splitter, -1, 3)),
                 W(S(0.3f, Shield, 1), S(0.3f, Shield, 4), S(3f, Shield, 2), S(3f, Shield, 3), S(7f, Runner, -1, 4))
-            ).Rule(StageRule.NoSpell));
+            ).Rule(StageRule.NoItem));
 
             s.Add(P("铁桶", Row(6, 6, 6),
                 W(S(0.3f, Shield, -1, 2), S(3f, Sprinter, -1, 2), S(7f, Crawler, -1, 2)),

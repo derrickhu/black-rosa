@@ -234,6 +234,118 @@
       "duration": 0.8,
       "output": "../../../Assets/Resources/Audio/battle_start.mp3",
       "notes": "进关「战斗开始」横幅"
+    },
+    {
+      "name": "chest_land",
+      "text": "a small wooden toy treasure chest dropping onto a wooden table with one solid cheerful thunk and a tiny bounce rattle of coins inside, close and dry, no reverb, no music, no voice",
+      "duration": 0.5,
+      "output": "../../../Assets/Resources/Audio/chest_land.mp3",
+      "notes": "通关结算宝箱落地"
+    },
+    {
+      "name": "chest_unlock",
+      "text": "a small brass key turning in a toy lock with two crisp mechanical clicks and a soft bright ding, close and dry, no reverb, no music, no voice",
+      "duration": 0.45,
+      "output": "../../../Assets/Resources/Audio/chest_unlock.mp3",
+      "notes": "宝箱开始解锁 / 可以打开"
+    },
+    {
+      "name": "chest_open",
+      "text": "a cartoon treasure chest lid creaking open quickly then a bright magical shimmer burst with sparkly chimes and a few coins jingling, playful and rewarding, close, no music, no voice",
+      "duration": 1.1,
+      "output": "../../../Assets/Resources/Audio/chest_open.mp3",
+      "notes": "开箱动画开盖"
+    },
+    {
+      "name": "card_flip",
+      "text": "a single playing card flipped quickly onto a table, a crisp light paper flick with a tiny soft pop, close and dry, no reverb, no music, no voice",
+      "duration": 0.25,
+      "output": "../../../Assets/Resources/Audio/card_flip.mp3",
+      "notes": "开箱翻出一张道具卡"
+    },
+    {
+      "name": "card_rare",
+      "text": "a rare reward reveal, a bright rising glittering harp swirl ending on a sparkling bell chime, magical and exciting, short, no voice",
+      "duration": 0.9,
+      "output": "../../../Assets/Resources/Audio/card_rare.mp3",
+      "notes": "开出紫色道具卡 / 新道具"
+    },
+    {
+      "name": "item_ready",
+      "text": "a soft short bright two-note bubble pop chime rising upward, like a little toy is ready, very light and quiet, close and dry, no reverb, no music, no voice",
+      "duration": 0.3,
+      "output": "../../../Assets/Resources/Audio/item_ready.mp3",
+      "notes": "道具冷却好了"
+    },
+    {
+      "name": "item_fire",
+      "text": "a quick playful whoosh throw with a springy cartoon boing at the end, light and bouncy, close and dry, no explosion, no reverb, no music, no voice",
+      "duration": 0.4,
+      "output": "../../../Assets/Resources/Audio/item_fire.mp3",
+      "notes": "道具自动触发"
+    },
+    {
+      "name": "item_snipe",
+      "text": "a rubber slingshot band stretched with a tight creak, released with a sharp twang, a fast small whoosh, then a hard wooden thwack, close and dry, no reverb, no music, no voice",
+      "duration": 0.9,
+      "output": "../../../Assets/Resources/Audio/item_snipe.mp3",
+      "notes": "弹弓（普通）"
+    },
+    {
+      "name": "item_burst",
+      "text": "a short fuse fizzing for a moment, then a rapid string of small firecrackers popping and crackling, bright paper bangs, close, short room, no music, no voice",
+      "duration": 1.3,
+      "output": "../../../Assets/Resources/Audio/item_burst.mp3",
+      "notes": "鞭炮（普通）"
+    },
+    {
+      "name": "item_slow",
+      "text": "a plastic glue bottle squeezed with a gooey squirt, then several sticky wet splats and a stretchy slime squelch, close and dry, no reverb, no music, no voice",
+      "duration": 1.0,
+      "output": "../../../Assets/Resources/Audio/item_slow.mp3",
+      "notes": "胶水（普通）"
+    },
+    {
+      "name": "item_halt",
+      "text": "a loud metal twin-bell alarm clock ringing fast for about one second, then one deep heavy clock tick that stops everything, close, short room, no music, no voice",
+      "duration": 1.6,
+      "output": "../../../Assets/Resources/Audio/item_halt.mp3",
+      "notes": "闹钟（高级）"
+    },
+    {
+      "name": "item_rage",
+      "text": "a soda can tab cracked open with a sharp pop and fizz, two quick gulps, then a rising electric power-up whoosh that ends in a punchy hit, close, no music, no voice",
+      "duration": 1.6,
+      "output": "../../../Assets/Resources/Audio/item_rage.mp3",
+      "notes": "能量饮料（高级）"
+    },
+    {
+      "name": "item_frost",
+      "text": "a big ice cube cracking loudly, then a bright crystalline freezing shimmer spreading outward with glassy tinkles and a cold wind breath, short room, no music, no voice",
+      "duration": 1.6,
+      "output": "../../../Assets/Resources/Audio/item_frost.mp3",
+      "notes": "冰块（高级）"
+    },
+    {
+      "name": "item_sweep",
+      "text": "a deep rising magical swell, then a huge straw broom swept fast across a floor with a powerful wind gust whoosh, ending in a heavy dusty thump, large room, no music, no voice",
+      "duration": 2.0,
+      "output": "../../../Assets/Resources/Audio/item_sweep.mp3",
+      "notes": "大扫把（稀有）"
+    },
+    {
+      "name": "item_splash",
+      "text": "a deep rising magical swell, then a glass bottle glugging thick sauce, then a roaring whoosh of fire igniting into a tall crackling flame column, large room, no music, no voice",
+      "duration": 2.0,
+      "output": "../../../Assets/Resources/Audio/item_splash.mp3",
+      "notes": "辣椒酱（稀有）"
+    },
+    {
+      "name": "item_mend",
+      "text": "a deep rising magical swell, then a soft zipper and box lid opening, then a warm ascending healing chime of bells with gentle sparkling shimmer, large room, no music, no voice",
+      "duration": 2.0,
+      "output": "../../../Assets/Resources/Audio/item_mend.mp3",
+      "notes": "急救包（稀有）"
     }
   ]
 }

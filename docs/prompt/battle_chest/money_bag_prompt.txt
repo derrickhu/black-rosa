@@ -1,0 +1,10 @@
+A 2 by 2 sprite sheet of four small cloth money sacks for a casual cartoon mobile tower-defense game, each sack centred in its own quarter with generous empty space around it, on a flat solid magenta background (#FF00FF) filling the whole canvas.
+
+Style: the same drawing style as the attached picture, a clean flat cartoon with thick dark brown-black outlines, soft two-tone shading, rounded chunky shapes, a slight three-quarter top-down view. The attached picture shows only the drawing style; the four cells contain the four sacks described here. Each sack is a plump round cloth sack gathered and tied at the neck with a cord, the top frill fanning out above the knot.
+
+Top left: a gold coin sack, the cloth tan like a paper bag, tied with a red cord, a big round gold coin emblem stitched on the front, gold yellow like a shiny gold coin, two gold coins peeking out of the frilly top.
+Top right: the same gold coin sack, torn and battered: two ragged rips across the front with warm yellow light and gold coins spilling out of them, the cord half loose.
+Bottom left: an ink sack, the cloth purple like ripe grapes, tied with a gold cord, a big round ink drop emblem stitched on the front in deep violet like an ink bottle, a little dark ink drop on the frilly top.
+Bottom right: the same ink sack, torn and battered: two ragged rips across the front with violet light glowing out and a drop of dark ink dripping from a rip, the cord half loose.
+
+All four sacks are the same size and the same angle, each drawn whole with its full outline, on the plain magenta background.

@@ -62,26 +62,26 @@ namespace InkLine
         {
             int pick = -1;
             float bestFill = 0f;
-            for (int i = 0; i < SpellCatalog.Count; i++)
+            for (int i = 0; i < ItemCatalog.Count; i++)
             {
-                int rank = meta.SpellRank(i);
-                if (rank >= SpellCatalog.MaxLevel) continue;
-                int need = SpellCatalog.NextShards(SpellCatalog.Get(i), rank);
-                float fill = meta.SpellShardCount(i) / (float)Mathf.Max(1, need);
+                int rank = meta.ItemRank(i);
+                if (rank >= ItemCatalog.MaxLevel) continue;
+                int need = ItemCatalog.NextCards(ItemCatalog.Get(i), rank);
+                float fill = meta.ItemCardCount(i) / (float)Mathf.Max(1, need);
                 if (fill > bestFill) { bestFill = fill; pick = i; }
             }
             if (pick < 0) return;
-            SpellDef d = SpellCatalog.Get(pick);
-            int r = meta.SpellRank(pick);
-            int needShards = SpellCatalog.NextShards(d, r);
-            int have = meta.SpellShardCount(pick);
-            int price = SpellCatalog.NextPrice(d, r);
-            bool full = have >= needShards;
+            ItemDef d = ItemCatalog.Get(pick);
+            int r = meta.ItemRank(pick);
+            int needCards = ItemCatalog.NextCards(d, r);
+            int have = meta.ItemCardCount(pick);
+            int price = ItemCatalog.NextPrice(d, r);
+            bool full = have >= needCards;
             into.Add(new Advice
             {
                 Icon = InkSprites.Ui(d.Id), Title = (r > 0 ? "升级" : "解锁") + d.Name,
-                Line = r > 0 ? "技能更强、冷却更快" : "战斗里多一个大招",
-                Need = full ? NeedInk(meta.Ink, price) : $"碎片 {have}/{needShards}",
+                Line = r > 0 ? "道具更强、冷却更快" : "战斗里多一件自动道具",
+                Need = full ? NeedInk(meta.Ink, price) : $"道具卡 {have}/{needCards}",
                 Ready = full && meta.Ink >= price, Tab = HomeScreen.TabSpell
             });
         }

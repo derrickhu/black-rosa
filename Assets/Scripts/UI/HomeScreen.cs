@@ -4,7 +4,7 @@ using UnityEngine.UI;
 
 namespace InkLine
 {
-    // 首页：常驻顶栏 + 三段底栏（炮台 / 出征 / 技能）。
+    // 首页：常驻顶栏 + 三段底栏（炮台 / 出征 / 道具）。
     // 有 Prefabs/Home 就只绑定；没有才走下面那套临时代码搭壳。
     public sealed class HomeScreen
     {
@@ -16,9 +16,6 @@ namespace InkLine
         const float CardH = 152f;
         const float ColStep = 338f;
         const float CardGap = 12f;
-        const float SpellRodW = 640f;
-        const float SpellSeal = 52f;
-        const float SpellTagW = 190f;
 
         readonly RectTransform _layer;
         readonly MetaProgress _meta;
@@ -27,7 +24,9 @@ namespace InkLine
         HomeView _view;
         Button[] _tabs;
         Text _ink;
+        Text _diamond;
         Text _stamina;
+        HomeChestRow _chests;
         Text _stamTip;
         int _tab = TabSortie;
 
@@ -105,6 +104,8 @@ namespace InkLine
                 _view.AdButton.onClick.RemoveAllListeners();
                 _view.AdButton.onClick.AddListener(WatchStaminaAd);
             }
+            BindTopBar();
+            RenameItemTab();
             Paint(_view.TabDock, "Ui/tab_dock", new Vector4(88f, 70f, 88f, 70f));
             Paint(_view.Board, "Ui/panel_board");
             return true;
@@ -115,17 +116,82 @@ namespace InkLine
             float top = TopBarY;
             var size = new Vector2(200f, ChipH);
             _stamina = UiKit.Chip(_layer, "cs", InkSprites.Ui("stamina"), "",
-                new Vector2(-118f, top), size);
+                new Vector2(-ChipStep, top), size, Pin.Top, out RectTransform stam);
             _ink = UiKit.Chip(_layer, "ci", InkSprites.Ui("ink"), "",
-                new Vector2(118f, top), size);
-            _stamTip = UiKit.Label(_layer, "stamtip", "", 16, new Vector2(-118f, top + ChipH + 2f),
+                new Vector2(0f, top), size);
+            _diamond = UiKit.Chip(_layer, "cd", InkSprites.Ui("diamond"), "",
+                new Vector2(ChipStep, top), size);
+            _stamTip = UiKit.Label(_layer, "stamtip", "", 16, new Vector2(-ChipStep, top + ChipH + 2f),
                 new Vector2(200, 22), TextAnchor.MiddleCenter, Pin.Top);
             _stamTip.color = InkTheme.TextMid;
+            StaminaTap(stam);
 
             for (int i = 0; i < _pages.Length; i++) _pages[i] = Page("page" + i);
-            _tabs = UiKit.TabBar(_layer, new[] { "炮台", "出征", "技能" },
+            _tabs = UiKit.TabBar(_layer, new[] { "炮台", "出征", "道具" },
                 new[] { InkSprites.Ui("tab_forge"), InkSprites.Ui("tab_sortie"), InkSprites.Ui("tab_spell") },
                 Pick);
+        }
+
+        const float ChipStep = 232f;
+
+        // 预制体只烘了体力和墨两颗药丸。钻石照墨那颗复制一份，三颗等距排开。
+        void BindTopBar()
+        {
+            var stam = _view.Stamina != null ? _view.Stamina.transform.parent as RectTransform : null;
+            var ink = _view.Ink != null ? _view.Ink.transform.parent as RectTransform : null;
+            if (stam == null || ink == null) return;
+            const float w = 210f;
+            stam.anchoredPosition = new Vector2(-ChipStep, stam.anchoredPosition.y);
+            stam.sizeDelta = new Vector2(w, stam.sizeDelta.y);
+            ink.anchoredPosition = new Vector2(0f, ink.anchoredPosition.y);
+            ink.sizeDelta = new Vector2(w, ink.sizeDelta.y);
+            if (_stamTip != null)
+            {
+                var tip = _stamTip.rectTransform;
+                tip.anchoredPosition = new Vector2(-ChipStep, tip.anchoredPosition.y);
+            }
+            Transform old = ink.parent.Find("diamond");
+            var gem = old != null ? (RectTransform)old
+                : (RectTransform)UnityEngine.Object.Instantiate(ink.gameObject, ink.parent).transform;
+            gem.name = "diamond";
+            gem.anchoredPosition = new Vector2(ChipStep, ink.anchoredPosition.y);
+            foreach (var img in gem.GetComponentsInChildren<Image>(true))
+                if (img.transform != gem) img.sprite = InkSprites.Ui("diamond");
+            _diamond = gem.GetComponentInChildren<Text>(true);
+            StaminaTap(stam);
+        }
+
+        // 点体力药丸弹补体力。右侧挂个小加号，告诉玩家这里能点。
+        void StaminaTap(RectTransform chip)
+        {
+            if (chip == null) return;
+            var img = chip.GetComponent<Image>();
+            if (img != null) img.raycastTarget = true;
+            var btn = chip.GetComponent<Button>() ?? chip.gameObject.AddComponent<Button>();
+            btn.transition = Selectable.Transition.None;
+            btn.onClick.RemoveAllListeners();
+            btn.onClick.AddListener(OpenStamina);
+            if (chip.Find("plus") != null) return;
+            var ring = UiKit.Icon(chip, UiSprites.Disc(), new Vector2(chip.sizeDelta.x * 0.5f - 6f, 0f), 34f);
+            ring.gameObject.name = "plus";
+            ring.color = InkTheme.Outline;
+            UiKit.Icon(ring.transform, UiSprites.Disc(), Vector2.zero, 28f).color = InkTheme.Accel;
+            var p = UiKit.Label(ring.transform, "t", "+", 28, new Vector2(0f, 1f), new Vector2(34f, 34f));
+            p.color = InkTheme.CardFace;
+            UiKit.Bold(p);
+        }
+
+        void OpenStamina()
+        {
+            AudioBus.Tap();
+            StaminaPanel.Show(_layer, _meta, AfterReward);
+        }
+
+        void RenameItemTab()
+        {
+            if (_tabs == null || _tabs.Length <= TabSpell || _tabs[TabSpell] == null) return;
+            var t = _tabs[TabSpell].transform.Find("t")?.GetComponent<Text>();
+            if (t != null) t.text = "道具";
         }
 
         static void CardIcon(Transform parent, Sprite icon, Vector2 pos, float size, bool live)
@@ -173,17 +239,23 @@ namespace InkLine
             {
                 if (tab == TabForge) BindForge();
                 else if (tab == TabSortie) BindSortie();
-                else BindSpells();
+                else ShowItems(_pages[TabSpell]);
                 RefreshTop();
                 ForgeTabDot();
+                ItemTabDot();
                 return;
             }
             RectTransform page = _pages[tab];
+            if (tab == TabSpell)
+            {
+                ShowItems(page);
+                RefreshTop();
+                return;
+            }
             for (int i = page.childCount - 1; i >= 0; i--)
                 UnityEngine.Object.Destroy(page.GetChild(i).gameObject);
             if (tab == TabForge) BuildForge(page);
             else if (tab == TabSortie) BuildSortie(page);
-            else BuildSpells(page);
             RefreshTop();
         }
 
@@ -248,6 +320,7 @@ namespace InkLine
             int before = _meta.Stamina;
             _meta.Refresh();
             RefreshTop();
+            if (_tab == TabSortie) _chests?.Refresh(_meta);
             if (_meta.Stamina != before && _tab == TabSortie) Rebuild(TabSortie);
         }
 
@@ -258,6 +331,7 @@ namespace InkLine
             if (_stamina == null) return;
             _stamina.text = _meta.Stamina + "/" + GameConstants.StaminaMax;
             _ink.text = _meta.Ink.ToString();
+            if (_diamond != null) _diamond.text = _meta.Diamond.ToString();
             int sec = _meta.SecondsToNextStamina();
             if (sec == _shownSec) return;
             _shownSec = sec;
@@ -516,9 +590,23 @@ namespace InkLine
                 return;
             }
             int idx = line;
-            ui.Bind(_meta, line, () => { if (_meta.BuyForge(idx)) Rebuild(TabForge); },
+            ui.Bind(_meta, line, () =>
+                {
+                    if (!_meta.BuyForge(idx)) return;
+                    Rebuild(TabForge);
+                    ItemCelebrate.Row(_layer, BoostRow(idx), "Lv." + _meta.ForgeLevel(idx));
+                },
                 (_forgeFresh & (1L << line)) != 0);
             MuteRow(slot);
+        }
+
+        RectTransform BoostRow(int line)
+        {
+            if (_view != null)
+                return _view.Boosts != null && line < _view.Boosts.Length && _view.Boosts[line] != null
+                    ? _view.Boosts[line].transform as RectTransform : null;
+            Transform page = _pages[TabForge];
+            return page != null ? page.Find("boosts/list/fg" + line) as RectTransform : null;
         }
 
         void BindBoostTease(HomeBoostRow slot, int line)
@@ -551,21 +639,63 @@ namespace InkLine
             bool canGo = _meta.CanEnter(next);
             if (_view.GoLabel != null)
                 _view.GoLabel.text = (_meta.Stars[next] > 0 ? "重打" : "继续") + $"  第 {next + 1} 关";
-            if (_view.GoButton != null) _view.GoButton.interactable = canGo;
-            bool poor = _meta.Stamina < _meta.StageCost(next);
-            bool ad = poor && _meta.CanAdStamina;
-            if (_view.AdButton != null)
+            if (_view.GoButton != null)
             {
-                _view.AdButton.gameObject.SetActive(ad);
-                if (_view.AdLabel != null)
-                    _view.AdLabel.text = $"看广告  +{GameConstants.AdStaminaGain} 体力";
+                _view.GoButton.interactable = true;
+                var go = (RectTransform)_view.GoButton.transform;
+                go.anchoredPosition = new Vector2(go.anchoredPosition.x, GoY);
+                go.sizeDelta = new Vector2(go.sizeDelta.x, GoH);
+                _view.GoButton.onClick.RemoveAllListeners();
+                _view.GoButton.onClick.AddListener(() => Go(NextStage()));
+                if (_view.GoButton.targetGraphic != null)
+                    _view.GoButton.targetGraphic.color = canGo ? InkTheme.Cta : InkTheme.CtaOff;
             }
+            // 体力不够时点「继续」直接弹补体力，原来那颗看广告的按钮让位给宝箱托盘。
+            if (_view.AdButton != null) _view.AdButton.gameObject.SetActive(false);
+            EnsureChests(_pages[1]);
             if (_view.Help != null) _view.Help.gameObject.SetActive(false);
             if (_view.Chapter != null) BindChapter(next);
             else if (_view.Seals != null)
                 for (int i = 0; i < _view.Seals.Length && i < GameConstants.StageCount; i++)
                     BindSeal(_view.Seals[i], i);
             WireSides();
+        }
+
+        // 底下一排宝箱托盘，「继续」压在托盘上面、章节卡下面。
+        const float ChestY = 8f;
+        const float GoY = ChestY + HomeChestRow.Slot + 10f;
+        const float GoH = 90f;
+
+        void Go(int stage)
+        {
+            if (_meta.CanEnter(stage))
+            {
+                _start(stage);
+                return;
+            }
+            OpenStamina();
+        }
+
+        void EnsureChests(RectTransform page)
+        {
+            if (page == null) return;
+            if (_chests == null || _chests.Root == null)
+            {
+                _chests = HomeChestRow.Build(page, new Vector2(0f, ChestY + HomeChestRow.Slot * 0.5f), OpenChestSlot);
+            }
+            _chests.Refresh(_meta);
+        }
+
+        void OpenChestSlot(int slot)
+        {
+            if (_meta.ChestStateOf(slot) == ChestState.Empty)
+            {
+                AudioBus.Deny();
+                InkToast.Show(_layer, "通关就能拿宝箱");
+                return;
+            }
+            AudioBus.Tap();
+            ChestPanel.Show(_layer, _meta, slot, AfterReward);
         }
 
         void BindChapter(int frontier)
@@ -771,6 +901,25 @@ namespace InkLine
             dot.gameObject.SetActive(on);
         }
 
+        // 道具攒够了卡和墨、能解锁或升级时，底栏「道具」挂红点。
+        void ItemTabDot()
+        {
+            if (_tabs == null || _tabs.Length <= TabSpell || _tabs[TabSpell] == null) return;
+            Transform btn = _tabs[TabSpell].transform;
+            bool on = _meta.AnyItemReady;
+            Transform dot = btn.Find("dot");
+            if (dot == null)
+            {
+                if (!on) return;
+                var ring = UiKit.Icon(btn, UiSprites.Disc(), new Vector2(42f, 88f), 28f);
+                ring.gameObject.name = "dot";
+                ring.color = InkTheme.CardFace;
+                UiKit.Icon(ring.transform, UiSprites.Disc(), Vector2.zero, 22f).color = InkTheme.Seal;
+                dot = ring.transform;
+            }
+            dot.gameObject.SetActive(on);
+        }
+
         static void RedDot(Button btn, bool on)
         {
             if (btn == null) return;
@@ -831,162 +980,11 @@ namespace InkLine
             }
         }
 
-        void BindSpells()
+        void ShowItems(RectTransform page)
         {
-            EnsureSpellSeal();
-            EnsureSpellRoster();
-            if (_view.SpellTip != null) _view.SpellTip.gameObject.SetActive(false);
-            if (_view.Equipped != null)
-                for (int s = 0; s < _view.Equipped.Length; s++)
-                    BindSpellSlot(_view.Equipped[s], s);
-            if (_view.Spells != null)
-                for (int i = 0; i < _view.Spells.Length && i < SpellCatalog.Count; i++)
-                    BindSpellCard(_view.Spells[i], i);
-        }
-
-        // 预制体里的格子是烘出来的固定张数。技能变多时按第一张复制，并让整列可以往下翻。
-        void EnsureSpellRoster()
-        {
-            if (_view.Spells == null || _view.Spells.Length == 0 || _view.Spells[0] == null) return;
-            var sample = _view.Spells[0];
-            var grid = sample.transform.parent as RectTransform;
-            if (grid == null) return;
-            var list = new System.Collections.Generic.List<HomeSpellCard>();
-            for (int i = 0; i < _view.Spells.Length; i++)
-                if (_view.Spells[i] != null) list.Add(_view.Spells[i]);
-            while (list.Count < SpellCatalog.Count)
-            {
-                var go = UnityEngine.Object.Instantiate(sample.gameObject, grid);
-                go.name = "sp" + list.Count;
-                list.Add(go.GetComponent<HomeSpellCard>());
-            }
-            _view.Spells = list.ToArray();
-            EnsureSpellScroll(grid);
-        }
-
-        void EnsureSpellScroll(RectTransform grid)
-        {
-            RectTransform viewport;
-            if (grid.parent != null && grid.parent.name == "spellView")
-            {
-                viewport = grid.parent as RectTransform;
-                if (viewport.anchorMax.x - viewport.anchorMin.x < 0.9f)
-                {
-                    float top = Mathf.Max(160f, -viewport.offsetMax.y);
-                    viewport.anchorMin = Vector2.zero;
-                    viewport.anchorMax = Vector2.one;
-                    viewport.offsetMin = new Vector2(4f, 52f);
-                    viewport.offsetMax = new Vector2(-4f, -top);
-                }
-            }
-            else
-            {
-                var page = grid.parent as RectTransform;
-                if (page == null) return;
-                float topInset = 330f;
-                if (grid.anchorMax.y - grid.anchorMin.y > 0.5f)
-                    topInset = Mathf.Max(160f, -grid.offsetMax.y);
-                var view = new GameObject("spellView", typeof(RectTransform), typeof(Image), typeof(RectMask2D));
-                viewport = view.GetComponent<RectTransform>();
-                viewport.SetParent(page, false);
-                viewport.anchorMin = Vector2.zero;
-                viewport.anchorMax = Vector2.one;
-                // 底栏卷轴会盖住页脚，列表在它上面停住，整张卡才不会被切掉。
-                viewport.offsetMin = new Vector2(4f, 52f);
-                viewport.offsetMax = new Vector2(-4f, -topInset);
-                var img = view.GetComponent<Image>();
-                img.color = new Color(1f, 1f, 1f, 0f);
-                img.raycastTarget = true;
-                grid.SetParent(viewport, false);
-                var scroll = view.AddComponent<ScrollRect>();
-                scroll.content = grid;
-                scroll.viewport = viewport;
-                scroll.horizontal = false;
-                scroll.vertical = true;
-                scroll.movementType = ScrollRect.MovementType.Clamped;
-                scroll.scrollSensitivity = 40f;
-                scroll.inertia = true;
-            }
-            FitSpellGrid(grid, viewport);
-        }
-
-        // 一行一张横卡。当前、下一级、所需材料和按钮要同时摆开，两列放不下。
-        static void FitSpellGrid(RectTransform grid, RectTransform viewport)
-        {
-            if (grid == null || viewport == null) return;
-            var layout = grid.GetComponent<GridLayoutGroup>();
-            Canvas.ForceUpdateCanvases();
-            float viewW = viewport.rect.width;
-            if (viewW < 80f) viewW = 700f;
-            float cellW = Mathf.Min(HomeSpellRow.Width, viewW - 12f);
-            float cellH = HomeSpellRow.Height;
-            if (layout != null)
-            {
-                layout.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
-                layout.constraintCount = 1;
-                layout.spacing = new Vector2(0f, 12f);
-                layout.padding = new RectOffset(0, 0, 6, 24);
-                layout.childAlignment = TextAnchor.UpperCenter;
-                layout.cellSize = new Vector2(cellW, cellH);
-            }
-            grid.anchorMin = new Vector2(0.5f, 1f);
-            grid.anchorMax = new Vector2(0.5f, 1f);
-            grid.pivot = new Vector2(0.5f, 1f);
-            grid.anchoredPosition = Vector2.zero;
-            grid.sizeDelta = new Vector2(cellW, 40f);
-            var fit = grid.GetComponent<ContentSizeFitter>();
-            if (fit == null) fit = grid.gameObject.AddComponent<ContentSizeFitter>();
-            fit.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
-            fit.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-            LayoutRebuilder.ForceRebuildLayoutImmediate(viewport);
-            LayoutRebuilder.ForceRebuildLayoutImmediate(grid);
-        }
-
-        void BindSpellSlot(HomeSpellSlot slot, int s)
-        {
-            if (slot == null) return;
-            int id = s < _meta.Equipped.Length ? _meta.Equipped[s] : -1;
-            bool has = id >= 0;
-            Paint(slot.Card, has ? "Ui/panel_spell_tag_on" : "Ui/panel_spell_tag");
-            if (slot.Icon != null) slot.Icon.gameObject.SetActive(has);
-            if (!has)
-            {
-                if (slot.Name != null)
-                {
-                    slot.Name.text = "空槽";
-                    slot.Name.color = InkTheme.TextDim;
-                }
-                if (slot.Cost != null) slot.Cost.text = "";
-                return;
-            }
-            SpellDef d = SpellCatalog.Get(id);
-            int rank = _meta.SpellRank(id);
-            if (slot.Icon != null) slot.Icon.sprite = InkSprites.Ui(d.Id);
-            if (slot.Name != null)
-            {
-                slot.Name.text = rank > 0 ? d.Name + " Lv." + rank : d.Name;
-                slot.Name.color = InkTheme.TextDark;
-            }
-            if (slot.Cost != null) slot.Cost.text = "释放 " + d.GoldCost + " 金";
-        }
-
-        void BindSpellCard(HomeSpellCard slot, int i)
-        {
-            if (slot == null) return;
-            bool worn = _meta.EquippedSlot(i) >= 0;
-            Paint(slot.Card, worn ? "Ui/panel_skin_on" : "Ui/panel_skin", SkinSlice);
-            var card = (slot.Card != null ? slot.Card.transform : slot.transform) as RectTransform;
-            var row = HomeSpellRow.Ensure(slot, card);
-            if (row == null) return;
-            int idx = i;
-            row.Bind(_meta, i,
-                () => { if (_meta.BuySpell(idx)) Rebuild(TabSpell); },
-                () => { _meta.Equip(idx); Rebuild(TabSpell); });
-            if (slot.Button != null)
-            {
-                slot.Button.onClick.RemoveAllListeners();
-                slot.Button.interactable = false;
-            }
+            if (page == null) return;
+            if (_view != null && _view.SpellTip != null) _view.SpellTip.gameObject.SetActive(false);
+            HomeItemPage.Ensure(page, _layer, _meta, () => { RefreshTop(); ItemTabDot(); }).Refresh();
         }
 
         // ---------- 出征（无预制体时） ----------
@@ -1011,12 +1009,10 @@ namespace InkLine
             int next = NextStage();
             bool canGo = _meta.CanEnter(next);
             var go = UiKit.Btn(page, "go", (_meta.Stars[next] > 0 ? "重打" : "继续") + $"  第 {next + 1} 关",
-                new Vector2(0f, 26f), new Vector2(460f, 106f), () => _start(next), true, Pin.Bottom);
-            go.interactable = canGo;
-            bool poor = _meta.Stamina < _meta.StageCost(next);
-            if (poor && _meta.CanAdStamina)
-                UiKit.Btn(page, "adstam", $"看广告  +{GameConstants.AdStaminaGain} 体力",
-                    new Vector2(0f, 150f), new Vector2(400f, 84f), WatchStaminaAd, false, Pin.Bottom);
+                new Vector2(0f, GoY), new Vector2(460f, GoH), () => Go(next), true, Pin.Bottom);
+            if (!canGo) PanelKit.Dim(go, true);
+            _chests = null;
+            EnsureChests(page);
         }
 
         // ---------- 炮台（无预制体时） ----------
@@ -1084,82 +1080,6 @@ namespace InkLine
             var slot = box.gameObject.AddComponent<HomeBoostRow>();
             slot.Row = box.GetComponent<Image>();
             return slot;
-        }
-
-        // ---------- 技能（无预制体时） ----------
-
-        static Vector2 ArtSize(string key, float width, float fallbackH)
-        {
-            Sprite spr = InkSprites.Load(key);
-            if (spr == null) return new Vector2(width, fallbackH);
-            return new Vector2(width, width * spr.rect.height / Mathf.Max(1f, spr.rect.width));
-        }
-
-        void BuildSpells(RectTransform page)
-        {
-            Vector2 rodSize = ArtSize("Ui/panel_spell_rod", SpellRodW, 28f);
-            float hangTop = 8f;
-            var rod = UiKit.Art(page, "rod", "Ui/panel_spell_rod",
-                new Vector2(0f, hangTop + (SpellSeal - rodSize.y) * 0.5f), rodSize, Pin.Top);
-            rod.GetComponent<Image>().raycastTarget = false;
-            var seal = UiKit.Art(page, "seal", "Ui/panel_spell_seal",
-                new Vector2(-SpellRodW * 0.5f + SpellSeal * 0.38f, hangTop),
-                new Vector2(SpellSeal, SpellSeal), Pin.Top);
-            seal.GetComponent<Image>().raycastTarget = false;
-
-            Vector2 tagSize = ArtSize("Ui/panel_spell_tag", SpellTagW, 300f);
-            // 红绳顶上的结要压在细竹篾正中。
-            float tagTop = hangTop + SpellSeal * 0.5f - tagSize.y * 0.08f;
-            for (int s = 0; s < GameConstants.SpellSlots; s++)
-                HangSpell(page, s, new Vector2((s - 0.5f) * 300f + 20f, tagTop), tagSize);
-
-            float catalogY = tagTop + tagSize.y + 12f;
-            var cardSize = new Vector2(HomeSpellRow.Width, HomeSpellRow.Height);
-            for (int i = 0; i < SpellCatalog.Count; i++)
-                SpellCard(page, i, new Vector2(0f, catalogY + i * (HomeSpellRow.Height + 12f)), cardSize);
-        }
-
-        void EnsureSpellSeal()
-        {
-            if (_view == null || _view.SpellPage == null) return;
-            var page = _view.SpellPage.GetComponent<RectTransform>();
-            if (page.Find("seal") != null) return;
-            var seal = UiKit.Art(page, "seal", "Ui/panel_spell_seal",
-                new Vector2(-SpellRodW * 0.5f + SpellSeal * 0.38f, 8f),
-                new Vector2(SpellSeal, SpellSeal), Pin.Top);
-            seal.GetComponent<Image>().raycastTarget = false;
-        }
-
-        void HangSpell(RectTransform page, int s, Vector2 pos, Vector2 size)
-        {
-            int id = s < _meta.Equipped.Length ? _meta.Equipped[s] : -1;
-            bool has = id >= 0;
-            var box = UiKit.Art(page, "slot" + s, has ? "Ui/panel_spell_tag_on" : "Ui/panel_spell_tag",
-                pos, size, Pin.Top);
-            box.GetComponent<Image>().raycastTarget = false;
-            if (!has)
-            {
-                var e = UiKit.Label(box, "n", "空槽", 28, new Vector2(0f, -size.y * 0.08f), new Vector2(140, 40));
-                e.color = InkTheme.TextDim;
-                return;
-            }
-            SpellDef d = SpellCatalog.Get(id);
-            int rank = _meta.SpellRank(id);
-            CardIcon(box, InkSprites.Ui(d.Id), new Vector2(0f, size.y * 0.04f), 56f, true);
-            var n = UiKit.Label(box, "n", rank > 0 ? d.Name + " Lv." + rank : d.Name, 26,
-                new Vector2(0f, -size.y * 0.16f), new Vector2(140, 34));
-            UiKit.Bold(n);
-            var c = UiKit.Label(box, "c", "释放 " + d.GoldCost + " 金", 18,
-                new Vector2(0f, -size.y * 0.28f), new Vector2(140, 26));
-            c.color = InkTheme.TextMid;
-        }
-
-        void SpellCard(RectTransform page, int i, Vector2 pos, Vector2 size)
-        {
-            var box = UiKit.Art(page, "sp" + i, "Ui/panel_skin", pos, size, Pin.Top, SkinSlice);
-            var slot = box.gameObject.AddComponent<HomeSpellCard>();
-            slot.Card = box.GetComponent<Image>();
-            BindSpellCard(slot, i);
         }
     }
 }

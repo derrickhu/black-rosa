@@ -109,7 +109,7 @@ namespace InkLine
         public int Mate;
     }
 
-    public enum DropKind { Gold, Ink, Shard }
+    public enum DropKind { Gold, Ink }
 
     // 掉落物。弹出来、落地、躺一下，然后飞进顶栏的药丸里。
     // 到账放在飞到的那一刻，不在击杀那一刻 —— 让「打死」和「我变富了」
@@ -119,7 +119,6 @@ namespace InkLine
         public int Id;
         public DropKind Kind;
         public int Amount;
-        public int Spell;       // Shard 时是哪门技能。别的掉落物不用
         public Vector2 Pos;
         public Vector2 Vel;
         public float Ground;
@@ -212,9 +211,6 @@ namespace InkLine
         // 到账脉冲：顶栏拿去弹一下。视图每帧自己衰减，世界只负责踢。
         public float GoldPop;
         public float InkPop;
-        // 这一局还能掉的碎片额度，和已经捡到、等通关入账的数量。
-        public int[] ShardRoom = new int[SpellCatalog.Count];
-        public int[] ShardGot = new int[SpellCatalog.Count];
         // 震屏请求。视图取走就清零，衰减归视图管 —— 顿帧期间世界是停的，
         // 震动不能跟着一起停，否则最该有反馈的那一下反而是静止的。
         public float ShakeWanted;
@@ -295,7 +291,7 @@ namespace InkLine
             _goldFrac = 0f;
             MaxBaseHp = stage.Has(StageRule.Frail) ? 1 : Mathf.Max(1, forge.BaseHp);
             BaseHp = MaxBaseHp;
-            BeginSpells(equipped);
+            BeginItems(equipped);
             Enemies.Clear();
             Bullets.Clear();
             Floats.Clear();
@@ -471,6 +467,7 @@ namespace InkLine
             TickEmitters(dt);
             TickBullets(dt);
             TickEnemies(dt);
+            TickItems(dt);
             TickChests(dt);
             TickFloats(dt);
             TickDrops(dt);
@@ -1507,24 +1504,6 @@ namespace InkLine
 
         // 一只怪掉几枚金币、几滴墨。拆成几份是为了「一片金币叮叮当当飞过去」，
         // 一份一大枚反而没有收获感；份数跟着体型走，关底死时该铺满半个屏。
-        public void OfferShards(int[] level, int[] have)
-        {
-            if (ShardRoom == null || ShardRoom.Length != SpellCatalog.Count)
-                ShardRoom = new int[SpellCatalog.Count];
-            if (ShardGot == null || ShardGot.Length != SpellCatalog.Count)
-                ShardGot = new int[SpellCatalog.Count];
-            for (int i = 0; i < SpellCatalog.Count; i++)
-            {
-                int rank = level != null && i < level.Length ? level[i] : 0;
-                int got = have != null && i < have.Length ? have[i] : 0;
-                int need = rank >= SpellCatalog.MaxLevel
-                    ? 0
-                    : SpellCatalog.NextShards(SpellCatalog.Get(i), rank);
-                ShardRoom[i] = Mathf.Max(0, need - got);
-                ShardGot[i] = 0;
-            }
-        }
-
         void DropLoot(EnemyActor e)
         {
             Scatter(e, DropKind.Gold, e.Gold, Mathf.Clamp(e.Gold, 1, e.IsBoss ? 14 : 4));
@@ -1539,39 +1518,12 @@ namespace InkLine
                 Scatter(e, DropKind.Ink, ink, 1);
             }
             RollChest(e);
-            if (!e.IsBoss) return;
-            int spell = RollShard();
-            if (spell < 0) return;
-            Scatter(e, DropKind.Shard, 1, 1, spell);
-            SpellDef d = SpellCatalog.Get(spell);
-            Push(PopKind.Word, e.Id, e.Pos + Vector2.up * 0.55f, d.Name, d.Tint, 1.15f, 1.15f);
         }
 
-        int RollShard()
-        {
-            if (ShardRoom == null) return -1;
-            int n = 0;
-            for (int i = 0; i < ShardRoom.Length; i++)
-                if (ShardRoom[i] > 0) n++;
-            if (n <= 0) return -1;
-            int pick = UnityEngine.Random.Range(0, n);
-            for (int i = 0; i < ShardRoom.Length; i++)
-            {
-                if (ShardRoom[i] <= 0) continue;
-                if (pick == 0)
-                {
-                    ShardRoom[i]--;
-                    return i;
-                }
-                pick--;
-            }
-            return -1;
-        }
+        void Scatter(EnemyActor e, DropKind kind, int total, int pieces) =>
+            ScatterAt(e.Pos, e.Radius, e.IsBoss, kind, total, pieces);
 
-        void Scatter(EnemyActor e, DropKind kind, int total, int pieces, int spell = -1) =>
-            ScatterAt(e.Pos, e.Radius, e.IsBoss, kind, total, pieces, spell);
-
-        void ScatterAt(Vector2 at, float radius, bool big, DropKind kind, int total, int pieces, int spell = -1)
+        void ScatterAt(Vector2 at, float radius, bool big, DropKind kind, int total, int pieces)
         {
             if (total <= 0) return;
             pieces = Mathf.Max(1, Mathf.Min(pieces, total));
@@ -1581,7 +1533,7 @@ namespace InkLine
                 if (amount <= 0) continue;
                 if (Drops.Count >= DropCap)
                 {
-                    Collect(kind, amount, spell, true);
+                    Collect(kind, amount, true);
                     continue;
                 }
                 float side = pieces == 1 ? UnityEngine.Random.Range(-1f, 1f) : (i - (pieces - 1) * 0.5f) / pieces * 2f;
@@ -1595,7 +1547,6 @@ namespace InkLine
                     Id = NextActorId++,
                     Kind = kind,
                     Amount = amount,
-                    Spell = spell,
                     Pos = puddle ? new Vector2(at.x, ground) : at,
                     Vel = puddle
                         ? Vector2.zero
@@ -1621,9 +1572,7 @@ namespace InkLine
                 {
                     // 越飞越快，落点那一下才有「被吸进去」的收束感。
                     d.Fly += dt / DropFlyTime;
-                    Vector2 to = d.Kind == DropKind.Gold ? GoldChip
-                        : d.Kind == DropKind.Shard ? new Vector2(d.From.x, 8.4f)
-                        : InkChip;
+                    Vector2 to = d.Kind == DropKind.Gold ? GoldChip : InkChip;
                     float u = Mathf.Clamp01(d.Fly);
                     float e = u * u;
                     // 起手先往侧上方甩一点再拐向药丸，直线飞过去像是在瞬移。
@@ -1634,7 +1583,7 @@ namespace InkLine
                     d.Pos = Vector2.Lerp(a, b, e);
                     if (u >= 1f)
                     {
-                        Collect(d.Kind, d.Amount, d.Spell, true);
+                        Collect(d.Kind, d.Amount, true);
                         Drops.RemoveAt(i);
                     }
                     continue;
@@ -1669,7 +1618,7 @@ namespace InkLine
             }
         }
 
-        void Collect(DropKind kind, int amount, int spell = -1, bool sound = false)
+        void Collect(DropKind kind, int amount, bool sound = false)
         {
             if (sound) AudioBus.Pickup();
             if (kind == DropKind.Gold)
@@ -1680,11 +1629,6 @@ namespace InkLine
                 _goldFrac -= extra;
                 Gold += amount + extra;
                 GoldPop = 1f;
-            }
-            else if (kind == DropKind.Shard)
-            {
-                if (ShardGot != null && spell >= 0 && spell < ShardGot.Length)
-                    ShardGot[spell] += amount;
             }
             else
             {
@@ -1697,7 +1641,7 @@ namespace InkLine
         // 而那一截恰好是玩家刚刚看着掉出来的。
         void FlushDrops()
         {
-            for (int i = 0; i < Drops.Count; i++) Collect(Drops[i].Kind, Drops[i].Amount, Drops[i].Spell, false);
+            for (int i = 0; i < Drops.Count; i++) Collect(Drops[i].Kind, Drops[i].Amount, false);
             Drops.Clear();
         }
 

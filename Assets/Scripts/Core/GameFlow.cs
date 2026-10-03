@@ -42,7 +42,11 @@ namespace InkLine
 
         void Start()
         {
-            WxBridge.InitSdk(() => CloudSync.Startup(Begin));
+            WxBridge.InitSdk(() =>
+            {
+                AdStub.Warm();
+                CloudSync.Startup(Begin);
+            });
             CloudSync.Imported += OnCloudImported;
         }
 
@@ -113,7 +117,7 @@ namespace InkLine
                 }
                 // 先把最后一帧画出来再结算。原先胜负一成立就 return，
                 // 死亡当帧的画面被跳过，怪还站在场上通关页就盖上来了。
-                if (_world != null && _screen == Screen.Battle)
+                if (_world != null && _screen == Screen.Battle && !_askingRetreat)
                 {
                     if (_world.Victory) { Finish(true); return; }
                     if (_world.Defeat) { Finish(false); return; }
@@ -138,8 +142,49 @@ namespace InkLine
 
         void ShowHome() => ShowHome(HomeScreen.TabSortie);
 
+        bool _askingRetreat;
+
+        // 体力进关就扣了。撤退前说清楚：进度、没奖励、体力不退。
+        void AskRetreat()
+        {
+            if (_world == null || _askingRetreat) return;
+            if (_screen != Screen.Battle && _screen != Screen.Intro) return;
+            _askingRetreat = true;
+            bool wasPaused = _world.Paused;
+            _world.Paused = true;
+            int pct = Mathf.Clamp(Mathf.RoundToInt(_world.Progress * 100f), 0, 99);
+            var dim = UiKit.Dimmer(_layer);
+            dim.name = "retreat_ask";
+            void Stay()
+            {
+                if (!_askingRetreat) return;
+                AudioBus.Tap();
+                _askingRetreat = false;
+                if (_world != null) _world.Paused = wasPaused;
+                if (dim != null) Destroy(dim.gameObject);
+            }
+            void Leave()
+            {
+                if (!_askingRetreat) return;
+                AudioBus.Tap();
+                _askingRetreat = false;
+                if (dim != null) Destroy(dim.gameObject);
+                ShowHome();
+            }
+            var board = PanelKit.Board(dim, "确认撤退", Vector2.zero, new Vector2(560f, 460f), Pin.Center, Stay);
+            var line = UiKit.Label(board, "pct", $"已完成 {pct}%", 36, new Vector2(0f, 150f),
+                new Vector2(480f, 52f), TextAnchor.MiddleCenter, Pin.Top);
+            UiKit.Bold(line);
+            var note = UiKit.Label(board, "note", "撤退后没有奖励，体力也不退还", 26, new Vector2(0f, 214f),
+                new Vector2(480f, 40f), TextAnchor.MiddleCenter, Pin.Top);
+            note.color = InkTheme.TextMid;
+            UiKit.Btn(board, "stay", "继续战斗", new Vector2(0f, 126f), new Vector2(400f, 92f), Stay, true, Pin.Bottom);
+            UiKit.Btn(board, "leave", "确认撤退", new Vector2(0f, 28f), new Vector2(400f, 80f), Leave, false, Pin.Bottom);
+        }
+
         void ShowHome(int tab)
         {
+            _meta.StorePending();
             _screen = Screen.Lobby;
             ClearLayer();
             if (_view != null) { _view.Dispose(); _view = null; }
@@ -153,6 +198,7 @@ namespace InkLine
 
         void StartStage(int index)
         {
+            _meta.StorePending();
             if (!BattleWorld.PreviewFill)
             {
                 int cost = _meta.StageCost(index);
@@ -164,10 +210,9 @@ namespace InkLine
             _taughtStar = false;
             _tip = index == 0 ? "滑到底下那一串，对准敌人。" : "";
             _world = new BattleWorld();
+            _world.ItemRanks = _meta.ItemLevel;
             _world.Begin(StageCatalog.Get(index), _meta.Forged, _meta.Equipped);
             _world.ApplySkin(_meta.Skin);
-            _world.SpellRanks = _meta.SpellLevel;
-            _world.OfferShards(_meta.SpellLevel, _meta.SpellShards);
             _world.CodexHit = OnCodex;
             _codexToasts.Clear();
             if (_view != null) _view.Dispose();
@@ -194,7 +239,7 @@ namespace InkLine
 
         void TickAutoDraft()
         {
-            if (_world == null || BattleWorld.PreviewFill || _world.Victory || _world.Defeat) return;
+            if (_askingRetreat || _world == null || BattleWorld.PreviewFill || _world.Victory || _world.Defeat) return;
             float dt = Time.unscaledDeltaTime;
             if (_autoMute > 0f) _autoMute -= dt;
             if (!_world.CanDraft || _autoMute > 0f)
@@ -228,13 +273,10 @@ namespace InkLine
         void BuildBattleHud()
         {
             ClearLayer();
-            _hud = BattleHud.Build(_layer, _world, ShowHome, () =>
+            _hud = BattleHud.Build(_layer, _world, AskRetreat, () =>
             {
                 if (_screen != Screen.Battle || !_world.CanDraft) return;
                 OpenDraft();
-            }, slot =>
-            {
-                if (_screen == Screen.Battle) _world.CastSpell(slot);
             }, () =>
             {
                 if (_screen != Screen.Battle || _world == null) return;
@@ -463,8 +505,6 @@ namespace InkLine
             {
                 AudioBus.Win();
                 _result = _meta.ApplyResult(_pickStage, _world.Ink, _world.StarsEarned);
-                _meta.AddShards(_world.ShardGot);
-                _result.Shards = Sum(_world.ShardGot);
                 RankService.Submit(_meta.ClearedCount());
                 ShowVictory(_pickStage, _result);
             }
@@ -472,19 +512,14 @@ namespace InkLine
             else ShowDefeat(_pickStage, _world.Progress);
         }
 
-        static int Sum(int[] a)
-        {
-            int s = 0;
-            if (a != null)
-                for (int i = 0; i < a.Length; i++) s += Mathf.Max(0, a[i]);
-            return s;
-        }
-
         void ShowVictory(int stage, ResultInfo info, bool preview = false)
         {
             DropOverlay();
             int next = stage + 1;
             bool hasNext = next < GameConstants.StageCount && (preview || _meta.Unlocked(next));
+            // 一个广告同时管墨翻倍和当场开这关的宝箱，宝箱位满了或今天开箱广告用完就只翻倍。
+            bool canInk = info.Ink > 0;
+            bool canChest = !preview && info.Chest >= 0 && _meta.HasPendingChest;
             VictoryPanel panel = null;
             panel = VictoryPanel.Show(_layer, new VictoryArgs
             {
@@ -493,17 +528,25 @@ namespace InkLine
                 NextCost = hasNext ? _meta.StageCost(next) : -1,
                 NextAffordable = hasNext && (preview || _meta.CanEnter(next)),
                 Next = preview ? (System.Action)ShowHome : () => StartStage(next),
-                DoubleInk = info.Ink <= 0 ? (System.Action)null : () =>
+                DoubleInk = !canInk && !canChest ? (System.Action)null : () =>
                 {
                     if (_inkDoubled) return;
                     AdStub.Reward("double", () =>
                     {
                         if (_inkDoubled) return;
                         _inkDoubled = true;
-                        if (!preview) _meta.AddInk(info.Ink);
-                        if (panel != null) panel.Doubled();
+                        if (canInk && !preview) _meta.AddInk(info.Ink);
+                        ChestLoot loot = canChest ? _meta.OpenPending() : null;
+                        if (loot == null)
+                        {
+                            if (panel != null) panel.Doubled(false);
+                            return;
+                        }
+                        // 先开箱，收下之后再回结算页滚翻倍的墨，两段演出不抢画面。
+                        ChestOpenView.Show(_layer, _meta, loot, () => { if (panel != null) panel.Doubled(true); });
                     });
                 },
+                DoubleText = canInk && canChest ? "墨翻倍 + 开宝箱" : canInk ? "墨翻倍" : "立即开宝箱",
                 Home = ShowHome,
                 Forge = () => ShowHome(HomeScreen.TabForge),
                 Skin = skin =>
@@ -556,8 +599,8 @@ namespace InkLine
             {
                 ShowVictory(stage, new ResultInfo
                 {
-                    Ink = 86, DailyDouble = true,
-                    Shards = 1, FinaleShard = -1, Stars = 3, NewBest = true, FirstClear = true,
+                    Ink = 86, DailyDouble = true, Diamonds = 5,
+                    Chest = (int)ChestTier.Gold, ChestFull = true, ChestInk = 50, Stars = 3, NewBest = true, FirstClear = true,
                     NewSkins = new[] { SkinCatalog.Flame, SkinCatalog.Lucky },
                     NewLines = new[] { (int)ForgeLine.BaseHp }
                 }, true);

@@ -49,7 +49,7 @@ namespace InkLine
                 W(S(0.3f, Mender, 2), S(0.9f, Bulwark, 2), S(4.5f, Mender, 3), S(5.1f, Bulwark, 3), S(9.5f, Runner, -1, 5)),
                 W(S(0.3f, Elite, 1), S(1.5f, Elite, 4), S(5.5f, Shield, -1, 3), S(9.5f, Sprinter, -1, 4)),
                 W(S(0.3f, Belt, -1, 5), S(4f, Warden, -1, 2), S(8.5f, Crawler, -1, 4))
-            ).Rule(StageRule.NoSpell));
+            ).Rule(StageRule.NoItem));
 
             s.Add(P("雷鸣", Full,
                 W(S(0.3f, Elite, 3), S(3f, Sprinter, -1, 4), S(7f, Warden, 2)),

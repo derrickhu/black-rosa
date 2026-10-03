@@ -114,8 +114,8 @@ namespace InkLine
 
         // 微信只允许用它自己画的透明按钮拿昵称头像，所以在 Unity 按钮正上方盖一个同样大小的。
         // SDK 里还会把坐标除一次 devicePixelRatio，所以这里传物理像素，不能传逻辑像素。
-        // got(nick, avatarUrl)：拒绝授权时 nick 为空。
-        public static void ShowProfileButton(Rect screenRect, Action<string, string> got)
+        // got(nick, avatarUrl, err)：没拿到时 nick 为空，err 是微信给的 errMsg。
+        public static void ShowProfileButton(Rect screenRect, Action<string, string, string> got)
         {
             HideProfileButton();
 #if UNITY_MINIGAME || WEIXINMINIGAME || UNITY_WEIXINMINIGAME || MINIGAME_SUBPLATFORM_WEIXIN
@@ -127,13 +127,51 @@ namespace InkLine
                 // userInfo 是结构体，不能和 null 写在同一个三元表达式里。
                 if (res == null || string.IsNullOrEmpty(res.userInfo.nickName))
                 {
-                    got(null, null);
+                    string err = res == null ? "no response" : (res.errCode + " " + res.errMsg);
+                    Debug.LogWarning("[Profile] " + err);
+                    got(null, null, err);
                     return;
                 }
-                got(res.userInfo.nickName, res.userInfo.avatarUrl ?? "");
+                got(res.userInfo.nickName, res.userInfo.avatarUrl ?? "", null);
             });
             _infoBtn.Show();
 #endif
+        }
+
+        // 拒绝过一次之后，微信不会再弹授权框，原生按钮点了直接失败。只能引去设置页重新打开。
+        // 弹窗的「去设置」也算用户点击，openSetting 才放行。done(true) 表示回来时已允许。
+        public static void AskOpenSetting(string content, Action<bool> done)
+        {
+#if UNITY_MINIGAME || WEIXINMINIGAME || UNITY_WEIXINMINIGAME || MINIGAME_SUBPLATFORM_WEIXIN
+            if (!Application.isEditor)
+            {
+                WeChatWASM.WX.ShowModal(new WeChatWASM.ShowModalOption
+                {
+                    title = "需要你的授权",
+                    content = content,
+                    confirmText = "去设置",
+                    cancelText = "取消",
+                    showCancel = true,
+                    success = m =>
+                    {
+                        if (!m.confirm) { done?.Invoke(false); return; }
+                        WeChatWASM.WX.OpenSetting(new WeChatWASM.OpenSettingOption
+                        {
+                            success = s =>
+                            {
+                                bool ok = s.authSetting != null && s.authSetting.ContainsKey("scope.userInfo")
+                                          && s.authSetting["scope.userInfo"];
+                                done?.Invoke(ok);
+                            },
+                            fail = _ => done?.Invoke(false),
+                        });
+                    },
+                    fail = _ => done?.Invoke(false),
+                });
+                return;
+            }
+#endif
+            done?.Invoke(false);
         }
 
         public static void HideProfileButton()

@@ -1,0 +1,17 @@
+Draw a set of 4 cartoon treasure chests as flat vector game sticker art, arranged in a 4 column by 2 row grid on one pure solid magenta background (#FF00FF).
+
+Top row, the 4 chests closed, left to right:
+1. Wooden chest: planks brown like a new wooden barrel, two dark iron bands, a small iron latch.
+2. Silver chest: body silver grey like a new aluminium pot, bands blue like denim, a silver latch.
+3. Gold chest: body gold yellow like a stack of gold coins, bands red like a Chinese red envelope, a gold latch with a small red gem.
+4. Royal chest: body purple like a ripe grape, bands gold yellow like gold coins, a big turquoise gem on the latch, two small gold corner studs.
+
+Bottom row, the same 4 chests in the same order, each with its lid flipped wide open backwards, a bright warm yellow glow shape rising out of the opening like sunlight, and a few round gold coins peeking over the rim.
+
+All 8 chests are drawn from the same slightly-above front three-quarter view, sitting on the same baseline, the same size within their cells. Each chest is a chubby rounded box with a domed lid, cute and toy-like, sized up from wood to royal by adding richer trim.
+
+Rendering style, copied from the attached swatch: flat 2D vector sticker art. Every shape is filled with flat solid colour. Each surface uses up to three tones, a base tone, one darker tone and one lighter tone, meeting at hard crisp edges like cut paper. Every chest has one uniform thick dark brown outline (#3A2A20), the same line weight on all 8. Bold chunky shapes that read clearly at 96 pixels.
+
+The attached swatch shows only the painting technique, with four abstract shapes; the 8 cells contain only the 8 chests described above.
+
+Layout: exactly 4 columns and 2 rows of equal cells. Each chest is centred in its own cell with a wide margin of empty magenta on all four sides. The whole background is one perfectly even solid magenta.

@@ -208,67 +208,37 @@ namespace InkLine
 
         static void BakeSpell(RectTransform page, HomeView view)
         {
-            Pic(page, "rod", "panel_spell_rod", new Vector2(0f, 20f), new Vector2(640f, 28f), Pin.Top)
-                .raycastTarget = false;
-            Pic(page, "seal", "panel_spell_seal", new Vector2(-300f, 8f), new Vector2(52f, 52f), Pin.Top)
-                .raycastTarget = false;
-            var equipped = new HomeSpellSlot[GameConstants.SpellSlots];
-            for (int s = 0; s < equipped.Length; s++)
-            {
-                var box = Pic(page, "slot" + s, "panel_spell_tag", new Vector2((s - 0.5f) * 300f + 20f, 52f),
-                    new Vector2(168f, 254f), Pin.Top);
-                box.raycastTarget = false;
-                var slot = box.gameObject.AddComponent<HomeSpellSlot>();
-                slot.Card = box;
-                slot.Icon = Icon(box.rectTransform, "ico_burst", new Vector2(0f, 12f), 56f);
-                slot.Name = Label(box.rectTransform, "n", "空槽", 26, new Vector2(0f, -48f), new Vector2(140, 34), Pin.Center);
-                slot.Cost = Label(box.rectTransform, "c", "", 18, new Vector2(0f, -84f), new Vector2(140, 26), Pin.Center);
-                slot.Cost.color = InkTheme.TextMid;
-                equipped[s] = slot;
-            }
-            view.Equipped = equipped;
+            view.Equipped = null;
+            view.Spells = null;
             view.SpellTip = null;
+            ItemPageBuilder.Build(page);
+        }
 
-            var boxCards = Panel(page, "spells");
-            boxCards.anchorMin = new Vector2(0.5f, 0f);
-            boxCards.anchorMax = new Vector2(0.5f, 1f);
-            boxCards.offsetMin = new Vector2(-290f, 8f);
-            boxCards.offsetMax = new Vector2(290f, -330f);
-            boxCards.GetComponent<Image>().color = Color.clear;
-            boxCards.GetComponent<Image>().raycastTarget = false;
-            var grid = boxCards.gameObject.AddComponent<GridLayoutGroup>();
-            grid.cellSize = new Vector2(322f, 176f);
-            grid.spacing = new Vector2(16f, 16f);
-            grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
-            grid.constraintCount = 2;
-            grid.childAlignment = TextAnchor.UpperCenter;
+        [MenuItem("墨字防线/重排道具页")]
+        public static void BakeItemsMenu()
+        {
+            AssetDatabase.ImportAsset("Assets/Resources/Art/Ui",
+                ImportAssetOptions.ImportRecursive | ImportAssetOptions.ForceUpdate);
+            SortiePageBuilder.SpriteOf = file =>
+                AssetDatabase.LoadAssetAtPath<Sprite>(Ui + file + ".png");
+            try { BakeItemsOnly(); }
+            finally { SortiePageBuilder.SpriteOf = null; }
+        }
 
-            var cards = new HomeSpellCard[SpellCatalog.Count];
-            for (int i = 0; i < cards.Length; i++)
-            {
-                var card = Pic(boxCards, "sp" + i, "panel_skin", Vector2.zero, new Vector2(322f, 176f), Pin.Center);
-                var slot = card.gameObject.AddComponent<HomeSpellCard>();
-                slot.Card = card;
-                slot.Button = card.gameObject.AddComponent<Button>();
-                slot.Button.targetGraphic = card;
-                slot.Button.transition = Selectable.Transition.None;
-                slot.Icon = Icon(card.rectTransform, "ico_burst", new Vector2(-114f, 34f), 84f);
-                slot.Name = Label(card.rectTransform, "n", "", 28, new Vector2(20f, 46f), new Vector2(170, 36), Pin.Center);
-                slot.Name.alignment = TextAnchor.MiddleLeft;
-                slot.Desc = Label(card.rectTransform, "d", "", 16, new Vector2(34f, 10f), new Vector2(200, 26), Pin.Center);
-                slot.Desc.alignment = TextAnchor.MiddleLeft;
-                slot.Desc.color = InkTheme.TextMid;
-                slot.Cost = Label(card.rectTransform, "e", "", 18, new Vector2(-78f, -58f), new Vector2(140, 26), Pin.Center);
-                slot.Cost.alignment = TextAnchor.MiddleLeft;
-                slot.Cost.color = InkTheme.TextMid;
-                slot.PriceBack = Pic(card.rectTransform, "pill", "panel_price", new Vector2(84f, -58f),
-                    new Vector2(118f, 42f), Pin.Center);
-                slot.PriceBack.raycastTarget = false;
-                slot.State = Label(card.rectTransform, "s", "", 20, new Vector2(56f, -58f), new Vector2(170, 28), Pin.Center);
-                slot.State.alignment = TextAnchor.MiddleRight;
-                cards[i] = slot;
-            }
-            view.Spells = cards;
+        // 只换道具页。炮台和出征页留着，避免整份重烘盖掉微调。
+        public static void BakeItemsOnly()
+        {
+            if (!System.IO.File.Exists(Out)) return;
+            var root = PrefabUtility.LoadPrefabContents(Out);
+            var view = root.GetComponent<HomeView>();
+            var page = view.SpellPage.GetComponent<RectTransform>();
+            for (int i = page.childCount - 1; i >= 0; i--)
+                Object.DestroyImmediate(page.GetChild(i).gameObject);
+            BakeSpell(page, view);
+            PrefabUtility.SaveAsPrefabAsset(root, Out);
+            PrefabUtility.UnloadPrefabContents(root);
+            AssetDatabase.SaveAssets();
+            Debug.Log("道具页已写入 " + Out + "。炮台和出征页没动。");
         }
 
         static Button[] BakeTabs(Transform root, HomeView view)
@@ -276,7 +246,7 @@ namespace InkLine
             view.TabDock = Pic(root, "tabbar", "tab_dock", new Vector2(0f, 0f),
                 new Vector2(720f, UiKit.DockH), Pin.Bottom);
             view.TabDock.raycastTarget = false;
-            string[] names = { "炮台", "出征", "技能" };
+            string[] names = { "炮台", "出征", "道具" };
             string[] icons = { "ico_tab_forge", "ico_tab_sortie", "ico_tab_spell" };
             var tabs = new Button[3];
             for (int i = 0; i < 3; i++)
@@ -385,6 +355,25 @@ namespace InkLine
                 if (text.Contains("\n  m_Name: sortie_v6\n") || text.Contains("\r\n  m_Name: sortie_v6\r\n"))
                     return;
                 BakeSortieMenu();
+            }
+        }
+
+        // 道具页换成道具栏 + 图鉴之后，旧预制里还是挂签版，编译后补一次。
+        [InitializeOnLoad]
+        static class ItemPrefabHook
+        {
+            static ItemPrefabHook()
+            {
+                EditorApplication.delayCall += Once;
+            }
+
+            static void Once()
+            {
+                if (!System.IO.File.Exists(Out)) return;
+                string text = System.IO.File.ReadAllText(Out);
+                if (text.Contains("m_Name: " + ItemPageBuilder.Mark + "\n") || text.Contains("m_Name: " + ItemPageBuilder.Mark + "\r\n"))
+                    return;
+                BakeItemsMenu();
             }
         }
 

@@ -43,7 +43,7 @@ namespace InkLine
         Rich = 8,       // 丰年：金币多五成，刷怪多四分之一
         Frail = 16,     // 孤城：基地只有 1 血，首通墨多五成
         Masked = 32,    // 残局：格子逐格开关，能挖洞、留窄巷
-        NoSpell = 64    // 禁术：技能键不能用，首通墨多五成
+        NoItem = 64     // 禁道具：道具一个都不带，首通墨多五成
     }
 
     public readonly struct PresetCard
@@ -191,7 +191,7 @@ namespace InkLine
             if ((rules & StageRule.Rich) != 0) parts.Add("丰年");
             if ((rules & StageRule.Frail) != 0) parts.Add("孤城");
             if ((rules & StageRule.Masked) != 0) parts.Add("残局");
-            if ((rules & StageRule.NoSpell) != 0) parts.Add("禁术");
+            if ((rules & StageRule.NoItem) != 0) parts.Add("禁道具");
             return string.Join(" · ", parts);
         }
 
@@ -204,7 +204,7 @@ namespace InkLine
             if ((rules & StageRule.Rich) != 0) parts.Add("丰年：敌多，金币多");
             if ((rules & StageRule.Frail) != 0) parts.Add("孤城：基地只剩一血");
             if ((rules & StageRule.Masked) != 0) parts.Add("残局：有格子被封");
-            if ((rules & StageRule.NoSpell) != 0) parts.Add("禁术：技能不能用");
+            if ((rules & StageRule.NoItem) != 0) parts.Add("禁道具：道具不生效");
             return string.Join("  ", parts);
         }
 
@@ -544,8 +544,8 @@ namespace InkLine
         // 一局的目标抽牌数：先把开放格子铺满，再把大半格子顶到二三星。
         // 抽牌费用由它反推，所以以后加章、改棋盘大小都自动对得上，不用手调。
         const float DraftPicksPerCell = 1.8f;
-        // 金币的七成花在改装上，余下留给技能。
-        const float DraftBudgetShare = 0.7f;
+        // 道具不花金币，钱几乎全给抽牌；留一成半给抽到中意那张之前的试错，不把定价压到刚好买满。
+        const float DraftBudgetShare = 0.85f;
 
         public static float GoldMulOf(StageRule rules) =>
             ((rules & StageRule.Rich) != 0 ? 1.5f : 1f) * ((rules & StageRule.Swift) != 0 ? 1.2f : 1f);

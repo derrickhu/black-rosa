@@ -347,12 +347,17 @@ namespace InkLine
             yield return null;
             if (_auth == null) yield break;
             var rect = PanelKit.ScreenRect(_auth.GetComponent<RectTransform>());
-            WxBridge.ShowProfileButton(rect, (nick, avatar) =>
+            WxBridge.ShowProfileButton(rect, (nick, avatar, err) =>
             {
                 if (this == null) return;
-                if (string.IsNullOrEmpty(nick) || !RankService.SetProfile(nick, avatar))
+                if (string.IsNullOrEmpty(nick))
                 {
-                    InkToast.Show((RectTransform)transform.parent, "没有拿到微信昵称，请同意授权后再试");
+                    AuthFailed(err ?? "");
+                    return;
+                }
+                if (!RankService.SetProfile(nick, avatar))
+                {
+                    InkToast.Show((RectTransform)transform.parent, "昵称保存失败，请稍后再试");
                     return;
                 }
                 WxBridge.HideProfileButton();
@@ -362,6 +367,28 @@ namespace InkLine
                 Destroy(gameObject);
                 Show(layer, _meta);
             });
+        }
+
+        // 微信的失败分三种：之前点过拒绝、小游戏后台的隐私指引没声明「用户信息」、其它。
+        void AuthFailed(string err)
+        {
+            var layer = (RectTransform)transform.parent;
+            string e = err.ToLowerInvariant();
+            if (e.Contains("privacy") || e.Contains("not declared") || e.StartsWith("112 "))
+            {
+                InkToast.Show(layer, "隐私指引未声明「用户信息」，暂时不能用昵称上榜");
+                return;
+            }
+            if (e.Contains("deny") || e.Contains("auth"))
+            {
+                WxBridge.AskOpenSetting("之前拒绝过使用微信昵称和头像，去设置里打开「用户信息」后就能上榜。", ok =>
+                {
+                    if (this == null) return;
+                    InkToast.Show(layer, ok ? "已允许，再点一次就能上榜" : "没有打开「用户信息」，排行榜里会显示默认名字");
+                });
+                return;
+            }
+            InkToast.Show(layer, "没有拿到微信昵称（" + (string.IsNullOrEmpty(err) ? "未知原因" : Clip(err, 24)) + "）");
         }
 
         static string Clip(string s, int max)

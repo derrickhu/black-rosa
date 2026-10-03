@@ -13,6 +13,5 @@ namespace InkLine
         public Image PriceBack;
         public Text State;
         public Button Button;
-        [System.NonSerialized] public HomeSpellRow Row;
     }
 }

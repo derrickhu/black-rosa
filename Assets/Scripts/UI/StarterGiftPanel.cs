@@ -15,6 +15,12 @@ namespace InkLine
         Button _btn;
         Text _progress;
         Image[] _pips;
+        RectTransform _board;
+        RectTransform _gemCard;
+        RectTransform _inkCard;
+        ChestLoot _loot;
+        bool _wallet;
+        bool _claiming;
 
         public static void Show(RectTransform layer, MetaProgress meta, Action changed)
         {
@@ -28,8 +34,14 @@ namespace InkLine
 
         void Close()
         {
+            if (_claiming) return;
             AudioBus.Tap();
             Destroy(gameObject);
+        }
+
+        void OnDestroy()
+        {
+            if (_loot != null && !_wallet && _meta != null) _meta.GrantGiftWallet();
         }
 
         void Build(RectTransform dim)
@@ -40,11 +52,15 @@ namespace InkLine
                 new Vector2(0f, 72f), new Vector2(BoardW - 60f, 32f), TextAnchor.MiddleCenter, Pin.Top);
             sub.color = InkTheme.TextMid;
 
+            _board = board;
             var cardSize = new Vector2(172f, 214f);
-            PanelKit.Reward(board, "Ui/ico_shard", "技能碎片", "×" + GameConstants.GiftShards,
-                new Vector2(-110f, 124f), cardSize);
-            PanelKit.Reward(board, "Ui/ico_ink", "墨", "×" + GameConstants.GiftInk,
-                new Vector2(110f, 124f), cardSize);
+            ChestDef chest = ChestCatalog.Get(GameConstants.GiftChest);
+            PanelKit.Reward(board, "Ui/chest_" + chest.Key, chest.Name, "当场开",
+                new Vector2(-186f, 124f), cardSize);
+            _gemCard = PanelKit.Reward(board, "Ui/ico_diamond", "钻石", "×" + GameConstants.GiftDiamond,
+                new Vector2(0f, 124f), cardSize);
+            _inkCard = PanelKit.Reward(board, "Ui/ico_ink", "墨", "×" + GameConstants.GiftInk,
+                new Vector2(186f, 124f), cardSize);
 
             _progress = UiKit.Label(board, "progress", "", 26, new Vector2(-40f, 386f), new Vector2(240f, 40f),
                 TextAnchor.MiddleCenter, Pin.Top);
@@ -73,13 +89,16 @@ namespace InkLine
         void OnTap()
         {
             AudioBus.Tap();
+            if (_claiming) return;
             if (_meta.GiftReady)
             {
-                if (!_meta.ClaimGift()) return;
-                RectTransform layer = (RectTransform)transform.parent;
-                InkToast.Show(layer, "新手礼包已领取");
+                ChestLoot loot = _meta.ClaimGift();
+                if (loot == null) return;
+                _loot = loot;
+                _claiming = true;
+                _btn.interactable = false;
                 _changed?.Invoke();
-                Destroy(gameObject);
+                PlayWallet((RectTransform)transform.parent);
                 return;
             }
             AdStub.Reward("starter_gift", () =>
@@ -88,6 +107,109 @@ namespace InkLine
                 _meta.AddGiftAd();
                 Refresh();
             });
+        }
+
+        // 钻石和墨先在原卡上跳出来，面板褪掉后飞进顶栏，到账再开宝箱。
+        void PlayWallet(RectTransform layer)
+        {
+            var anim = UiAnim.On(this);
+            Transform gemIcon = _gemCard.Find("icon");
+            Transform inkIcon = _inkCard.Find("icon");
+            Vector2 gemFrom = Local(layer, gemIcon != null ? gemIcon : _gemCard);
+            Vector2 inkFrom = Local(layer, inkIcon != null ? inkIcon : _inkCard);
+            RectTransform gemChip = Chip(layer, "diamond", "cd");
+            RectTransform inkChip = Chip(layer, "ink", "ci");
+            float top = layer.rect.height * 0.5f - 70f;
+            Vector2 gemTo = gemChip != null ? Local(layer, gemChip) : new Vector2(232f, top);
+            Vector2 inkTo = inkChip != null ? Local(layer, inkChip) : new Vector2(0f, top);
+
+            anim.Punch(_gemCard, 0f, 0.14f, 0.34f).Punch(_inkCard, 0.08f, 0.14f, 0.34f)
+                .At(0.05f, () =>
+                {
+                    AudioBus.Chime();
+                    UiConfetti.Sparks(layer, gemFrom, InkTheme.Hex("F2A0C8"), 14, 480f);
+                    UiConfetti.Sparks(layer, inkFrom, InkTheme.Track, 14, 480f);
+                });
+
+            RectTransform gem = Flyer(layer, "diamond", GameConstants.GiftDiamond, gemFrom);
+            RectTransform ink = Flyer(layer, "ink", GameConstants.GiftInk, inkFrom);
+            anim.Pop(gem, 0.08f, 0.36f, 0f).Pop(ink, 0.16f, 0.36f, 0f);
+
+            // 投影是面板的同级节点，只淡卡面会把那块深色影子留在章节卡上。整层一起淡。
+            var veil = gameObject.AddComponent<CanvasGroup>();
+            anim.Fade(veil, 0.72f, 0.32f, 1f, 0f);
+            // 飞行动画等到出发再排。提前排的话第一帧就会把图标缩放改掉，弹出还没演完。
+            anim.At(0.95f, () => Fly(gem, gemFrom, gemTo))
+                .At(1.05f, () => Fly(ink, inkFrom, inkTo))
+                .At(1.52f, () => Land(layer, gem, gemChip, InkTheme.Hex("F2A0C8")))
+                .At(1.62f, () => Land(layer, ink, inkChip, InkTheme.Track))
+                .At(1.9f, () => Finish(layer));
+        }
+
+        void Finish(RectTransform layer)
+        {
+            if (this == null) return;
+            _wallet = true;
+            _meta.GrantGiftWallet();
+            _changed?.Invoke();
+            ChestLoot loot = _loot;
+            Destroy(gameObject);
+            ChestOpenView.Show(layer, _meta, loot, _changed);
+        }
+
+        static void Land(RectTransform layer, RectTransform flyer, RectTransform chip, Color spark)
+        {
+            Vector2 at = flyer != null ? flyer.anchoredPosition : Vector2.zero;
+            if (flyer != null) Destroy(flyer.gameObject);
+            AudioBus.Pickup();
+            UiConfetti.Sparks(layer, at, spark, 10, 420f);
+            if (chip == null) return;
+            UiAnim.On(chip).Punch(chip, 0f, 0.18f, 0.32f);
+        }
+
+        void Fly(RectTransform flyer, Vector2 from, Vector2 to)
+        {
+            UiAnim.On(this).Tween(0f, 0.55f, k =>
+            {
+                if (flyer == null) return;
+                float e = Ease.OutCubic(k);
+                Vector2 p = Vector2.Lerp(from, to, e);
+                p.y += Mathf.Sin(e * Mathf.PI) * 90f;
+                flyer.anchoredPosition = p;
+                float s = Mathf.Lerp(1.15f, 0.45f, e);
+                flyer.localScale = new Vector3(s, s, 1f);
+            });
+        }
+
+        static RectTransform Flyer(RectTransform layer, string icon, int n, Vector2 pos)
+        {
+            var g = ResultKit.Group(layer, "fly_" + icon, pos, new Vector2(140f, 150f));
+            var glow = UiKit.Icon(g, InkFx.SoftDisc(), new Vector2(0f, 18f), 160f);
+            glow.color = new Color(1f, 0.9f, 0.7f, 0.55f);
+            UiKit.Icon(g, InkSprites.Ui(icon), new Vector2(0f, 18f), 104f);
+            var t = UiKit.Label(g, "n", "+" + n, 34, new Vector2(0f, -52f), new Vector2(140f, 42f));
+            t.color = InkTheme.Seal;
+            UiKit.Bold(t);
+            g.SetAsLastSibling();
+            g.localScale = Vector3.zero;
+            return g;
+        }
+
+        static RectTransform Chip(RectTransform layer, string a, string b)
+        {
+            Transform home = layer.Find("Home");
+            Transform t = home != null ? home.Find(a) : null;
+            if (t == null && home != null) t = home.Find(b);
+            if (t == null) t = layer.Find(a);
+            if (t == null) t = layer.Find(b);
+            return t as RectTransform;
+        }
+
+        static Vector2 Local(RectTransform layer, Transform target)
+        {
+            var rt = target as RectTransform;
+            Vector3 world = rt != null ? rt.TransformPoint(rt.rect.center) : target.position;
+            return layer.InverseTransformPoint(world);
         }
     }
 }

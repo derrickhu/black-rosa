@@ -12,7 +12,8 @@ namespace InkLine
         public int NextCost = -1;         // <0：没有下一关（最后一关或未解锁）
         public bool NextAffordable;
         public Action Next;
-        public Action DoubleInk;          // null：这局不给翻倍（没捡到墨 / 已翻过）
+        public Action DoubleInk;          // 看一次广告：墨翻倍并当场开这关的宝箱；null：两样都没得给
+        public string DoubleText;
         public Action Home;
         public Action Forge;              // 解锁卡上「去炮台」
         public Action<int> Skin;          // 新炮台卡上「去看看」，炮台页停在那一款
@@ -37,6 +38,7 @@ namespace InkLine
         RectTransform _inkCard;
         Button _double;
         int _ink;
+        Text _chestNote;
 
         public RectTransform Root => _root;
 
@@ -87,7 +89,7 @@ namespace InkLine
                 AudioBus.Confetti();
             });
 
-            t = BuildRewards(stage0, info, t + 0.1f);
+            t = BuildRewards(stage0, a, t + 0.1f);
             t = BuildTeaser(stage0, a, t + 0.1f);
             BuildButtons(stage0, a, t + 0.1f);
             int[] cards = RevealCards(info);
@@ -256,24 +258,28 @@ namespace InkLine
             return g;
         }
 
-        float BuildRewards(RectTransform parent, ResultInfo info, float at)
+        float BuildRewards(RectTransform parent, VictoryArgs a, float at)
         {
+            ResultInfo info = a.Info;
             var list = new List<(string icon, int value, string tag)>();
             list.Add(("ink", info.Ink, info.DailyDouble ? "首胜×2" : null));
-            int shards = info.Shards + (info.FinaleShard >= 0 ? 1 : 0);
-            if (shards > 0) list.Add(("shard", shards, null));
+            if (info.Diamonds > 0) list.Add(("diamond", info.Diamonds, "首通"));
+            bool chest = info.Chest >= 0;
 
             var head = UiKit.Label(parent, "rh", "本关收获", 26, new Vector2(0f, RewardY + 106f), new Vector2(300f, 36f));
             head.color = InkTheme.Hex("FFE7B8");
             _anim.Fade(head, at, 0.25f, 0f, 1f);
 
-            const float W = 176f, H = 150f, Gap = 22f;
-            float span = list.Count * W + (list.Count - 1) * Gap;
+            const float W = 168f, H = 150f, Gap = 18f, ChestW = 200f;
+            int n = list.Count + (chest ? 1 : 0);
+            float span = list.Count * W + (chest ? ChestW : 0f) + (n - 1) * Gap;
+            float x = -span * 0.5f;
             for (int i = 0; i < list.Count; i++)
             {
                 var (icon, value, tag) = list[i];
-                float x = -span * 0.5f + W * 0.5f + i * (W + Gap);
-                var card = ResultKit.Group(parent, "rw" + i, new Vector2(x, RewardY), new Vector2(W, H));
+                float cx = x + W * 0.5f;
+                x += W + Gap;
+                var card = ResultKit.Group(parent, "rw" + i, new Vector2(cx, RewardY), new Vector2(W, H));
                 UiKit.Stroke(card, "bg", Vector2.zero, new Vector2(W, H), Pin.Center, 5f, radius: 26f);
                 UiKit.Icon(card, InkSprites.Ui(icon), new Vector2(0f, 22f), 72f);
                 var num = UiKit.Label(card, "n", "+0", 36, new Vector2(0f, -42f), new Vector2(W, 48f));
@@ -287,14 +293,44 @@ namespace InkLine
                 {
                     _inkText = num;
                     _inkCard = card;
-                    _ink = value;
+                    _ink = info.Ink;
                 }
                 if (tag != null)
                 {
                     Stamp(card, tag, new Vector2(W * 0.40f, H * 0.52f), -12f, InkTheme.Seal, t0 + 0.7f);
                 }
             }
-            return at + list.Count * 0.14f + 0.7f;
+            float end = at + list.Count * 0.14f + 0.7f;
+            if (chest) end = Mathf.Max(end, BuildChest(parent, a, new Vector2(x + ChestW * 0.5f, RewardY), ChestW, H, at + list.Count * 0.14f));
+            return end;
+        }
+
+        // 宝箱从天上砸下来、弹两下落进卡里。底下一行告诉玩家不开会怎样：进宝箱位，或位满折成墨。
+        float BuildChest(RectTransform parent, VictoryArgs a, Vector2 pos, float w, float h, float at)
+        {
+            ResultInfo info = a.Info;
+            ChestDef d = ChestCatalog.Get(info.Chest);
+            var card = ResultKit.Group(parent, "chest", pos, new Vector2(w, h));
+            UiKit.Stroke(card, "bg", Vector2.zero, new Vector2(w, h), Pin.Center, 5f,
+                fill: InkTheme.Hex("FFF6E2"), radius: 26f);
+            var glow = UiKit.Icon(card, InkSprites.Load("Ui/result_rays"), new Vector2(0f, 24f), 170f);
+            glow.color = new Color(1f, 0.82f, 0.4f, 0.75f);
+            _anim.Spin(glow.transform, 26f).Fade(glow, at + 0.45f, 0.3f, 0f, 0.75f);
+            var box = ResultKit.Group(card, "box", new Vector2(0f, 24f), new Vector2(100f, 100f));
+            UiKit.Icon(box, InkSprites.Load("Ui/chest_" + d.Key), Vector2.zero, 100f);
+            var name = UiKit.Label(card, "n", d.Name, 22, new Vector2(0f, -32f), new Vector2(w, 30f));
+            UiKit.Bold(name);
+            name.color = InkTheme.TextDark;
+            _anim.Pop(card, at, 0.3f)
+                 .Move(box, new Vector2(0f, 420f), new Vector2(0f, 24f), at + 0.1f, 0.5f, Ease.OutBounce)
+                 .At(at + 0.32f, AudioBus.ChestLand)
+                 .Punch(box, at + 0.6f, 0.18f, 0.3f);
+
+            string note = info.ChestFull ? $"位满 不开折 {info.ChestInk} 墨" : "不开就放进宝箱位";
+            _chestNote = UiKit.Label(card, "note", note, 18, new Vector2(0f, -h * 0.5f - 18f), new Vector2(w + 60f, 26f));
+            _chestNote.color = info.ChestFull ? InkTheme.Hex("FFB4A0") : InkTheme.Hex("FFE7B8");
+            _anim.Fade(_chestNote, at + 0.7f, 0.25f, 0f, 1f);
+            return at + 0.9f;
         }
 
         float BuildTeaser(RectTransform parent, VictoryArgs a, float at)
@@ -318,25 +354,22 @@ namespace InkLine
 
             if (fresh.Count > 0)
             {
-                CardId id = fresh[0];
-                CardDef def = CardCatalog.Get(id);
-                var glow = UiKit.Icon(box, InkSprites.Load("Ui/result_rays"), new Vector2(-206f, -6f), 190f);
-                glow.color = new Color(1f, 0.78f, 0.35f, 0.9f);
-                _anim.Spin(glow.transform, -30f);
-                var heap = UiKit.Icon(box, InkSprites.Heap(id), new Vector2(-206f, -6f), 118f);
-                var name = UiKit.Label(box, "name", $"「{def.Name}」", 40, new Vector2(40f, 18f),
-                    new Vector2(400f, 52f), TextAnchor.MiddleLeft);
-                UiKit.Bold(name);
-                name.color = InkTheme.Accent(id) == InkTheme.Graphite ? InkTheme.TextDark : InkTheme.Accent(id);
-                string more = fresh.Count > 1 ? $"  等 {fresh.Count} 个字" : "";
-                var desc = UiKit.Label(box, "desc", def.Desc + more, 22, new Vector2(40f, -34f),
-                    new Vector2(400f, 60f), TextAnchor.UpperLeft);
-                desc.horizontalOverflow = HorizontalWrapMode.Wrap;
-                desc.color = InkTheme.TextMid;
-                _anim.Pop(box, at, 0.34f)
-                     .Pop(heap.transform, at + 0.25f, 0.4f, 0f)
-                     .Breathe(heap.transform, at + 0.7f, 0.06f, 1.1f)
-                     .At(at + 0.3f, AudioBus.Unlock);
+                // 只给字图。名字和效果留到下一关自己看见。
+                int n = fresh.Count;
+                float icon = n == 1 ? 118f : Mathf.Min(100f, (520f - (n - 1) * 18f) / n);
+                float step = icon + 18f;
+                float x0 = -(n - 1) * step * 0.5f;
+                _anim.Pop(box, at, 0.34f).At(at + 0.3f, AudioBus.Unlock);
+                for (int i = 0; i < n; i++)
+                {
+                    float x = x0 + i * step;
+                    var glow = UiKit.Icon(box, InkSprites.Load("Ui/result_rays"), new Vector2(x, -6f), icon + 72f);
+                    glow.color = new Color(1f, 0.78f, 0.35f, 0.9f);
+                    _anim.Spin(glow.transform, -30f);
+                    var heap = UiKit.Icon(box, InkSprites.Heap(fresh[i]), new Vector2(x, -6f), icon);
+                    _anim.Pop(heap.transform, at + 0.25f + i * 0.08f, 0.4f, 0f)
+                         .Breathe(heap.transform, at + 0.7f, 0.06f, 1.1f);
+                }
             }
             else
             {
@@ -373,10 +406,10 @@ namespace InkLine
                 y -= 112f;
             }
 
-            if (a.DoubleInk != null && _ink > 0)
+            if (a.DoubleInk != null)
             {
                 var g = ResultKit.Group(parent, "double", new Vector2(0f, y), new Vector2(400f, 86f));
-                _double = UiKit.Btn(g, "b", "墨翻倍", Vector2.zero, new Vector2(400f, 86f), a.DoubleInk, false);
+                _double = UiKit.Btn(g, "b", a.DoubleText ?? "墨翻倍", Vector2.zero, new Vector2(400f, 86f), a.DoubleInk, false);
                 ResultKit.AdMark(_double, 46f);
                 _anim.Pop(g, at + 0.12f, 0.32f);
                 y -= 92f;
@@ -387,8 +420,8 @@ namespace InkLine
             _anim.Pop(hg, at + 0.24f, 0.3f);
         }
 
-        // 看完翻倍广告：墨数字从现值滚到两倍，按钮收起来。
-        public void Doubled()
+        // 看完广告（开箱演出收下之后）：墨数字从现值滚到两倍，按钮收起来。
+        public void Doubled(bool chestOpened)
         {
             if (_anim.Playing) _anim.Finish();
             if (_double != null)
@@ -396,7 +429,12 @@ namespace InkLine
                 _double.interactable = false;
                 _double.transform.parent.gameObject.SetActive(false);
             }
-            if (_inkText == null) return;
+            if (chestOpened && _chestNote != null)
+            {
+                _chestNote.text = "已打开";
+                _chestNote.color = InkTheme.Hex("B8F0A8");
+            }
+            if (_inkText == null || _ink <= 0) return;
             _anim.CountUp(_inkText, _ink, _ink * 2, 0.05f, 0.7f, "+{0}", AudioBus.CountTick)
                  .Punch(_inkCard, 0.75f, 0.2f, 0.35f)
                  .At(0.75f, () => UiConfetti.Sparks(_root, _inkCard.anchoredPosition, InkTheme.GoldHi, 16, 600f));

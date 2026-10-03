@@ -1,0 +1,12 @@
+Draw exactly these 4 objects as flat vector game sticker icons, arranged in a 2 by 2 grid on one pure solid magenta background (#FF00FF).
+
+1. Top left: a faceted cut diamond gem, turquoise like swimming pool water, classic brilliant cut shape with a flat top table and a pointed bottom, a few lighter facets on the upper left.
+2. Top right: a plump burlap money sack tied at the neck with a red string, sack tan like a paper bag, a big gold coin symbol on its front, gold yellow like gold coins.
+3. Bottom left: a single upright playing card with rounded corners, cream face like fresh paper, a wide sky blue border band, and one big gold five-pointed star in its centre.
+4. Bottom right: a stubby old-fashioned key, gold yellow like gold coins, round bow with a hole, short shaft with two square teeth.
+
+Rendering style, copied from the attached swatch: flat 2D vector sticker art. Every shape is filled with flat solid colour. Each object uses up to three tones of its colour, a base tone, one darker tone and one lighter tone, meeting at hard crisp edges like cut paper. Every object has one uniform thick dark brown outline (#3A2A20), about 5% of the icon width, the same line weight on all 4 icons. Straight-on flat front views with bold chunky silhouettes that read clearly at 48 pixels.
+
+The attached swatch shows only the painting technique, with four abstract shapes; the 4 cells contain only the 4 objects listed above.
+
+Layout: exactly 2 columns and 2 rows. Each icon is centred in its own cell at a similar size, with a wide margin of empty magenta on all four sides. The whole background is one perfectly even solid magenta.

@@ -57,6 +57,10 @@ public sealed class InkArtImporter : AssetPostprocessor
             importer.spriteBorder = new Vector4(88f, 70f, 88f, 70f);
         else if (path.Contains("/panel_board") || path.Contains("/panel_spell"))
             importer.spriteBorder = Vector4.zero;
+        else if (path.EndsWith("/panel_item_shelf.png"))
+            importer.spriteBorder = new Vector4(110f, 70f, 110f, 70f);
+        else if (path.Contains("/panel_item_card") || path.EndsWith("/panel_item_plaque.png"))
+            importer.spriteBorder = Vector4.zero;
         else if (path.Contains("/panel_card"))
             importer.spriteBorder = new Vector4(18f, 18f, 18f, 18f);
         else if (path.Contains("/panel_skin"))

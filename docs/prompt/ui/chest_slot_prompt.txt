@@ -1,0 +1,9 @@
+Draw exactly 2 objects as flat vector game UI pieces, side by side in a 2 by 1 grid on one pure solid magenta background (#FF00FF), each object centered in its half with generous magenta margin around it.
+
+Both objects are the same empty display tray for a treasure chest, seen from straight in front and slightly above: a wide rounded-rectangle wooden tray, about 1.3 times wider than tall, with a thick raised wooden rim and a recessed inner floor. The rim is the warm brown of a new wooden ruler, with two or three simple plank seams and small round brass nail heads in the four corners. The inner floor is a soft cream color like rice paper, slightly darker toward the rim to read as a shallow recess. The bottom edge has a thicker darker brown lip that reads as the tray's front thickness.
+
+Left object: the plain wooden tray exactly as described.
+
+Right object: the same tray with its rim painted the bright yellow of a new gold coin, brass nail heads shining, and the inner floor a warm pale golden cream like the inside of a lit paper lantern.
+
+Style: flat cel-shaded casual mobile game UI, bold uniform dark brown outline (#3A2A20) around every shape, two flat tones per color (base and one shadow tone), clean hard edges, the same drawing style as the reference swatch. The trays are empty and symmetrical, front view, filling about 80% of each half.

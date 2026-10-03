@@ -8,7 +8,8 @@ namespace InkLine
     public static class GmBar
     {
         const int InkGrant = 200;
-        const int ShardGrant = 20;
+        const int CardGrant = 20;
+        const int DiamondGrant = 100;
 
         // 预览结算页：0 通关，1 续命，2 失败。GameFlow 启动时挂上。
         public static Action<int> Preview;
@@ -40,19 +41,22 @@ namespace InkLine
             dimBtn.targetGraphic = dim.GetComponent<Image>();
             dimBtn.onClick.AddListener(() => UnityEngine.Object.Destroy(dim.gameObject));
 
-            var board = UiKit.Stroke(dim, "board", new Vector2(0f, -12f), new Vector2(480f, 780f), Pin.Center, 8f);
+            var board = UiKit.Stroke(dim, "board", new Vector2(0f, -12f), new Vector2(480f, 920f), Pin.Center, 8f);
             var boardImg = board.GetComponent<Image>();
             if (boardImg != null) boardImg.raycastTarget = true;
-            UiKit.Label(board, "title", "GM", 28, new Vector2(0f, 362f), new Vector2(200f, 40f));
+            UiKit.Label(board, "title", "GM", 28, new Vector2(0f, 432f), new Vector2(200f, 40f));
 
             var rows = new (string label, Action act)[]
             {
                 ("墨 +200", () => meta.AddInk(InkGrant)),
                 ("体力补满", () => meta.FillStamina()),
-                ("碎片 +20", () => meta.GrantShards(ShardGrant)),
+                ("钻石 +100", () => meta.AddDiamond(DiamondGrant)),
+                ("道具卡 +20", () => meta.GrantCards(CardGrant)),
+                ("发金宝箱", () => meta.GrantChest(ChestTier.Gold)),
+                ("宝箱解完", () => meta.GmFinishChests()),
                 ("关卡全开", () => meta.UnlockStages()),
                 ("皮肤全开", () => meta.UnlockSkins()),
-                ("技能全开", () => meta.UnlockSpells()),
+                ("道具全开", () => meta.UnlockItems()),
                 ("改装满级", () => meta.MaxForge()),
                 ("签到跨一天", () => meta.GmCheckNextDay()),
                 ("图鉴全开", () => meta.UnlockCodex()),
@@ -71,7 +75,7 @@ namespace InkLine
             for (int i = 0; i < rows.Length; i++)
             {
                 int idx = i;
-                float y = 314f - i * 50f;
+                float y = 390f - i * 48f;
                 Button row = null;
                 row = UiKit.Btn(board, "g" + i, rows[i].label, new Vector2(0f, y), new Vector2(360f, 44f), () =>
                 {

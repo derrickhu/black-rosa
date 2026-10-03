@@ -5,17 +5,21 @@ namespace InkLine
 {
     public sealed class BattleHud
     {
-        // 一个技能键：技能图标 + 名字 + 金币花费，底下一条够不够放的细槽。
-        public sealed class SpellKey
+        // 一个道具键就是道具本身：冷却中整只发灰发淡，亮色从底下往上灌满；
+        // 灌满了背后起一圈品质色的光，等时机自己丢出去。
+        public sealed class ItemKey
         {
             public RectTransform Root;
-            public Button Btn;
-            public Image Fill;
+            public RectTransform Visual;
+            public Image Glow;
+            public Image Ring;
+            public Image Dim;
+            public RectTransform Fill;
             public Image Art;
-            public Image Mark;
-            public Text Name;
-            public Text Cost;
             public int Slot;
+            public int Shown = -1;
+            public float Cast;
+            public float SeenFlash;
         }
 
         public readonly Text Gold;
@@ -28,7 +32,7 @@ namespace InkLine
         public readonly Button Draft;
         public readonly Button Retreat;
         public readonly Text DraftLabel;
-        public readonly SpellKey[] Keys;
+        public readonly ItemKey[] Keys;
         readonly RectTransform _layer;
         readonly RectTransform _heartsWrap;
         readonly RectTransform _wavePlate;
@@ -38,7 +42,7 @@ namespace InkLine
 
         BattleHud(RectTransform layer, Text gold, RectTransform goldChip, Image[] hearts,
             RectTransform heartsWrap, RectTransform wavePlate, Text wave, Text toast, Text ink, RectTransform inkChip,
-            Button draft, Button retreat, Text draftLabel, SpellKey[] keys)
+            Button draft, Button retreat, Text draftLabel, ItemKey[] keys)
         {
             _layer = layer;
             _wavePlate = wavePlate;
@@ -57,7 +61,7 @@ namespace InkLine
         }
 
         public static BattleHud Build(RectTransform layer, BattleWorld world,
-            System.Action retreat, System.Action draft, System.Action<int> cast, System.Action addEmitter)
+            System.Action retreat, System.Action draft, System.Action addEmitter)
         {
             // ScreenFit 在没有刘海时也保底 36，那是给首页顶栏的呼吸。
             // 战斗页再加 8，三个药丸就掉进走怪区，像浮在战场当中。
@@ -91,9 +95,9 @@ namespace InkLine
             var draftLabel = draftBtn.GetComponentInChildren<Text>();
             var retreatBtn = UiKit.Btn(layer, "back", "撤退", Vector2.zero, new Vector2(RetreatW, RetreatH), retreat, false, Pin.TopLeft);
 
-            var keys = new SpellKey[GameConstants.SpellSlots];
+            var keys = new ItemKey[GameConstants.ItemSlots];
             for (int i = 0; i < keys.Length; i++)
-                keys[i] = MakeKey(layer, i, Vector2.zero, cast);
+                keys[i] = MakeKey(layer, i, Vector2.zero);
 
             int maxHp = world != null ? world.MaxBaseHp : GameConstants.BaseHp;
             var hearts = UiKit.Hearts(layer, Vector2.zero, 36f, maxHp, Pin.Center);
@@ -101,69 +105,60 @@ namespace InkLine
 
             var hud = new BattleHud(layer, gold, goldChip, hearts, heartsWrap, wavePlate, wave, toast,
                 ink, inkChip, draftBtn, retreatBtn, draftLabel, keys);
+            hud._fx = ItemFx.Build(layer);
+            hud._world = world;
+            for (int i = 0; i < keys.Length; i++)
+            {
+                ItemKey k = keys[i];
+                var hit = k.Root.GetComponent<Image>();
+                hit.raycastTarget = true;
+                var btn = k.Root.gameObject.AddComponent<Button>();
+                btn.transition = Selectable.Transition.None;
+                btn.targetGraphic = hit;
+                btn.onClick.AddListener(() => hud.ToggleTip(k));
+            }
             hud.BuildAdGun(addEmitter);
             hud.Layout();
             return hud;
         }
 
-        static SpellKey MakeKey(RectTransform layer, int slot, Vector2 pos, System.Action<int> cast)
+        static ItemKey MakeKey(RectTransform layer, int slot, Vector2 pos)
         {
-            var root = UiKit.Stroke(layer, "key" + slot, pos, new Vector2(KeyW, KeyH), Pin.BottomRight, 4f, radius: 18f);
-            // 图标占左半，名字和花费叠在右边。两个字的技能名刚好放下，不再铺成一块空文本框。
-            float icon = 52f;
-            float iconX = -KeyW * 0.5f + 8f + icon * 0.5f;
-            var art = UiKit.Icon(root, null, new Vector2(iconX, 4f), icon);
-            float textLeft = iconX + icon * 0.5f + 4f;
-            float textRight = KeyW * 0.5f - 8f;
-            float textCenter = (textLeft + textRight) * 0.5f;
-            float textW = textRight - textLeft;
-            var name = UiKit.Label(root, "n", "", 24, new Vector2(textCenter, 14f), new Vector2(textW, 30f));
-            UiKit.Bold(name);
-            var mark = UiKit.Icon(root, InkSprites.Ui("gold"), new Vector2(textCenter - 16f, -12f), 22f);
-            var cost = UiKit.Label(root, "c", "", 20, new Vector2(textCenter + 14f, -12f), new Vector2(40f, 26f), TextAnchor.MiddleLeft);
-            UiKit.Bold(cost);
+            var root = UiKit.Panel(layer, "key" + slot, pos, new Vector2(KeyW, KeyH), Color.clear, Pin.BottomRight);
+            root.GetComponent<Image>().raycastTarget = false;
+            var visual = UiKit.Panel(root, "v", Vector2.zero, new Vector2(KeyW, KeyH), Color.clear);
+            visual.GetComponent<Image>().raycastTarget = false;
+            var glow = UiKit.Icon(visual, InkFx.SoftDisc(), Vector2.zero, KeyW * 2.2f);
+            var ring = UiKit.Icon(visual, InkFx.SoftRing(), Vector2.zero, KeyW * 1.2f);
+            ring.enabled = false;
+            var dim = UiKit.Icon(visual, null, Vector2.zero, KeyW);
 
-            // 细槽贴在牌的下沿。底是淡金，实心按已有金币 / 花费从左往右填。
-            var track = new GameObject("track", typeof(RectTransform), typeof(Image));
-            track.transform.SetParent(root, false);
-            var tr = track.GetComponent<RectTransform>();
-            tr.anchorMin = tr.anchorMax = new Vector2(0.5f, 0f);
-            tr.pivot = new Vector2(0.5f, 0f);
-            tr.anchoredPosition = new Vector2(0f, 8f);
-            tr.sizeDelta = new Vector2(KeyW - 28f, 8f);
-            var trackImg = track.GetComponent<Image>();
-            trackImg.sprite = UiSprites.Fill(4);
-            trackImg.type = Image.Type.Sliced;
-            trackImg.color = InkTheme.GoldHi;
-            trackImg.raycastTarget = false;
-
-            var bar = new GameObject("bar", typeof(RectTransform), typeof(Image));
-            bar.transform.SetParent(track.transform, false);
-            var br = bar.GetComponent<RectTransform>();
-            br.anchorMin = Vector2.zero;
-            br.anchorMax = Vector2.one;
-            br.offsetMin = Vector2.zero;
-            br.offsetMax = Vector2.zero;
-            var fill = bar.GetComponent<Image>();
-            fill.sprite = UiSprites.Fill(4);
-            fill.type = Image.Type.Sliced;
-            fill.color = InkTheme.CoinFace;
-            fill.raycastTarget = false;
-
-            var btn = root.gameObject.AddComponent<Button>();
-            btn.transition = Selectable.Transition.None;
-            btn.targetGraphic = root.GetComponent<Image>();
-            int idx = slot;
-            btn.onClick.AddListener(() => cast(idx));
-            return new SpellKey
+            // 裁切框钉在图标下沿，高度跟着冷却走。框里的彩色图标是满尺寸、底对齐，
+            // 所以露出来的永远是图标的下半截，往上长。
+            var fillGo = new GameObject("fill", typeof(RectTransform), typeof(RectMask2D));
+            fillGo.transform.SetParent(visual, false);
+            var fill = fillGo.GetComponent<RectTransform>();
+            fill.anchorMin = fill.anchorMax = new Vector2(0.5f, 0f);
+            fill.pivot = new Vector2(0.5f, 0f);
+            fill.anchoredPosition = Vector2.zero;
+            fill.sizeDelta = new Vector2(KeyW, 0f);
+            var art = UiKit.Icon(fill, null, Vector2.zero, KeyW);
+            var artRt = art.rectTransform;
+            artRt.anchorMin = artRt.anchorMax = new Vector2(0.5f, 0f);
+            artRt.pivot = new Vector2(0.5f, 0f);
+            artRt.anchoredPosition = Vector2.zero;
+            artRt.sizeDelta = new Vector2(KeyW, KeyH);
+            return new ItemKey
             {
-                Root = root, Btn = btn, Fill = fill, Art = art, Mark = mark, Name = name, Cost = cost, Slot = slot
+                Root = root, Visual = visual, Glow = glow, Ring = ring, Dim = dim, Fill = fill, Art = art, Slot = slot
             };
         }
 
         const float RowH = 84f;
-        const float KeyW = 148f;
-        const float KeyH = 88f;
+        const float KeyW = 84f;
+        const float KeyH = 84f;
+        const float KeySide = 8f;
+        const float KeyGap = 14f;
         const float RetreatW = 124f;
         const float RetreatH = 52f;
         const float Side = 16f;
@@ -177,13 +172,8 @@ namespace InkLine
             float top = pad <= 36.1f ? 10f : pad;
             float row = top + RetreatH + 8f;
             float canvasW = Mathf.Max(720f, _layer.rect.width);
-            int slots = GameConstants.SpellSlots;
-            float keysW = slots * KeyW + Mathf.Max(0, slots - 1) * 8f;
-            float half = canvasW * 0.5f;
-            float left = -half + Side;
-            float right = half - Side - keysW - Gap;
-            float draftW = Mathf.Clamp(right - left, 200f, 520f);
-            float draftX = (left + right) * 0.5f;
+            float draftW = Mathf.Clamp(canvasW - 2f * (Side + Gap), 200f, 460f);
+            float draftX = 0f;
 
             PinTop(Retreat.transform as RectTransform, new Vector2(Side, top),
                 new Vector2(RetreatW, RetreatH), 6f, Pin.TopLeft);
@@ -204,10 +194,6 @@ namespace InkLine
                 var box = DraftLabel.GetComponent<RectTransform>();
                 if (box != null) box.sizeDelta = new Vector2(draftW, RowH);
             }
-            for (int i = 0; i < Keys.Length; i++)
-                PinBottom(Keys[i].Root, new Vector2(Side + i * (KeyW + 8f), bot),
-                    new Vector2(KeyW, KeyH), 7f, Pin.BottomRight);
-
             if (_heartsWrap != null)
             {
                 // 格子下沿居中。Pin.Center，世界坐标转画布中心偏移。
@@ -215,8 +201,29 @@ namespace InkLine
                 _heartsWrap.anchoredPosition = WorldToCanvas(_layer, new Vector3(0f, FieldLayout.GridBottom - 0.20f, 0f));
             }
 
-            FitCamera(bot + Mathf.Max(RowH, KeyH), Mathf.Max(1f, _layer.rect.height));
+            FitCamera(bot + RowH, Mathf.Max(1f, _layer.rect.height));
+            LayoutKeys();
         }
+
+        // 道具竖排贴右边，从格子上沿往上叠，第一格在最下面。炮弹从格子里往上走，
+        // 贴边这一条几乎没有弹道。相机定好之后再算，格子上沿才对得上。
+        void LayoutKeys()
+        {
+            float h = Mathf.Max(1f, _layer.rect.height);
+            float gridTop = WorldToCanvas(_layer, new Vector3(0f, FieldLayout.GridTop, 0f)).y + h * 0.5f;
+            _keyY0 = Mathf.Max(ScreenFit.BottomPad + 16f + RowH + 12f, gridTop + 18f);
+            for (int i = 0; i < Keys.Length; i++)
+            {
+                RectTransform rt = Keys[i].Root;
+                if (rt == null) continue;
+                rt.sizeDelta = new Vector2(KeyW, KeyH);
+                rt.anchorMin = rt.anchorMax = new Vector2(1f, 0f);
+                rt.pivot = new Vector2(1f, 0f);
+                rt.anchoredPosition = new Vector2(-KeySide, _keyY0 + i * (KeyH + KeyGap));
+            }
+        }
+
+        float _keyY0;
 
         // 任何长宽比下，炮的下沿都要高过底栏上沿。短了就加视野、必要时下移相机，
         // 同时保住刷怪点还在画面里。
@@ -434,42 +441,193 @@ namespace InkLine
             if (value != null) value.color = Color.Lerp(InkTheme.TextDark, flash, pulse);
         }
 
+        ItemFx _fx;
+        BattleWorld _world;
+        RectTransform _tip;
+        ItemKey _tipKey;
+        Text _tipCd;
+        float _tipLeft;
+        const float TipW = 370f;
+        const float TipShow = 3.2f;
+
+        void PlayCasts(BattleWorld world)
+        {
+            if (world.ItemCasts.Count == 0) return;
+            for (int i = 0; i < world.ItemCasts.Count; i++)
+            {
+                BattleWorld.ItemCast c = world.ItemCasts[i];
+                if (_fx == null || BattleWorld.PreviewFill) continue;
+                Vector2 key = new Vector2(_layer.rect.width * 0.5f - KeySide - KeyW * 0.5f, 0f);
+                foreach (ItemKey k in Keys)
+                {
+                    if (k.Slot != c.Slot || k.Root == null) continue;
+                    Vector3 wp = k.Root.TransformPoint(k.Root.rect.center);
+                    key = (Vector2)_fx.transform.InverseTransformPoint(wp);
+                }
+                Vector2 hearts = _heartsWrap != null
+                    ? _heartsWrap.anchoredPosition
+                    : WorldToCanvas(_layer, new Vector3(0f, FieldLayout.GridBottom, 0f));
+                _fx.Play(c, world, key, hearts);
+            }
+            world.ItemCasts.Clear();
+        }
+
+        // 点道具键：键左边弹一张小卡，写这件道具干什么、什么时候自己丢。再点一下或过几秒收起。
+        void ToggleTip(ItemKey k)
+        {
+            bool same = _tip != null && _tipKey == k;
+            CloseTip();
+            if (same || _world == null) return;
+            int id = _world.SlotItem(k.Slot);
+            if (id < 0) return;
+            AudioBus.Tap();
+            ItemDef d = ItemCatalog.Get(id);
+            int lv = _world.ItemRanks != null && id < _world.ItemRanks.Length ? Mathf.Max(1, _world.ItemRanks[id]) : 1;
+            Color q = ItemCatalog.QualityColor(d.Quality);
+
+            const float h = 196f;
+            var card = UiKit.Stroke(_layer, "itemtip", Vector2.zero, new Vector2(TipW, h), Pin.Center, 5f,
+                null, InkTheme.Hex("FFF8EA"), 24f);
+            card.GetComponent<Image>().raycastTarget = false;
+            Vector3 wp = k.Root.TransformPoint(k.Root.rect.center);
+            Vector2 at = (Vector2)_layer.InverseTransformPoint(wp);
+            float halfH = _layer.rect.height * 0.5f;
+            Vector2 pos = new Vector2(at.x - KeyW * 0.5f - 14f - TipW * 0.5f,
+                Mathf.Clamp(at.y, -halfH + h * 0.5f + 20f, halfH - h * 0.5f - 20f));
+            card.anchoredPosition = pos;
+            var sh = _layer.Find("itemtip_sh") as RectTransform;
+            if (sh != null) sh.anchoredPosition = pos + new Vector2(0f, -6f);
+
+            var band = UiKit.Panel(card, "band", new Vector2(0f, -4f), new Vector2(TipW - 10f, 8f), q, Pin.Top);
+            band.GetComponent<Image>().raycastTarget = false;
+            UiKit.Icon(card, InkSprites.Ui(d.Id), new Vector2(-TipW * 0.5f + 52f, h * 0.5f - 58f), 72f);
+            var name = UiKit.Label(card, "name", d.Name, 30, new Vector2(-TipW * 0.5f + 96f + 70f, h * 0.5f - 42f),
+                new Vector2(140f, 40f), TextAnchor.MiddleLeft);
+            UiKit.Bold(name);
+            var pill = UiKit.Panel(card, "q", new Vector2(TipW * 0.5f - 96f, h * 0.5f - 42f), new Vector2(64f, 30f), q);
+            pill.GetComponent<Image>().sprite = UiSprites.Fill(UiSprites.TierFor(new Vector2(64f, 30f)));
+            pill.GetComponent<Image>().type = Image.Type.Sliced;
+            var ql = UiKit.Label(pill, "t", ItemCatalog.QualityName(d.Quality), 18, Vector2.zero, new Vector2(64f, 30f));
+            ql.color = Color.white;
+            UiKit.Bold(ql);
+            var lvl = UiKit.Label(card, "lv", "Lv." + lv, 20, new Vector2(TipW * 0.5f - 34f, h * 0.5f - 42f),
+                new Vector2(56f, 30f));
+            lvl.color = ItemCatalog.QualityDeep(d.Quality);
+            UiKit.Bold(lvl);
+            var cd = UiKit.Label(card, "cd", "", 18, new Vector2(-TipW * 0.5f + 96f + 110f, h * 0.5f - 76f),
+                new Vector2(220f, 26f), TextAnchor.MiddleLeft);
+            cd.color = InkTheme.TextMid;
+            var blurb = UiKit.Label(card, "b", ItemCatalog.Blurb(d, lv, _world.ShotBase), 21,
+                new Vector2(0f, -22f), new Vector2(TipW - 36f, 56f), TextAnchor.UpperLeft);
+            blurb.horizontalOverflow = HorizontalWrapMode.Wrap;
+            var when = UiKit.Label(card, "w", "自动触发：" + d.When, 18, new Vector2(0f, -h * 0.5f + 26f),
+                new Vector2(TipW - 36f, 26f), TextAnchor.MiddleLeft);
+            when.color = q;
+            UiKit.Bold(when);
+
+            _tip = card;
+            _tipKey = k;
+            _tipCd = cd;
+            _tipLeft = TipShow;
+            card.localScale = Vector3.one * 0.6f;
+        }
+
+        void CloseTip()
+        {
+            if (_tip == null) return;
+            var sh = _layer != null ? _layer.Find("itemtip_sh") : null;
+            if (sh != null) Object.Destroy(sh.gameObject);
+            Object.Destroy(_tip.gameObject);
+            _tip = null;
+            _tipKey = null;
+            _tipCd = null;
+        }
+
+        void TickTip(BattleWorld world)
+        {
+            if (_tip == null) return;
+            float dt = Time.unscaledDeltaTime;
+            _tipLeft -= dt;
+            if (_tipLeft <= 0f || _tipKey == null || world.SlotItem(_tipKey.Slot) < 0)
+            {
+                CloseTip();
+                return;
+            }
+            float s = _tip.localScale.x;
+            s = Mathf.MoveTowards(s, 1f, dt * 4f);
+            _tip.localScale = new Vector3(s, s, 1f);
+            if (_tipCd != null)
+            {
+                int slot = _tipKey.Slot;
+                if (world.ItemsSealed) _tipCd.text = "本关禁用道具";
+                else if (world.SlotSpent(slot)) _tipCd.text = "本局次数已用完";
+                else
+                {
+                    float charge = world.SlotCharge(slot);
+                    _tipCd.text = charge >= 1f ? "已就绪，等时机" : $"冷却 {Mathf.RoundToInt(charge * 100f)}%";
+                }
+            }
+        }
+
         void RefreshKeys(BattleWorld world, bool inBattle)
         {
+            float dt = Time.unscaledDeltaTime;
+            PlayCasts(world);
+            TickTip(world);
+            int shown = 0;
             for (int i = 0; i < Keys.Length; i++)
             {
-                SpellKey k = Keys[i];
-                int id = world.SlotSpell(k.Slot);
+                ItemKey k = Keys[i];
+                int id = world.SlotItem(k.Slot);
                 bool has = id >= 0;
                 if (k.Root.gameObject.activeSelf != has) k.Root.gameObject.SetActive(has);
-                Transform sh = k.Root.parent != null ? k.Root.parent.Find(k.Root.name + "_sh") : null;
-                if (sh != null && sh.gameObject.activeSelf != has) sh.gameObject.SetActive(has);
                 if (!has) continue;
-                SpellDef d = SpellCatalog.Get(id);
-                if (k.Art != null) k.Art.sprite = InkSprites.Ui(d.Id);
-                k.Name.text = d.Name;
-                k.Cost.text = d.GoldCost.ToString();
-                float need = Mathf.Max(1, d.GoldCost);
-                float got = Mathf.Clamp01(world.Gold / need);
-                var meter = k.Fill.rectTransform;
-                meter.anchorMin = Vector2.zero;
-                meter.anchorMax = new Vector2(got, 1f);
-                meter.offsetMin = Vector2.zero;
-                meter.offsetMax = Vector2.zero;
-                bool sealedOff = world.Stage != null && world.Stage.Has(StageRule.NoSpell);
-                if (sealedOff) k.Cost.text = "禁";
-                if (k.Mark != null) k.Mark.enabled = !sealedOff;
-                k.Fill.enabled = got > 0.03f && !sealedOff;
-                bool ready = inBattle && world.CanCast(k.Slot);
-                k.Btn.interactable = ready;
-                Color ink = ready ? Color.white : new Color(1f, 1f, 1f, 0.45f);
-                k.Name.color = ready ? InkTheme.TextDark : InkTheme.TextDim;
-                k.Cost.color = ready ? InkTheme.TextDark : InkTheme.TextDim;
-                if (k.Art != null) k.Art.color = ink;
-                k.Mark.color = ink;
-                k.Fill.color = ready ? InkTheme.CoinFace : InkTheme.Gold;
-                k.Root.GetComponent<Image>().color = ready ? InkTheme.CardFace : InkTheme.CardDim;
-                k.Root.localScale = Vector3.one;
+                k.Root.anchoredPosition = new Vector2(-KeySide, _keyY0 + shown++ * (KeyH + KeyGap));
+                ItemDef d = ItemCatalog.Get(id);
+                Color q = ItemCatalog.QualityColor(d.Quality);
+                if (k.Shown != id)
+                {
+                    k.Shown = id;
+                    Sprite icon = InkSprites.Ui(d.Id);
+                    k.Dim.sprite = icon;
+                    k.Art.sprite = icon;
+                }
+                float charge = world.SlotCharge(k.Slot);
+                bool off = world.ItemsSealed || world.SlotSpent(k.Slot);
+                bool ready = !off && charge >= 1f;
+
+                // 底下一层始终是淡影。彩色只从下沿露出冷却走完的那一截，灌满才是整只实心图标。
+                k.Dim.color = new Color(0.55f, 0.55f, 0.55f, off ? 0.22f : 0.34f);
+                k.Art.color = Color.white;
+                k.Fill.sizeDelta = new Vector2(KeyW, off ? 0f : KeyH * Mathf.Clamp01(charge));
+
+                float fire = world.ItemFlash[k.Slot];
+                float pop = world.ItemReadyFlash[k.Slot];
+                world.ItemFlash[k.Slot] = Mathf.Max(0f, fire - dt * 3f);
+                world.ItemReadyFlash[k.Slot] = Mathf.Max(0f, pop - dt * 2.5f);
+                if (fire > k.SeenFlash + 0.2f) k.Cast = 1f;
+                k.SeenFlash = fire;
+                k.Cast = Mathf.Max(0f, k.Cast - dt / 0.48f);
+
+                float pulse = 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * 4.5f);
+                float glow = ready ? 0.72f + 0.28f * pulse : 0f;
+                glow = Mathf.Max(glow, pop, k.Cast * 0.85f);
+                k.Glow.color = new Color(q.r, q.g, q.b, glow);
+                k.Glow.enabled = glow > 0.02f;
+                k.Glow.transform.localScale = Vector3.one * (ready ? 1.08f + 0.16f * pulse : 1f);
+
+                float c = k.Cast;
+                float kick = Mathf.Sin(c * Mathf.PI);
+                float sc = 1f + 0.32f * kick + (ready && c <= 0f ? 0.05f * pulse : 0f);
+                k.Visual.anchoredPosition = new Vector2(0f, kick * 28f);
+                k.Visual.localRotation = Quaternion.Euler(0f, 0f, Mathf.Sin((1f - c) * Mathf.PI * 2f) * 18f * c);
+                k.Visual.localScale = new Vector3(sc + kick * 0.1f, sc - kick * 0.06f, 1f);
+                k.Ring.enabled = c > 0.02f;
+                if (c > 0.02f)
+                {
+                    k.Ring.rectTransform.localScale = Vector3.one * Mathf.Lerp(0.55f, 2.3f, 1f - c);
+                    k.Ring.color = new Color(q.r, q.g, q.b, c * 0.95f);
+                }
             }
         }
     }

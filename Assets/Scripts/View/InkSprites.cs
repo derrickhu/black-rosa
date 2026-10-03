@@ -117,7 +117,7 @@ namespace InkLine
         // 这批图本身就有颜色和描边，别再用 Image.color 去 tint —— 相乘只会脏掉。
         public static Sprite Ui(string key) => Load("Ui/ico_" + key);
 
-        public static Sprite Ui(SpellId id) => Ui(id.ToString().ToLowerInvariant());
+        public static Sprite Ui(ItemId id) => Ui("item_" + id.ToString().ToLowerInvariant()) ?? Ui(id.ToString().ToLowerInvariant());
 
         public static Sprite Flash(EnemyId id)
         {

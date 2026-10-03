@@ -47,7 +47,7 @@ namespace InkLine
                 W(S(0.3f, Sprinter, -1, 5), S(3.5f, Mender, 2), S(4.1f, Bulwark, 2), S(8f, Runner, -1, 5)),
                 W(S(0.3f, Warden, 0), S(1.5f, Warden, 5), S(5.5f, Elite, -1, 2), S(10f, Crawler, -1, 4)),
                 W(S(0.3f, Runner, 0, 3), S(1f, Runner, 5, 3), S(4f, Sprinter, -1, 5), S(8.5f, Shield, -1, 3))
-            ).Rule(StageRule.Swift | StageRule.NoSpell));
+            ).Rule(StageRule.Swift | StageRule.NoItem));
 
             s.Add(P("医馆", Full,
                 W(S(0.3f, Elite, 2), S(0.9f, Mender, 2), S(4f, Elite, 4), S(4.6f, Mender, 4)),
