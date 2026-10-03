@@ -1,0 +1,16 @@
+2D game hit-impact VFX sprite sheet for a cute casual mobile tower-defense game. Layout: exactly 2 columns x 2 rows = 4 square cells, evenly spaced, on a plain pure white background (#FFFFFF), with only empty white space between the cells. Each effect sits centered in its own cell with a wide white margin on all four sides and stays fully inside its cell. The sheet contains only the effect shapes on white.
+
+The attached reference image shows four frames of an explosion from the same game. Use it ONLY for the drawing style: flat cel-shaded vector shapes stacked in layers, each layer one solid color with a crisp edge, a thick dark outline around every shape, chunky rounded silhouettes, a bright small core, a mid layer, an outer layer, then secondary pieces flying off. Match that line weight, that chunkiness and that layered read. Draw the new subject described below.
+
+Subject: EARTH HIT: a burst of chunky rock fragments and a dust cloud, like a clay pot smashing on stone.
+Color layers from center outward: core like sand (pale tan), then caramel brown, then terracotta brick, then dark chocolate brown rocks.
+Secondary pieces: angular pebbles and rock chips fly off; in cell 4 scattered small pebbles and two beige dust puffs.
+Every shape has a thick very dark brown outline like coffee beans.
+
+The four cells are one impact read in order: top-left, top-right, bottom-left, bottom-right.
+Cell 1 (impact flash): a small tight burst, about 40 percent of the cell, bright core with the first layer just opening.
+Cell 2 (full burst): the biggest frame, about 80 percent of the cell, every color layer fully open, the strongest silhouette.
+Cell 3 (break-up): the main shape breaking into several chunky secondary pieces drifting outward, about 85 percent of the cell, colors a little darker.
+Cell 4 (remnant): only a scattered ring of small leftover pieces spread wide near the cell edges, about 90 percent of the cell, mostly empty white in the middle.
+All four share one center point so the frames line up when played in place.
+

@@ -77,10 +77,13 @@ namespace InkLine
         {
             if (Holders.TryGetValue(unit, out Holder got)) return got;
             var h = new Holder();
+            // 不带 multiton 时微信全局只有一个激励视频实例，只认第一次的广告位。
+            // 预加载会连建 7 个位，关闭回调全进了第一个，体力这次的 Busy 永远清不掉：
+            // 看完不发奖，再点就一直「广告还在播」。
             h.Ad = WeChatWASM.WX.CreateRewardedVideoAd(new WeChatWASM.WXCreateRewardedVideoAdParam
             {
                 adUnitId = unit,
-                multiton = false,
+                multiton = true,
             });
             h.Ad.OnClose(r => Closed(h, r));
             h.Ad.OnError(e => Errored(h, e));

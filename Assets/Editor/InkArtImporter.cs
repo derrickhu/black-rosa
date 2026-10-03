@@ -16,9 +16,10 @@ public sealed class InkArtImporter : AssetPostprocessor
         bool cpu = !vfx && !ui && !bg;
         // 平涂特效（§4.0）是硬描边图，和界面图标一样经不起块压缩：
         // 深色外沿正是它在宣纸底上立得住的原因，崩出脏点就白画了。
-        // 靠命名认：弹体渐变 `<元素>_shot_NN`、状态层 `burn_body_/ice_crust_/dot_*`。
+        // 靠命名认：弹体渐变 `<元素>_shot_NN`、命中 `hitv_*`、状态层 `burn_body_/ice_crust_/dot_*`。
         // `_shot_` 里那两条下划线是有意的 —— 它要排除旧的柔光单图 `shot_ice.png`。
         bool flatVfx = vfx && (path.Contains("_shot_")
+                               || path.Contains("/hitv_")
                                || path.Contains("/burn_body_")
                                || path.Contains("/ice_crust_")
                                || path.Contains("/dot_"));

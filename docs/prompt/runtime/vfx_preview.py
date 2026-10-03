@@ -75,7 +75,7 @@ def dots(cv, x0, layers):
             col, k = TINT[{"burn": "fire", "freeze": "ice", "poison": "poison"}[key]], amt
             break
     if "slow" in layers:                                    # 地面，压在身体后面
-        place(cv, faded(load(V / "dot_ripple.png"), 0.80), SLOWW * BASE, x0, (FOOT - 0.02) * BASE)
+        place(cv, faded(load(V / "dot_frost_00.png"), 0.95), 0.86 * 105 / 128 * BASE, x0, (FOOT + 0.07) * BASE)
     place(cv, tinted(enemy, col, k) if col else enemy, BASE, x0, 0)
 
     if "burn" in layers:                                    # 脚底往上到胸

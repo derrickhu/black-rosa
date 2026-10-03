@@ -8,7 +8,6 @@ namespace InkLine
     public static class DotMarks
     {
         static Sprite _flame;
-        static Sprite _ripple;
         static Sprite _swirl;
 
         public static Sprite Flame()
@@ -23,19 +22,6 @@ namespace InkLine
                 return a * Mathf.SmoothStep(0f, 0.16f, v) * Mathf.SmoothStep(1f, 0.82f, v);
             });
             return _flame;
-        }
-
-        public static Sprite Ripple()
-        {
-            if (_ripple != null) return _ripple;
-            _ripple = Bake(64, (u, v) =>
-            {
-                // 脚下一道压扁的水纹
-                float d = Mathf.Sqrt(u * u + (v - 0.5f) * (v - 0.5f) * 9f);
-                float band = (d - 0.62f) / 0.14f;
-                return Mathf.Exp(-band * band);
-            });
-            return _ripple;
         }
 
         public static Sprite Swirl()
@@ -93,7 +79,7 @@ namespace InkLine
         const float SideX = 0.30f;    // 身体两侧：毒泡的横向偏移
         const float BurnH = 0.62f;    // 火焰高度：从脚底到胸口，不盖过头
         const float CrustH = 0.58f;   // 冰锥高度：从头顶往下到腰，不盖住脚
-        const float SlowW = 0.42f;    // 水纹：只是脚边一圈，大了会像站台而不是减速
+        const float FrostW = 0.86f;   // 冰面世界宽：比身子略窄，读成「脚下结冰」而不是站台
 
         Transform _rig;
         SpriteRenderer _burn;
@@ -145,11 +131,12 @@ namespace InkLine
             // 缓：脚下地面一圈水纹。这一层永远在地面，不跟身上任何一层抢位置，
             // 所以冻的时候也不必让位了。
             bool slow = e.SlowTime > 0f && e.Slow < 0.999f;
-            Sprite ripple = InkSprites.Load("Vfx/dot_ripple");
-            Mark(_slow, slow, ripple ?? DotMarks.Ripple(),
-                new Vector3(0f, Foot - 0.02f, 0f), ripple != null ? SlowW : 0.52f,
-                ripple != null ? Fade(Color.white, 0.8f) : Fade(InkTheme.WaterHi, 0.55f),
-                0f, ripple != null);
+            // 一块描边冰面 + 后沿几根冰晶，和冰命中同一套画法；冰面中心压在脚底，冰晶露在身后
+            Sprite frost = Loop("dot_frost", t * 4f + e.Id * 1.3f);
+            float fs = frost != null ? FrostW / Mathf.Max(0.01f, frost.bounds.size.x) : 1f;
+            Mark(_slow, slow, frost,
+                new Vector3(0f, Foot + (frost != null ? 0.1f * frost.bounds.size.y * fs : 0f), 0f), fs,
+                Fade(Color.white, 0.95f), 0f, true);
 
             // 硬控三个互斥，所以可以共用上半区：
             // 冻是从头肩往下长的冰锥（和火正好反方向），晕和惑在头顶之上转。

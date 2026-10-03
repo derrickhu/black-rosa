@@ -25,8 +25,44 @@ namespace InkLine
         public const int Wood = 17;
         public const int Confuse = 18;
 
-        // 有专属 4 帧的元素用自己那套，其余拿白色的 hit_ink 染色。
+        // 每种命中都有一套 v4 分层平涂四帧（hitv_<名>，画法对标 hit_explode）；
+        // 缺图时退回旧图：有专属 4 帧的元素用自己那套，其余拿白色的 hit_ink 染色。
         public static string Frames(int kind)
+        {
+            string v4 = V4(kind);
+            if (v4 != null && InkVfx.Frames(v4) != null) return v4;
+            return Legacy(kind);
+        }
+
+        public static bool Flat(string key) => key.StartsWith("hitv_") || key == "hit_explode";
+
+        static string V4(int kind)
+        {
+            switch (kind)
+            {
+                case Ink: return "hitv_ink";
+                case Fire: return "hitv_fire";
+                case Ice: return "hitv_ice";
+                case Heavy: return "hitv_heavy";
+                case Stun: return "hitv_stun";
+                case Kill: return "hitv_kill";
+                case FireIce: return "hitv_fireice";
+                case Cleave: return "hitv_cleave";
+                case Knock: return "hitv_knock";
+                case Arrow: return "hitv_arrow";
+                case Water: return "hitv_water";
+                case Earth: return "hitv_earth";
+                case Wind: return "hitv_wind";
+                case Thunder: return "hitv_thunder";
+                case Poison: return "hitv_poison";
+                case Gold: return "hitv_gold";
+                case Wood: return "hitv_wood";
+                case Confuse: return "hitv_confuse";
+                default: return null;
+            }
+        }
+
+        static string Legacy(int kind)
         {
             switch (kind)
             {

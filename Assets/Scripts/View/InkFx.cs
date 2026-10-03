@@ -539,6 +539,7 @@ namespace InkLine
         Color _dotColor1;
         int _dots;
         bool _elemTinted;
+        bool _v4;
         float _t;
         float _life = 0.16f;
         float _scale = 1f;
@@ -577,6 +578,15 @@ namespace InkLine
             string key = HitFx.Frames(fx.Kind);
             _elemFrames = InkVfx.Frames(key);
             _elemTinted = key == "hit_ink";
+            // v4 分层平涂和爆炸同一套读法：四帧都要看得清（闪 → 炸开 → 碎裂 → 余烬），
+            // 所以拉长寿命、按原色不透明画；碎块图里自带，程序化墨点和柔环让开。
+            _v4 = key.StartsWith("hitv_");
+            if (_v4)
+            {
+                _life = Mathf.Max(_life, fx.Kind == HitFx.Ink ? 0.26f : 0.30f);
+                _elemA = 2.4f;
+                _elemS = fx.Kind == HitFx.Ink ? 0.84f : fx.Kind == HitFx.Heavy ? 0.92f : 1f;
+            }
             // 事件层：斩杀 / 晕 / 穿，压在最上面
             string art = HitEvent.Art(fx.Event);
             _eventSprite = art != null ? InkSprites.Load(art) : null;
@@ -727,18 +737,21 @@ namespace InkLine
                 ? Mathf.Lerp(0.2f, 0.58f, u / 0.12f)
                 : Mathf.Lerp(0.58f, 0.36f, Mathf.Clamp01((u - 0.12f) / 0.33f));
             float coreA = u < 0.3f ? 1f : Mathf.Clamp01(1f - (u - 0.3f) / 0.15f);
-            Paint(_flash, _core, _scale * coreS, coreA);
+            // 平涂第一帧本身就是亮芯，程序化星芒只垫在它底下，别从描边外戳出来
+            Paint(_flash, _core, _scale * coreS * (_v4 ? 0.62f : 1f), coreA);
             if (_flash != null) _flash.transform.localRotation = Quaternion.Euler(0f, 0f, _rot + u * 40f);
             // 柔光在宣纸上只会化成一片雾。只给带色的命中留一层很淡、很小的底。
-            Paint(_glow, _mid, _scale * Mathf.Lerp(0.4f, 0.95f, e), _soft ? fade * fade * 0.2f : 0f);
-            Paint(_ring, _ringC, _scale * Mathf.Lerp(0.22f, 1.15f, e), Mathf.Pow(fade, 1.8f) * 0.6f);
+            Paint(_glow, _mid, _scale * Mathf.Lerp(0.4f, 0.95f, e), _soft && !_v4 ? fade * fade * 0.2f : 0f);
+            Paint(_ring, _ringC, _scale * Mathf.Lerp(0.22f, 1.15f, e), _v4 ? 0f : Mathf.Pow(fade, 1.8f) * 0.6f);
             if (_spin && _ring != null)
                 _ring.transform.localRotation = Quaternion.Euler(0f, 0f, _t * 280f);
 
             // 元素层在下，事件层在上
             Frame(_elem, _elemFrames, u, _scale * _elemS,
-                _elemTinted ? _mid : Color.white, Mathf.Min(0.92f, fade * _elemA));
-            if (_elem != null) _elem.transform.localRotation = Quaternion.Euler(0f, 0f, _rot);
+                _elemTinted ? _mid : Color.white, Mathf.Min(_v4 ? 1f : 0.92f, fade * _elemA));
+            // 平涂图有明确的上下（裂劈 X、金币、星星），只小幅歪一下，转 90° 会读成另一个形
+            if (_elem != null)
+                _elem.transform.localRotation = Quaternion.Euler(0f, 0f, _v4 ? (_rot - 45f) * 0.25f : _rot);
             if (_eventSprite != null)
                 Paint(_event, _eventColor, _scale * Mathf.Lerp(0.45f, 1.05f, e), Mathf.Pow(fade, 0.8f));
 
@@ -789,7 +802,7 @@ namespace InkLine
                 _drop[i].transform.localScale = Vector3.one * s;
                 dropC.a = Mathf.Clamp01(1.25f * fade);
                 _drop[i].color = dropC;
-                _drop[i].enabled = s > 0.01f;
+                _drop[i].enabled = s > 0.01f && !_v4;
             }
             if (u < 1f) return;
             SetVis(false);

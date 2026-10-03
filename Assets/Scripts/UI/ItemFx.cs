@@ -222,17 +222,8 @@ namespace InkLine
                     drop.rectTransform.anchoredPosition = p;
                     drop.enabled = k > 0f && k < 1f;
                 });
-                var puddle = Pic(s.G, InkSprites.Load("Vfx/dot_ripple"), at(), 130f * s.Pow, glue);
-                puddle.preserveAspect = true;
-                s.A.Tween(T, hold, k =>
-                {
-                    puddle.rectTransform.anchoredPosition = at() + new Vector2(0f, -18f);
-                    float grow = Ease.OutBack(Mathf.Clamp01(k * 6f));
-                    float wob = 1f + 0.05f * Mathf.Sin(k * 18f);
-                    puddle.rectTransform.localScale = new Vector3(grow * wob, grow / wob, 1f);
-                    float a = k < 0.8f ? 0.9f : 0.9f * (1f - k) / 0.2f;
-                    puddle.color = Alpha(glue, a);
-                });
+                // 落点只溅一下；之后脚下的减速冰面由 InkDot 按状态画，这里不再另摊一滩
+                s.A.At(T, () => Boom(s, "Vfx/hitv_water_", 4, at(), 120f * s.Pow, Color.white, 0f, 0.3f));
             }
             s.A.At(T, () =>
             {
