@@ -246,7 +246,9 @@ chapter_bodies = [float(x) for x in re.findall(
     r"[\d.]+", re.search(r"ChapterBodies\s*=\s*\{([^}]*)\}", core_src).group(1))]
 chapter_ink = [float(x) for x in re.findall(
     r"[\d.]+", re.search(r"ChapterInk\s*=\s*\{([^}]*)\}", core_src).group(1))]
-picks_per_cell = float(re.search(r"DraftPicksPerCell\s*=\s*([\d.]+)f", core_src).group(1))
+picks_per_cell = float(re.search(r" DraftPicksPerCell\s*=\s*([\d.]+)f", core_src).group(1))
+first_picks_per_cell = float(re.search(r"FirstChapterPicksPerCell\s*=\s*([\d.]+)f", core_src).group(1))
+second_picks_per_cell = float(re.search(r"SecondChapterPicksPerCell\s*=\s*([\d.]+)f", core_src).group(1))
 budget_share = float(re.search(r"DraftBudgetShare\s*=\s*([\d.]+)f", core_src).group(1))
 
 
@@ -419,7 +421,12 @@ def econ(r):
     purse_all = gold + round(chests * chest_gold_share * cg)
 
     open_n = max(1, len(open_cells(r)))
-    n_want = min(max(round(open_n * picks_per_cell), open_n + 2), open_n * 3)
+    if r["ch"] == 0:
+        n_want = max(3, round(open_n * first_picks_per_cell))
+    elif r["ch"] == 1:
+        n_want = max(2, round(open_n * second_picks_per_cell))
+    else:
+        n_want = min(max(round(open_n * picks_per_cell), open_n + 2), open_n * 3)
     budget = (purse_all + start_gold) * budget_share
     first_d = max(first_cost, round(budget / n_want * 0.5))
     step = max(0.0, 2 * (budget - n_want * first_d) / (n_want * (n_want - 1))) if n_want > 1 else 0.0
@@ -456,9 +463,10 @@ print(f"  开局 1 秒出怪（全关合计）{sum(e['open1'] for e in eco)}，"
 
 # 单局成长：一局的钱至少要够把开放格子铺满，第三章起还要够把大半格子顶到二三星。
 # 铺不满，玩家一局里就永远看不到盘面长成型，也就没有「变强」那一下。
+# 前两章故意不铺满：一局短，铺满要五六秒弹一次三选一。
 thin = [f"{r['ch'] + 1}-{r['slot'] + 1}({e['drafts']}<{e['open']})"
-        for e, r in zip(eco, rows) if e["drafts"] < e["open"]]
-check(not thin, "每关的钱都够铺满棋盘" + ("" if not thin else ": " + ", ".join(thin)))
+        for e, r in zip(eco, rows) if r["ch"] >= 2 and e["drafts"] < e["open"]]
+check(not thin, "第三章起每关的钱都够铺满棋盘" + ("" if not thin else ": " + ", ".join(thin)))
 off = [f"{r['ch'] + 1}-{r['slot'] + 1}({e['drafts']}/{e['open']})"
        for e, r in zip(eco, rows) if r["ch"] >= 2 and not 1.5 <= e["drafts"] / e["open"] <= 2.2]
 check(not off, "第三章起单局抽牌数落在开放格数的 1.5~2.2 倍" + ("" if not off else ": " + ", ".join(off)))

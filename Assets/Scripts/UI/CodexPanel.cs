@@ -11,10 +11,37 @@ namespace InkLine
     {
         const float BoardW = 660f;
         const float Gap = 12f;
-        const float ListTop = 348f;
+        // 板子顶上那条「图鉴」飘带往下压到 70 左右，页签得排在它下面，红点才露得出来。
+        const float ListTop = 410f;
+        const float TabY = 78f;
+        const float TabW = 186f;
+        const float TabH = 96f;
+        const float TabStep = 200f;
+        const float TrackY = 184f;
+        const float TrackW = 600f;
+        const float TrackH = 64f;
+        const float MileY = 258f;
+        const float MileW = 190f;
+        const float MileH = 110f;
+        const float MileStep = 204f;
+        const float CellW = 196f;
+        const float CellH = 240f;
 
-        public static readonly Vector4 CardBorder = new Vector4(36f, 36f, 36f, 36f);
-        public static readonly Vector4 CardOnBorder = new Vector4(52f, 52f, 52f, 52f);
+        // 卡框按这个高度画出原图的边厚。框比它小也不会把边挤没。
+        public const float CardRefH = 240f;
+
+        // 九宫格的边按「原图高 / 目标高」缩，整张图按比例缩到目标高度再只横向拉中段。
+        // 不缩的话 640 高的卡框画进 240 的格子，边厚还是 78，卡面就只剩一条缝。
+        public static RectTransform Slab(Transform parent, string name, string key, Vector2 pos, Vector2 size,
+            Pin pin = Pin.Top, float refH = 0f)
+        {
+            var rt = UiKit.Art(parent, name, key, pos, size, pin);
+            var img = rt.GetComponent<Image>();
+            img.raycastTarget = false;
+            if (img.sprite != null && img.type == Image.Type.Sliced)
+                img.pixelsPerUnitMultiplier = img.sprite.rect.height / Mathf.Max(1f, refH > 0f ? refH : size.y);
+            return rt;
+        }
 
         MetaProgress _meta;
         Action _changed;
@@ -64,8 +91,8 @@ namespace InkLine
 
             BuildTabs();
             BuildProgress();
-            var hint = UiKit.Label(_body, "hint", CodexCatalog.TabHint(_tab), 21,
-                new Vector2(0f, 316f), new Vector2(BoardW - 56f, 28f), TextAnchor.MiddleCenter, Pin.Top);
+            var hint = UiKit.Label(_body, "hint", CodexCatalog.TabHint(_tab), 20,
+                new Vector2(0f, 378f), new Vector2(BoardW - 48f, 28f), TextAnchor.MiddleCenter, Pin.Top);
             hint.color = InkTheme.TextMid;
             BuildGrid(CodexCatalog.Of(_tab));
         }
@@ -82,29 +109,27 @@ namespace InkLine
         void BuildTabs()
         {
             CodexTab[] tabs = { CodexTab.Glyph, CodexTab.Pair, CodexTab.Enemy };
-            float w = 196f;
-            float step = 212f;
             for (int i = 0; i < tabs.Length; i++)
             {
                 CodexTab tab = tabs[i];
                 bool on = _tab == tab;
-                var size = new Vector2(w, 70f);
-                float x = (i - 1) * step;
-                var plate = UiKit.Stroke(_body, "tab" + i, new Vector2(x, 86f), size, Pin.Top, on ? 5f : 3f,
-                    InkTheme.Outline, on ? InkTheme.Seal : InkTheme.CardFace, 28f);
+                var size = new Vector2(TabW, TabH);
+                float x = (i - 1) * TabStep;
+                var plate = UiKit.Art(_body, "tab" + i, on ? "Ui/codex_tab_on" : "Ui/codex_tab_off",
+                    new Vector2(x, TabY), size, Pin.Top);
                 Sprite ico = InkSprites.Load(CodexCatalog.TabIcon(tab));
                 if (ico != null)
-                    UiKit.Icon(plate, ico, new Vector2(-size.x * 0.5f + 34f, 2f), 40f).color =
-                        on ? Color.white : new Color(1f, 1f, 1f, 0.85f);
+                    UiKit.Icon(plate, ico, new Vector2(-size.x * 0.5f + 44f, -6f), 40f);
                 var t = UiKit.Label(plate, "t", CodexCatalog.TabName(tab), 28,
-                    new Vector2(16f, 0f), new Vector2(size.x - 48f, size.y));
+                    new Vector2(18f, -6f), new Vector2(size.x - 76f, 40f));
                 t.color = on ? InkTheme.CardFace : InkTheme.TextDark;
                 UiKit.Bold(t);
                 var btn = plate.gameObject.AddComponent<Button>();
                 btn.targetGraphic = plate.GetComponent<Image>();
                 btn.onClick.AddListener(() => Switch(tab));
+                // 云头两侧的肩比中间低一截，红点放在右肩上。
                 if (_meta.CodexTabNew(tab))
-                    Dot(plate, new Vector2(size.x * 0.5f - 14f, size.y * 0.5f - 10f));
+                    Dot(plate, new Vector2(size.x * 0.5f - 22f, size.y * 0.5f - 26f));
             }
         }
 
@@ -115,38 +140,46 @@ namespace InkLine
             CodexMile[] miles = CodexCatalog.Miles(_tab);
             float ratio = list.Count > 0 ? (float)known / list.Count : 0f;
 
-            var strip = UiKit.Panel(_body, "prog", new Vector2(0f, 168f), new Vector2(600f, 44f), Color.clear, Pin.Top);
-            strip.GetComponent<Image>().raycastTarget = false;
-            UiKit.Art(strip, "plaque", "Ui/codex_plaque", Vector2.zero,
-                new Vector2(600f, 44f), Pin.Center, new Vector4(48f, 20f, 48f, 20f));
-            var bar = ResultKit.Bar(strip, new Vector2(-48f, 0f), 360f, 18f, InkTheme.Seal);
-            ResultKit.SetBar(bar, ratio);
-            var n = UiKit.Label(strip, "count", known + "/" + list.Count, 22,
-                new Vector2(236f, 0f), new Vector2(90f, 28f), TextAnchor.MiddleRight);
+            var track = Slab(_body, "track", "Ui/codex_track", new Vector2(0f, TrackY),
+                new Vector2(TrackW, TrackH));
+            // 凹槽在原图里占高的 44%、略偏上，两头各缩进 9%。
+            float grooveH = TrackH * 0.44f;
+            float inset = TrackH * 0.25f;
+            if (ratio > 0.01f)
+            {
+                float inner = TrackW - inset * 2f;
+                float fillH = grooveH - 2f;
+                float fillW = Mathf.Clamp(inner * ratio, fillH * 1.2f, inner);
+                Slab(track, "fill", "Ui/codex_track_fill",
+                    new Vector2(-inner * 0.5f + fillW * 0.5f, TrackH * 0.04f), new Vector2(fillW, fillH), Pin.Center);
+            }
+            var n = UiKit.Label(track, "count", "已收录 " + known + "/" + list.Count, 22,
+                new Vector2(0f, TrackH * 0.04f), new Vector2(TrackW - 80f, 30f));
             n.color = InkTheme.CardFace;
             UiKit.Bold(n);
 
-            float step = 188f;
             for (int i = 0; i < miles.Length; i++)
             {
                 bool reached = known >= miles[i].Need;
                 bool claimed = _meta.MileClaimed(_tab, i);
                 bool ready = reached && !claimed;
-                string key = claimed ? "Ui/codex_seal_on" : ready ? "Ui/codex_seal_ready" : "Ui/codex_seal_off";
-                float x = (i - 1) * step;
-                var host = UiKit.Panel(_body, "mile" + i, new Vector2(x, 236f), new Vector2(170f, 78f), Color.clear, Pin.Top);
-                host.GetComponent<Image>().raycastTarget = true;
-                Sprite spr = InkSprites.Load(key);
-                if (spr != null) UiKit.Icon(host, spr, new Vector2(-48f, 4f), 58f);
-                string line = claimed ? "已领" : ready ? "可领  +" + miles[i].Ink : miles[i].Need + " 枚  +" + miles[i].Ink;
-                var lab = UiKit.Label(host, "m", line, 20, new Vector2(28f, 0f), new Vector2(110f, 60f));
-                lab.color = claimed ? InkTheme.Seal : ready ? InkTheme.Gold : InkTheme.TextMid;
-                UiKit.Bold(lab);
+                string key = claimed ? "Ui/codex_mile_done" : ready ? "Ui/codex_mile_ready" : "Ui/codex_mile_off";
+                float x = (i - 1) * MileStep;
+                var host = UiKit.Art(_body, "mile" + i, key, new Vector2(x, MileY),
+                    new Vector2(MileW, MileH), Pin.Top);
+                string cond = claimed ? "已领" : "收录 " + miles[i].Need + " 个";
+                // 票右边那块奶油底才是写字的地方，约占票宽 60%、中心偏右 12%。
+                var condLab = UiKit.Label(host, "need", cond, 18, new Vector2(MileW * 0.12f, -15f), new Vector2(104f, 26f));
+                var inkLab = UiKit.Label(host, "ink", "墨 +" + miles[i].Ink, 22, new Vector2(MileW * 0.12f, 13f), new Vector2(104f, 30f));
+                condLab.color = ready ? InkTheme.TextDark : InkTheme.TextMid;
+                inkLab.color = claimed ? InkTheme.TextDim : ready ? InkTheme.Gold : InkTheme.TextDark;
+                UiKit.Bold(condLab);
+                UiKit.Bold(inkLab);
                 int idx = i;
                 var btn = host.gameObject.AddComponent<Button>();
                 btn.targetGraphic = host.GetComponent<Image>();
                 btn.onClick.AddListener(() => Claim(idx));
-                if (ready) _anim.Breathe(host, 0f, 0.06f, 1.2f);
+                if (ready) _anim.Breathe(host, 0f, 0.045f, 1.15f);
             }
         }
 
@@ -164,15 +197,55 @@ namespace InkLine
                 return;
             }
             AudioBus.Unlock();
-            InkToast.Show(_layer, CodexCatalog.TabName(_tab) + "印 · 墨 +" + ink);
+            Burst(new Vector2((i - 1) * MileStep, MileY + MileH * 0.5f), ink);
             Refresh();
+        }
+
+        // 印落在奖励票上，墨点溅开，数字往上飘。挂在板子上，刷新格子不会把它清掉。
+        void Burst(Vector2 pos, int ink)
+        {
+            var stamp = UiKit.Art(_board, "stamp", "Ui/codex_stamp", pos, new Vector2(112f, 112f), Pin.Top);
+            var stampImg = stamp.GetComponent<Image>();
+            stampImg.raycastTarget = false;
+            stamp.SetAsLastSibling();
+            stamp.localRotation = Quaternion.Euler(0f, 0f, -18f);
+            _anim.Pop(stamp, 0f, 0.28f, 1.7f);
+            _anim.Tween(0f, 0.28f, k =>
+            {
+                if (stamp != null) stamp.localRotation = Quaternion.Euler(0f, 0f, Mathf.Lerp(-18f, -6f, k));
+            });
+            _anim.Fade(stampImg, 0.55f, 0.3f, 1f, 0f);
+            _anim.At(0.9f, () => { if (stamp != null) Destroy(stamp.gameObject); });
+
+            for (int n = 0; n < 6; n++)
+            {
+                float ang = (n * 60f + 15f) * Mathf.Deg2Rad;
+                string key = n % 2 == 0 ? "Ui/codex_splash" : "Ui/codex_spark";
+                var bit = UiKit.Art(_board, "sp" + n, key, pos, new Vector2(46f, 46f), Pin.Top);
+                bit.GetComponent<Image>().raycastTarget = false;
+                Vector2 home = bit.anchoredPosition;
+                Vector2 to = home + new Vector2(Mathf.Cos(ang), Mathf.Sin(ang)) * (42f + n * 8f);
+                _anim.Move(bit, home, to, 0.02f, 0.36f);
+                _anim.Fade(bit.GetComponent<Image>(), 0.14f, 0.3f, 1f, 0f);
+                var dead = bit;
+                _anim.At(0.5f, () => { if (dead != null) Destroy(dead.gameObject); });
+            }
+
+            var lab = UiKit.Label(_board, "gain", "墨 +" + ink, 34, pos, new Vector2(180f, 44f),
+                TextAnchor.MiddleCenter, Pin.Top);
+            lab.color = InkTheme.Gold;
+            UiKit.Bold(lab);
+            Vector2 from = lab.rectTransform.anchoredPosition;
+            _anim.Move(lab.rectTransform, from, from + new Vector2(0f, 70f), 0.06f, 0.48f);
+            _anim.Fade(lab, 0.34f, 0.28f, 1f, 0f);
+            _anim.At(0.68f, () => { if (lab != null) Destroy(lab.gameObject); });
         }
 
         void BuildGrid(IReadOnlyList<CodexEntry> list)
         {
-            int cols = _tab == CodexTab.Enemy ? 3 : 4;
-            float cellW = _tab == CodexTab.Enemy ? 186f : 138f;
-            float cellH = _tab == CodexTab.Enemy ? 196f : 168f;
+            int cols = 3;
+            float cellW = CellW;
+            float cellH = CellH;
             var vp = new GameObject("list", typeof(RectTransform), typeof(Image), typeof(RectMask2D), typeof(ScrollRect));
             vp.transform.SetParent(_body, false);
             var viewport = vp.GetComponent<RectTransform>();
@@ -215,53 +288,55 @@ namespace InkLine
             bool known = st == CodexState.Known;
             var size = new Vector2(cellW, cellH);
             string art = known ? "Ui/codex_card_on" : st == CodexState.Unknown ? "Ui/codex_card_dim" : "Ui/codex_card";
-            Vector4 border = known ? CardOnBorder : CardBorder;
-            var card = UiKit.Art(content, "c" + i, art, new Vector2(x, y), size, Pin.Top, border);
+            var card = Slab(content, "c" + i, art, new Vector2(x, y), size, Pin.Top, CardRefH);
+            var cardImg = card.GetComponent<Image>();
+            cardImg.raycastTarget = true;
             var btn = card.gameObject.AddComponent<Button>();
-            btn.targetGraphic = card.GetComponent<Image>();
+            btn.targetGraphic = cardImg;
             btn.onClick.AddListener(() => Open(e, st));
+
+            // 卡框边厚约 30，卡面是中间 136×180 那块。名牌压在卡面下沿，图画在它上面。
+            const float faceY = 20f;
+            var plate = Slab(card, "plate", "Ui/codex_nameplate",
+                new Vector2(0f, -cellH * 0.5f + 52f), new Vector2(cellW - 52f, 40f), Pin.Center);
 
             if (st == CodexState.Unknown)
             {
-                var q = UiKit.Label(card, "q", "？", 76, new Vector2(0f, 16f), new Vector2(cellW, 96f));
-                q.color = InkTheme.LineDim;
+                var q = UiKit.Label(card, "q", "？", 72, new Vector2(0f, faceY), new Vector2(cellW, 90f));
+                q.color = InkTheme.Hex("A06A44");
                 UiKit.Bold(q);
                 bool hinted = e.Kind == CodexKind.Pair && CodexCatalog.PairHinted(_meta, e.Index);
-                string blank = hinted ? "似曾相识" : e.Kind == CodexKind.Pair ? "？ + ？" : "？？";
-                var n = UiKit.Label(card, "n", blank, 22, new Vector2(0f, -cellH * 0.32f), new Vector2(cellW, 30f));
+                string blank = hinted ? "似曾相识" : "？？";
+                var n = UiKit.Label(plate, "n", blank, 20, Vector2.zero, new Vector2(cellW - 80f, 34f));
                 n.color = hinted ? InkTheme.Gold : InkTheme.TextDim;
+                UiKit.Bold(n);
                 return;
             }
 
-            Color tint = known ? Color.white : new Color(0.55f, 0.52f, 0.48f, 0.55f);
+            // 见过没收录：字图半透明叠在同色卡面上，看得出是哪个字但发虚。
+            Color tint = known ? Color.white : new Color(1f, 1f, 1f, 0.42f);
             if (e.Kind == CodexKind.Glyph)
-                UiKit.Icon(card, InkArt.Glyph((CardId)e.Index, 160), new Vector2(0f, 16f), 102f).color = tint;
+                UiKit.Icon(card, InkArt.Glyph((CardId)e.Index, 160), new Vector2(0f, faceY), 116f).color = tint;
             else if (e.Kind == CodexKind.Word)
             {
                 CardId[] parts = CodexCatalog.PartsOf((WordId)e.Index);
                 for (int k = 0; k < parts.Length; k++)
-                    UiKit.Icon(card, InkArt.Glyph(parts[k], 160), new Vector2(k == 0 ? -32f : 32f, 16f), 66f).color = tint;
+                    UiKit.Icon(card, InkArt.Glyph(parts[k], 160), new Vector2(k == 0 ? -33f : 33f, faceY), 68f).color = tint;
             }
             else if (e.Kind == CodexKind.Enemy)
-                UiKit.Icon(card, InkSprites.Person((EnemyId)e.Index), new Vector2(0f, 14f), cellH * 0.52f).color = tint;
+                UiKit.Icon(card, InkSprites.Person((EnemyId)e.Index), new Vector2(0f, faceY), 112f).color =
+                    known ? Color.white : new Color(0.3f, 0.26f, 0.22f, 0.6f);
             else
-            {
-                UiKit.Icon(card, PairFrame(e.Index), new Vector2(0f, 20f), 104f);
-                SignaturePair p = SignaturePairs.All[e.Index];
-                var parts = UiKit.Label(card, "parts", CardCatalog.Get(p.A).Name + " + " + CardCatalog.Get(p.B).Name, 18,
-                    new Vector2(0f, -cellH * 0.38f), new Vector2(cellW, 24f));
-                parts.color = InkTheme.TextMid;
-            }
+                UiKit.Icon(card, PairFrame(e.Index), new Vector2(0f, faceY), 104f).color = tint;
 
-            var name = UiKit.Label(card, "n", CodexCatalog.Title(e), 26,
-                new Vector2(0f, e.Kind == CodexKind.Pair ? -cellH * 0.28f : -cellH * 0.32f), new Vector2(cellW - 8f, 36f));
+            var name = UiKit.Label(plate, "n", CodexCatalog.Title(e), 22, Vector2.zero, new Vector2(cellW - 80f, 34f));
             name.color = known ? InkTheme.TextDark : InkTheme.TextDim;
             UiKit.Bold(name);
 
             if (!known)
             {
                 var lk = UiKit.Icon(card, InkArt.Icon(InkShape.Lock, 64),
-                    new Vector2(cellW * 0.5f - 22f, cellH * 0.5f - 22f), 30f);
+                    new Vector2(cellW * 0.5f - 38f, cellH * 0.5f - 38f), 26f);
                 lk.color = InkTheme.GraphiteHi;
             }
             else if (_meta.CodexIsNew(e.Kind, e.Index))
@@ -402,8 +477,7 @@ namespace InkLine
             BuildFace();
 
             var size = new Vector2(330f, 250f);
-            var box = UiKit.Art(_board, "stat", "Ui/codex_card", new Vector2(118f, 100f), size, Pin.Top, CodexPanel.CardBorder);
-            box.GetComponent<Image>().raycastTarget = false;
+            var box = CodexPanel.Slab(_board, "stat", "Ui/codex_card", new Vector2(118f, 100f), size, Pin.Top, CodexPanel.CardRefH);
             if (!_known)
             {
                 var q = UiKit.Label(box, "q", "？", 90, Vector2.zero, size);
@@ -442,10 +516,9 @@ namespace InkLine
                 new Vector2(80f, 30f), TextAnchor.MiddleCenter, Pin.Top);
             cap.color = InkTheme.TextDark;
             UiKit.Bold(cap);
-            var traitBox = UiKit.Art(_board, "trait", "Ui/codex_card", new Vector2(0f, 556f),
-                new Vector2(RowW, 100f), Pin.Top, CodexPanel.CardBorder);
-            traitBox.GetComponent<Image>().raycastTarget = false;
-            var tv = UiKit.Label(traitBox, "v", trait, 26, Vector2.zero, new Vector2(RowW - 40f, 80f));
+            var traitBox = CodexPanel.Slab(_board, "trait", "Ui/codex_card", new Vector2(0f, 556f),
+                new Vector2(RowW, 130f), Pin.Top, CodexPanel.CardRefH);
+            var tv = UiKit.Label(traitBox, "v", trait, 26, Vector2.zero, new Vector2(RowW - 70f, 80f));
             tv.horizontalOverflow = HorizontalWrapMode.Wrap;
             tv.color = _known ? InkTheme.TextDark : InkTheme.TextDim;
         }
@@ -453,18 +526,19 @@ namespace InkLine
         void BuildFace()
         {
             var size = new Vector2(220f, 250f);
-            var card = UiKit.Stroke(_board, "face", new Vector2(-166f, 100f), size, Pin.Top, 5f,
-                _known ? CodexPanel.Tone(_e) : InkTheme.LineDim, _known ? InkTheme.CardFace : InkTheme.CardDim, 22f);
-            card.GetComponent<Image>().raycastTarget = false;
-            Color tint = _known ? Color.white : new Color(0.55f, 0.52f, 0.48f, 0.55f);
+            string face = _known ? "Ui/codex_card_on" : "Ui/codex_card";
+            // 卡框边厚约 30，卡面是中间 160×190 那块，图都收在里面。
+            var card = CodexPanel.Slab(_board, "face", face, new Vector2(-166f, 100f), size, Pin.Top, 250f);
+            Color tint = _known ? Color.white : new Color(1f, 1f, 1f, 0.42f);
             if (_e.Kind == CodexKind.Enemy)
             {
-                UiKit.Icon(card, InkSprites.Person((EnemyId)_e.Index), Vector2.zero, 180f).color = tint;
+                UiKit.Icon(card, InkSprites.Person((EnemyId)_e.Index), Vector2.zero, 150f).color =
+                    _known ? Color.white : new Color(0.3f, 0.26f, 0.22f, 0.6f);
                 return;
             }
             if (_e.Kind == CodexKind.Glyph)
             {
-                _glyph = UiKit.Icon(card, InkArt.Glyph((CardId)_e.Index, 160), Vector2.zero, 180f);
+                _glyph = UiKit.Icon(card, InkArt.Glyph((CardId)_e.Index, 160), Vector2.zero, 156f);
                 _glyph.color = tint;
                 return;
             }
@@ -475,20 +549,21 @@ namespace InkLine
                 SignaturePair p = SignaturePairs.All[_e.Index];
                 parts = new[] { p.A, p.B };
             }
-            UiKit.Icon(card, InkArt.Glyph(parts[0], 160), new Vector2(0f, 58f), 110f).color = tint;
-            UiKit.Icon(card, InkArt.Glyph(parts[1], 160), new Vector2(0f, -58f), 110f).color = tint;
-            var plus = UiKit.Label(card, "plus", "+", 34, new Vector2(78f, 0f), new Vector2(40f, 40f));
-            plus.color = InkTheme.TextMid;
-            UiKit.Bold(plus);
+            UiKit.Icon(card, InkArt.Glyph(parts[0], 160), new Vector2(0f, 46f), 88f).color = tint;
+            UiKit.Icon(card, InkArt.Glyph(parts[1], 160), new Vector2(0f, -46f), 88f).color = tint;
+            if (_e.Kind == CodexKind.Pair)
+            {
+                var plus = UiKit.Label(card, "plus", "+", 30, new Vector2(62f, 0f), new Vector2(34f, 36f));
+                plus.color = InkTheme.TextMid;
+                UiKit.Bold(plus);
+            }
         }
 
         void BuildShotBox()
         {
             var size = new Vector2(330f, 250f);
-            var box = UiKit.Stroke(_board, "shotBox", new Vector2(118f, 100f), size, Pin.Top, 4f,
-                InkTheme.Outline, InkTheme.Stage, 22f);
-            box.GetComponent<Image>().raycastTarget = false;
-            var cap = UiKit.Label(box, "cap", "炮弹", 20, new Vector2(-size.x * 0.5f + 38f, size.y * 0.5f - 22f), new Vector2(60f, 26f));
+            var box = CodexPanel.Slab(_board, "shotBox", "Ui/codex_card", new Vector2(118f, 100f), size, Pin.Top, 250f);
+            var cap = UiKit.Label(box, "cap", "炮弹", 20, new Vector2(-size.x * 0.5f + 60f, size.y * 0.5f - 44f), new Vector2(60f, 26f));
             cap.color = InkTheme.TextMid;
             if (!_known)
             {
@@ -497,13 +572,13 @@ namespace InkLine
                 UiKit.Bold(q);
                 return;
             }
-            _shot = CodexShot.Build(box, size - new Vector2(10f, 10f));
+            _shot = CodexShot.Build(box, size - new Vector2(56f, 56f));
             if (_e.Kind == CodexKind.Glyph) _shot.ShowGlyph((CardId)_e.Index, 1);
             else if (_e.Kind == CodexKind.Word) _shot.ShowWord((WordId)_e.Index);
             else _shot.ShowPair(_e.Index);
             if (_e.Kind == CodexKind.Glyph && !ChangesLook((CardId)_e.Index))
             {
-                var t = UiKit.Label(box, "plain", "不改炮弹外形", 20, new Vector2(0f, -size.y * 0.5f + 22f), new Vector2(size.x, 26f));
+                var t = UiKit.Label(box, "plain", "不改炮弹外形", 20, new Vector2(0f, -size.y * 0.5f + 46f), new Vector2(size.x - 60f, 26f));
                 t.color = InkTheme.TextMid;
             }
         }

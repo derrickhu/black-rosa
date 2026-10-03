@@ -42,10 +42,10 @@ namespace InkLine
             int heavyStar = m.Star(CardId.Heavy);
             bool pierce = m.Star(CardId.Pierce) > 0;
 
-            // 视觉大小和碰撞半径解耦：重只是略大，不撑满格。
+            // 视觉大小和碰撞半径解耦。重不改弹体大小，只加粗身后的拖尾。
             // ShotScale 把弹体、光晕、拖尾一起放大，命中判定仍用 BulletActor.Radius。
             const float ShotScale = 1.4f;
-            float coreS = (heavyStar > 0 ? 0.50f * GlyphTable.Get(CardId.Heavy).Size.At(heavyStar) : 0.50f) * ShotScale;
+            float coreS = 0.50f * ShotScale;
             float breath = 1f + 0.018f * Mathf.Sin(Time.unscaledTime * 10f + b.Id * 1.7f);
             float sx = (pierce ? coreS * 0.68f : coreS) * breath;
             float sy = (pierce ? coreS * 1.32f : coreS) * (2f - breath);
@@ -75,7 +75,7 @@ namespace InkLine
             Color pelletTint = naked ? look.Pellet
                 : (bright && v.Elements == 0 && tone.a > 0f ? Color.Lerp(tone, Color.white, 0.15f) : Color.white);
             Sprite pellet = InkArt.Heap(InkShape.Circle, Color.white, 64);
-            Child(ref _pellet, "pellet", pellet, naked ? look.PelletScale : (heavyStar > 0 ? 0.24f : 0.20f), 6,
+            Child(ref _pellet, "pellet", pellet, naked ? look.PelletScale : 0.20f, 6,
                 hasBody ? Color.clear : pelletTint);
             if (hasBody && _pellet != null) _pellet.enabled = false;
             SkinArt(naked ? SkinShot(skin) : null, skin, b.Id);
@@ -142,8 +142,18 @@ namespace InkLine
                 width = look.Width;
                 ribbonTime = look.Time;
             }
-            if (heavyStar > 0) width *= 1.08f;
             width *= ShotScale;
+            // 只有这发弹没有别的字撑场面时，拖尾才染成铜色并按星级拉长。
+            // 叠了火、冰这些，弹体和它们自己的色带保持原样，重只在粒子层另加一道铜尾。
+            if (heavyStar > 0 && v.Elements == 0 && !v.Form.On && !v.Trail.On)
+            {
+                float mul = GlyphTable.Get(CardId.Heavy).Size.At(heavyStar);
+                Color bronze = ShotTrail.GlowOf(CardId.Heavy);
+                head = Color.Lerp(bronze, Color.white, 0.28f);
+                tail = bronze;
+                width *= mul;
+                ribbonTime *= mul;
+            }
             // 平涂体图里已经自带了尾，这里只补一条细速度线，宽了会盖住硬边。
             if (flat)
             {

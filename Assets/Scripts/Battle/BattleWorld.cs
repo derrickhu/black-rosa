@@ -43,6 +43,7 @@ namespace InkLine
         public float StunGuard;
         public float HoldTime;     // 土的落地硬直，不算硬控
         public float ConfuseCd;
+        public float ConfuseBite;
         public float PoisonLeech;  // 蚀生：毒伤入吸血池的每波上限，0 表示不入
         public float Shock;        // 焦雷：晕结束时要补的那一下
         public float StrafeDir = 1f;
@@ -141,6 +142,14 @@ namespace InkLine
         public bool Boss;
     }
 
+    // 雷的连带：一道从 A 打到 B 的电弧，只是表现，结算在 SpreadStatus 里已经做完。
+    public struct ArcFx
+    {
+        public Vector2 A;
+        public Vector2 B;
+        public Color Tint;
+    }
+
     // 这一下伤害是哪来的。域和连斩不再走斩杀，也不再触发新的域。
     public enum HitSource { Direct, Cleave, Area, Arrow }
 
@@ -202,6 +211,7 @@ namespace InkLine
         public readonly List<FxBurst> Bursts = new List<FxBurst>();
         public readonly List<DropItem> Drops = new List<DropItem>();
         public readonly List<DeathFx> Deaths = new List<DeathFx>();
+        public readonly List<ArcFx> Arcs = new List<ArcFx>();
         public readonly List<CellPulse> Pulses = new List<CellPulse>();
 
         // 顶栏两个药丸在世界里的位置，由 BattleView 每帧按画布算好塞进来。
@@ -298,6 +308,7 @@ namespace InkLine
             Bursts.Clear();
             Drops.Clear();
             Deaths.Clear();
+            Arcs.Clear();
             Pulses.Clear();
             ResetChests();
             if (PreviewFill)
@@ -763,7 +774,7 @@ namespace InkLine
                 m.ExplodeR = Mathf.Max(m.ExplodeR, g.Radius.At(_explodeStar[col]));
                 m.ExplodeShare = g.Decay.At(_explodeStar[col]);
             }
-            if (_heavyStar[col] > 0 && PullCharge(col, ChHeavy, CardCatalog.Get(CardId.Heavy).ChargeNeed))
+            if (_heavyStar[col] > 0 && PullCharge(col, ChHeavy, CardCatalog.ChargeNeed(CardId.Heavy, _heavyStar[col])))
             {
                 // 只放大视觉，碰撞半径不动 —— 之前连 Radius 一起乘，炮弹会撑满格。
                 m.Mark(CardId.Heavy, _heavyStar[col]);
@@ -1070,7 +1081,9 @@ namespace InkLine
             {
                 EnemyActor e = Enemies[i];
                 if (e.Dead) continue;
-                if ((e.Pos - pos).sqrMagnitude > r * r) continue;
+                // 量到怪身边缘：大个子半个身子在圈里就该挨炸。
+                float reach = r + e.Radius;
+                if ((e.Pos - pos).sqrMagnitude > reach * reach) continue;
                 if (!src.HitIds.Contains(e.Id))
                 {
                     src.HitIds.Add(e.Id);
@@ -1176,19 +1189,41 @@ namespace InkLine
             }
         }
 
-        // 水是范围内全体，雷是主目标外再连带 Chain 个。
+        readonly List<EnemyActor> _spread = new List<EnemyActor>();
+
+        // 水是范围内全体，雷是主目标外再连带 Chain 个，从最近的挑起。
+        // 被波及的怪各自冒一下小特效，雷还要从主目标拉一道电弧过去，看得出是传过去的。
         void SpreadStatus(EnemyActor hit, StatusHit s, ShotMods m)
         {
-            int cap = s.Chain > 0 ? s.Chain : int.MaxValue;
-            int n = 0;
-            for (int i = 0; i < Enemies.Count && n < cap; i++)
+            _spread.Clear();
+            for (int i = 0; i < Enemies.Count; i++)
             {
                 EnemyActor e = Enemies[i];
                 if (e.Dead || e.Id == hit.Id) continue;
-                if ((e.Pos - hit.Pos).sqrMagnitude > s.Radius * s.Radius) continue;
-                ApplyStatus(e, s, m);
-                n++;
+                float reach = s.Radius + e.Radius;
+                if ((e.Pos - hit.Pos).sqrMagnitude > reach * reach) continue;
+                _spread.Add(e);
             }
+            if (_spread.Count == 0) return;
+            Vector2 from = hit.Pos;
+            _spread.Sort((a, b) => (a.Pos - from).sqrMagnitude.CompareTo((b.Pos - from).sqrMagnitude));
+            int cap = s.Chain > 0 ? Mathf.Min(s.Chain, _spread.Count) : _spread.Count;
+            bool chain = s.Chain > 0;
+            for (int i = 0; i < cap; i++)
+            {
+                EnemyActor e = _spread[i];
+                ApplyStatus(e, s, m);
+                if (chain) Arcs.Add(new ArcFx { A = hit.Pos, B = e.Pos, Tint = InkTheme.Thunder });
+                Bursts.Add(new FxBurst
+                {
+                    Pos = e.Pos,
+                    Kind = chain ? HitFx.Thunder : HitFx.Water,
+                    Event = s.Kind == StatusKind.Stun ? HitEvent.Stun : HitEvent.None,
+                    Tint = chain ? InkTheme.ThunderHi : InkTheme.WaterHi,
+                    Scale = 0.8f
+                });
+            }
+            if (chain) AudioBus.Zap();
         }
 
         void ApplyStatus(EnemyActor e, StatusHit s, ShotMods m)
@@ -1206,6 +1241,8 @@ namespace InkLine
             if (GlyphTable.IsHard(kind))
             {
                 ApplyHard(e, kind, time, s.Power);
+                if (kind == StatusKind.Confuse && e.Confused)
+                    e.ConfuseBite = GlyphTable.ConfuseBite(m.Star(CardId.Confuse));
                 // 焦雷：这一下的账记在敌人身上，晕结束时再结
                 if (kind == StatusKind.Stun && m.Shock > 0f)
                     e.Shock = Mathf.Max(e.Shock, m.Shock);
@@ -1742,15 +1779,16 @@ namespace InkLine
             Enemies.RemoveAll(e => e.Dead);
         }
 
-        // 惑：掉头往回走，并定期砍最近的同类。
+        // 惑：扑向身边最近的同类，贴上了就咬，咬一口固定掉 ConfuseBite。
+        // 附近没有同类就掉头往回走。以前只会往回走，和往下走的同伴一错身就够不着了。
+        const float ConfuseSeek = 2.6f;
+        const float ConfuseReach = 0.3f;
+
         void TickConfused(EnemyActor e, float dt)
         {
-            e.Pos.y = Mathf.Min(GameConstants.SpawnY - 0.35f, e.Pos.y + e.Speed * e.Slow * 0.5f * dt);
-            e.ConfuseCd -= dt;
-            if (e.ConfuseCd > 0f) return;
-            e.ConfuseCd = 0.5f;
+            if (e.ConfuseCd > 0f) e.ConfuseCd -= dt;
             EnemyActor best = null;
-            float bestD = 1.2f * 1.2f;
+            float bestD = ConfuseSeek * ConfuseSeek;
             for (int i = 0; i < Enemies.Count; i++)
             {
                 EnemyActor other = Enemies[i];
@@ -1758,15 +1796,35 @@ namespace InkLine
                 float d = (other.Pos - e.Pos).sqrMagnitude;
                 if (d < bestD) { bestD = d; best = other; }
             }
-            if (best == null) return;
-            float dmg = e.MaxHp * 0.08f;
+            float speed = e.Speed * e.Slow;
+            if (best == null)
+            {
+                e.Pos.y = Mathf.Min(GameConstants.SpawnY - 0.35f, e.Pos.y + speed * 0.5f * dt);
+                return;
+            }
+            Vector2 to = best.Pos - e.Pos;
+            float gap = to.magnitude - e.Radius - best.Radius;
+            if (gap > ConfuseReach)
+            {
+                Vector2 step = to.normalized * Mathf.Min(gap, speed * 1.4f * dt);
+                e.Pos += step;
+                e.Pos.y = Mathf.Clamp(e.Pos.y, GameConstants.LeakY + 0.4f, GameConstants.SpawnY - 0.35f);
+                return;
+            }
+            if (e.ConfuseCd > 0f) return;
+            e.ConfuseCd = GlyphTable.ConfuseBiteCd;
+            float dmg = Mathf.Max(1f, e.ConfuseBite);
             best.Hp -= dmg;
             best.HitFlash = 0.14f;
-            ShowDamage(best, dmg, InkTheme.Confuse, 0.9f, false);
+            Recoil(e, to, 0.3f);
+            Recoil(best, to, 0.2f);
+            ShowDamage(best, dmg, InkTheme.Confuse, 1.05f, false);
             Bursts.Add(new FxBurst
             {
-                Pos = best.Pos, Kind = HitFx.Confuse, Tint = InkTheme.ConfuseHi, Scale = 1f
+                Pos = Vector2.Lerp(e.Pos, best.Pos, 0.6f), Kind = HitFx.Confuse,
+                Tint = InkTheme.ConfuseHi, Scale = 0.9f
             });
+            AudioBus.Hit();
             if (best.Hp <= 0f) Kill(best, null);
         }
 
@@ -2046,8 +2104,8 @@ namespace InkLine
             CardDef def = CardCatalog.Get(Grid[col, row].Value);
             if (def.Wake == CardWake.Charge)
             {
-                need = def.ChargeNeed;
-                now = _charge[col, ChargeKind(def.Id)];
+                need = CardCatalog.ChargeNeed(def.Id, def.Id == CardId.Heavy ? _heavyStar[col] : Stars[col, row]);
+                now = Mathf.Min(_charge[col, ChargeKind(def.Id)], need);
             }
             else if (def.Wake == CardWake.WordPart && _word[col] == def.Word)
             {

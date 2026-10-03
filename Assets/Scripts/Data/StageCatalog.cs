@@ -447,6 +447,10 @@ namespace InkLine
         // 一局的目标抽牌数：先把开放格子铺满，再把大半格子顶到二三星。
         // 抽牌费用由它反推，所以以后加章、改棋盘大小都自动对得上，不用手调。
         const float DraftPicksPerCell = 1.8f;
+        // 前两章一局短、钱少，按 1.8 算会五六秒弹一次三选一。
+        // 这两章不要求铺满，同样的钱摊到更少的次数上，每张就贵一些，大约十秒一张。
+        const float FirstChapterPicksPerCell = 0.8f;
+        const float SecondChapterPicksPerCell = 1.1f;
         // 道具不花金币，钱几乎全给抽牌；留一成半给抽到中意那张之前的试错，不把定价压到刚好买满。
         const float DraftBudgetShare = 0.85f;
 
@@ -482,7 +486,10 @@ namespace InkLine
             s.GoldPurse = s.KillGold + Mathf.RoundToInt(chests * ChestGoldShare * s.ChestGold);
 
             int open = Mathf.Max(1, s.OpenCount);
-            int n = Mathf.Clamp(Mathf.RoundToInt(open * DraftPicksPerCell), open + 2, open * 3);
+            int n;
+            if (s.Chapter == 0) n = Mathf.Max(3, Mathf.RoundToInt(open * FirstChapterPicksPerCell));
+            else if (s.Chapter == 1) n = Mathf.Max(2, Mathf.RoundToInt(open * SecondChapterPicksPerCell));
+            else n = Mathf.Clamp(Mathf.RoundToInt(open * DraftPicksPerCell), open + 2, open * 3);
             float budget = (s.GoldPurse + ForgeStats.Default.StartGold) * DraftBudgetShare;
             // 起价定成平均价的一半，步长再反推，费用就从便宜缓缓爬到贵，
             // 而整条曲线累计下来刚好吃满预算。

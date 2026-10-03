@@ -125,7 +125,8 @@ namespace InkLine
                 }
                 if (_world != null && _screen == Screen.Battle)
                 {
-                    if (!uiHit) HandleRail();
+                    // 拖动中途滑到按钮上松手，也得把这次拖动收掉，不然自动改装一直被挡着。
+                    if (!uiHit || _dragging) HandleRail();
                     // 切后台再回来，这一帧的 deltaTime 能到几十秒。按这个往前算，
                     // 波次和道具时长会一下跳完，看起来就是卡住。
                     _world.Tick(Mathf.Min(Time.deltaTime, 0.05f));
@@ -297,6 +298,7 @@ namespace InkLine
             BuildBattleHud();
             _autoWait = 0f;
             _autoMute = 0f;
+            _dragging = false;
             AudioBus.Music("bgm_battle");
             if (BattleWorld.PreviewFill)
             {
@@ -418,6 +420,8 @@ namespace InkLine
                 _world.SetRailFromWorldX(InkPointer.WorldOnPlane().x, true);
                 _dragging = false;
             }
+            else if (_dragging && !InkPointer.Held)
+                _dragging = false;
         }
 
         static bool InRailZone(Vector3 world)

@@ -73,6 +73,14 @@ namespace InkLine
             }
         }
 
+        // 蓄力字每几发生效一次。「重」按星降：1 星 3 发、2 星起 2 发，
+        // 升一星就看得见进度条变短，玩家借它理解「蓄满才放」。其他字不分星。
+        public static int ChargeNeed(CardId id, int star)
+        {
+            if (id == CardId.Heavy) return star >= 2 ? 2 : 3;
+            return Get(id).ChargeNeed;
+        }
+
         // 以下数值一律读 GlyphTable，这里只留调用点习惯的名字。
         public static int WordChargeNeed(WordId word) => GlyphTable.Word(word).Charge;
 

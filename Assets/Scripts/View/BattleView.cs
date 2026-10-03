@@ -280,6 +280,8 @@ namespace InkLine
             w.Bursts.Clear();
             for (int n = 0; n < w.Deaths.Count; n++) InkSpill.Play(w.Deaths[n]);
             w.Deaths.Clear();
+            for (int n = 0; n < w.Arcs.Count; n++) InkArc.Play(w.Arcs[n]);
+            w.Arcs.Clear();
             if (w.ShakeWanted > 0f)
             {
                 InkShake.Kick(Camera.main, w.ShakeWanted);
@@ -464,7 +466,7 @@ namespace InkLine
             }
             else
             {
-                segs = Mathf.Clamp(CardCatalog.Get(id).ChargeNeed, 1, PipN);
+                segs = Mathf.Clamp(CardCatalog.ChargeNeed(id, star), 1, PipN);
                 filled = 0;
                 metering = false;
             }

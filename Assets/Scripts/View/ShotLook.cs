@@ -37,6 +37,7 @@ namespace InkLine
     public static class ShotLook
     {
         // 体槽抢位顺序：词的大场面 > 域 > 元素 > 弹道形。
+        // 重不进体槽：它只加身后的铜色拖尾，弹体留给别的字。
         static readonly CardId[] FormRank =
         {
             CardId.Explode, CardId.Fire, CardId.Ice, CardId.Water, CardId.Poison,
@@ -46,7 +47,7 @@ namespace InkLine
         static readonly CardId[] TrailRank = { CardId.Accel, CardId.Track, CardId.Wind };
         static readonly CardId[] HaloRank = { CardId.Thunder, CardId.Stun, CardId.Gold };
         static readonly CardId[] OrbitRank = { CardId.Wind, CardId.Wood };
-        static readonly CardId[] BloomRank = { CardId.Heavy, CardId.Gold };
+        static readonly CardId[] BloomRank = { CardId.Gold };
 
         // 参与「颜色可混」的元素字。道族不带色，免得把弹体搅浑。
         static readonly CardId[] Elements =

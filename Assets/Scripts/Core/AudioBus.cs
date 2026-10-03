@@ -57,6 +57,9 @@ namespace InkLine
             Cue("hit_thud", 0.66f, 0.05f, 0.06f, 1.1f);
         }
 
+        // 雷的连带传导。没有专门的电声时拿冰的脆响拔高顶上。
+        public static void Zap() => CueOr("hit_zap", "hit_ice", 0.55f, 0.1f, 1.35f);
+
         public static void Boom()
         {
             Cue("boom", 1f, 0.07f, 0.03f);

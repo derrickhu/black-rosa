@@ -2,10 +2,10 @@
 
 The attached reference image shows four frames of an explosion from the same game. Use it ONLY for the drawing style: flat cel-shaded vector shapes stacked in layers, each layer one solid color with a crisp edge, a thick dark outline around every shape, chunky rounded silhouettes, a bright small core, a mid layer, an outer layer, then secondary pieces flying off. Match that line weight, that chunkiness and that layered read. Draw the new subject described below.
 
-Subject: HEAVY HIT: a powerful ground-shaking impact, a thick round shockwave ring with jagged spikes and a heavy dust cloud.
-Color layers from center outward: core like milk (white), then light pebble grey, then slate grey, then charcoal grey spikes.
-Secondary pieces: chunky stone bits and dust puffs fly off; in cell 4 a wide ring of small grey dust puffs.
-Every shape has a thick near-black outline like ink.
+Subject: HEAVY HIT: a heavy iron weight slamming down, a cartoon ground-slam seen from above: a bright flash in the center, a very thick round shockwave ring around it, and six short zigzag cracks radiating outward from the ring like a cracked dinner plate.
+Color layers from center outward: core like milk (white), then gold coin yellow, then the orange-bronze of a brand-new copper coin, then the deep brown-bronze of an old copper pot on the ring's outer edge.
+Secondary pieces: chunky triangular bronze shards and small round dust puffs the color of cardboard fly off; in cell 4 a wide ring of small bronze shards and cardboard-colored dust puffs.
+Every shape has a thick dark brown outline like soy sauce.
 
 The four cells are one impact read in order: top-left, top-right, bottom-left, bottom-right.
 Cell 1 (impact flash): a small tight burst, about 40 percent of the cell, bright core with the first layer just opening.

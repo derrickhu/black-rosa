@@ -44,6 +44,8 @@ namespace InkLine
         RectTransform[] _dots;
         SkinStageMotion _motion;
         int _focus;
+        Text[] _fxName;
+        Text[] _fxVal;
 
         public RectTransform Root => _root;
         public int Focus => _focus;
@@ -122,6 +124,90 @@ namespace InkLine
                 _used[i] = Seal(cell, "用", new Vector2(22f, 28f), 26f, InkTheme.Seal);
                 _dots[i] = Seal(cell, "", new Vector2(24f, 30f), 16f, InkTheme.Rose);
             }
+            BuildFx();
+        }
+
+        // 炮右边列当前生效的词条，和进战斗的结算同一套：点过级、装着的专属才算。
+        // 名字靠左，数值靠右一列，字号更大、各用各的颜色，扫一眼不用翻下面的列表。
+        const int FxSlots = 7;
+        const float FxTop = 138f;
+        const float FxStep = 30f;
+        const float FxNameX = 137f;
+        const float FxValX = 214f;
+
+        void BuildFx()
+        {
+            _fxName = new Text[FxSlots];
+            _fxVal = new Text[FxSlots];
+            for (int i = 0; i < FxSlots; i++)
+            {
+                float y = FxTop - i * FxStep;
+                _fxName[i] = UiKit.Label(_root, "fxn" + i, "", 17,
+                    new Vector2(FxNameX, y), new Vector2(74f, 30f), TextAnchor.MiddleLeft);
+                _fxName[i].color = InkTheme.TextDark;
+                UiKit.Bold(_fxName[i]);
+                _fxVal[i] = UiKit.Label(_root, "fxv" + i, "", 22,
+                    new Vector2(FxValX, y), new Vector2(84f, 32f), TextAnchor.MiddleLeft);
+                UiKit.Bold(_fxVal[i]);
+                var shade = _fxVal[i].gameObject.AddComponent<Shadow>();
+                shade.effectColor = new Color(0.22f, 0.13f, 0.08f, 0.28f);
+                shade.effectDistance = new Vector2(1f, -1f);
+                _fxName[i].gameObject.SetActive(false);
+                _fxVal[i].gameObject.SetActive(false);
+            }
+        }
+
+        void PaintFx()
+        {
+            if (_fxName == null) return;
+            int n = 0;
+            int[] order = new int[ForgeCatalog.LineCount];
+            int skin = _meta.Skin;
+            for (int i = 0; i < ForgeCatalog.LineCount; i++)
+            {
+                ForgeDef d = ForgeCatalog.Get(i);
+                if (_meta.ForgeLevel(i) <= 0) continue;
+                if (d.Exclusive && d.Skin != skin) continue;
+                order[n++] = i;
+            }
+            for (int a = 1; a < n; a++)
+            {
+                int v = order[a];
+                int b = a;
+                while (b > 0 && ForgeCatalog.Rank(order[b - 1]) > ForgeCatalog.Rank(v))
+                {
+                    order[b] = order[b - 1];
+                    b--;
+                }
+                order[b] = v;
+            }
+            int shown = Mathf.Min(n, FxSlots);
+            for (int s = 0; s < FxSlots; s++)
+            {
+                bool on = s < shown;
+                _fxName[s].gameObject.SetActive(on);
+                _fxVal[s].gameObject.SetActive(on);
+                if (!on) continue;
+                ForgeDef d = ForgeCatalog.Get(order[s]);
+                _fxName[s].text = d.Stat;
+                _fxVal[s].text = ForgeCatalog.Value(order[s], _meta.ForgeLevel(order[s]));
+                _fxVal[s].color = FxColor(d.Line);
+            }
+        }
+
+        static Color FxColor(ForgeLine line)
+        {
+            switch (line)
+            {
+                case ForgeLine.Damage: return InkTheme.Hex("E25B2A");
+                case ForgeLine.FireRate: return InkTheme.Hex("1E8E4E");
+                case ForgeLine.StartGold: return InkTheme.Hex("C98416");
+                case ForgeLine.BaseHp: return InkTheme.Hex("D23B4A");
+                case ForgeLine.Emitters: return InkTheme.Hex("1C8C8C");
+                case ForgeLine.Crit: return InkTheme.Hex("7A3EC8");
+                case ForgeLine.GoldGain: return InkTheme.Hex("B86E12");
+                default: return InkTheme.TextDark;
+            }
         }
 
         static float GunCenter => GunFoot + GunSize * 0.5f - GunSize * GunPad;
@@ -192,6 +278,7 @@ namespace InkLine
 
             BindAct(i, d, owned, shown);
             for (int k = 0; k < _frames.Length; k++) BindAvatar(k);
+            PaintFx();
             if (notify && moved) _focusChanged?.Invoke(i);
         }
 

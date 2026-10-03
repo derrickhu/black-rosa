@@ -84,6 +84,9 @@ JOBS = {
     "wind_shot":    dict(src="v3_shot_wind", mode="ball", cols=4, rows=2, shave=14, largest=True,
                          pick=[0, 1, 2, 2, 5, 3, 6, 7]),
 
+    # 重：秤砣弹体，单帧。星级只靠 GlyphTable 里的 Size 放大。
+    "heavy_shot":   dict(src="v4_shot_heavy", mode="marks", cols=1, rows=1, names=["heavy_shot_00"]),
+
     "dot_marks":    dict(src="v2_dot_marks", mode="marks", cols=2, rows=2,
                          names=["dot_poison", "dot_stun", "dot_confuse", None],
                          holes=True),

@@ -97,12 +97,17 @@ HITS = {
         "leaves and small wooden splinters fly off spinning; in cell 4 a ring of small leaves and splinters",
         "dark forest-green outline like spinach",
     ),
+    # 重：秤砣砸地。主体是一圈很厚的冲击环 + 往外裂的地纹，颜色走金币黄到新铜币，
+    # 和土（石块、焦糖褐）、炸（火团、黑烟）一眼分开。
     "heavy": (
-        "HEAVY HIT: a powerful ground-shaking impact, a thick round shockwave ring with jagged spikes and "
-        "a heavy dust cloud.",
-        "core like milk (white), then light pebble grey, then slate grey, then charcoal grey spikes",
-        "chunky stone bits and dust puffs fly off; in cell 4 a wide ring of small grey dust puffs",
-        "near-black outline like ink",
+        "HEAVY HIT: a heavy iron weight slamming down, a cartoon ground-slam seen from above: a bright flash "
+        "in the center, a very thick round shockwave ring around it, and six short zigzag cracks radiating "
+        "outward from the ring like a cracked dinner plate.",
+        "core like milk (white), then gold coin yellow, then the orange-bronze of a brand-new copper coin, "
+        "then the deep brown-bronze of an old copper pot on the ring's outer edge",
+        "chunky triangular bronze shards and small round dust puffs the color of cardboard fly off; "
+        "in cell 4 a wide ring of small bronze shards and cardboard-colored dust puffs",
+        "dark brown outline like soy sauce",
     ),
     "ink": (
         "INK HIT: a juicy splash of calligraphy ink with bright sparks, a round ink splat with rounded petals.",

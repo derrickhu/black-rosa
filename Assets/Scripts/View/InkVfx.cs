@@ -206,6 +206,8 @@ namespace InkLine
                 case ShotFx.FormKnock:  body = One("knock_shot", 0.75f); return true;
                 case ShotFx.FormArrow:  body = One("arrow_shot", 1.04f); return true;
                 case ShotFx.FormPierce: body = One("pierce_shot", 1.00f); return true;
+                // 秤砣图还在，但重不再换弹体，只走拖尾。这帧留着，免得哪天又要挂回去。
+                case ShotFx.FormHeavy:  body = One("heavy_shot", 0.85f); return true;
                 // 分没有体槽图，也不该有：它分成两发子弹本身就说清了。
                 // `FormRank` 里也没有 `CardId.Split`，所以 `FormSplit` 根本选不到。
 

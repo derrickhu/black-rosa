@@ -1,0 +1,8 @@
+2D game projectile sprite for a cute casual mobile tower-defense game. One single projectile centered on a plain pure white background (#FFFFFF), filling about 60 percent of the image height, with a wide empty white margin on all four sides. The image contains only this one shape on white.
+
+The attached reference image shows hit effects from the same game. Use it ONLY for the drawing style: flat cel-shaded vector shapes, each layer one solid color with a crisp edge, a thick dark outline around every shape, chunky rounded silhouettes. Match that line weight and chunkiness. Draw the new subject described below.
+
+Subject: HEAVY SHOT, a chunky Chinese steelyard weight (a rounded bell-shaped counterweight) flying straight up. The weight is wide and heavy at the bottom, narrows toward the top, and has a small thick ring loop on its top. It is symmetric left to right about its vertical axis.
+Colors: the body is the orange-bronze of a brand-new copper coin, with a darker band like an old copper pot across its lower third, one bold curved highlight stripe like a gold coin down its left side, and a small milk-white glint on the upper left.
+Below the weight, three short thick straight motion lines in the same bronze trail downward, the middle one longest, each with the same outline.
+Every shape has a thick dark brown outline like soy sauce.

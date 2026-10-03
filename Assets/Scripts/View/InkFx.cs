@@ -643,8 +643,8 @@ namespace InkLine
                     break;
                 case HitFx.Heavy:
                     _hi = Color.white;
-                    _mid = InkTheme.GraphiteMid;
-                    _ringC = InkTheme.Graphite;
+                    _mid = InkTheme.CoinDeep;
+                    _ringC = InkTheme.CoinFace;
                     _life = 0.18f;
                     _scale *= 1.2f;
                     _slashN = 2;
