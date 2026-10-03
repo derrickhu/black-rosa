@@ -30,7 +30,7 @@ namespace InkLine
         public readonly Text Ink;
         public readonly RectTransform InkChip;
         public readonly Button Draft;
-        public readonly Button Retreat;
+        public readonly Button Settings;
         public readonly Text DraftLabel;
         public readonly ItemKey[] Keys;
         readonly RectTransform _layer;
@@ -55,7 +55,7 @@ namespace InkLine
             Ink = ink;
             InkChip = inkChip;
             Draft = draft;
-            Retreat = retreat;
+            Settings = retreat;
             DraftLabel = draftLabel;
             Keys = keys;
         }
@@ -90,10 +90,10 @@ namespace InkLine
                 TextAnchor.MiddleCenter, Pin.Top);
             toast.color = InkTheme.TextDark;
 
-            // 撤退在左上角。底栏只留改装和技能，不再把撤退挤在改装左边。
+            // 左上角是设置。底栏只留改装和技能。
             var draftBtn = UiKit.Btn(layer, "draft", "改装", Vector2.zero, new Vector2(280, 84), draft, true, Pin.Bottom);
             var draftLabel = draftBtn.GetComponentInChildren<Text>();
-            var retreatBtn = UiKit.Btn(layer, "back", "撤退", Vector2.zero, new Vector2(RetreatW, RetreatH), retreat, false, Pin.TopLeft);
+            var settingsBtn = GearButton(layer, retreat);
 
             var keys = new ItemKey[GameConstants.ItemSlots];
             for (int i = 0; i < keys.Length; i++)
@@ -104,7 +104,7 @@ namespace InkLine
             var heartsWrap = hearts.Length > 0 ? hearts[0].transform.parent as RectTransform : null;
 
             var hud = new BattleHud(layer, gold, goldChip, hearts, heartsWrap, wavePlate, wave, toast,
-                ink, inkChip, draftBtn, retreatBtn, draftLabel, keys);
+                ink, inkChip, draftBtn, settingsBtn, draftLabel, keys);
             hud._fx = ItemFx.Build(layer);
             hud._world = world;
             for (int i = 0; i < keys.Length; i++)
@@ -154,13 +154,27 @@ namespace InkLine
             };
         }
 
+        static Button GearButton(RectTransform layer, System.Action open)
+        {
+            var go = new GameObject("settings", typeof(RectTransform), typeof(Image), typeof(Button));
+            go.transform.SetParent(layer, false);
+            var img = go.GetComponent<Image>();
+            img.sprite = InkSprites.Ui("settings");
+            img.preserveAspect = true;
+            img.raycastTarget = true;
+            var btn = go.GetComponent<Button>();
+            btn.targetGraphic = img;
+            btn.transition = Selectable.Transition.None;
+            btn.onClick.AddListener(() => open());
+            return btn;
+        }
+
         const float RowH = 84f;
         const float KeyW = 84f;
         const float KeyH = 84f;
         const float KeySide = 8f;
         const float KeyGap = 14f;
-        const float RetreatW = 124f;
-        const float RetreatH = 52f;
+        const float Gear = 76f;
         const float Side = 16f;
         const float Gap = 10f;
 
@@ -170,13 +184,13 @@ namespace InkLine
             float bot = ScreenFit.BottomPad + 16f;
             float pad = ScreenFit.TopPad;
             float top = pad <= 36.1f ? 10f : pad;
-            float row = top + RetreatH + 8f;
+            float row = top + Gear + 8f;
             float canvasW = Mathf.Max(720f, _layer.rect.width);
             float draftW = Mathf.Clamp(canvasW - 2f * (Side + Gap), 200f, 460f);
             float draftX = 0f;
 
-            PinTop(Retreat.transform as RectTransform, new Vector2(Side, top),
-                new Vector2(RetreatW, RetreatH), 6f, Pin.TopLeft);
+            PinTop(Settings.transform as RectTransform, new Vector2(Side, top),
+                new Vector2(Gear, Gear), 6f, Pin.TopLeft);
             PinTop(GoldChip, new Vector2(18f, row), new Vector2(172f, 54f), 7f, Pin.TopLeft);
             PinTop(_wavePlate, new Vector2(0f, row), new Vector2(196f, 54f), 7f, Pin.Top);
             PinTop(InkChip, new Vector2(18f, row), new Vector2(172f, 54f), 7f, Pin.TopRight);
@@ -361,6 +375,7 @@ namespace InkLine
             else if (world.RevealTime > 0f) Toast.text = $"显形 · {world.LastReveal}";
             else Toast.text = "";
             RefreshKeys(world, inBattle);
+            if (_fx != null) _fx.Hold(world.Paused);
             bool can = world.CanDraft && inBattle;
             Draft.interactable = inBattle;
             DraftLabel.text = can ? $"改装  {world.DraftCost}" : $"差  {Mathf.Max(0, world.DraftCost - world.Gold)}";
@@ -559,8 +574,7 @@ namespace InkLine
             if (_tipCd != null)
             {
                 int slot = _tipKey.Slot;
-                if (world.ItemsSealed) _tipCd.text = "本关禁用道具";
-                else if (world.SlotSpent(slot)) _tipCd.text = "本局次数已用完";
+                if (world.SlotSpent(slot)) _tipCd.text = "本局次数已用完";
                 else
                 {
                     float charge = world.SlotCharge(slot);
@@ -593,7 +607,7 @@ namespace InkLine
                     k.Art.sprite = icon;
                 }
                 float charge = world.SlotCharge(k.Slot);
-                bool off = world.ItemsSealed || world.SlotSpent(k.Slot);
+                bool off = world.SlotSpent(k.Slot);
                 bool ready = !off && charge >= 1f;
 
                 // 底下一层始终是淡影。彩色只从下沿露出冷却走完的那一截，灌满才是整只实心图标。

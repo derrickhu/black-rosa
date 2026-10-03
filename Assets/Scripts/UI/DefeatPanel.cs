@@ -43,10 +43,9 @@ namespace InkLine
 
         void Build(RectTransform stage, DefeatArgs a, float at)
         {
-            StageDef def = StageCatalog.Get(a.Stage);
             int pct = Mathf.Clamp(Mathf.RoundToInt(a.Progress * 100f), 1, 99);
 
-            var sub = UiKit.Label(stage, "sub", $"第 {a.Stage + 1} 关 · {def.Title}", 28,
+            var sub = UiKit.Label(stage, "sub", $"第 {a.Stage + 1} 关", 28,
                 new Vector2(0f, 70f), new Vector2(560f, 40f));
             sub.color = InkTheme.Hex("D8CFC4");
             _anim.Fade(sub, at - 0.3f, 0.3f, 0f, 1f);

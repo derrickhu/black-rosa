@@ -142,7 +142,7 @@ namespace InkLine
                      if (card == null) return;
                      card.localScale = new Vector3(Ease.OutBack(k), 1f, 1f);
                  })
-                 .At(at, () => AudioBus.CardFlip(rare ? 1f : 0.9f + 0.05f * (c.Item % 3)))
+                 .At(at, () => AudioBus.CardReveal(d.Quality))
                  .Tween(at + 0.3f, 0.4f, k =>
                  {
                      if (fill == null) return;
@@ -151,17 +151,12 @@ namespace InkLine
                  })
                  .Punch(card, at + 0.3f, 0.1f, 0.25f);
             if (rare)
-            {
-                _anim.At(at + 0.2f, () =>
-                {
-                    AudioBus.CardRare();
-                    UiConfetti.Sparks(_root, pos, q, 18, 560f);
-                });
-            }
+                _anim.At(at + 0.12f, () => UiConfetti.Sparks(_root, pos, q, 18, 560f));
             if (have >= need && !max) _anim.Breathe(prog.transform, at + 0.7f, 0.08f, 1.6f);
             // 排轨时每条轨都会先按 k=0 落一次，Punch 的 k=0 是原大，得排完再藏起来。
             card.localScale = new Vector3(0f, 1f, 1f);
-            return at + (rare ? 0.6f : 0.36f);
+            float gap = rare ? 0.9f : d.Quality == ItemQuality.Blue ? 0.72f : 0.42f;
+            return at + gap;
         }
 
         void Close()

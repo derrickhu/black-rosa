@@ -16,6 +16,8 @@ namespace InkLine
         public int Stamina = GameConstants.StaminaMax;
         public long StaminaTick;
         public int AdStaminaToday;
+        // 1：体力上限从 12 提到 20。当时是满的，补到新上限。
+        public int StaminaRulesVer;
         public int LastDay;
         public bool DailyWinDone;
         public bool StarterGranted;
@@ -26,8 +28,10 @@ namespace InkLine
         // 道具：等级 0 是还没解锁；卡是攒着的、还没花掉的张数。
         public int[] ItemLevel = new int[ItemCatalog.Count];
         public int[] ItemCards = new int[ItemCatalog.Count];
-        public int[] Equipped = { 0, -1, -1 };
+        public int[] Equipped = { -1, -1, -1 };
         public bool ItemStarterDone;
+        // 1：取消开局白送道具。老档里那只还停在 1 级、旁边没有别的道具的鞭炮收回。
+        public int ItemRulesVer;
         // 胜利宝箱位：0 是空，其余是 ChestTier + 1。ChestDone 是解锁完成的 UTC 毫秒，0 表示还没开始解锁。
         public int[] ChestSlot = new int[ChestCatalog.Slots];
         public long[] ChestDone = new long[ChestCatalog.Slots];
@@ -125,14 +129,23 @@ namespace InkLine
             for (int i = 0; i < Stars.Length; i++)
                 Stars[i] = Mathf.Clamp(Stars[i], 0, GameConstants.MaxStar);
             SkinOwned[0] = true;
+            bool rulesChanged = false;
             if (!ItemStarterDone)
             {
-                // 开局白送一个绿色道具，第一关就能看到「道具自己丢出去」是怎么回事。
                 ItemStarterDone = true;
-                int first = (int)ItemCatalog.Starter;
-                if (ItemLevel[first] <= 0) ItemLevel[first] = 1;
-                for (int s = 0; s < Equipped.Length; s++) Equipped[s] = -1;
-                Equipped[0] = first;
+                rulesChanged = true;
+            }
+            if (ItemRulesVer < 1)
+            {
+                ItemRulesVer = 1;
+                rulesChanged = true;
+                RevokeGiftItem();
+            }
+            if (StaminaRulesVer < 1)
+            {
+                StaminaRulesVer = 1;
+                rulesChanged = true;
+                if (Stamina >= 12) Stamina = GameConstants.StaminaMax;
             }
             for (int i = 0; i < ItemLevel.Length; i++)
             {
@@ -159,6 +172,7 @@ namespace InkLine
             Diamond = Mathf.Max(0, Diamond);
             Token = Mathf.Max(0, Token);
             Stamina = Mathf.Clamp(Stamina, 0, GameConstants.StaminaMax);
+            if (rulesChanged) Save();
             if (ForgeSeenVer < 1)
             {
                 // 加解锁卡之前就有的五条，老存档早就见过，不再补弹。
@@ -230,6 +244,17 @@ namespace InkLine
             if (src != null)
                 for (int i = 0; i < src.Length && i < len; i++) dst[i] = src[i];
             return dst;
+        }
+
+        // 开局不发道具。白送的那一只如果还是 1 级、也没解锁过别的，收回去。
+        // 卡片留着：宝箱掉的卡照旧攒着，够数了自己解锁。
+        void RevokeGiftItem()
+        {
+            int first = (int)ItemId.Burst;
+            if (first >= ItemLevel.Length || ItemLevel[first] != 1) return;
+            for (int i = 0; i < ItemLevel.Length; i++)
+                if (i != first && ItemLevel[i] > 0) return;
+            ItemLevel[first] = 0;
         }
 
         void GrantStarter()

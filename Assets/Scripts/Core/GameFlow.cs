@@ -8,7 +8,7 @@ namespace InkLine
 {
     public sealed class GameFlow : MonoBehaviour
     {
-        enum Screen { Lobby, Intro, Battle, Draft, Place, Confirm, Result }
+        enum Screen { Lobby, Intro, Battle, Draft, Place, Confirm, Reveal, Result }
 
         MetaProgress _meta;
         BattleWorld _world;
@@ -34,10 +34,14 @@ namespace InkLine
         const float AutoDelay = 0.35f;
         const float AutoMuteAfterClose = 6f;
         string _tip;
+        // 第一关：字放下之后才提示怎么瞄准，手指一滑就收掉。
+        bool _teachAim;
+        const string AimTip = "按住底部左右滑，对准敌人";
         Transform _overlay;
         int _shotPage = -1;
         readonly bool[] _shotGot = new bool[4];
         readonly Queue<string> _codexToasts = new Queue<string>();
+        readonly Queue<CodexEntry> _discoveries = new Queue<CodexEntry>();
         float _audioSweep;
 
         void Start()
@@ -75,15 +79,30 @@ namespace InkLine
             string force = Path.Combine(Application.dataPath, "../Library/ink_shot_preview.force");
             if (File.Exists(force))
                 BattleWorld.PreviewFill = true;
+            WxBridge.OnHide(NoteLeft);
+            WxBridge.OnShow(NoteBack);
             ShowHome();
             if (BattleWorld.PreviewFill) StartStage(0);
+        }
+
+        void OnApplicationPause(bool paused)
+        {
+            // 编辑器一切出游戏视图就会暂停，不在这里弹设置。真机切后台走微信的 OnHide。
+            if (Application.isEditor) return;
+            if (paused) NoteLeft();
+            else NoteBack();
         }
 
         void Update()
         {
             if (_canvas == null) return;
+            if (_leftGame)
+            {
+                _leftGame = false;
+                PauseForReturn();
+            }
             ScreenFit.Apply(Camera.main, _canvas);
-            AudioBus.Duck(_screen == Screen.Draft || _screen == Screen.Confirm || _screen == Screen.Result);
+            AudioBus.Duck(_screen == Screen.Draft || _screen == Screen.Confirm || _screen == Screen.Reveal || _screen == Screen.Result);
             AudioBus.Tick();
             _audioSweep -= Time.unscaledDeltaTime;
             if (_audioSweep <= 0f)
@@ -94,7 +113,8 @@ namespace InkLine
             InkPointer.Pump();
             bool uiHit = EventSystemOverUi();
             if (_screen == Screen.Lobby && _home != null) _home.Tick();
-            if (_screen == Screen.Intro || _screen == Screen.Battle || _screen == Screen.Place || _screen == Screen.Draft || _screen == Screen.Confirm)
+            if (_screen == Screen.Intro || _screen == Screen.Battle || _screen == Screen.Place || _screen == Screen.Draft
+                || _screen == Screen.Confirm || _screen == Screen.Reveal)
             {
                 if (_world != null && _hud != null)
                 {
@@ -106,8 +126,11 @@ namespace InkLine
                 if (_world != null && _screen == Screen.Battle)
                 {
                     if (!uiHit) HandleRail();
-                    _world.Tick(Time.deltaTime);
+                    // 切后台再回来，这一帧的 deltaTime 能到几十秒。按这个往前算，
+                    // 波次和道具时长会一下跳完，看起来就是卡住。
+                    _world.Tick(Mathf.Min(Time.deltaTime, 0.05f));
                     PumpCodexToast();
+                    PumpDiscovery();
                     TickAutoDraft();
                 }
                 if (_world != null && _view != null)
@@ -143,18 +166,34 @@ namespace InkLine
         void ShowHome() => ShowHome(HomeScreen.TabSortie);
 
         bool _askingRetreat;
+        bool _leftGame;
 
-        // 体力进关就扣了。撤退前说清楚：进度、没奖励、体力不退。
-        void AskRetreat()
+        // 切出去、锁屏、被盖住。回来时设置页已经在上面，点继续才接着打。
+        void NoteLeft()
         {
-            if (_world == null || _askingRetreat) return;
-            if (_screen != Screen.Battle && _screen != Screen.Intro) return;
+            _leftGame = true;
+            PauseForReturn();
+        }
+
+        void NoteBack() => _leftGame = true;
+
+        void PauseForReturn()
+        {
+            if (_world == null || _hud == null || _askingRetreat) return;
+            if (_screen == Screen.Lobby || _screen == Screen.Result) return;
+            OpenSettings();
+        }
+
+        // 战斗里的设置：音乐、音效、继续，或者撤退。体力进关就扣了，撤退不退。
+        void OpenSettings()
+        {
+            if (_world == null || _askingRetreat || _hud == null) return;
+            if (_screen == Screen.Lobby) return;
             _askingRetreat = true;
             bool wasPaused = _world.Paused;
             _world.Paused = true;
-            int pct = Mathf.Clamp(Mathf.RoundToInt(_world.Progress * 100f), 0, 99);
             var dim = UiKit.Dimmer(_layer);
-            dim.name = "retreat_ask";
+            dim.name = "settings";
             void Stay()
             {
                 if (!_askingRetreat) return;
@@ -171,15 +210,48 @@ namespace InkLine
                 if (dim != null) Destroy(dim.gameObject);
                 ShowHome();
             }
-            var board = PanelKit.Board(dim, "确认撤退", Vector2.zero, new Vector2(560f, 460f), Pin.Center, Stay);
-            var line = UiKit.Label(board, "pct", $"已完成 {pct}%", 36, new Vector2(0f, 150f),
-                new Vector2(480f, 52f), TextAnchor.MiddleCenter, Pin.Top);
-            UiKit.Bold(line);
-            var note = UiKit.Label(board, "note", "撤退后没有奖励，体力也不退还", 26, new Vector2(0f, 214f),
-                new Vector2(480f, 40f), TextAnchor.MiddleCenter, Pin.Top);
+            var board = PanelKit.Board(dim, "设置", Vector2.zero, new Vector2(520f, 440f), Pin.Center, Stay);
+
+            UiKit.Btn(board, "stay", "继续游戏", new Vector2(0f, 108f), new Vector2(400f, 92f), Stay, true, Pin.Top);
+            UiKit.Btn(board, "leave", "撤退", new Vector2(0f, 214f), new Vector2(400f, 80f), Leave, false, Pin.Top);
+            var note = UiKit.Label(board, "note", "撤退后没有奖励，体力也不退还", 22, new Vector2(0f, 316f),
+                new Vector2(440f, 32f), TextAnchor.MiddleCenter, Pin.Top);
             note.color = InkTheme.TextMid;
-            UiKit.Btn(board, "stay", "继续战斗", new Vector2(0f, 126f), new Vector2(400f, 92f), Stay, true, Pin.Bottom);
-            UiKit.Btn(board, "leave", "确认撤退", new Vector2(0f, 28f), new Vector2(400f, 80f), Leave, false, Pin.Bottom);
+
+            AudioPair(board, "音乐", "music", -115f, 20f, () => AudioBus.MusicOn, v => AudioBus.MusicOn = v);
+            AudioPair(board, "音效", "sfx", 115f, 20f, () => AudioBus.SfxOn, v => AudioBus.SfxOn = v);
+        }
+
+        static void AudioPair(RectTransform board, string title, string name, float x, float y,
+            System.Func<bool> get, System.Action<bool> set)
+        {
+            var label = UiKit.Label(board, name + "l", title, 24, new Vector2(x - 48f, y),
+                new Vector2(72f, 46f), TextAnchor.MiddleRight, Pin.Bottom);
+            UiKit.Bold(label);
+            Switch(board, name, new Vector2(x + 40f, y), new Vector2(88f, 46f), get, set);
+        }
+
+        static void Switch(RectTransform board, string name, Vector2 pos, Vector2 size,
+            System.Func<bool> get, System.Action<bool> set)
+        {
+            Button btn = null;
+            btn = UiKit.Btn(board, name, get() ? "开" : "关", pos, size, () =>
+            {
+                bool next = !get();
+                set(next);
+                PaintSwitch(btn, next);
+            }, false, Pin.Bottom);
+            var label = btn.GetComponentInChildren<Text>();
+            if (label != null) label.fontSize = 22;
+            PaintSwitch(btn, get());
+        }
+
+        static void PaintSwitch(Button btn, bool on)
+        {
+            if (on) UiKit.PaintBtn(btn, InkTheme.Accel, InkTheme.Hex("1E7A42"), InkTheme.CardFace);
+            else UiKit.PaintBtn(btn, InkTheme.CtaOff, InkTheme.Hex("5E5A54"), InkTheme.CardFace);
+            var label = btn != null ? btn.GetComponentInChildren<Text>() : null;
+            if (label != null) label.text = on ? "开" : "关";
         }
 
         void ShowHome(int tab)
@@ -208,13 +280,15 @@ namespace InkLine
             _home = null;
             _pickStage = index;
             _taughtStar = false;
-            _tip = index == 0 ? "滑到底下那一串，对准敌人。" : "";
+            _teachAim = index == 0;
+            _tip = "";
             _world = new BattleWorld();
             _world.ItemRanks = _meta.ItemLevel;
             _world.Begin(StageCatalog.Get(index), _meta.Forged, _meta.Equipped);
             _world.ApplySkin(_meta.Skin);
             _world.CodexHit = OnCodex;
             _codexToasts.Clear();
+            _discoveries.Clear();
             if (_view != null) _view.Dispose();
             _view = new BattleView(null);
             _view.SetBackdrop(_world.Stage.Chapter);
@@ -230,7 +304,7 @@ namespace InkLine
                 return;
             }
             _screen = Screen.Intro;
-            BattleBanner.Show(_layer, _world.Stage, () =>
+            BattleBanner.Show(_layer, () =>
             {
                 if (_world == null || _screen != Screen.Intro) return;
                 _screen = Screen.Battle;
@@ -240,6 +314,7 @@ namespace InkLine
         void TickAutoDraft()
         {
             if (_askingRetreat || _world == null || BattleWorld.PreviewFill || _world.Victory || _world.Defeat) return;
+            if (_screen != Screen.Battle) return;
             float dt = Time.unscaledDeltaTime;
             if (_autoMute > 0f) _autoMute -= dt;
             if (!_world.CanDraft || _autoMute > 0f)
@@ -258,12 +333,33 @@ namespace InkLine
         void OnCodex(CodexKind kind, int index)
         {
             if (_world == null || !_meta.CodexLearn(kind, index)) return;
-            string head = kind == CodexKind.Pair ? "秘卷现世"
-                : kind == CodexKind.Enemy ? "墨谱新页" : "图鉴收录";
-            _codexToasts.Enqueue($"{head} · {CodexCatalog.Title(kind, index)}");
+            if (kind == CodexKind.Enemy)
+            {
+                _codexToasts.Enqueue($"墨谱新页 · {CodexCatalog.Title(kind, index)}");
+                return;
+            }
+            _discoveries.Enqueue(new CodexEntry(kind, index));
         }
 
-        // 和关卡规则、成词提示共用一条 toast，排队等上一条放完，免得互相顶掉。
+        // 新字、新词、隐藏组合第一次打出来时弹卡。只在纯战斗态弹：
+        // 抽牌、摆字、确认、撤退询问时都先排着，等回到战斗再弹，一次一张。
+        void PumpDiscovery()
+        {
+            if (_discoveries.Count == 0 || _askingRetreat || _dragging || InkPointer.Held) return;
+            if (_world.Victory || _world.Defeat) return;
+            CodexEntry e = _discoveries.Dequeue();
+            bool wasPaused = _world.Paused;
+            _world.Paused = true;
+            _screen = Screen.Reveal;
+            DiscoveryCard.Show(_layer, e.Kind, e.Index, () =>
+            {
+                if (_world == null || _screen != Screen.Reveal) return;
+                _world.Paused = wasPaused;
+                _screen = Screen.Battle;
+            });
+        }
+
+        // 和成词、升星提示共用一条 toast，排队等上一条放完，免得互相顶掉。
         void PumpCodexToast()
         {
             if (_codexToasts.Count == 0 || _world.ToastTime > 0f) return;
@@ -273,7 +369,7 @@ namespace InkLine
         void BuildBattleHud()
         {
             ClearLayer();
-            _hud = BattleHud.Build(_layer, _world, AskRetreat, () =>
+            _hud = BattleHud.Build(_layer, _world, OpenSettings, () =>
             {
                 if (_screen != Screen.Battle || !_world.CanDraft) return;
                 OpenDraft();
@@ -307,7 +403,14 @@ namespace InkLine
         void HandleRail()
         {
             if (InkPointer.Down && InRailZone(InkPointer.WorldOnPlane()))
+            {
                 _dragging = true;
+                if (_teachAim)
+                {
+                    _teachAim = false;
+                    if (_tip == AimTip) _tip = "";
+                }
+            }
             if (_dragging && InkPointer.Held)
                 _world.SetRailFromWorldX(InkPointer.WorldOnPlane().x, false);
             if (_dragging && InkPointer.Up)
@@ -356,13 +459,29 @@ namespace InkLine
             }
         }
 
+        // 后期牌池有二十多个字，均匀抽几乎凑不出同字升星，也很难第一时间摸到本关的新字。
+        // 本关新字没上过盘时最重；盘上已有的字次之，方便升星；成词另一半在盘上时也抬高。
         int OfferWeight(CardId id)
         {
             CardDef def = CardCatalog.Get(id);
-            if (def.Wake != CardWake.WordPart) return 10;
-            CardId mate = CardCatalog.Partner(id);
-            if (mate != CardId.None && HasSameOnBoard(mate)) return 22;
-            return 6;
+            bool onBoard = HasSameOnBoard(id);
+            if (!onBoard && IsFresh(id)) return 26;
+            if (def.Wake == CardWake.WordPart)
+            {
+                CardId mate = CardCatalog.Partner(id);
+                if (mate != CardId.None && HasSameOnBoard(mate)) return 22;
+                return onBoard ? 12 : 6;
+            }
+            return onBoard ? 16 : 10;
+        }
+
+        bool IsFresh(CardId id)
+        {
+            CardId[] fresh = _world.Stage.Fresh;
+            if (fresh == null) return false;
+            for (int i = 0; i < fresh.Length; i++)
+                if (fresh[i] == id) return true;
+            return false;
         }
 
         static int WeightedIndex(List<CardId> pool, List<int> weight)
@@ -381,7 +500,8 @@ namespace InkLine
         void ShowDraftPanel()
         {
             DropOverlay();
-            _overlay = DraftPanel.Show(_layer, _tip, _offer, _rerolled, Pick, () =>
+            string title = _offer != null && _offer.Length <= 1 ? "点下面的字" : "";
+            _overlay = DraftPanel.Show(_layer, title, _offer, _rerolled, Pick, () =>
             {
                 AdStub.Reward("reroll", () =>
                 {
@@ -451,8 +571,7 @@ namespace InkLine
                 return;
             }
             _world.Place(_held, col, row, false);
-            _tip = "";
-            ResumeBattle();
+            AfterPlace();
         }
 
         void ShowConfirm(int col, int row)
@@ -461,8 +580,7 @@ namespace InkLine
             _overlay = ConfirmPanel.Show(_layer, () =>
             {
                 _world.Place(_held, col, row, true);
-                _tip = "";
-                ResumeBattle();
+                AfterPlace();
             }, () =>
             {
                 _screen = Screen.Place;
@@ -484,6 +602,12 @@ namespace InkLine
                 else if (p == BattleWorld.PlaceResult.RejectedMaxStar) col = new Color(0, 0, 0, 0.06f);
                 _view.HighlightCell(c, r, col);
             }
+        }
+
+        void AfterPlace()
+        {
+            _tip = _teachAim ? AimTip : "";
+            ResumeBattle();
         }
 
         void ResumeBattle()

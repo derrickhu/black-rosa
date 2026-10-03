@@ -32,8 +32,8 @@ namespace InkLine
         public readonly List<CardStack> Cards = new List<CardStack>();
     }
 
-    // 胜利宝箱。时长按「打一关一两分钟」定：木箱、银箱打下一关时就开好了，
-    // 金箱、皇家箱要打几关，有点盼头又不至于劝退。
+    // 胜利宝箱。一关大约一两分钟：木箱打完下一关就开好，银箱再打一两关，
+    // 金箱、皇家箱留着慢慢等。
     public static class ChestCatalog
     {
         public const int Slots = 4;
@@ -43,23 +43,23 @@ namespace InkLine
         {
             new ChestDef
             {
-                Tier = ChestTier.Wood, Name = "木宝箱", Key = "wood", Seconds = 60,
-                InkMin = 8, InkMax = 12, Cards = 6
+                Tier = ChestTier.Wood, Name = "木宝箱", Key = "wood", Seconds = 120,
+                InkMin = 8, InkMax = 12, Cards = 2
             },
             new ChestDef
             {
-                Tier = ChestTier.Silver, Name = "银宝箱", Key = "silver", Seconds = 180,
-                InkMin = 18, InkMax = 26, Cards = 14
+                Tier = ChestTier.Silver, Name = "银宝箱", Key = "silver", Seconds = 300,
+                InkMin = 18, InkMax = 26, Cards = 4
             },
             new ChestDef
             {
-                Tier = ChestTier.Gold, Name = "金宝箱", Key = "gold", Seconds = 480,
-                InkMin = 42, InkMax = 58, Cards = 30, PurpleChance = 0.35f
+                Tier = ChestTier.Gold, Name = "金宝箱", Key = "gold", Seconds = 720,
+                InkMin = 42, InkMax = 58, Cards = 6, PurpleChance = 0.35f
             },
             new ChestDef
             {
-                Tier = ChestTier.Royal, Name = "皇家宝箱", Key = "royal", Seconds = 900,
-                InkMin = 90, InkMax = 120, Cards = 40, PurpleChance = 1f
+                Tier = ChestTier.Royal, Name = "皇家宝箱", Key = "royal", Seconds = 1200,
+                InkMin = 90, InkMax = 120, Cards = 8, PurpleChance = 1f
             }
         };
 
@@ -102,42 +102,39 @@ namespace InkLine
             seconds >= 60 ? (seconds / 60) + " 分钟" : seconds + " 秒";
 
         // 一个箱子里分几叠、每叠什么品质。数字是每叠的张数，合计等于 Cards。
+        // 单叠停在解锁线下面：绿要 6 张、蓝要 4 张、紫要 2 张。一箱只推进一步。
         static void Plan(ChestTier t, List<(ItemQuality q, int n)> into)
         {
             ChestDef d = Get(t);
             switch (t)
             {
                 case ChestTier.Wood:
-                    into.Add((ItemQuality.Green, 4));
                     into.Add((ItemQuality.Green, 2));
                     break;
                 case ChestTier.Silver:
-                    into.Add((ItemQuality.Green, 7));
-                    into.Add((ItemQuality.Green, 4));
-                    into.Add((ItemQuality.Blue, 3));
+                    into.Add((ItemQuality.Green, 2));
+                    into.Add((ItemQuality.Green, 1));
+                    into.Add((ItemQuality.Blue, 1));
                     break;
                 case ChestTier.Gold:
                     if (Random.value < d.PurpleChance)
                     {
-                        into.Add((ItemQuality.Green, 18));
-                        into.Add((ItemQuality.Blue, 6));
-                        into.Add((ItemQuality.Blue, 4));
-                        into.Add((ItemQuality.Purple, 2));
+                        into.Add((ItemQuality.Green, 3));
+                        into.Add((ItemQuality.Blue, 2));
+                        into.Add((ItemQuality.Purple, 1));
                     }
                     else
                     {
-                        into.Add((ItemQuality.Green, 12));
-                        into.Add((ItemQuality.Green, 8));
-                        into.Add((ItemQuality.Blue, 6));
-                        into.Add((ItemQuality.Blue, 4));
+                        into.Add((ItemQuality.Green, 3));
+                        into.Add((ItemQuality.Green, 1));
+                        into.Add((ItemQuality.Blue, 2));
                     }
                     break;
                 default:
-                    into.Add((ItemQuality.Green, 16));
-                    into.Add((ItemQuality.Green, 5));
-                    into.Add((ItemQuality.Blue, 10));
-                    into.Add((ItemQuality.Blue, 6));
-                    into.Add((ItemQuality.Purple, 3));
+                    into.Add((ItemQuality.Green, 4));
+                    into.Add((ItemQuality.Green, 1));
+                    into.Add((ItemQuality.Blue, 2));
+                    into.Add((ItemQuality.Purple, 1));
                     break;
             }
         }

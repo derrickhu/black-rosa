@@ -289,7 +289,7 @@ namespace InkLine
             _critChance = Mathf.Clamp01(forge.CritChance);
             _goldGain = Mathf.Max(1f, forge.GoldMul);
             _goldFrac = 0f;
-            MaxBaseHp = stage.Has(StageRule.Frail) ? 1 : Mathf.Max(1, forge.BaseHp);
+            MaxBaseHp = Mathf.Max(1, forge.BaseHp);
             BaseHp = MaxBaseHp;
             BeginItems(equipped);
             Enemies.Clear();
@@ -309,28 +309,9 @@ namespace InkLine
                 ApplyPreviewFill();
                 RailX = FieldLayout.ColumnX(0);
             }
-            else
-            {
-                PlacePreset(stage.Preset);
-                if (stage.Rules != StageRule.None) ShowToast(StageCatalog.RuleHint(stage.Rules), 3.2f);
-            }
             ClampRail();
             for (int c = 0; c < GameConstants.Columns; c++) RefreshCol(c);
         }
-
-        void PlacePreset(PresetCard[] preset)
-        {
-            if (preset == null) return;
-            for (int i = 0; i < preset.Length; i++)
-            {
-                PresetCard p = preset[i];
-                if (!IsOpen(p.Col, p.Row)) continue;
-                Grid[p.Col, p.Row] = p.Id;
-                Stars[p.Col, p.Row] = Mathf.Clamp(p.Star, 1, GameConstants.MaxStar);
-            }
-        }
-
-        float GoldMul => StageCatalog.GoldMulOf(Stage.Rules);
 
         // 进关之后再套皮肤：默认弹伤和开局金币加上去，改装的乘算、加算照旧。
         public void ApplySkin(int skin)
@@ -517,7 +498,7 @@ namespace InkLine
             }
         }
 
-        // Bodies 是这一拨摊过密度、丰年和开局曲线之后的只数。表没铺上时退回旧算法。
+        // Bodies 是这一拨摊过密度、章节折扣和开局曲线之后的只数。表没铺上时退回旧算法。
         int BodyCount(int spawnIndex, SpawnSpec spec)
         {
             int[][] grid = Stage.Bodies;
@@ -526,10 +507,7 @@ namespace InkLine
                 int[] row = grid[WaveIndex];
                 if (row != null && spawnIndex >= 0 && spawnIndex < row.Length) return row[spawnIndex];
             }
-            int count = spec.Count * EnemyCatalog.Density(spec.Id);
-            if (Stage.Has(StageRule.Rich) && !EnemyIds.IsBoss(spec.Id))
-                count = Mathf.CeilToInt(count * 1.25f);
-            return count;
+            return spec.Count * EnemyCatalog.Density(spec.Id);
         }
 
         // 前几章格子没开满，怪要多走有格子的列，玩家放的字才打得着。
@@ -600,9 +578,7 @@ namespace InkLine
         {
             EnemyDef def = EnemyCatalog.Get(id, Stage.Hp);
             float hp = Mathf.Max(1f, def.Hp * hpShare);
-            float speed = Stage.Has(StageRule.Swift) ? def.Speed * 1.2f : def.Speed;
-            // 丰年、疾行按只加成。以前是把整波的钱袋乘完再摊，玩家看不出哪一只变值钱了。
-            float drop = GoldMul;
+            float speed = def.Speed * StageCatalog.SpeedOf(Stage.Chapter);
             var e = new EnemyActor
             {
                 Id = NextActorId++,
@@ -613,8 +589,8 @@ namespace InkLine
                 HpShare = hpShare,
                 Speed = speed,
                 Radius = def.Radius,
-                Gold = EnemyCatalog.Drop(def.Gold, drop),
-                Ink = def.Ink * drop,
+                Gold = def.Gold,
+                Ink = def.Ink * StageCatalog.InkOf(Stage.Chapter),
                 Shield = def.HasShield,
                 Strafe = def.Strafe,
                 PreferEmpty = def.PreferEmpty,

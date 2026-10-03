@@ -230,8 +230,9 @@
     },
     {
       "name": "battle_start",
-      "text": "two quick soft wooden toy drum taps followed by a bright cheerful rising marimba run of three notes ending on a little sparkle, playful and light, close and dry, no brass, no orchestra, no voice",
-      "duration": 0.8,
+      "text": "a short playful toy fanfare that finishes completely: two soft wooden drum taps, then four bright marimba notes rising, the last note rings and fades all the way to silence, close and dry, no brass, no orchestra, no voice",
+      "duration": 1.6,
+      "prompt_influence": 0.55,
       "output": "../../../Assets/Resources/Audio/battle_start.mp3",
       "notes": "进关「战斗开始」横幅"
     },
@@ -261,12 +262,29 @@
       "text": "a single playing card flipped quickly onto a table, a crisp light paper flick with a tiny soft pop, close and dry, no reverb, no music, no voice",
       "duration": 0.25,
       "output": "../../../Assets/Resources/Audio/card_flip.mp3",
-      "notes": "开箱翻出一张道具卡"
+      "notes": "开箱翻出一张道具卡，绿蓝稀有各有自己的音，这条只做备用"
+    },
+    {
+      "name": "card_green",
+      "text": "a small common reward chime: two soft bright glass notes, the second note rings and fades all the way to silence, light and pleasant, close and dry, no wood, no voice",
+      "duration": 0.55,
+      "prompt_influence": 0.55,
+      "output": "../../../Assets/Resources/Audio/card_green.mp3",
+      "notes": "开出普通（绿）道具卡"
+    },
+    {
+      "name": "card_blue",
+      "text": "a nicer reward chime than a common one: three bright crystal notes rising, the last note rings and fades all the way to silence, clear and sparkling, close, short room, no wood, no voice",
+      "duration": 0.8,
+      "prompt_influence": 0.55,
+      "output": "../../../Assets/Resources/Audio/card_blue.mp3",
+      "notes": "开出高级（蓝）道具卡"
     },
     {
       "name": "card_rare",
-      "text": "a rare reward reveal, a bright rising glittering harp swirl ending on a sparkling bell chime, magical and exciting, short, no voice",
-      "duration": 0.9,
+      "text": "a special rare treasure reveal that finishes completely: a rising magical sparkle, then a bright precious bell that rings out and fades all the way to silence, exciting and clearly different from a small chime, no wood, no voice",
+      "duration": 1.3,
+      "prompt_influence": 0.55,
       "output": "../../../Assets/Resources/Audio/card_rare.mp3",
       "notes": "开出紫色道具卡 / 新道具"
     },

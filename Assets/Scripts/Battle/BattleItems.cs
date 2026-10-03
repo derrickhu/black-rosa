@@ -70,8 +70,6 @@ namespace InkLine
 
         public int SlotItem(int slot) => slot >= 0 && slot < _slots.Length ? _slots[slot] : -1;
 
-        public bool ItemsSealed => Stage != null && Stage.Has(StageRule.NoItem);
-
         // 0 刚丢完，1 冷却好了。
         public float SlotCharge(int slot)
         {
@@ -125,7 +123,7 @@ namespace InkLine
 
         void TickItems(float dt)
         {
-            if (ItemsSealed || PreviewFill) return;
+            if (PreviewFill) return;
             for (int i = _pending.Count - 1; i >= 0; i--)
             {
                 PendingCast p = _pending[i];

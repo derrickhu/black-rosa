@@ -23,7 +23,6 @@ namespace InkLine
     {
         public const int Count = 9;
         public const int MaxLevel = 5;
-        public const ItemId Starter = ItemId.Burst;
 
         static readonly ItemDef[] All =
         {

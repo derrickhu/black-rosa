@@ -100,9 +100,15 @@ namespace InkLine
         public static void ItemReady() => CueOr("item_ready", "chime", 0.55f, 0.3f, 1f);
         public static void ChestLand() => CueOr("chest_land", "stamp", 0.9f, 0.2f, 1f);
         public static void ChestUnlock() => CueOr("chest_unlock", "chime", 0.85f, 0.2f, 1f);
-        public static void ChestOpen() => CueOr("chest_open", "res_unlock", 0.95f, 0.4f, 1f);
+        public static void ChestOpen() => CueOr("chest_open", "res_unlock", 0.72f, 0.4f, 1f);
         public static void CardFlip(float pitch) => CueOr("card_flip", "ui_tap", 0.8f, 0.05f, pitch);
-        public static void CardRare() => CueOr("card_rare", "res_unlock", 0.9f, 0.3f, 1f);
+        public static void CardReveal(ItemQuality q)
+        {
+            if (q == ItemQuality.Purple) CueOr("card_rare", "chime", 1f, 0.2f, 1f);
+            else if (q == ItemQuality.Blue) CueOr("card_blue", "card_flip", 0.95f, 0.08f, 1.05f);
+            else CueOr("card_green", "card_flip", 0.9f, 0.06f, 1f);
+        }
+        public static void CardRare() => CardReveal(ItemQuality.Purple);
         public static void Win() => Cue("win", 0.9f, 0.4f, 0f);
         public static void Lose() => Cue("lose", 0.85f, 0.4f, 0f);
 
@@ -118,6 +124,29 @@ namespace InkLine
         {
             Cue(Clip(name) != null ? name : fallback, volume, gap, 0f, pitch);
         }
+
+        public static bool MusicOn
+        {
+            get => PlayerPrefs.GetInt(MusicKey, 1) != 0;
+            set
+            {
+                PlayerPrefs.SetInt(MusicKey, value ? 1 : 0);
+                PlayerPrefs.Save();
+            }
+        }
+
+        public static bool SfxOn
+        {
+            get => PlayerPrefs.GetInt(SfxKey, 1) != 0;
+            set
+            {
+                PlayerPrefs.SetInt(SfxKey, value ? 1 : 0);
+                PlayerPrefs.Save();
+            }
+        }
+
+        const string MusicKey = "inkline.audio.music";
+        const string SfxKey = "inkline.audio.sfx";
 
         public static void Music(string name)
         {
@@ -166,7 +195,7 @@ namespace InkLine
         public static void Tick()
         {
             float bed = _musicName == "bgm_battle" ? MusicBattle : MusicHome;
-            float target = bed * (_duck ? 0.4f : 1f);
+            float target = MusicOn ? bed * (_duck ? 0.4f : 1f) : 0f;
             float step = Time.unscaledDeltaTime * 0.7f;
 #if UNITY_MINIGAME || WEIXINMINIGAME || UNITY_WEIXINMINIGAME || MINIGAME_SUBPLATFORM_WEIXIN
             if (_stream != null && _streamOn)
@@ -251,6 +280,7 @@ namespace InkLine
 
         static void Cue(string name, float volume, float gap, float jitter, float pitch = 1f)
         {
+            if (!SfxOn) return;
             float now = Time.unscaledTime;
             if (_readyAt.TryGetValue(name, out float at) && now < at) return;
             _readyAt[name] = now + gap;

@@ -20,11 +20,11 @@ namespace InkLine
         public const int StageCount = ChapterSize * Chapters;
 
         // 局外：体力。每次进关都收，失败不退。见 MetaProgress.StageCost。
-        public const int StaminaMax = 12;
+        public const int StaminaMax = 20;
         public const int StaminaPerStage = 2;
         public const int StaminaFinale = 3;
         public const int StaminaRegenMinutes = 15;
-        public const int AdStaminaGain = 6;
+        public const int AdStaminaGain = 10;
         public const int AdStaminaPerDay = 5;
         public const int StarterInk = 85;
 
