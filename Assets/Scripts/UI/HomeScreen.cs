@@ -231,6 +231,42 @@ namespace InkLine
                 if (_pages[i] != null) _pages[i].gameObject.SetActive(i == tab);
             UiKit.PaintTab(_tabs, tab);
             Rebuild(tab);
+            TabPicked?.Invoke(tab);
+        }
+
+        // ---------- 新手指引要用的几个落点 ----------
+
+        public int Tab => _tab;
+        public event Action<int> TabPicked;
+        // 词条买成功后报一声，下标是词条。
+        public event Action<int> ForgeBought;
+
+        public RectTransform TabRect(int tab) =>
+            _tabs != null && tab >= 0 && tab < _tabs.Length && _tabs[tab] != null ? _tabs[tab].transform as RectTransform : null;
+
+        public RectTransform GoRect => _view != null && _view.GoButton != null ? _view.GoButton.transform as RectTransform : null;
+
+        public RectTransform BoostAct(int line)
+        {
+            if (_view == null || _view.Boosts == null || line < 0 || line >= _view.Boosts.Length) return null;
+            HomeBoostRow slot = _view.Boosts[line];
+            Button act = slot != null && slot.Ui != null ? slot.Ui.Act : null;
+            return act != null ? act.transform as RectTransform : null;
+        }
+
+        public void RefreshWallet()
+        {
+            _shownSec = -1;
+            Rebuild(_tab);
+        }
+
+        // 顶栏三个格子，奖励飞进来落在这里。
+        public RectTransform WalletChip(string key)
+        {
+            Text t = key == "diamond" ? _diamond : key == "ink" ? _ink : _stamina;
+            if (t == null) return null;
+            Transform p = t.transform.parent;
+            return (p != null ? p : t.transform) as RectTransform;
         }
 
         void Rebuild(int tab)
@@ -595,6 +631,7 @@ namespace InkLine
                     if (!_meta.BuyForge(idx)) return;
                     Rebuild(TabForge);
                     ItemCelebrate.Row(_layer, BoostRow(idx), "Lv." + _meta.ForgeLevel(idx));
+                    ForgeBought?.Invoke(idx);
                 },
                 (_forgeFresh & (1L << line)) != 0);
             MuteRow(slot);
@@ -695,7 +732,42 @@ namespace InkLine
                 return;
             }
             AudioBus.Tap();
-            ChestPanel.Show(_layer, _meta, slot, AfterReward);
+            ChestPanel panel = ChestPanel.Show(_layer, _meta, slot, AfterReward, ChestFree);
+            if (panel != null) ChestOpened?.Invoke(panel);
+        }
+
+        // 新手指引那一次开箱免费加速。
+        public bool ChestFree;
+        public event Action<ChestPanel> ChestOpened;
+
+        public RectTransform ChestRect(int slot)
+        {
+            if (_chests == null || _chests.Root == null) return null;
+            return _chests.Root.Find("c" + slot) as RectTransform;
+        }
+
+        public RectTransform ItemCardRect(int item)
+        {
+            HomeItemPage host = ItemPage();
+            return host != null ? host.CardOf(item) : null;
+        }
+
+        public RectTransform ItemShelfRect()
+        {
+            HomeItemPage host = ItemPage();
+            return host != null ? host.ShelfRect : null;
+        }
+
+        public RectTransform ItemSlotRect(int slot)
+        {
+            HomeItemPage host = ItemPage();
+            return host != null ? host.SlotRect(slot) : null;
+        }
+
+        HomeItemPage ItemPage()
+        {
+            RectTransform page = _pages != null && _pages.Length > TabSpell ? _pages[TabSpell] : null;
+            return page != null ? page.GetComponent<HomeItemPage>() : null;
         }
 
         void BindChapter(int frontier)

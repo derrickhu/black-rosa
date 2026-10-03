@@ -81,7 +81,7 @@ namespace InkLine
             AudioBus.Tap();
             if (!_meta.CanAdStamina)
             {
-                InkToast.Show(transform.parent, _meta.Stamina >= GameConstants.StaminaMax ? "体力已满" : "今天的广告次数用完了");
+                InkToast.Show(transform.parent, "今天的广告次数用完了");
                 return;
             }
             AdStub.Reward("stamina", () =>
@@ -97,8 +97,7 @@ namespace InkLine
         {
             AudioBus.Tap();
             int price = _meta.StaminaDiamondPrice;
-            string why = _meta.Stamina >= GameConstants.StaminaMax ? "体力已满"
-                : price < 0 ? "今天的钻石次数用完了"
+            string why = price < 0 ? "今天的钻石次数用完了"
                 : _meta.Diamond < price ? $"钻石不够，还差 {price - _meta.Diamond}" : null;
             if (why != null || !_meta.BuyStamina())
             {

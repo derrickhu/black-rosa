@@ -71,6 +71,69 @@ namespace InkLine
         public int SkinNew;
         // 活动货币，留给皮肤专属词条。ForgeCoin.Token 从这里扣。
         public int Token;
+        // 新手指引走到哪一步。跟着整份存档上云，清缓存、换机都不重走。
+        public int GuideStep;
+        public const int GuideBattle = 0;
+        public const int GuideForge = 1;
+        public const int GuideChest = 2;
+        public const int GuideGift = 3;
+        public const int GuideSortie = 4;
+        // 领完新手奖励后教弹弓解锁、装备。比出征大一号，是后加的一步，教完再回到 GuideSortie。
+        public const int GuideItem = 5;
+        public const int GuideDone = 9;
+        // 第一次攒够卡能解锁道具时教解锁、装备。教过一次就不再教。
+        public bool ItemGuideDone;
+
+        public bool Guiding => GuideStep < GuideDone;
+
+        public void SetGuide(int step)
+        {
+            if (GuideStep == step) return;
+            GuideStep = step;
+            Save();
+            CloudSync.FlushNow("guide");
+        }
+
+        // 第一个攒够卡、还没解锁的道具；没有返回 -1。
+        public int FirstUnlockable
+        {
+            get
+            {
+                for (int i = 0; i < ItemCatalog.Count; i++)
+                    if (ItemRank(i) <= 0 && CanUpgradeItem(i, out _)) return i;
+                return -1;
+            }
+        }
+
+        public int FirstChestSlot
+        {
+            get
+            {
+                for (int i = 0; i < ChestSlot.Length; i++)
+                    if (ChestStateOf(i) != ChestState.Empty) return i;
+                return -1;
+            }
+        }
+
+        public void SetItemGuideDone()
+        {
+            if (ItemGuideDone) return;
+            ItemGuideDone = true;
+            Save();
+        }
+
+        public void GrantGuideGift()
+        {
+            if (GuideStep != GuideGift) return;
+            Diamond += GameConstants.GuideDiamond;
+            Ink += GameConstants.GuideInk;
+            Stamina += GameConstants.GuideStamina;
+            int snipe = (int)ItemId.Snipe;
+            if (snipe >= 0 && snipe < ItemCards.Length) ItemCards[snipe] += GameConstants.GuideSlingshot;
+            GuideStep = GuideItem;
+            Save();
+            CloudSync.FlushNow("guide");
+        }
 
         public static MetaProgress Load()
         {
@@ -171,7 +234,23 @@ namespace InkLine
             Ink = Mathf.Max(0, Ink);
             Diamond = Mathf.Max(0, Diamond);
             Token = Mathf.Max(0, Token);
-            Stamina = Mathf.Clamp(Stamina, 0, GameConstants.StaminaMax);
+            // 奖励来的体力可以超过上限，这里只防负数，否则重进游戏多出来的就被削掉。
+            Stamina = Mathf.Max(0, Stamina);
+            if (GuideStep == GuideBattle && ClearedCount() > 0)
+            {
+                GuideStep = Forge[(int)ForgeLine.Damage] > 0 || ClearedCount() > 1 ? GuideDone : GuideForge;
+                rulesChanged = true;
+            }
+            if (!ItemGuideDone)
+            {
+                for (int i = 0; i < ItemLevel.Length; i++)
+                    if (ItemLevel[i] > 0)
+                    {
+                        ItemGuideDone = true;
+                        rulesChanged = true;
+                        break;
+                    }
+            }
             if (rulesChanged) Save();
             if (ForgeSeenVer < 1)
             {
@@ -419,13 +498,13 @@ namespace InkLine
             Save();
         }
 
-        public bool CanAdStamina => AdStaminaToday < GameConstants.AdStaminaPerDay
-                                    && Stamina < GameConstants.StaminaMax;
+        // 上限只管自动回复停不停。奖励、购买来的体力一律照加，可以超过上限。
+        public bool CanAdStamina => AdStaminaToday < GameConstants.AdStaminaPerDay;
 
         public void GrantAdStamina()
         {
             AdStaminaToday++;
-            Stamina = Mathf.Min(GameConstants.StaminaMax, Stamina + GameConstants.AdStaminaGain);
+            Stamina += GameConstants.AdStaminaGain;
             Save();
         }
 
@@ -502,6 +581,12 @@ namespace InkLine
             }
             Ink += ink;
             r.Ink = ink;
+            // 新手打完第一关要能当场升一级伤害。一局掉得太少时悄悄补齐，结算页的数不变。
+            if (stage == 0 && r.FirstClear && GuideStep == GuideBattle)
+            {
+                Ink = Mathf.Max(Ink, ForgeCatalog.Get((int)ForgeLine.Damage).Cost[0]);
+                GuideStep = GuideForge;
+            }
             Save();
             return r;
         }
@@ -586,7 +671,7 @@ namespace InkLine
             if (doubled) CheckAdDay = Today;
             Ink += GameConstants.CheckInk * times;
             Diamond += CheckDiamondOf(day) * times;
-            Stamina = Mathf.Min(GameConstants.StaminaMax, Stamina + GameConstants.CheckStamina * times);
+            Stamina += GameConstants.CheckStamina * times;
             if (day == GameConstants.CheckDays)
             {
                 chest = GrantChest(ChestTier.Gold);
@@ -608,7 +693,7 @@ namespace InkLine
             CheckAdDay = Today;
             Ink += GameConstants.CheckInk;
             Diamond += CheckDiamondOf(CheckRun);
-            Stamina = Mathf.Min(GameConstants.StaminaMax, Stamina + GameConstants.CheckStamina);
+            Stamina += GameConstants.CheckStamina;
             Save();
             return true;
         }
@@ -879,7 +964,8 @@ namespace InkLine
             return true;
         }
 
-        public bool UpgradeItem(int i)
+        // equip=false 时解锁后不自动装上，新手指引要让玩家自己点一次「装备」。
+        public bool UpgradeItem(int i, bool equip = true)
         {
             if (!CanUpgradeItem(i, out _)) return false;
             int rank = ItemRank(i);
@@ -887,7 +973,7 @@ namespace InkLine
             Ink -= ItemCatalog.NextPrice(d, rank);
             ItemCards[i] -= ItemCatalog.NextCards(d, rank);
             ItemLevel[i] = rank + 1;
-            if (rank <= 0 && EquippedSlot(i) < 0 && FreeItemSlot >= 0) Equipped[FreeItemSlot] = i;
+            if (equip && rank <= 0 && EquippedSlot(i) < 0 && FreeItemSlot >= 0) Equipped[FreeItemSlot] = i;
             Save();
             return true;
         }
@@ -1013,7 +1099,11 @@ namespace InkLine
         public ChestLoot OpenChest(int slot)
         {
             if (ChestStateOf(slot) != ChestState.Ready) return null;
-            ChestLoot loot = ChestCatalog.Roll(ChestTierOf(slot), ItemLevel, Equipped);
+            ChestTier tier = ChestTierOf(slot);
+            // 指引里打开的就是第一关那只木箱，卡固定 3 张弹弓。之后的木箱仍随机。
+            ChestLoot loot = GuideStep == GuideChest && tier == ChestTier.Wood
+                ? ChestCatalog.GuideSlingshot(tier)
+                : ChestCatalog.Roll(tier, ItemLevel, Equipped);
             ChestSlot[slot] = 0;
             ChestDone[slot] = 0L;
             ApplyLoot(loot);
@@ -1118,14 +1208,14 @@ namespace InkLine
             DiamondStamCount < GameConstants.DiamondStaminaPerDay ? GameConstants.DiamondStaminaPrice : -1;
 
         public bool CanBuyStamina =>
-            StaminaDiamondPrice > 0 && Diamond >= StaminaDiamondPrice && Stamina < GameConstants.StaminaMax;
+            StaminaDiamondPrice > 0 && Diamond >= StaminaDiamondPrice;
 
         public bool BuyStamina()
         {
             if (!CanBuyStamina) return false;
             Diamond -= StaminaDiamondPrice;
             DiamondStamCount++;
-            Stamina = Mathf.Min(GameConstants.StaminaMax, Stamina + GameConstants.DiamondStaminaGain);
+            Stamina += GameConstants.DiamondStaminaGain;
             Save();
             return true;
         }

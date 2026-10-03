@@ -390,8 +390,28 @@ def v2():
         print(name, cut.size, "aspect", round(cut.width / max(1, cut.height), 3))
 
 
+def guide():
+    """新手指引：左半手指，右半气泡。气泡带尾巴，不切九宫格，按原比例摆。"""
+    os.makedirs(DEST, exist_ok=True)
+    sheet = Image.open(os.path.join(RAW, "guide_sheet.png")).convert("RGBA")
+    bg = _bg(sheet)
+    half = int(sheet.width * 0.38)
+    parts = {
+        "guide_hand": (0, 0, half, sheet.height),
+        "guide_bubble": (half, 0, sheet.width, sheet.height),
+    }
+    for name, box in parts.items():
+        cut = _shrink(_dehalo(_cut(sheet.crop(box), bg, 36.0, 80.0)), 360 if name == "guide_hand" else 560)
+        path = os.path.join(DEST, name + ".png")
+        cut.save(path, optimize=True)
+        _meta(path, (0, 0, 0, 0))
+        print(name, cut.size, "aspect", round(cut.width / max(1, cut.height), 3))
+
+
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "v2":
         v2()
+    elif len(sys.argv) > 1 and sys.argv[1] == "guide":
+        guide()
     else:
         main()

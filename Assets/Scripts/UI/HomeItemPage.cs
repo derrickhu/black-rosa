@@ -172,25 +172,36 @@ namespace InkLine
             LayoutRebuilder.ForceRebuildLayoutImmediate(_view.List);
         }
 
-        // 已有的在前；同一档里能升级的往前提，再按品质从高到低。
+        // 已解锁的排前面：等级高的在前，同等级按升下一级的进度。
+        // 还没解锁的排后面，按攒卡进度，快解锁的在前。进度一样保持图鉴原序。
         int[] Order()
         {
             var ids = new int[ItemCatalog.Count];
             for (int i = 0; i < ids.Length; i++) ids[i] = i;
             Array.Sort(ids, (a, b) =>
             {
-                int ka = Key(a), kb = Key(b);
-                return ka != kb ? kb.CompareTo(ka) : a.CompareTo(b);
+                int oa = _meta.ItemRank(a) > 0 ? 1 : 0;
+                int ob = _meta.ItemRank(b) > 0 ? 1 : 0;
+                if (oa != ob) return ob.CompareTo(oa);
+                if (oa == 1)
+                {
+                    int la = _meta.ItemRank(a), lb = _meta.ItemRank(b);
+                    if (la != lb) return lb.CompareTo(la);
+                }
+                int pa = Fill(a), pb = Fill(b);
+                return pa != pb ? pb.CompareTo(pa) : a.CompareTo(b);
             });
             return ids;
         }
 
-        int Key(int i)
+        // 千分比。卡攒够、或已经满级，都算走完这一档。
+        int Fill(int i)
         {
-            int k = (int)ItemCatalog.Get(i).Quality;
-            if (_meta.CanUpgradeItem(i, out _)) k += 10;
-            if (_meta.ItemRank(i) > 0) k += 100;
-            return k;
+            int rank = _meta.ItemRank(i);
+            if (rank >= ItemCatalog.MaxLevel) return 1000;
+            int need = ItemCatalog.NextCards(ItemCatalog.Get(i), rank);
+            if (need <= 0) return 1000;
+            return Mathf.Clamp(_meta.ItemCardCount(i) * 1000 / need, 0, 1000);
         }
 
         static string FrameOf(ItemQuality q) =>
@@ -247,8 +258,27 @@ namespace InkLine
             else card.CardIcon.transform.localScale = Vector3.one;
 
             int idx = i;
+            card.Item = i;
             card.Button.onClick.RemoveAllListeners();
             card.Button.onClick.AddListener(() => TapCard(idx));
+        }
+
+        public RectTransform CardOf(int item)
+        {
+            if (_view == null || _view.Cards == null) return null;
+            for (int k = 0; k < _view.Cards.Length; k++)
+                if (_view.Cards[k] != null && _view.Cards[k].Item == item) return _view.Cards[k].transform as RectTransform;
+            return null;
+        }
+
+        public RectTransform ShelfRect =>
+            _view != null && _view.Shelf != null ? _view.Shelf.rectTransform : null;
+
+        public RectTransform SlotRect(int s)
+        {
+            if (_view == null || _view.Slots == null || s < 0 || s >= _view.Slots.Length || _view.Slots[s] == null)
+                return null;
+            return _view.Slots[s].transform as RectTransform;
         }
 
         void TapCard(int i)

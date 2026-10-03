@@ -157,59 +157,16 @@ namespace InkLine
             ChestOpenView.Show(layer, _meta, loot, _changed);
         }
 
-        static void Land(RectTransform layer, RectTransform flyer, RectTransform chip, Color spark)
-        {
-            Vector2 at = flyer != null ? flyer.anchoredPosition : Vector2.zero;
-            if (flyer != null) Destroy(flyer.gameObject);
-            AudioBus.Pickup();
-            UiConfetti.Sparks(layer, at, spark, 10, 420f);
-            if (chip == null) return;
-            UiAnim.On(chip).Punch(chip, 0f, 0.18f, 0.32f);
-        }
+        static void Land(RectTransform layer, RectTransform flyer, RectTransform chip, Color spark) =>
+            RewardFly.Land(layer, flyer, chip, spark);
 
-        void Fly(RectTransform flyer, Vector2 from, Vector2 to)
-        {
-            UiAnim.On(this).Tween(0f, 0.55f, k =>
-            {
-                if (flyer == null) return;
-                float e = Ease.OutCubic(k);
-                Vector2 p = Vector2.Lerp(from, to, e);
-                p.y += Mathf.Sin(e * Mathf.PI) * 90f;
-                flyer.anchoredPosition = p;
-                float s = Mathf.Lerp(1.15f, 0.45f, e);
-                flyer.localScale = new Vector3(s, s, 1f);
-            });
-        }
+        void Fly(RectTransform flyer, Vector2 from, Vector2 to) => RewardFly.Fly(this, flyer, from, to);
 
-        static RectTransform Flyer(RectTransform layer, string icon, int n, Vector2 pos)
-        {
-            var g = ResultKit.Group(layer, "fly_" + icon, pos, new Vector2(140f, 150f));
-            var glow = UiKit.Icon(g, InkFx.SoftDisc(), new Vector2(0f, 18f), 160f);
-            glow.color = new Color(1f, 0.9f, 0.7f, 0.55f);
-            UiKit.Icon(g, InkSprites.Ui(icon), new Vector2(0f, 18f), 104f);
-            var t = UiKit.Label(g, "n", "+" + n, 34, new Vector2(0f, -52f), new Vector2(140f, 42f));
-            t.color = InkTheme.Seal;
-            UiKit.Bold(t);
-            g.SetAsLastSibling();
-            g.localScale = Vector3.zero;
-            return g;
-        }
+        static RectTransform Flyer(RectTransform layer, string icon, int n, Vector2 pos) =>
+            RewardFly.Flyer(layer, icon, n, pos);
 
-        static RectTransform Chip(RectTransform layer, string a, string b)
-        {
-            Transform home = layer.Find("Home");
-            Transform t = home != null ? home.Find(a) : null;
-            if (t == null && home != null) t = home.Find(b);
-            if (t == null) t = layer.Find(a);
-            if (t == null) t = layer.Find(b);
-            return t as RectTransform;
-        }
+        static RectTransform Chip(RectTransform layer, string a, string b) => RewardFly.Chip(layer, a, b);
 
-        static Vector2 Local(RectTransform layer, Transform target)
-        {
-            var rt = target as RectTransform;
-            Vector3 world = rt != null ? rt.TransformPoint(rt.rect.center) : target.position;
-            return layer.InverseTransformPoint(world);
-        }
+        static Vector2 Local(RectTransform layer, Transform target) => RewardFly.Local(layer, target);
     }
 }

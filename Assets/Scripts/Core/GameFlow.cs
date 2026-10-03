@@ -38,6 +38,16 @@ namespace InkLine
         bool _teachAim;
         const string AimTip = "按住底部左右滑，对准敌人";
         Transform _overlay;
+        // 新手第一关：_guide 管整局（没有设置、没有广告加炮、抽牌不能关），
+        // _teach 是局里的三步教学：1 选字、2 放字、3 滑炮，0 教完了。
+        bool _guide;
+        int _teach;
+        // 再抽到盘上已有的字时教一次升星：4 选那张、5 放到同字上。
+        bool _taughtUp;
+        GuideMask _mask;
+        // 首页道具指引：正在教的道具，-1 是没在教；_itemPhase 1 教解锁、2 教装备。
+        int _itemTeach = -1;
+        int _itemPhase;
         int _shotPage = -1;
         readonly bool[] _shotGot = new bool[4];
         readonly Queue<string> _codexToasts = new Queue<string>();
@@ -57,6 +67,9 @@ namespace InkLine
         void OnDestroy()
         {
             CloudSync.Imported -= OnCloudImported;
+            ItemPanel.Opened -= OnItemPanel;
+            ItemPanel.UnlockDone -= OnItemUnlocked;
+            ItemPanel.EquipDone -= OnItemEquipped;
         }
 
         // 进大厅后才到的云端档（启动超时后晚到、或上行被 409 打回）。
@@ -65,7 +78,7 @@ namespace InkLine
         {
             if (_canvas == null) return;
             _meta = MetaProgress.Load();
-            if (_screen == Screen.Lobby) ShowHome();
+            if (_screen == Screen.Lobby) Enter();
         }
 
         void Begin()
@@ -81,8 +94,25 @@ namespace InkLine
                 BattleWorld.PreviewFill = true;
             WxBridge.OnHide(NoteLeft);
             WxBridge.OnShow(NoteBack);
-            ShowHome();
-            if (BattleWorld.PreviewFill) StartStage(0);
+            ItemPanel.Opened += OnItemPanel;
+            ItemPanel.UnlockShown += _ => CloseMask();
+            ItemPanel.UnlockDone += OnItemUnlocked;
+            ItemPanel.EquipDone += OnItemEquipped;
+            if (BattleWorld.PreviewFill)
+            {
+                ShowHome();
+                StartStage(0);
+                return;
+            }
+            Enter();
+        }
+
+        // 新玩家不看首页，直接进第一关；指引走到一半杀进程的，回到对应那一步。
+        void Enter()
+        {
+            if (_meta.GuideStep == MetaProgress.GuideBattle) StartStage(0);
+            else if (_meta.GuideStep == MetaProgress.GuideForge) ShowHome(HomeScreen.TabForge);
+            else ShowHome();
         }
 
         void OnApplicationPause(bool paused)
@@ -161,7 +191,7 @@ namespace InkLine
         void ReloadSave()
         {
             _meta = MetaProgress.Load();
-            ShowHome();
+            Enter();
         }
 
         void ShowHome() => ShowHome(HomeScreen.TabSortie);
@@ -180,7 +210,7 @@ namespace InkLine
 
         void PauseForReturn()
         {
-            if (_world == null || _hud == null || _askingRetreat) return;
+            if (_world == null || _hud == null || _askingRetreat || _guide) return;
             if (_screen == Screen.Lobby || _screen == Screen.Result) return;
             OpenSettings();
         }
@@ -188,7 +218,7 @@ namespace InkLine
         // 战斗里的设置：音乐、音效、继续，或者撤退。体力进关就扣了，撤退不退。
         void OpenSettings()
         {
-            if (_world == null || _askingRetreat || _hud == null) return;
+            if (_world == null || _askingRetreat || _hud == null || _guide) return;
             if (_screen == Screen.Lobby) return;
             _askingRetreat = true;
             bool wasPaused = _world.Paused;
@@ -264,24 +294,280 @@ namespace InkLine
             _world = null;
             _hud = null;
             BattleHud.ReleaseCamera();
+            _guide = false;
+            _teach = 0;
             _home = HomeScreen.Build(_layer, _meta, StartStage, ReloadSave, tab);
             AudioBus.Music("bgm_home");
             AudioBus.Warm("bgm_battle");
+            _home.TabPicked += OnHomeTab;
+            _home.ForgeBought += OnHomeForge;
+            _home.ChestOpened += OnChestPanel;
+            _itemTeach = -1;
+            ItemPanel.HoldEquip = false;
+            GuideHome();
+        }
+
+        // ---------- 新手指引：首页这半段（升伤害 → 开箱 → 领奖励 → 弹弓 → 出征第二关） ----------
+
+        void GuideHome()
+        {
+            if (_home == null) return;
+            int step = _meta.GuideStep;
+            _home.ChestFree = step == MetaProgress.GuideChest;
+            if (step == MetaProgress.GuideForge) GuideForge();
+            else if (step == MetaProgress.GuideChest) GuideChest();
+            else if (step == MetaProgress.GuideGift) GuideGift();
+            else if (step == MetaProgress.GuideItem) GuideItem();
+            else if (step == MetaProgress.GuideSortie) GuideSortie();
+            else if (!_meta.ItemGuideDone && _meta.FirstUnlockable >= 0) GuideItem();
+            else CloseMask();
+        }
+
+        // 升完伤害教开箱：点宝箱 → 免费加速 → 打开 → 看完开箱演出接新手奖励。
+        void GuideChest()
+        {
+            int slot = _meta.FirstChestSlot;
+            if (slot < 0)
+            {
+                _meta.SetGuide(MetaProgress.GuideGift);
+                GuideHome();
+                return;
+            }
+            if (_home.Tab != HomeScreen.TabSortie)
+            {
+                PointAt(_home.TabRect(HomeScreen.TabSortie), "通关送了宝箱，去出征页看看");
+                return;
+            }
+            PointAt(_home.ChestRect(slot), "点开宝箱");
+        }
+
+        void OnChestPanel(ChestPanel panel)
+        {
+            if (_meta.GuideStep != MetaProgress.GuideChest || panel == null) return;
+            if (_meta.ChestStateOf(_meta.FirstChestSlot) == ChestState.Ready)
+                PointAt(panel.OpenRect, "打开宝箱");
+            else
+                PointAt(panel.SpeedRect, "不同宝箱等待时间不同\n这次可以免费解锁", panel.StateRect);
+            panel.Sped += () => PointAt(panel.OpenRect, "加速好了，打开宝箱");
+            panel.Opening += CloseMask;
+            panel.Revealed += () =>
+            {
+                if (_meta.GuideStep != MetaProgress.GuideChest) return;
+                _meta.SetGuide(MetaProgress.GuideGift);
+                GuideHome();
+            };
+        }
+
+        // ---------- 道具指引：新手奖励后教弹弓；以后第一次攒够别的卡也走这里 ----------
+
+        void GuideItem()
+        {
+            bool sling = _meta.GuideStep == MetaProgress.GuideItem;
+            int pinned = (int)ItemId.Snipe;
+            if (sling && _meta.EquippedSlot(pinned) >= 0)
+            {
+                ExplainShelf();
+                return;
+            }
+            if (sling && _meta.ItemRank(pinned) <= 0 && !_meta.CanUpgradeItem(pinned, out _))
+            {
+                _itemTeach = -1;
+                ItemPanel.HoldEquip = false;
+                _meta.SetGuide(MetaProgress.GuideSortie);
+                GuideSortie();
+                return;
+            }
+            int item = _itemTeach >= 0 ? _itemTeach : (sling ? pinned : _meta.FirstUnlockable);
+            if (item < 0)
+            {
+                CloseMask();
+                return;
+            }
+            if (_itemTeach < 0)
+            {
+                _itemTeach = item;
+                _itemPhase = _meta.ItemRank(item) > 0 ? 2 : 1;
+                ItemPanel.HoldEquip = _itemPhase == 1;
+            }
+            if (_home.Tab != HomeScreen.TabSpell)
+            {
+                PointAt(_home.TabRect(HomeScreen.TabSpell), sling ? "弹弓卡攒够了\n去道具页" : "道具卡攒够了，去解锁道具");
+                return;
+            }
+            PointAt(_home.ItemCardRect(item), sling
+                ? (_itemPhase == 1 ? "点开弹弓" : "再点开弹弓，把它装上")
+                : (_itemPhase == 1 ? "点开这个道具" : "再点开它，把它装上"));
+        }
+
+        void OnItemPanel(ItemPanel panel)
+        {
+            if (_itemTeach < 0 || panel == null || panel.Item != _itemTeach) return;
+            bool sling = _meta.GuideStep == MetaProgress.GuideItem;
+            if (_itemPhase == 1) PointAt(panel.UpRect, sling ? "点解锁，把弹弓升起来" : "攒够卡了，点解锁");
+            else PointAt(panel.EquipRect, "点装备，下一局自动放出来");
+        }
+
+        void OnItemUnlocked(int item)
+        {
+            if (item != _itemTeach || _home == null) return;
+            _itemPhase = 2;
+            ItemPanel.HoldEquip = false;
+            GuideItem();
+        }
+
+        void OnItemEquipped(int item)
+        {
+            if (item != _itemTeach) return;
+            bool sling = _meta.GuideStep == MetaProgress.GuideItem;
+            _itemTeach = -1;
+            ItemPanel.HoldEquip = false;
+            if (sling)
+            {
+                ExplainShelf();
+                return;
+            }
+            _meta.SetItemGuideDone();
+            CloseMask();
+            InkToast.Show(_layer, "装好了，进关后道具会自动释放");
+        }
+
+        // 装上之后先把道具栏亮出来讲一句，点一下再去出征。
+        void ExplainShelf()
+        {
+            if (_home == null) return;
+            if (_home.Tab != HomeScreen.TabSpell)
+            {
+                PointAt(_home.TabRect(HomeScreen.TabSpell), "看看道具栏");
+                return;
+            }
+            RectTransform shelf = _home.ItemShelfRect();
+            if (shelf == null)
+            {
+                FinishSlingshot();
+                return;
+            }
+            int slot = _meta.EquippedSlot((int)ItemId.Snipe);
+            RectTransform cell = _home.ItemSlotRect(slot);
+            ShowMask().HoleOn(shelf, 12f);
+            _mask.FingerOn(cell != null ? cell : shelf);
+            _mask.Say("弹弓装在道具栏\n进关后会自动放出");
+            _mask.WhenTapped(FinishSlingshot);
+        }
+
+        void FinishSlingshot()
+        {
+            _itemTeach = -1;
+            ItemPanel.HoldEquip = false;
+            _meta.SetItemGuideDone();
+            _meta.SetGuide(MetaProgress.GuideSortie);
+            GuideSortie();
+        }
+
+        void GuideForge()
+        {
+            if (_meta.ForgeLevel((int)ForgeLine.Damage) > 0)
+            {
+                _meta.SetGuide(MetaProgress.GuideGift);
+                GuideGift();
+                return;
+            }
+            if (_home.Tab != HomeScreen.TabForge)
+            {
+                PointAt(_home.TabRect(HomeScreen.TabForge), "去炮台");
+                return;
+            }
+            RectTransform act = _home.BoostAct((int)ForgeLine.Damage);
+            if (act == null)
+            {
+                _meta.SetGuide(MetaProgress.GuideGift);
+                GuideGift();
+                return;
+            }
+            PointAt(act, "升级伤害，下一局就生效");
+        }
+
+        void GuideGift()
+        {
+            CloseMask();
+            GuideGiftPanel.Show(_layer, _meta, _home.TabRect(HomeScreen.TabSpell), () =>
+            {
+                if (_home == null) return;
+                _home.RefreshWallet();
+                GuideHome();
+            });
+        }
+
+        void GuideSortie()
+        {
+            if (_home.Tab != HomeScreen.TabSortie)
+            {
+                PointAt(_home.TabRect(HomeScreen.TabSortie), "去出征");
+                return;
+            }
+            RectTransform go = _home.GoRect;
+            if (go == null)
+            {
+                _meta.SetGuide(MetaProgress.GuideDone);
+                CloseMask();
+                return;
+            }
+            PointAt(go, "开始第二关");
+        }
+
+        void PointAt(RectTransform target, string say, RectTransform clear = null)
+        {
+            if (target == null)
+            {
+                CloseMask();
+                return;
+            }
+            ShowMask().HoleOn(target, 10f);
+            _mask.ClearOf(clear);
+            _mask.TapHole();
+            _mask.Say(say);
+        }
+
+        void OnHomeTab(int tab)
+        {
+            int step = _meta.GuideStep;
+            if (step == MetaProgress.GuideForge || step == MetaProgress.GuideChest || step == MetaProgress.GuideItem
+                || step == MetaProgress.GuideSortie || _itemTeach >= 0)
+                GuideHome();
+        }
+
+        // 升级的庆祝先演完，再收遮罩去教开箱。
+        void OnHomeForge(int line)
+        {
+            if (_meta.GuideStep != MetaProgress.GuideForge || line != (int)ForgeLine.Damage) return;
+            ShowMask().Block(false);
+            _meta.SetGuide(MetaProgress.GuideChest);
+            HomeScreen home = _home;
+            UiAnim.On(_mask).At(1.1f, () =>
+            {
+                if (_home != home || _home == null) return;
+                GuideHome();
+            });
         }
 
         void StartStage(int index)
         {
             _meta.StorePending();
-            if (!BattleWorld.PreviewFill)
+            bool guide = index == 0 && _meta.GuideStep == MetaProgress.GuideBattle && !BattleWorld.PreviewFill;
+            // 新手第一关不收体力，输了重打也不收。
+            if (!BattleWorld.PreviewFill && !guide)
             {
                 int cost = _meta.StageCost(index);
                 if (!_meta.CanEnter(index)) return;
                 _meta.SpendStamina(cost);
             }
+            if (_meta.GuideStep == MetaProgress.GuideSortie) _meta.SetGuide(MetaProgress.GuideDone);
+            _guide = guide;
+            _teach = guide ? 1 : 0;
             _home = null;
             _pickStage = index;
             _taughtStar = false;
-            _teachAim = index == 0;
+            _taughtUp = false;
+            _teachAim = index == 0 && !guide;
             _tip = "";
             _world = new BattleWorld();
             _world.ItemRanks = _meta.ItemLevel;
@@ -316,7 +602,7 @@ namespace InkLine
         void TickAutoDraft()
         {
             if (_askingRetreat || _world == null || BattleWorld.PreviewFill || _world.Victory || _world.Defeat) return;
-            if (_screen != Screen.Battle) return;
+            if (_screen != Screen.Battle || _teach >= 3) return;
             float dt = Time.unscaledDeltaTime;
             if (_autoMute > 0f) _autoMute -= dt;
             if (!_world.CanDraft || _autoMute > 0f)
@@ -347,7 +633,7 @@ namespace InkLine
         // 抽牌、摆字、确认、撤退询问时都先排着，等回到战斗再弹，一次一张。
         void PumpDiscovery()
         {
-            if (_discoveries.Count == 0 || _askingRetreat || _dragging || InkPointer.Held) return;
+            if (_discoveries.Count == 0 || _askingRetreat || _dragging || InkPointer.Held || _teach >= 3) return;
             if (_world.Victory || _world.Defeat) return;
             CodexEntry e = _discoveries.Dequeue();
             bool wasPaused = _world.Paused;
@@ -373,7 +659,7 @@ namespace InkLine
             ClearLayer();
             _hud = BattleHud.Build(_layer, _world, OpenSettings, () =>
             {
-                if (_screen != Screen.Battle || !_world.CanDraft) return;
+                if (_screen != Screen.Battle || !_world.CanDraft || _teach >= 3) return;
                 OpenDraft();
             }, () =>
             {
@@ -385,6 +671,7 @@ namespace InkLine
                 });
             });
             _hud.GunSkin = _meta.Skin;
+            _hud.Guided = _guide;
         }
 
         static bool EventSystemOverUi()
@@ -407,6 +694,13 @@ namespace InkLine
             if (InkPointer.Down && InRailZone(InkPointer.WorldOnPlane()))
             {
                 _dragging = true;
+                // 第三步：手指一按上滑轨就算学会，收掉遮罩、世界接着走，跟手的那一下马上看得见。
+                if (_teach == 3)
+                {
+                    _teach = 0;
+                    CloseMask();
+                    if (_world != null) _world.Paused = false;
+                }
                 if (_teachAim)
                 {
                     _teachAim = false;
@@ -505,7 +799,7 @@ namespace InkLine
         {
             DropOverlay();
             string title = _offer != null && _offer.Length <= 1 ? "点下面的字" : "";
-            _overlay = DraftPanel.Show(_layer, title, _offer, _rerolled, Pick, () =>
+            System.Action reroll = () =>
             {
                 AdStub.Reward("reroll", () =>
                 {
@@ -513,7 +807,71 @@ namespace InkLine
                     RollOffer();
                     ShowDraftPanel();
                 });
-            }, CloseDraft);
+            };
+            _overlay = DraftPanel.Show(_layer, title, _offer, _rerolled, Pick,
+                _guide ? null : reroll, _guide ? null : (System.Action)CloseDraft);
+            int pick = 0;
+            if (_teach == 0 && _guide && !_taughtUp && _offer != null)
+            {
+                pick = -1;
+                for (int i = 0; i < _offer.Length && pick < 0; i++)
+                    if (HasSameOnBoard(_offer[i])) pick = i;
+                if (pick >= 0) _teach = 4;
+            }
+            if (_teach != 1 && _teach != 4) return;
+            var view = _overlay.GetComponent<DraftView>();
+            var card = view != null && view.Cards != null && view.Cards.Length > pick && view.Cards[pick] != null
+                ? view.Cards[pick].transform as RectTransform : null;
+            if (card == null)
+            {
+                if (_teach == 4) _teach = 0;
+                return;
+            }
+            ShowMask().HoleOn(card, 10f);
+            _mask.TapHole();
+            _mask.Say(_teach == 1 ? "点这个字，装上炮台" : "又来一个同样的字，点它");
+        }
+
+        GuideMask ShowMask()
+        {
+            if (_mask == null) _mask = GuideMask.Show(_layer);
+            return _mask;
+        }
+
+        void CloseMask()
+        {
+            if (_mask != null) _mask.Close();
+            _mask = null;
+        }
+
+        // 第二步：只露一个能放的空格。
+        void TeachPlace()
+        {
+            for (int r = 0; r < _world.OpenRows; r++)
+            for (int c = 0; c < GameConstants.Columns; c++)
+            {
+                if (!_world.IsOpen(c, r) || _world.PeekPlace(_held, c, r) != BattleWorld.PlaceResult.Placed) continue;
+                Vector3 at = FieldLayout.CellPos(c, r);
+                var half = new Vector3(GameConstants.CellWidth * 0.5f, GameConstants.CellHeight * 0.5f, 0f);
+                ShowMask().HoleWorld(at - half, at + half, 4f);
+                _mask.TapHole();
+                _mask.Say("点这个格子，把字放下");
+                return;
+            }
+            CloseMask();
+        }
+
+        // 第三步：世界停着，只露底部滑轨，手指左右比划。
+        void TeachAim()
+        {
+            float w = FieldLayout.FieldWidth * 0.5f;
+            float top = GameConstants.LeakY - 0.15f;
+            float bot = GameConstants.EmitterY - 0.9f;
+            ShowMask().HoleWorld(new Vector3(-w, bot, 0f), new Vector3(w, top, 0f), 0f);
+            Vector2 a = BattleHud.WorldToCanvas(_layer, new Vector3(-w * 0.6f, GameConstants.EmitterY, 0f));
+            Vector2 b = BattleHud.WorldToCanvas(_layer, new Vector3(w * 0.6f, GameConstants.EmitterY, 0f));
+            _mask.Swipe(a, b);
+            _mask.Say("按住这里左右滑，炮跟着走，对准敌人");
         }
 
         void CloseDraft()
@@ -538,6 +896,37 @@ namespace InkLine
             else _tip = "点一个格子放下。";
             _screen = Screen.Place;
             DropOverlay();
+            if (_teach == 1)
+            {
+                _teach = 2;
+                _tip = "";
+                TeachPlace();
+            }
+            else if (_teach == 4)
+            {
+                _teach = 5;
+                _tip = "";
+                TeachUp();
+            }
+        }
+
+        // 升星：只露盘上那个同字的格子。
+        void TeachUp()
+        {
+            for (int r = 0; r < _world.OpenRows; r++)
+            for (int c = 0; c < GameConstants.Columns; c++)
+            {
+                if (!_world.IsOpen(c, r) || _world.PeekPlace(_held, c, r) != BattleWorld.PlaceResult.Upgraded) continue;
+                Vector3 at = FieldLayout.CellPos(c, r);
+                var half = new Vector3(GameConstants.CellWidth * 0.5f, GameConstants.CellHeight * 0.5f, 0f);
+                ShowMask().HoleWorld(at - half, at + half, 4f);
+                _mask.TapHole();
+                _mask.Say("放到已有的同字上，升到 2 星，效果更好");
+                return;
+            }
+            _teach = 0;
+            _taughtUp = true;
+            CloseMask();
         }
 
         bool HasSameOnBoard(CardId id)
@@ -612,6 +1001,18 @@ namespace InkLine
         {
             _tip = _teachAim ? AimTip : "";
             ResumeBattle();
+            if (_teach == 2)
+            {
+                _teach = 3;
+                _world.Paused = true;
+                TeachAim();
+            }
+            else if (_teach == 5)
+            {
+                _teach = 0;
+                _taughtUp = true;
+                CloseMask();
+            }
         }
 
         void ResumeBattle()
@@ -636,6 +1037,16 @@ namespace InkLine
                 RankService.Submit(_meta.ClearedCount());
                 ShowVictory(_pickStage, _result);
             }
+            else if (_guide)
+            {
+                // 新手关输了不给续命也不给回首页，提示一句就原地免费重来。
+                CloseMask();
+                _world.ShowToast("差一点！再来一次", 1.6f);
+                UiAnim.On(_layer).At(1.6f, () =>
+                {
+                    if (_screen == Screen.Result && _guide) StartStage(0);
+                });
+            }
             else if (_world.RevivesUsed < GameConstants.MaxRevives) ShowRevive();
             else ShowDefeat(_pickStage, _world.Progress);
         }
@@ -643,6 +1054,8 @@ namespace InkLine
         void ShowVictory(int stage, ResultInfo info, bool preview = false)
         {
             DropOverlay();
+            CloseMask();
+            bool guide = _guide && !preview;
             int next = stage + 1;
             bool hasNext = next < GameConstants.StageCount && (preview || _meta.Unlocked(next));
             // 一个广告同时管墨翻倍和当场开这关的宝箱，宝箱位满了或今天开箱广告用完就只翻倍。
@@ -681,9 +1094,23 @@ namespace InkLine
                 {
                     ShowHome(HomeScreen.TabForge);
                     _home?.FocusSkin(skin);
+                },
+                Guide = guide,
+                OnCard = go =>
+                {
+                    if (go == null)
+                    {
+                        ShowHome(HomeScreen.TabForge);
+                        return;
+                    }
+                    ShowMask().HoleOn(go, 12f);
+                    _mask.TapHole();
+                    _mask.Say("解锁了新词条，去炮台升级");
                 }
             });
             _overlay = panel.Root;
+            // 新手：结算演出照放，但下一关、回首页、翻倍都先挡住，只等词条卡上的「去炮台」。
+            if (guide) ShowMask().Block(false);
         }
 
         void ShowRevive()
@@ -754,6 +1181,7 @@ namespace InkLine
             for (int i = _layer.childCount - 1; i >= 0; i--)
                 Destroy(_layer.GetChild(i).gameObject);
             _hud = null;
+            _mask = null;
         }
 
         void TryCapturePreview()

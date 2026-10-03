@@ -60,8 +60,8 @@ namespace InkLine
         // 暴击打几倍。改这里要同步 check_stages 的战力裕度（它从这一行读）。
         public const float CritMul = 2f;
 
-        // 通用词条一章最多亮两条：伤害打完第一关才亮，射速在第一章后段；
-        // 第二章是开局金币和基地生命，第三章才给多一门炮。专属词条跟着皮肤走。
+        // 通用词条：伤害打完第一关才亮，射速在第一章后段，打完第一章给多一门炮；
+        // 第二章是开局金币和基地生命。专属词条跟着皮肤走。
         // 已经点过的线永远留着，免得存档玩家看见自己买过的东西消失。
         // 门槛铺满 72 关：每章都有几级可升，最后一级落在第七、八章。
         // 价 = 门槛那一关的墨 ×4 再加 80，同一条线每级再贵一截。
@@ -75,15 +75,15 @@ namespace InkLine
             {
                 Line = ForgeLine.Damage, Name = "伤害", Stat = "炮弹伤害", Amount = 16f,
                 Icon = "damage", Reveal = 1, Brief = "所有炮弹的伤害一起涨",
-                Cost = new[] { 120, 140, 170, 200, 240, 300, 380, 470, 580, 700, 840, 1000 },
+                Cost = new[] { 110, 140, 170, 200, 240, 300, 380, 470, 580, 700, 840, 1000 },
                 Gate = new[] { 1, 2, 6, 12, 20, 28, 36, 44, 52, 58, 64, 69 }
             },
             new ForgeDef
             {
                 Line = ForgeLine.Emitters, Name = "炮台数", Stat = "炮台", Amount = 1f,
-                Icon = "guns", Reveal = 20, Brief = "开局多架一门炮",
+                Icon = "guns", Reveal = 9, Brief = "开局多架一门炮",
                 Cost = new[] { 260, 420 },
-                Gate = new[] { 20, 40 }
+                Gate = new[] { 9, 40 }
             },
             new ForgeDef
             {

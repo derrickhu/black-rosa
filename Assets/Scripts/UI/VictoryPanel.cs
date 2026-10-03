@@ -17,6 +17,9 @@ namespace InkLine
         public Action Home;
         public Action Forge;              // 解锁卡上「去炮台」
         public Action<int> Skin;          // 新炮台卡上「去看看」，炮台页停在那一款
+        // 新手指引：只弹词条卡，卡上只留「去炮台」。卡摆好后把按钮交出去给遮罩镂空；没有卡就交 null。
+        public bool Guide;
+        public Action<RectTransform> OnCard;
     }
 
     // 通关页。一整段编排：光芒转起来 → 横幅砸下 → 三颗星依次砸进星座 → 彩带 →
@@ -94,6 +97,16 @@ namespace InkLine
             bool teased = BuildTeaser(stage0, a, t + 0.1f, out t);
             BuildButtons(stage0, a, t + 0.1f, teased ? NextY : -248f);
             int[] cards = RevealCards(info);
+            if (a.Guide)
+            {
+                cards = System.Array.FindAll(cards, c => c >= 0);
+                if (cards.Length > 0) cards = new[] { cards[0] };
+                else
+                {
+                    _anim.At(t + 0.7f, () => a.OnCard?.Invoke(null));
+                    return;
+                }
+            }
             if (cards.Length > 0)
                 _anim.At(t + 0.7f, () => Reveal(a, cards, 0));
         }
@@ -195,13 +208,18 @@ namespace InkLine
                  .Fade(foot, 1.1f, 0.25f, 0f, 1f);
 
             bool last = k + 1 >= lines.Length;
-            var go = ResultKit.Group(g, "go", new Vector2(-136f, -310f), new Vector2(232f, 88f));
+            var go = ResultKit.Group(g, "go", new Vector2(a.Guide ? 0f : -136f, -310f), new Vector2(232f, 88f));
             UiKit.Btn(go, "b", goText, Vector2.zero, new Vector2(232f, 88f), () =>
             {
                 if (skin && a.Skin != null) a.Skin(skinId);
                 else if (a.Forge != null) a.Forge();
                 else Destroy(dim.gameObject);
-            }, false);
+            }, a.Guide);
+            if (a.Guide)
+            {
+                _anim.Pop(go, 1.2f, 0.3f).At(1.55f, () => a.OnCard?.Invoke(go));
+                return;
+            }
             var ok = ResultKit.Group(g, "ok", new Vector2(136f, -310f), new Vector2(232f, 88f));
             UiKit.Btn(ok, "b", last ? "知道了" : "下一个", Vector2.zero, new Vector2(232f, 88f), () =>
             {

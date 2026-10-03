@@ -164,6 +164,15 @@ namespace InkLine
             return loot;
         }
 
+        // 新手第一关的木箱：墨照常，卡固定是弹弓。普通木箱仍走 Roll。
+        public static ChestLoot GuideSlingshot(ChestTier t)
+        {
+            ChestDef d = Get(t);
+            var loot = new ChestLoot { Tier = t, Ink = Random.Range(d.InkMin, d.InkMax + 1) };
+            loot.Cards.Add(new CardStack { Item = (int)ItemId.Snipe, Count = GameConstants.GuideSlingshot });
+            return loot;
+        }
+
         static int PickItem(ItemQuality q, int[] level, int[] equipped, List<int> used, bool preferLocked)
         {
             var pool = new List<int>();

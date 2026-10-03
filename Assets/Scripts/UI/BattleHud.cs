@@ -401,6 +401,18 @@ namespace InkLine
             _adGun.gameObject.SetActive(false);
         }
 
+        // 新手第一关：不给设置（里面有撤退）和看广告加炮，只留打仗要用的。
+        public bool Guided
+        {
+            get => _guided;
+            set
+            {
+                _guided = value;
+                if (Settings != null) Settings.gameObject.SetActive(!value);
+            }
+        }
+        bool _guided;
+
         // 和 BattleView 里的炮同一张图、同一个缩放，淡色版本才对得上真炮的大小。
         public int GunSkin;
         int _ghostSkin = -1;
@@ -409,7 +421,7 @@ namespace InkLine
         void PlaceAdGun(BattleWorld world, bool inBattle)
         {
             if (_adGun == null) return;
-            bool show = inBattle && world.EmitterCount < GameConstants.AdEmitterCap;
+            bool show = inBattle && !Guided && world.EmitterCount < GameConstants.AdEmitterCap;
             _adGun.gameObject.SetActive(show);
             if (!show) return;
             if (_ghostSkin != GunSkin && _adGhost != null)

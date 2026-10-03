@@ -130,7 +130,8 @@ namespace InkLine
         public static float BurstMul(int lv) => 2.2f + 1.1f * lv;
         public static float SweepMul(int lv) => 1.7f + 1.1f * lv;
         public static float FrostMul(int lv) => 1.7f + 0.55f * lv;
-        public static float SnipeMul(int lv) => 5.6f + 2.8f * lv;
+        // 按默认弹伤：1 级 12 点，之后每级 +4（16/20/24/28）。绿卡、前期就给，单目标也不要太肥。
+        public static float SnipeMul(int lv) => (8f + 4f * lv) / ShotMods.DefaultBase;
         public static float SplashMul(int lv) => 1.1f + 0.55f * lv;   // 每秒
 
         public static int MendCap(int lv) => lv >= MaxLevel ? 2 : 1;

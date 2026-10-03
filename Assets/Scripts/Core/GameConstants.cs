@@ -20,13 +20,20 @@ namespace InkLine
         public const int StageCount = ChapterSize * Chapters;
 
         // 局外：体力。每次进关都收，失败不退。见 MetaProgress.StageCost。
+        // 上限只管自动回复：到了就不再回。奖励和购买来的体力不受它限制。
         public const int StaminaMax = 20;
         public const int StaminaPerStage = 2;
         public const int StaminaFinale = 3;
         public const int StaminaRegenMinutes = 15;
         public const int AdStaminaGain = 10;
         public const int AdStaminaPerDay = 5;
-        public const int StarterInk = 85;
+        // 开局墨加上第一关掉的墨，正好够新手指引里升一级伤害（ForgeCatalog 伤害 Cost[0]）。
+        public const int StarterInk = 100;
+        // 新手指引走完送一份。弹弓卡分两笔：第一关木箱 3 张，这份奖励再 3 张，正好够解锁。
+        public const int GuideDiamond = 10;
+        public const int GuideInk = 100;
+        public const int GuideStamina = 10;
+        public const int GuideSlingshot = 3;
 
         // 新手礼包：看两次激励广告，领一次就没了。附带一个当场打开的银宝箱。
         public const int GiftAds = 2;
