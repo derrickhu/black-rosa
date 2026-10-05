@@ -89,6 +89,7 @@ namespace InkLine
             string err = null;
             yield return Backend.EnsureToken(e => err = e);
             _ready = err == null && !string.IsNullOrEmpty(Backend.UserId);
+            Analytics.BindUser(_ready ? Backend.UserId : "");
             if (!_ready)
             {
                 Debug.LogWarning("[CloudSync] login failed, keep local save: " + err);

@@ -48,7 +48,7 @@ namespace InkLine
                 Tell("这个广告还没配好");
                 return;
             }
-            Play(unit, onOk);
+            Play(unit, slot, onOk);
 #endif
         }
 
@@ -69,6 +69,9 @@ namespace InkLine
             public Action Pending;
             public bool Busy;
             public int Gen;
+            public string Scene;
+            public string Unit;
+            public bool Reported;
         }
 
         static readonly Dictionary<string, Holder> Holders = new Dictionary<string, Holder>();
@@ -89,7 +92,7 @@ namespace InkLine
             return h;
         }
 
-        static void Play(string unit, Action onOk)
+        static void Play(string unit, string slot, Action onOk)
         {
             Holder h = HolderOf(unit);
             if (h.Busy)
@@ -99,9 +102,13 @@ namespace InkLine
             }
             h.Busy = true;
             h.Pending = onOk;
+            h.Scene = slot;
+            h.Unit = unit;
+            h.Reported = false;
             int gen = ++h.Gen;
             AudioBus.Duck(true);
-            h.Ad.Show(_ => { }, _ => LoadThenShow(h, gen));
+            Analytics.AdRequest(slot, unit);
+            h.Ad.Show(_ => Analytics.AdShow(slot, unit), _ => LoadThenShow(h, gen));
         }
 
         // 还没加载好时 show 会失败，补拉一次再播。官方推荐的写法。
@@ -112,9 +119,9 @@ namespace InkLine
                 _ =>
                 {
                     if (!h.Busy || gen != h.Gen) return;
-                    h.Ad.Show(__ => { }, ___ => Stop(h, gen, "广告加载失败，稍后再试"));
+                    h.Ad.Show(__ => Analytics.AdShow(h.Scene, h.Unit), ___ => Fail(h, gen, "广告加载失败，稍后再试"));
                 },
-                _ => Stop(h, gen, "广告加载失败，稍后再试"));
+                _ => Fail(h, gen, "广告加载失败，稍后再试"));
         }
 
         static void Closed(Holder h, WeChatWASM.WXRewardedVideoAdOnCloseResponse r)
@@ -127,15 +134,31 @@ namespace InkLine
             // 旧基础库关掉时不给结果，微信要求这种也发奖。中途关掉的 isEnded 是 false。
             bool ended = r == null || r.isEnded;
             Action ok = h.Pending;
+            Analytics.AdClose(h.Scene, h.Unit, ended);
             Stop(h, h.Gen, ended ? null : "看完才能领取");
             if (ended) ok?.Invoke();
             h.Ad.Load(_ => { }, _ => { });
         }
 
+        static void Fail(Holder h, int gen, string msg)
+        {
+            ReportAdError(h, msg);
+            Stop(h, gen, msg);
+        }
+
+        static void ReportAdError(Holder h, string msg)
+        {
+            if (h.Reported) return;
+            h.Reported = true;
+            Analytics.AdError(h.Scene, h.Unit, msg);
+        }
+
         static void Errored(Holder h, WeChatWASM.WXADErrorResponse e)
         {
             Debug.LogWarning("[Ad] " + e.errCode + " " + e.errMsg);
-            if (h.Busy) Stop(h, h.Gen, "广告加载失败，稍后再试");
+            if (!h.Busy) return;
+            ReportAdError(h, e.errMsg);
+            Stop(h, h.Gen, "广告加载失败，稍后再试");
         }
 
         static void Stop(Holder h, int gen, string msg)

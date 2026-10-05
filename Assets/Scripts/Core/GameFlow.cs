@@ -42,6 +42,7 @@ namespace InkLine
 
         void Start()
         {
+            Analytics.Ensure();
             WxBridge.InitSdk(() =>
             {
                 AdStub.Warm();
@@ -169,6 +170,7 @@ namespace InkLine
                 AudioBus.Tap();
                 _askingRetreat = false;
                 if (dim != null) Destroy(dim.gameObject);
+                Analytics.LevelFail("give_up", pct);
                 ShowHome();
             }
             var board = PanelKit.Board(dim, "确认撤退", Vector2.zero, new Vector2(560f, 460f), Pin.Center, Stay);
@@ -220,6 +222,8 @@ namespace InkLine
             _view.SetBackdrop(_world.Stage.Chapter);
             _view.EmitterSkin = _meta.Skin;
             _view.EmitterTint = _meta.SkinTint;
+            if (!BattleWorld.PreviewFill)
+                Analytics.LevelStart(index + 1, _world.Stage != null ? _world.Stage.Name : "");
             BuildBattleHud();
             _autoWait = 0f;
             _autoMute = 0f;
@@ -504,6 +508,7 @@ namespace InkLine
             if (win)
             {
                 AudioBus.Win();
+                Analytics.LevelClear(_world.StarsEarned);
                 _result = _meta.ApplyResult(_pickStage, _world.Ink, _world.StarsEarned);
                 RankService.Submit(_meta.ClearedCount());
                 ShowVictory(_pickStage, _result);
@@ -575,6 +580,8 @@ namespace InkLine
 
         void ShowDefeat(int stage, float progress, bool preview = false)
         {
+            if (!preview)
+                Analytics.LevelFail("hp_zero", Mathf.Clamp(Mathf.RoundToInt(progress * 100f), 0, 99));
             DropOverlay();
             _overlay = DefeatPanel.Show(_layer, new DefeatArgs
             {
