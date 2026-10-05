@@ -113,7 +113,8 @@ namespace InkLine
                 case EventPrize.Ink: return new[] { RewardFly.Ink(layer, m.Amount) };
                 case EventPrize.Token: return new[] { RewardFly.Token(layer, m.Amount) };
                 case EventPrize.Chest:
-                    if (chest < 0) return new[] { RewardFly.Ink(layer, ChestCatalog.InkAvg((ChestTier)m.Amount)) };
+                    if (chest == -3) return new[] { RewardFly.Ink(layer, ChestCatalog.InkAvg((ChestTier)m.Amount)) };
+                    if (chest < 0) return new RewardFly.Piece[0];
                     return new[] { RewardFly.Chest(layer, (ChestTier)m.Amount, chest) };
                 default: return new[] { RewardFly.Skin(layer, m.Amount) };
             }
@@ -135,11 +136,14 @@ namespace InkLine
             if (!_meta.ClaimEvent(i, out bool refunded, out int chest)) return;
             AudioBus.CountTick();
             string got = refunded ? $"已有福袋炮台，折成活动币 ×{EventCatalog.SkinTokenRefund}"
+                : chest == -1 ? "宝箱位满了，选个位置放下"
+                : chest == -3 ? $"宝箱位满了，换成 {ChestCatalog.InkAvg((ChestTier)m.Amount)} 墨"
                 : $"领到 {EventCatalog.PrizeName(m)} {EventCatalog.PrizeCount(m)}";
             InkToast.Show(layer, got);
             RewardFly.Play(layer, from, PrizePieces(layer, m, refunded, chest));
             _changed?.Invoke();
             Refresh();
+            if (chest == -1) ChestOverflowView.Show(layer, _meta, _changed);
         }
 
         void BuildTiers()

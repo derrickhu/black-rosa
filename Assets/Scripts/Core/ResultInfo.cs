@@ -7,8 +7,8 @@ namespace InkLine
         public bool DailyDouble;    // 今日首胜，墨翻了一倍
         public int Diamonds;        // 首通给的钻石，已入账
         public int Chest;           // 这关掉的宝箱品阶（ChestTier），-1 表示没有
-        public bool ChestFull;      // 结算时宝箱位已满：不看广告当场开，离开时折成 ChestInk 墨
-        public int ChestInk;        // 位满时折成多少墨，还没入账
+        public bool ChestFull;      // 结算时四个宝箱位都满了，离开时要玩家挑选，不直接折墨
+        public int ChestInk;        // 若玩家把这只换成墨，能换多少。还没入账
         public int Stars;
         public bool NewBest;
         public bool FirstClear;

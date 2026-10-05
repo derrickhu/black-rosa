@@ -53,7 +53,13 @@ namespace InkLine
                 ("体力补满", () => meta.FillStamina()),
                 ("钻石 +100", () => meta.AddDiamond(DiamondGrant)),
                 ("道具卡 +20", () => meta.GrantCards(CardGrant)),
-                ("发金宝箱", () => meta.GrantChest(ChestTier.Gold)),
+                ("发金宝箱", () =>
+                {
+                    int slot = meta.GrantChest(ChestTier.Gold);
+                    if (slot == -1) ChestOverflowView.Show(layer, meta, refresh);
+                    else if (slot == -3)
+                        InkToast.Show(layer, $"手里的宝箱太多，这只换成 {ChestCatalog.InkAvg(ChestTier.Gold)} 墨");
+                }),
                 ("宝箱解完", () => meta.GmFinishChests()),
                 ("关卡全开", () => meta.UnlockStages()),
                 ("皮肤全开", () => meta.UnlockSkins()),

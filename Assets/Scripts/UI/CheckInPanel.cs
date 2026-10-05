@@ -193,11 +193,12 @@ namespace InkLine
                 ? $"连签 {GameConstants.CheckDays} 天，{SkinCatalog.Get(GameConstants.CheckSkin).Name}皮肤已换上"
                 : $"签到成功 墨×{GameConstants.CheckInk * k} 钻石×{MetaProgress.CheckDiamondOf(day) * k}";
             if (chest >= 0) msg += "  金宝箱已放进宝箱位";
-            else if (chest == -1) msg += "  宝箱位满了，金宝箱折成墨";
+            else if (chest == -1) msg += "  宝箱位满了，选个位置放下";
+            else if (chest == -3) msg += "  宝箱位满了，金宝箱换成墨";
             Transform card = _body != null ? _body.Find(day == GameConstants.CheckDays ? "day7" : "day" + day) : null;
             Vector2 from = RewardFly.Local(_layer, card);
             int ink = GameConstants.CheckInk * k;
-            if (chest == -1) ink += ChestCatalog.InkAvg(ChestTier.Gold);
+            if (chest == -3) ink += ChestCatalog.InkAvg(ChestTier.Gold);
             var pieces = new System.Collections.Generic.List<RewardFly.Piece>(5)
             {
                 RewardFly.Stamina(_layer, GameConstants.CheckStamina * k),
@@ -210,6 +211,7 @@ namespace InkLine
             RewardFly.Play(_layer, from, pieces.ToArray());
             _changed?.Invoke();
             Refresh();
+            if (chest == -1) ChestOverflowView.Show(_layer, _meta, _changed);
         }
 
         void Bonus()

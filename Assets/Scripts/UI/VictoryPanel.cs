@@ -324,7 +324,7 @@ namespace InkLine
             return end;
         }
 
-        // 宝箱从天上砸下来、弹两下落进卡里。底下一行告诉玩家不开会怎样：进宝箱位，或位满折成墨。
+        // 宝箱从天上砸下来、弹两下落进卡里。底下一行告诉玩家不开会怎样：进宝箱位，或位满了离开后再选。
         float BuildChest(RectTransform parent, VictoryArgs a, Vector2 pos, float w, float h, float at)
         {
             ResultInfo info = a.Info;
@@ -345,9 +345,9 @@ namespace InkLine
                  .At(at + 0.32f, AudioBus.ChestLand)
                  .Punch(box, at + 0.6f, 0.18f, 0.3f);
 
-            string note = info.ChestFull ? $"位满 不开折 {info.ChestInk} 墨" : "不开就放进宝箱位";
-            _chestNote = UiKit.Label(card, "note", note, 18, new Vector2(0f, -h * 0.5f - 18f), new Vector2(w + 60f, 26f));
-            _chestNote.color = info.ChestFull ? InkTheme.Hex("FFB4A0") : InkTheme.Hex("FFE7B8");
+            string note = info.ChestFull ? "位满了，离开后再选" : "不开就放进宝箱位";
+            _chestNote = UiKit.Label(card, "note", note, 18, new Vector2(0f, -h * 0.5f - 18f), new Vector2(w + 80f, 26f));
+            _chestNote.color = info.ChestFull ? InkTheme.Hex("FFE1A8") : InkTheme.Hex("FFE7B8");
             _anim.Fade(_chestNote, at + 0.7f, 0.25f, 0f, 1f);
             return at + 0.9f;
         }

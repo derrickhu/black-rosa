@@ -37,6 +37,10 @@ namespace InkLine
         public long[] ChestDone = new long[ChestCatalog.Slots];
         public int ChestCycle;
         public int PendingChest;   // 结算页上还没处理的宝箱，品阶 + 1；0 表示没有
+        // 宝箱位满了、玩家还没决定的箱子。先寄在这里，不悄悄折成墨。品阶 + 1，0 是空。
+        // 第二只留给「结算和签到撞在一起」这种很少见的情况。
+        public int OverflowChest;
+        public int OverflowExtra;
         // 钻石：只买时间和便利 —— 宝箱立即开、补体力。
         public int Diamond;
         public int DiamondStamCount;
@@ -232,8 +236,18 @@ namespace InkLine
                 if (ChestSlot[i] == 0) ChestDone[i] = 0L;
             }
             if (PendingChest < 0 || PendingChest > 4) PendingChest = 0;
-            // 结算页上被杀进程，宝箱照常放进宝箱位，不白丢。
-            ResolvePending();
+            if (OverflowChest < 0 || OverflowChest > 4) OverflowChest = 0;
+            if (OverflowExtra < 0 || OverflowExtra > 4) OverflowExtra = 0;
+            if (OverflowChest <= 0) PromoteOverflow();
+            // 结算页上被杀进程，宝箱照常放进宝箱位。位满了就寄着，等玩家回来选，不折成墨。
+            bool chestMoved = ResolvePending();
+            while (OverflowChest > 0 && AddChest(OverflowTier) >= 0)
+            {
+                OverflowChest = 0;
+                PromoteOverflow();
+                chestMoved = true;
+            }
+            if (chestMoved) rulesChanged = true;
             Skin = SkinOwned[Mathf.Clamp(Skin, 0, SkinCatalog.Count - 1)] ? Mathf.Clamp(Skin, 0, SkinCatalog.Count - 1) : 0;
             for (int s = 0; s < Equipped.Length; s++)
             {
@@ -557,7 +571,7 @@ namespace InkLine
         }
 
         // 已有福袋时 6000 那档折成活动币，refunded 告诉界面换说法。
-        // chest 是宝箱进了哪个位：-2 这场不是宝箱，-1 位满了已折成墨。
+        // chest 是宝箱进了哪个位：-2 这场不是宝箱，-1 位满了先寄着，-3 寄不下才折成墨。
         public bool ClaimEvent(int i, out bool refunded, out int chest)
         {
             refunded = false;
@@ -780,7 +794,7 @@ namespace InkLine
 
         public bool ClubClaimedToday => ClubDay == Today;
 
-        // slot 是木宝箱进了哪个位，-1 表示位满了，折成了墨。
+        // slot 是木宝箱进了哪个位。-1 位满了先寄着，-3 寄不下才折成墨。
         public bool ClaimClub(out int slot)
         {
             slot = -1;
@@ -828,7 +842,7 @@ namespace InkLine
         }
 
         // 返回今天是第几天（1~7），签过了返回 0。skin 表示这一签送了签到皮肤。
-        // chest 是第 7 天的金宝箱进了哪个位：-2 今天没有宝箱，-1 位满了已折成墨。
+        // chest 是第 7 天的金宝箱进了哪个位：-2 今天没有宝箱，-1 位满了先寄着，-3 寄不下才折成墨。
         public int CheckIn(bool doubled, out bool skin, out int chest)
         {
             skin = false;
@@ -1258,13 +1272,101 @@ namespace InkLine
             return -1;
         }
 
-        // 签到、游戏圈、GM 发箱子走这里：满了就把箱里的墨折给玩家，不白丢。
+        public bool HasOverflow => OverflowChest > 0;
+
+        public ChestTier OverflowTier => (ChestTier)Mathf.Clamp(OverflowChest - 1, 0, 3);
+
+        // 签到、游戏圈、活动、GM 发箱子走这里。
+        // 返回位号；-1 是位满了，箱子寄在 OverflowChest，等玩家选；-3 是两只都寄不下，已折成墨。
         public int GrantChest(ChestTier t)
         {
             int slot = AddChest(t);
-            if (slot < 0) Ink += ChestCatalog.InkAvg(t);
+            if (slot >= 0)
+            {
+                Save();
+                return slot;
+            }
+            if (ParkChest(t))
+            {
+                Save();
+                return -1;
+            }
+            Ink += ChestCatalog.InkAvg(t);
+            Save();
+            return -3;
+        }
+
+        bool ParkChest(ChestTier t)
+        {
+            int v = (int)t + 1;
+            if (v < 1 || v > 4) return false;
+            if (OverflowChest <= 0) { OverflowChest = v; return true; }
+            if (OverflowExtra <= 0)
+            {
+                // 新来的先给玩家看，原来那只排在后面。
+                OverflowExtra = OverflowChest;
+                OverflowChest = v;
+                return true;
+            }
+            return false;
+        }
+
+        void PromoteOverflow()
+        {
+            if (OverflowChest > 0) return;
+            OverflowChest = OverflowExtra;
+            OverflowExtra = 0;
+        }
+
+        // 把寄着的那只放进空位。没空位返回 -1，箱子还在。
+        public int PlaceOverflow()
+        {
+            if (OverflowChest <= 0) return -1;
+            int slot = AddChest(OverflowTier);
+            if (slot < 0) return -1;
+            OverflowChest = 0;
+            PromoteOverflow();
             Save();
             return slot;
+        }
+
+        // 寄着的那只不占格子，当场开掉。看广告走这条。
+        public ChestLoot OpenOverflow()
+        {
+            if (OverflowChest <= 0) return null;
+            ChestTier tier = OverflowTier;
+            OverflowChest = 0;
+            PromoteOverflow();
+            ChestLoot loot = ChestCatalog.Roll(tier, ItemLevel, Equipped);
+            ApplyLoot(loot);
+            Save();
+            return loot;
+        }
+
+        // 寄着的那只换成箱里的平均墨，卡不要了。
+        public int ScrapOverflow()
+        {
+            if (OverflowChest <= 0) return 0;
+            int ink = ChestCatalog.InkAvg(OverflowTier);
+            OverflowChest = 0;
+            PromoteOverflow();
+            Ink += ink;
+            Save();
+            return ink;
+        }
+
+        // 还在等的那只换成平均墨，腾出格子。已经可以打开的不走这里，打开更划算。
+        public int ScrapWaitingChest(int slot)
+        {
+            ChestState st = ChestStateOf(slot);
+            if (st != ChestState.Locked && st != ChestState.Timing) return 0;
+            int ink = ChestCatalog.InkAvg(ChestTierOf(slot));
+            ChestSlot[slot] = 0;
+            ChestDone[slot] = 0L;
+            Ink += ink;
+            TickChests();
+            Save();
+            return ink;
         }
 
         public ChestLoot OpenChest(int slot)
@@ -1332,7 +1434,7 @@ namespace InkLine
             return loot;
         }
 
-        // 离开结算页：放进宝箱位，满了折成墨。
+        // 离开结算页：放进宝箱位。满了就寄着，等玩家选，不折成墨。
         public void StorePending()
         {
             if (PendingChest <= 0) return;
@@ -1340,12 +1442,14 @@ namespace InkLine
             Save();
         }
 
-        void ResolvePending()
+        bool ResolvePending()
         {
-            if (PendingChest <= 0) return;
+            if (PendingChest <= 0) return false;
             var t = (ChestTier)Mathf.Clamp(PendingChest - 1, 0, 3);
             PendingChest = 0;
-            if (AddChest(t) < 0) Ink += ChestCatalog.InkAvg(t);
+            if (AddChest(t) >= 0) return true;
+            if (!ParkChest(t)) Ink += ChestCatalog.InkAvg(t);
+            return true;
         }
 
         // GM：把在解的那个箱子直接解完。

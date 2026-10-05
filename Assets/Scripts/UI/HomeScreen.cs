@@ -723,7 +723,46 @@ namespace InkLine
             {
                 _chests = HomeChestRow.Build(page, new Vector2(0f, ChestY + HomeChestRow.Slot * 0.5f), OpenChestSlot);
             }
+            PlaceWaitingChests();
             _chests.Refresh(_meta);
+            SyncHoldChip(page);
+        }
+
+        // 之前寄着的箱子，只要有空位就放进去。挑选页还开着时格子是满的，这里放不进去。
+        void PlaceWaitingChests()
+        {
+            int n = 0;
+            var slots = new int[2];
+            var tiers = new ChestTier[2];
+            while (n < slots.Length && _meta.HasOverflow)
+            {
+                tiers[n] = _meta.OverflowTier;
+                int slot = _meta.PlaceOverflow();
+                if (slot < 0) break;
+                slots[n++] = slot;
+            }
+            if (n <= 0 || _layer == null) return;
+            var pieces = new RewardFly.Piece[n];
+            for (int i = 0; i < n; i++) pieces[i] = RewardFly.Chest(_layer, tiers[i], slots[i]);
+            RewardFly.Play(_layer, new Vector2(0f, -80f), pieces);
+            InkToast.Show(_layer, "空位放进了新宝箱");
+        }
+
+        void SyncHoldChip(RectTransform page)
+        {
+            Transform old = page.Find("hold");
+            Transform sh = page.Find("hold_sh");
+            if (!_meta.HasOverflow)
+            {
+                if (old != null) UnityEngine.Object.Destroy(old.gameObject);
+                if (sh != null) UnityEngine.Object.Destroy(sh.gameObject);
+                return;
+            }
+            if (old != null) return;
+            UiKit.Btn(page, "hold", "新箱待放", new Vector2(0f, GoY + GoH + 12f), new Vector2(210f, 52f), () =>
+            {
+                ChestOverflowView.Show(_layer, _meta, RefreshWallet);
+            }, true, Pin.Bottom).transform.SetAsLastSibling();
         }
 
         void OpenChestSlot(int slot)

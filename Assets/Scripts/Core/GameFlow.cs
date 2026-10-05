@@ -38,6 +38,8 @@ namespace InkLine
         string _tip;
         // 第一关：字放下之后才提示怎么瞄准，手指一滑就收掉。
         bool _teachAim;
+        // 宝箱位满的挑选页被关掉（箱子还留着）之后，这次先别再挡操作。下次回家再提醒。
+        bool _overflowSnooze;
         const string AimTip = "按住底部左右滑，对准敌人";
         Transform _overlay;
         // 新手第一关：_guide 管整局（没有设置、没有广告加炮、抽牌不能关），
@@ -291,9 +293,28 @@ namespace InkLine
             if (label != null) label.text = on ? "开" : "关";
         }
 
+        void RefreshHome()
+        {
+            if (_home != null) _home.RefreshWallet();
+        }
+
+        // 新宝箱没处放时先弹出挑选。选完才继续；关掉只是先留着，这次不再挡。
+        bool HoldOverflow(System.Action then)
+        {
+            if (_overflowSnooze || !_meta.HasOverflow || _layer == null) return false;
+            if (_layer.Find("chest_overflow") != null) return true;
+            ChestOverflowView.Show(_layer, _meta, RefreshHome, () =>
+            {
+                if (_meta.HasOverflow) _overflowSnooze = true;
+                then?.Invoke();
+            });
+            return true;
+        }
+
         void ShowHome(int tab)
         {
             _meta.StorePending();
+            if (_screen == Screen.Result && HoldOverflow(() => ShowHome(tab))) return;
             _screen = Screen.Lobby;
             ClearLayer();
             if (_view != null) { _view.Dispose(); _view = null; }
@@ -313,7 +334,10 @@ namespace InkLine
             _home.ChestOpened += OnChestPanel;
             _itemTeach = -1;
             ItemPanel.HoldEquip = false;
+            bool remindChest = _overflowSnooze && _meta.HasOverflow;
+            if (HoldOverflow(GuideHome)) return;
             GuideHome();
+            if (remindChest) InkToast.Show(_layer, "新宝箱先留着，出征页上可以再放");
         }
 
         // ---------- 新手指引：首页这半段（升伤害 → 开箱 → 领奖励 → 弹弓 → 出征第二关） ----------
@@ -580,6 +604,8 @@ namespace InkLine
         void StartStage(int index)
         {
             _meta.StorePending();
+            if (HoldOverflow(() => StartStage(index))) return;
+            _overflowSnooze = false;
             bool guide = index == 0 && _meta.GuideStep == MetaProgress.GuideBattle && !BattleWorld.PreviewFill;
             // 新手第一关不收体力，输了重打也不收。
             if (!BattleWorld.PreviewFill && !guide)
@@ -602,6 +628,8 @@ namespace InkLine
         {
             if (!_meta.EventOpen || !_meta.EventTierOpen(tier)) return;
             _meta.StorePending();
+            if (HoldOverflow(() => StartEvent(tier))) return;
+            _overflowSnooze = false;
             if (!_meta.SpendEventPlay()) return;
             _guide = false;
             _teach = 0;
@@ -1116,7 +1144,7 @@ namespace InkLine
             bool guide = _guide && !preview;
             int next = stage + 1;
             bool hasNext = next < GameConstants.StageCount && (preview || _meta.Unlocked(next));
-            // 一个广告同时管墨翻倍和当场开这关的宝箱，宝箱位满了或今天开箱广告用完就只翻倍。
+            // 一个广告同时管墨翻倍和当场开这关的宝箱。位满了也能开，开了就不占格子。
             bool canInk = info.Ink > 0;
             bool canChest = !preview && info.Chest >= 0 && _meta.HasPendingChest;
             VictoryPanel panel = null;
