@@ -110,6 +110,44 @@ namespace InkLine
                 c.Sec = sec;
                 Paint(c, st, restyle);
             }
+            MaybeSlide(meta);
+        }
+
+        // 打开之后，后面的箱子从原来的格子滑到新格子。托盘不动，箱子和下面的签一起滑。
+        void MaybeSlide(MetaProgress meta)
+        {
+            if (meta.DeferChestSlide || meta.ChestSlideFrom == null) return;
+            int[] from = meta.ChestSlideFrom;
+            meta.ChestSlideFrom = null;
+            var anim = UiAnim.On(Root);
+            float step = Slot + Gap;
+            for (int i = 0; i < _cells.Length; i++)
+            {
+                int src = i < from.Length ? from[i] : -1;
+                if (src < 0 || src == i) continue;
+                float dx = (src - i) * step;
+                Nudge(anim, _cells[i].Art.rectTransform, dx);
+                Nudge(anim, _cells[i].Tag, dx);
+                if (_cells[i].Glow.gameObject.activeSelf) Nudge(anim, _cells[i].Glow.rectTransform, dx);
+            }
+        }
+
+        void Nudge(UiAnim anim, RectTransform piece, float dx)
+        {
+            if (piece == null) return;
+            Vector2 home = piece.anchoredPosition;
+            Transform parent = piece.parent;
+            piece.SetParent(Root, true);
+            piece.SetAsLastSibling();
+            Vector2 end = piece.anchoredPosition;
+            Vector2 start = end + new Vector2(dx, 0f);
+            anim.Move(piece, start, end, 0.02f, 0.28f, Ease.OutCubic);
+            anim.At(0.32f, () =>
+            {
+                if (piece == null || parent == null) return;
+                piece.SetParent(parent, false);
+                piece.anchoredPosition = home;
+            });
         }
 
         static void Paint(Cell c, ChestState st, bool restyle)

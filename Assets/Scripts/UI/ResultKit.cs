@@ -163,6 +163,75 @@ namespace InkLine
             return _ad;
         }
 
+        // 一段字，金币图标跟在最后一个字后面。结算和活动页的金币数字都走这里。
+        public struct CoinLine
+        {
+            public Text Text;
+            public RectTransform Icon;
+            public int Size;
+            public bool Center;
+            public Vector2 Anchor;
+            public float Gap;
+            public bool ShowIcon;
+
+            public void Set(string text, bool icon = true)
+            {
+                if (Text != null) Text.text = text;
+                ShowIcon = icon;
+                if (Icon != null) Icon.gameObject.SetActive(icon);
+                Place();
+            }
+
+            public void Place()
+            {
+                if (Text == null) return;
+                float icon = Size + 4f;
+                float textW = Text.preferredWidth;
+                if (textW < 1f)
+                {
+                    Canvas.ForceUpdateCanvases();
+                    textW = Text.preferredWidth;
+                }
+                if (textW < 1f) textW = Mathf.Max(Size, Text.text.Length * Size * 0.9f);
+                float tail = ShowIcon ? Gap + icon : 0f;
+                var tp = Text.rectTransform;
+                if (Center)
+                {
+                    tp.anchoredPosition = new Vector2(Anchor.x - tail * 0.5f, Anchor.y);
+                    if (Icon != null)
+                        Icon.anchoredPosition = new Vector2(Anchor.x - tail * 0.5f + textW * 0.5f + Gap + icon * 0.5f, Anchor.y);
+                }
+                else
+                {
+                    const float Box = 520f;
+                    tp.anchoredPosition = new Vector2(Anchor.x + Box * 0.5f, Anchor.y);
+                    if (Icon != null)
+                        Icon.anchoredPosition = new Vector2(Anchor.x + textW + Gap + icon * 0.5f, Anchor.y);
+                }
+            }
+        }
+
+        // center 为真时 Anchor 是「字 + 图标」整组的中心；否则是字的左沿。
+        public static CoinLine CoinAfter(Transform parent, string name, string text, int size, Vector2 anchor,
+            Color color, bool center)
+        {
+            const float Box = 520f;
+            float boxH = size + 18f;
+            Vector2 pos = center ? anchor : new Vector2(anchor.x + Box * 0.5f, anchor.y);
+            var t = UiKit.Label(parent, name, text, size, pos, new Vector2(Box, boxH),
+                center ? TextAnchor.MiddleCenter : TextAnchor.MiddleLeft);
+            UiKit.Bold(t);
+            t.color = color;
+            var icon = UiKit.Icon(parent, InkSprites.Ui("gold"), anchor, size + 4f);
+            var line = new CoinLine
+            {
+                Text = t, Icon = icon.rectTransform, Size = size, Center = center,
+                Anchor = anchor, Gap = 6f, ShowIcon = true
+            };
+            line.Place();
+            return line;
+        }
+
         static float RoundBox(float x, float y, float hw, float hh, float r)
         {
             float qx = Mathf.Abs(x) - hw + r, qy = Mathf.Abs(y) - hh + r;

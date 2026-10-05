@@ -178,8 +178,8 @@ namespace InkLine
                 return;
             }
             _hint.text = _meta.ChestStateOf(_sel) == ChestState.Ready
-                ? "打开这只，新箱子放进这个位置"
-                : "打开这只就空出位置。换成墨只要墨，里面的卡不要了";
+                ? "打开后，后面的箱子往前排，新的放最后"
+                : "打开后，后面的箱子往前排。换成墨只要墨，里面的卡不要了";
         }
 
         void BuildActions()
@@ -389,16 +389,19 @@ namespace InkLine
         void PlayOpen(ChestLoot loot, int slot)
         {
             _busy = true;
+            _meta.DeferChestSlide = true;
+            int[] from = _meta.ChestSlideFrom;
+            _meta.ChestSlideFrom = null;
             _anim.Clear();
             _root.gameObject.SetActive(false);
             ChestOpenView.Show(_layerOf(), _meta, loot, () =>
             {
                 if (this == null) return;
                 _root.gameObject.SetActive(true);
+                _meta.DeferChestSlide = false;
                 ChestTier incoming = _meta.HasOverflow ? _meta.OverflowTier : loot.Tier;
                 int placed = _meta.PlaceOverflow();
-                int into = placed >= 0 ? placed : slot;
-                SlideFresh(into, incoming, () => Close(true));
+                Arrange(from, slot, placed, incoming, () => Close(true));
             });
         }
 
@@ -415,11 +418,11 @@ namespace InkLine
                 _busy = false;
                 return;
             }
+            int[] slide = _meta.ChestSlideFrom;
+            _meta.ChestSlideFrom = null;
             int placed = _meta.PlaceOverflow();
-            int into = placed >= 0 ? placed : slot;
             RewardFly.Play(_layerOf(), from, new[] { RewardFly.Ink(_layerOf(), ink) });
-            Vector2 at = _slots[slot].Root.anchoredPosition;
-            Shrink(_slots[slot].Art.rectTransform, at, () => SlideFresh(into, incoming, () => Close(true)));
+            Arrange(slide, slot, placed, incoming, () => Close(true));
         }
 
         void ScrapFresh()
@@ -452,32 +455,71 @@ namespace InkLine
             _anim.At(0.24f, then);
         }
 
-        void SlideFresh(int slot, ChestTier tier, Action then)
+        Vector2 SlotPos(int i)
         {
-            if (_fresh == null || slot < 0 || slot >= _slots.Length)
-            {
-                then?.Invoke();
-                return;
-            }
+            float span = CardW + 10f;
+            return new Vector2(-span * 1.5f + span * i, 214f);
+        }
+
+        // 被打开的那只收掉，后面的按原顺序滑到前面，新箱子落到最后一格。
+        void Arrange(int[] from, int opened, int placed, ChestTier tier, Action then)
+        {
             _anim.Clear();
-            RectTransform src = _fresh.Root;
-            Vector2 to = _slots[slot].Root.anchoredPosition;
-            src.SetAsLastSibling();
-            _anim.Move(src, src.anchoredPosition, to, 0.05f, 0.42f, Ease.OutCubic);
-            _anim.Tween(0.05f, 0.42f, k =>
+            if (opened >= 0 && opened < _slots.Length)
             {
-                if (src == null) return;
-                float s = Mathf.Lerp(1.06f, 0.78f, Ease.OutCubic(k));
-                src.localScale = new Vector3(s, s, 1f);
-            });
-            _anim.At(0.48f, () =>
+                RectTransform gone = _slots[opened].Root;
+                _anim.Tween(0f, 0.16f, k =>
+                {
+                    if (gone == null) return;
+                    float s = Mathf.Lerp(1f, 0.05f, Ease.OutCubic(k));
+                    gone.localScale = new Vector3(s, s, 1f);
+                });
+                _anim.At(0.16f, () => { if (gone != null) gone.gameObject.SetActive(false); });
+            }
+            if (from != null)
+            {
+                for (int i = 0; i < from.Length && i < _slots.Length; i++)
+                {
+                    int src = from[i];
+                    if (src < 0 || src == i || src >= _slots.Length) continue;
+                    _slots[src].Root.SetAsLastSibling();
+                    _anim.Move(_slots[src].Root, SlotPos(src), SlotPos(i), 0.08f, 0.28f, Ease.OutCubic);
+                }
+            }
+            if (_fresh != null && placed >= 0 && placed < _slots.Length)
+            {
+                RectTransform src = _fresh.Root;
+                Vector2 to = SlotPos(placed);
+                src.SetAsLastSibling();
+                _anim.Move(src, src.anchoredPosition, to, 0.08f, 0.32f, Ease.OutCubic);
+                _anim.Tween(0.08f, 0.32f, k =>
+                {
+                    if (src == null) return;
+                    float s = Mathf.Lerp(1.06f, 0.78f, Ease.OutCubic(k));
+                    src.localScale = new Vector3(s, s, 1f);
+                });
+            }
+            _anim.At(0.46f, () =>
             {
                 AudioBus.ChestLand();
-                UiConfetti.Sparks(_board, to, InkTheme.GoldHi, 16, 420f);
-                PaintSlotTier(slot, tier);
-                if (src != null) src.gameObject.SetActive(false);
+                if (placed >= 0) UiConfetti.Sparks(_board, SlotPos(placed), InkTheme.GoldHi, 16, 420f);
+                SnapSlots();
+                if (_fresh != null) _fresh.Root.gameObject.SetActive(false);
+                if (placed >= 0) PaintSlotTier(placed, tier);
             });
-            _anim.At(0.78f, then);
+            _anim.At(0.62f, then);
+        }
+
+        void SnapSlots()
+        {
+            for (int i = 0; i < _slots.Length; i++)
+            {
+                SlotCard card = _slots[i];
+                card.Root.gameObject.SetActive(true);
+                card.Root.localScale = Vector3.one;
+                card.Root.anchoredPosition = SlotPos(i);
+                PaintSlot(i, true);
+            }
         }
 
         RectTransform _layerOf() => _root.parent as RectTransform;

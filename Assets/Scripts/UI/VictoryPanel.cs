@@ -15,6 +15,7 @@ namespace InkLine
         public Action DoubleInk;          // 看一次广告：墨翻倍并当场开这关的宝箱；null：两样都没得给
         public string DoubleText;
         public Action Home;
+        public Action OpenStarChest;      // 本章刚满星，当场打开炮台宝箱
         public Action Forge;              // 解锁卡上「去炮台」
         public Action<int> Skin;          // 新炮台卡上「去看看」，炮台页停在那一款
         // 新手指引：只弹词条卡，卡上只留「去炮台」。卡摆好后把按钮交出去给遮罩镂空；没有卡就交 null。
@@ -26,13 +27,13 @@ namespace InkLine
     // 奖励卡弹出滚数 → 下一关有新字才预告 → 按钮。点屏幕任意处跳到最后。
     public sealed class VictoryPanel : MonoBehaviour
     {
-        const float StarY = 150f;
-        const float RewardY = -40f;
+        const float StarY = 158f;
+        const float RewardY = -60f;
         const float TeaserY = -238f;
         const float NextY = -414f;
 
-        static readonly Vector2[] StarPos = { new Vector2(-150f, 0f), new Vector2(0f, 26f), new Vector2(150f, 0f) };
-        static readonly float[] StarSize = { 122f, 150f, 122f };
+        static readonly Vector2[] StarPos = { new Vector2(-132f, 0f), new Vector2(0f, 16f), new Vector2(132f, 0f) };
+        static readonly float[] StarSize = { 86f, 104f, 86f };
         static readonly float[] StarTilt = { 14f, 0f, -14f };
 
         UiAnim _anim;
@@ -44,6 +45,7 @@ namespace InkLine
         float _homeParkY;
         int _ink;
         Text _chestNote;
+        bool _starOpened;
 
         public RectTransform Root => _root;
 
@@ -86,6 +88,7 @@ namespace InkLine
             _anim.Fade(sub, 0.45f, 0.3f, 0f, 1f);
 
             BuildStars(stage0, info);
+            BuildStarRule(stage0, a);
             float t = 0.95f + info.Stars * 0.3f;
             _anim.At(t - 0.1f, () =>
             {
@@ -187,7 +190,7 @@ namespace InkLine
                  .Breathe(icon.transform, 1.0f, 0.05f, 1.2f)
                  .At(0.6f, () =>
                  {
-                     AudioBus.Unlock();
+                     AudioBus.UnlockSting();
                      UiConfetti.Sparks(_root, new Vector2(0f, 130f), InkTheme.GoldHi, 22, 640f);
                  });
 
@@ -259,9 +262,30 @@ namespace InkLine
                 _anim.Shake(parent, 0.8f + 2 * 0.3f + 0.22f, 12f, 0.28f);
 
             if (info.NewBest && !info.FirstClear)
-                Stamp(parent, "新纪录", new Vector2(218f, StarY + 86f), 16f, InkTheme.Rose, 0.8f + info.Stars * 0.3f);
+                Stamp(parent, "新纪录", new Vector2(200f, StarY + 58f), 16f, InkTheme.Rose, 0.8f + info.Stars * 0.3f);
             else if (info.FirstClear)
-                Stamp(parent, "首通", new Vector2(218f, StarY + 86f), 16f, InkTheme.Rose, 0.8f + info.Stars * 0.3f);
+                Stamp(parent, "首通", new Vector2(200f, StarY + 58f), 16f, InkTheme.Rose, 0.8f + info.Stars * 0.3f);
+        }
+
+        // 星下面写清这一局为什么是这颗数，以及三星、两星的门槛。炮台宝箱在规则放完后当场开。
+        void BuildStarRule(RectTransform parent, VictoryArgs a)
+        {
+            ResultInfo info = a.Info;
+            var why = UiKit.Label(parent, "why", StarRules.Why(info), 18,
+                new Vector2(0f, 104f), new Vector2(680f, 26f));
+            why.color = InkTheme.Hex("FFE7B8");
+            UiKit.Bold(why);
+            var rule = UiKit.Label(parent, "rule", StarRules.Rule, 16,
+                new Vector2(0f, 82f), new Vector2(680f, 24f));
+            rule.color = InkTheme.Hex("CDBFA8");
+            _anim.Fade(why, 1.65f, 0.25f, 0f, 1f).Fade(rule, 1.8f, 0.25f, 0f, 1f);
+            if (a.OpenStarChest == null) return;
+            _anim.At(2.05f, () =>
+            {
+                if (_starOpened) return;
+                _starOpened = true;
+                a.OpenStarChest();
+            });
         }
 
         // 斜着盖上去的小红章。
@@ -382,7 +406,7 @@ namespace InkLine
             float step = icon + 16f;
             float x0 = -(n - 1) * step * 0.5f;
             float glyphY = one ? -16f : -18f;
-            _anim.Pop(host, at, 0.34f).At(at + 0.3f, AudioBus.Unlock);
+            _anim.Pop(host, at, 0.34f).At(at + 0.3f, AudioBus.UnlockSting);
             for (int i = 0; i < n; i++)
             {
                 float x = x0 + i * step;

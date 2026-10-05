@@ -200,6 +200,19 @@ namespace InkLine
         public bool BossKilled;
         public int WaveIndex;
         public float WaveTime;
+
+        // 同一组多于一只时，不要在同一帧倒出来。先出一只，剩下的隔开再进。
+        // 活动关已经拆成一只一个时间点，这里 count 为 1，不会再隔一次。
+        const float DripGap = 1.1f;
+        struct Drip
+        {
+            public EnemyId Id;
+            public int Column;
+            public int Left;
+            public int Ord;
+            public float Wait;
+        }
+        readonly List<Drip> _drip = new List<Drip>();
         public float BattleTime;
         public int NextActorId = 1;
         public StageDef Stage;
@@ -481,12 +494,32 @@ namespace InkLine
                 if (WaveTime - dt < s.Time && WaveTime >= s.Time)
                     Spawn(s, i);
             }
-            if (WaveTime >= wave.Duration)
+            TickDrip(dt);
+            // 这一组还在陆续进场时不切波，免得后半截被下一波掐掉，或和下一波挤在同一帧。
+            if (WaveTime >= wave.Duration && _drip.Count == 0)
             {
                 WaveIndex++;
                 WaveTime = 0f;
                 _leechGiven = 0f;
                 if (Stage.Event) PayInterest();
+            }
+        }
+
+        void TickDrip(float dt)
+        {
+            for (int i = _drip.Count - 1; i >= 0; i--)
+            {
+                Drip d = _drip[i];
+                d.Wait -= dt;
+                while (d.Left > 0 && d.Wait <= 0f)
+                {
+                    Emit(d.Id, d.Column, false, d.Ord, false);
+                    d.Left--;
+                    d.Ord++;
+                    d.Wait += DripGap;
+                }
+                if (d.Left <= 0) _drip.RemoveAt(i);
+                else _drip[i] = d;
             }
         }
 
@@ -507,23 +540,40 @@ namespace InkLine
         void Spawn(SpawnSpec spec, int spawnIndex)
         {
             int count = BodyCount(spawnIndex, spec);
-            // 只数在关卡表里已经按「开局疏、收尾密」摊过，这里只负责把它们铺开。
+            // 只数在关卡表里已经按「开局疏、收尾密」摊过。这里只负责进场。
             // 血和掉落都不摊 —— 每只吃满表血、掉满自己那份。
+            // 关底成对进场仍是同一下。杂兵多于一只就隔开出，不在出生点叠成一串。
             bool boss = EnemyIds.IsBoss(spec.Id);
-            for (int i = 0; i < count; i++)
+            if (count <= 0) return;
+            if (count == 1 || boss)
             {
-                int col = spec.Column;
-                if (col < 0) col = boss ? UnityEngine.Random.Range(0, GameConstants.Columns) : PickColumn();
-                int picked = spec.Column < 0 ? col : -1;
-                col = Mathf.Clamp(col + Fan(i), 0, GameConstants.Columns - 1);
-                // 随机挑中的空列已经是按份额给的，不再挪；指定列和铺开落进空列的才挪。
-                if (!boss && col != picked) col = SteerColumn(col);
-                // 每三只往上退一排，进场是一队一队而不是叠在一个点上。
-                var at = new Vector2(
-                    FieldLayout.ColumnX(col) + UnityEngine.Random.Range(-0.1f, 0.1f),
-                    GameConstants.SpawnY + i / 3 * 0.62f + UnityEngine.Random.Range(0f, 0.12f));
-                Enemies.Add(Make(spec.Id, at));
+                for (int i = 0; i < count; i++)
+                    Emit(spec.Id, spec.Column, boss, i, true);
+                return;
             }
+            Emit(spec.Id, spec.Column, false, 0, false);
+            _drip.Add(new Drip
+            {
+                Id = spec.Id,
+                Column = spec.Column,
+                Left = count - 1,
+                Ord = 1,
+                Wait = DripGap
+            });
+        }
+
+        void Emit(EnemyId id, int column, bool boss, int ordinal, bool stack)
+        {
+            int col = column;
+            if (col < 0) col = boss ? UnityEngine.Random.Range(0, GameConstants.Columns) : PickColumn();
+            int picked = column < 0 ? col : -1;
+            col = Mathf.Clamp(col + Fan(ordinal), 0, GameConstants.Columns - 1);
+            // 随机挑中的空列已经是按份额给的，不再挪；指定列和铺开落进空列的才挪。
+            if (!boss && col != picked) col = SteerColumn(col);
+            float y = GameConstants.SpawnY + UnityEngine.Random.Range(0f, 0.12f);
+            if (stack) y += ordinal / 3 * 0.62f;
+            var at = new Vector2(FieldLayout.ColumnX(col) + UnityEngine.Random.Range(-0.1f, 0.1f), y);
+            Enemies.Add(Make(id, at));
         }
 
         // Bodies 是这一拨摊过密度、章节折扣和开局曲线之后的只数。表没铺上时退回旧算法。
@@ -1925,17 +1975,8 @@ namespace InkLine
             return true;
         }
 
-        // 通关评星：按剩余防线血量。续过命的最多两星 —— 三星得是自己守下来的。
-        public int StarsEarned
-        {
-            get
-            {
-                float ratio = BaseHp / (float)Mathf.Max(1, MaxBaseHp);
-                int s = ratio >= 0.7f ? 3 : ratio >= 0.35f ? 2 : 1;
-                if (RevivesUsed > 0) s = Mathf.Min(s, 2);
-                return s;
-            }
-        }
+        // 通关评星见 StarRules：剩七成血且没续命是三星，剩三成半是两星，续过命最多两星。
+        public int StarsEarned => StarRules.Earn(BaseHp, MaxBaseHp, RevivesUsed);
 
         // 本关完成度，失败页说「已完成 xx%」用。按波次时间推进算，
         // 有关底的关把最后两成留给 boss 的血量。封顶 99%：没赢就不能说 100%。

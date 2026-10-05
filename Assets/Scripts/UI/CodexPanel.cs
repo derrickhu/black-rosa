@@ -196,7 +196,7 @@ namespace InkLine
                     InkToast.Show(_layer, "再收录 " + (mile.Need - CodexCatalog.CountKnown(_meta, CodexCatalog.Of(_tab))) + " 个");
                 return;
             }
-            AudioBus.Unlock();
+            AudioBus.UnlockSting();
             Transform ticket = _body != null ? _body.Find("mile" + i) : null;
             Vector2 from = RewardFly.Local(_layer, ticket);
             RewardFly.Play(_layer, from, new[] { RewardFly.Ink(_layer, ink) });

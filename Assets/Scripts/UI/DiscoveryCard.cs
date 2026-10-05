@@ -46,7 +46,7 @@ namespace InkLine
             anim.Fade(desc, 0.4f, 0.22f, 0f, 1f)
                 .At(0.36f, () =>
                 {
-                    AudioBus.Unlock();
+                    AudioBus.UnlockSting();
                     UiConfetti.Sparks(dim, new Vector2(0f, nameY), desc.color, 14, 380f);
                 });
 

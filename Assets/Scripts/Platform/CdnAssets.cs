@@ -14,7 +14,8 @@ namespace InkLine
     // 编辑器直接读 CdnArt/ 源文件，没上传也能看。
     public sealed class CdnAssets : MonoBehaviour
     {
-        const int MaxParallel = 3;
+        // 微信 WebGL1 上传贴图是同步的。一次解码三张大图，鸿蒙上单帧能到 600ms。
+        const int MaxParallel = 1;
         const int TimeoutSec = 8;
         // 章节图 1024 宽、背景 720x1280，常驻 6 张大约 15MB；正在显示的不算在淘汰范围里。
         const int MaxTextures = 6;

@@ -100,7 +100,7 @@ namespace InkLine
         {
             AudioBus.Tap();
             if (!_meta.AdRushChest(_slot)) return;
-            AudioBus.Unlock();
+            AudioBus.UnlockSting();
             Refresh();
             Sped?.Invoke();
         }
@@ -192,9 +192,11 @@ namespace InkLine
             Action revealed = Revealed;
             Opening?.Invoke();
             Destroy(gameObject);
+            _meta.DeferChestSlide = true;
             changed?.Invoke();
             ChestOpenView.Show(layer, _meta, loot, () =>
             {
+                _meta.DeferChestSlide = false;
                 changed?.Invoke();
                 revealed?.Invoke();
             });

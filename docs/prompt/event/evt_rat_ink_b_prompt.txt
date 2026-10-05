@@ -1,0 +1,25 @@
+A 2 by 2 grid of 4 full-body game enemy characters on a pure solid magenta background (#FF00FF).
+
+The attached image only shows the drawing style of this game's existing ink enemies. Copy that drawing language and draw new characters:
+- A chunky rounded blob body filled with dark charcoal ink, the colour of a wet ink stick, with a slightly lighter grey sheen along the top of the head and shoulders.
+- A very thick solid black outline around the whole silhouette and around every limb.
+- Simple mitten hands and simple rounded feet.
+- One stitched cross-shaped patch on the charcoal skin.
+- A few small solid black ink specks floating close to the body.
+- Flat, simple shapes, few details, the same modest level of detail as the attached ink enemies.
+
+Each new character is that same ink blob turned into a fierce rat. Two round ears sit on top of the head, the same dark charcoal outside, the inside of each ear the dark brown of a roasted chestnut. A short blunt snout sticks forward. A thin charcoal tail grows from the lower back and stays attached to the body in one continuous shape. The eyes are two narrow pure-white slits slanting inward in an angry glare. The mouth is a short open snarl with two small white fangs the colour of rice. The body leans forward, shoulders hunched, ready to bite. The whole body stays that same dark charcoal, so the silhouette reads dark.
+
+Colour appears only on the listed treasure. That treasure is bright and saturated.
+
+Top-left, "Envelope Runner": a slim ink rat sprinting, body leaning far forward, one leg stretched out in a long stride, tail streaming behind. One paw holds a Chinese red envelope high, the envelope the bright red of a real hongbao with a small gold circle the yellow of a new gold coin.
+
+Top-right, "Coin Rats": three small ink rats standing slightly apart, each about a third the size of a normal character, each one holding up one small round gold coin with a square hole, the coins the yellow of a new gold coin. All three are fully visible, each with round ears, a snout, angry white eye-slits and a short tail.
+
+Bottom-left, "Coin Shield Rat": a sturdy ink rat braced forward, both mitten paws holding a huge round coin up as a shield. The coin is thick, with a square hole in the centre and a raised rim, the warm reddish brown of a new copper penny. His charcoal head, round ears and angry white eyes show above the coin.
+
+Bottom-right, "Rat Boss": a bigger, broad-shouldered ink rat, taller than the others, striding with his chest forward and his snarl open. He wears a short sleeveless vest the bright red of a red envelope, edged with trim the yellow of a new gold coin. One shoulder carries a wooden abacus, its frame the brown of polished walnut and its beads the green of a jade bracelet. His charcoal head, ears, arms, legs and tail stay visible.
+
+Layout: exactly 2 columns and 2 rows, 4 characters. Each character or group sits centred in its own quadrant, fully inside it, with a wide band of plain magenta all around it. The whole background is one perfectly flat, uniform solid magenta. The image contains only these rats and their treasure.
+
+NO TEXT, no letters, no numbers, no labels, no captions, no writing anywhere in the image.

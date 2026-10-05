@@ -63,7 +63,7 @@ namespace InkLine
                 formSprite = InkVfx.Shot(v.Form.Fx);
             }
             bool hasBody = formSprite != null;
-            // 没吃字的弹按炮台皮肤走。小钢炮是黑铁球，糖果炮是粉红糖球，机甲炮是青蓝能量球，黄金炮才用紫芯金边。
+            // 没吃字的弹按炮台皮肤走。钢珠是黑铁球，糖果是粉红糖球，机甲是青蓝能量球，黄金才用紫芯金边。
             bool naked = !hasBody && v.Elements == 0 && !v.Form.On && !v.Trail.On && !v.Halo.On && !v.Orbit.On && !v.Bloom.On;
             NakedShot look = naked ? NakedOf(skin) : default;
             if (naked && skin == 3)
@@ -320,7 +320,7 @@ namespace InkLine
 
         SpriteRenderer _skinArt;
 
-        // 0 小钢炮黑球，1 糖果粉球，2 机甲能量球，3 黄金紫芯绕金，4 火流星，5 铜钱。
+        // 0 钢珠黑球，1 糖果粉球，2 机甲能量球，3 黄金紫芯绕金，4 火流星，5 铜钱。
         static NakedShot NakedOf(int skin)
         {
             if (skin == SkinCatalog.Flame)

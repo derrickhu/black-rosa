@@ -121,7 +121,7 @@ namespace InkLine
         public static void CountTick() => CueOr("res_tick", "pickup", 0.42f, 0.055f, 1.15f);
         public static void Heartbeat() => CueOr("res_heart", "hit_thud", 0.8f, 0.35f, 0.8f);
         public static void Crumble() => CueOr("res_crumble", "boom", 0.9f, 0.3f, 0.85f);
-        public static void Unlock() => CueOr("res_unlock", "chime", 0.9f, 0.3f, 1f);
+        public static void UnlockSting() => CueOr("res_unlock", "chime", 0.9f, 0.3f, 1f);
 
         static void CueOr(string name, string fallback, float volume, float gap, float pitch)
         {
@@ -281,14 +281,32 @@ namespace InkLine
             }
         }
 
+        static bool _unlocked;
+
+        // 第一次按下去时把音效数据拉起来。微信里要等用户点过，WebAudio 才真正开，
+        // 在那之前解码会失败，这一局就一直没声音。
+        public static void Unlock()
+        {
+            if (_unlocked) return;
+            _unlocked = true;
+            AudioClip[] all = Resources.LoadAll<AudioClip>("Audio");
+            for (int i = 0; i < all.Length; i++)
+            {
+                AudioClip clip = all[i];
+                if (clip == null) continue;
+                _clips[clip.name] = clip;
+                if (clip.loadState == AudioDataLoadState.Unloaded) clip.LoadAudioData();
+            }
+        }
+
         static void Cue(string name, float volume, float gap, float jitter, float pitch = 1f)
         {
             if (!SfxOn) return;
             float now = Time.unscaledTime;
             if (_readyAt.TryGetValue(name, out float at) && now < at) return;
-            _readyAt[name] = now + gap;
             AudioClip clip = Clip(name);
-            if (clip == null) return;
+            if (clip == null || clip.loadState != AudioDataLoadState.Loaded) return;
+            _readyAt[name] = now + gap;
             Ensure();
             AudioSource src = Voice();
             src.pitch = pitch + (jitter > 0f ? Random.Range(-jitter, jitter) : 0f);
@@ -297,9 +315,11 @@ namespace InkLine
 
         static AudioClip Clip(string name)
         {
-            if (_clips.TryGetValue(name, out AudioClip cached)) return cached;
+            if (_clips.TryGetValue(name, out AudioClip cached) && cached != null) return cached;
             AudioClip clip = Resources.Load<AudioClip>("Audio/" + name);
+            if (clip == null) return null;
             _clips[name] = clip;
+            if (clip.loadState == AudioDataLoadState.Unloaded) clip.LoadAudioData();
             return clip;
         }
 

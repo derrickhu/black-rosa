@@ -284,6 +284,13 @@ namespace InkLine
         // 整关出怪按时间从疏排到密，再归一回原来的总只数。
         // 总血量、总掉落不变，变的是它们挤在开局还是挤在后段。
         // 关底本人不参与：双首还是两只，墨王还是一只。护送和小兵一起爬。
+        // 前两章头两波按这个权重会被压到两三只。每波再补 OpeningPad 只，
+        // 补到 OpeningThick 就停，已经成群压上来的波不再加。
+        // 多出来的只数优先从收尾、其次从中段扣回，开局窗和中后段窗里的怪不动。
+        // 只有两波的关扣不回来，那几只是实打实多出来的。
+        const int OpeningPad = 2;
+        static readonly int[] OpeningThick = { 8, 16 };
+
         static int[][] RampCounts(WaveDef[] waves, int chapter)
         {
             int nW = waves.Length;
@@ -395,7 +402,122 @@ namespace InkLine
             var grid = new int[nW][];
             for (int w = 0; w < nW; w++) grid[w] = new int[waves[w].Spawns.Length];
             for (int i = 0; i < n; i++) grid[waveOf[i]][idxOf[i]] = final[i];
+            PadOpening(grid, waves, chapter);
             return grid;
+        }
+
+        static void PadOpening(int[][] grid, WaveDef[] waves, int chapter)
+        {
+            if (chapter > 1) return;
+            int thick = OpeningThick[Mathf.Min(chapter, OpeningThick.Length - 1)];
+            int nW = waves.Length;
+            var abs = new float[nW][];
+            float cursor = 0f;
+            float total = 0f;
+            for (int w = 0; w < nW; w++)
+            {
+                float dur = Mathf.Max(0.01f, waves[w].Duration);
+                total += dur;
+                SpawnSpec[] list = waves[w].Spawns;
+                abs[w] = new float[list.Length];
+                for (int k = 0; k < list.Length; k++) abs[w][k] = cursor + list[k].Time;
+                cursor += dur;
+            }
+            float earlyCut = total * 0.25f;
+            float lateLo = total * 0.55f;
+            float lateHi = total * 0.85f;
+
+            int added = 0;
+            int limit = Mathf.Min(2, nW);
+            for (int w = 0; w < limit; w++)
+            {
+                SpawnSpec[] list = waves[w].Spawns;
+                int sum = 0;
+                var order = new List<int>();
+                for (int k = 0; k < list.Length; k++)
+                {
+                    if (EnemyIds.IsBoss(list[k].Id)) continue;
+                    sum += grid[w][k];
+                    order.Add(k);
+                }
+                if (order.Count == 0) continue;
+                int add = Mathf.Min(OpeningPad, Mathf.Max(0, thick - sum));
+                order.Sort((a, b) =>
+                {
+                    int ae = abs[w][a] <= earlyCut ? 1 : 0;
+                    int be = abs[w][b] <= earlyCut ? 1 : 0;
+                    if (ae != be) return ae.CompareTo(be);
+                    return abs[w][b].CompareTo(abs[w][a]);
+                });
+                for (int step = 0; step < add; step++)
+                    grid[w][order[step % order.Count]]++;
+                added += add;
+            }
+
+            while (added > 0 && TakeOpening(grid, waves, abs, true, earlyCut, lateLo, lateHi))
+                added--;
+            while (added > 0 && TakeOpening(grid, waves, abs, false, earlyCut, lateLo, lateHi))
+                added--;
+
+            int guard = 0;
+            while (guard++ < 30
+                   && BandCount(grid, waves, abs, earlyCut, earlyCut, true)
+                      >= BandCount(grid, waves, abs, lateLo, lateHi, false))
+            {
+                int lw = -1, lk = -1;
+                for (int w = 0; w < nW && lw < 0; w++)
+                for (int k = 0; k < grid[w].Length; k++)
+                {
+                    if (EnemyIds.IsBoss(waves[w].Spawns[k].Id)) continue;
+                    if (abs[w][k] < lateLo || abs[w][k] > lateHi) continue;
+                    lw = w;
+                    lk = k;
+                    break;
+                }
+                if (lw < 0) break;
+                grid[lw][lk]++;
+                bool funded = false;
+                for (int w = nW - 1; w >= 0 && !funded; w--)
+                for (int k = 0; k < grid[w].Length && !funded; k++)
+                {
+                    if (EnemyIds.IsBoss(waves[w].Spawns[k].Id)) continue;
+                    if (grid[w][k] <= 1 || abs[w][k] <= lateHi) continue;
+                    grid[w][k]--;
+                    funded = true;
+                }
+            }
+        }
+
+        // tail 为真时从 85% 之后扣，否则从开局窗和中后段窗之间的中段扣。只扣第 3 波起、且该拨多于 1 只的。
+        static bool TakeOpening(int[][] grid, WaveDef[] waves, float[][] abs, bool tail,
+            float earlyCut, float lateLo, float lateHi)
+        {
+            for (int w = grid.Length - 1; w >= 2; w--)
+            for (int k = 0; k < grid[w].Length; k++)
+            {
+                if (EnemyIds.IsBoss(waves[w].Spawns[k].Id)) continue;
+                if (grid[w][k] <= 1) continue;
+                float t = abs[w][k];
+                bool ok = tail ? t > lateHi : t > earlyCut && t < lateLo;
+                if (!ok) continue;
+                grid[w][k]--;
+                return true;
+            }
+            return false;
+        }
+
+        static int BandCount(int[][] grid, WaveDef[] waves, float[][] abs, float lo, float hi, bool early)
+        {
+            int n = 0;
+            for (int w = 0; w < grid.Length; w++)
+            for (int k = 0; k < grid[w].Length; k++)
+            {
+                if (EnemyIds.IsBoss(waves[w].Spawns[k].Id)) continue;
+                float t = abs[w][k];
+                bool hit = early ? t <= lo : t >= lo && t <= hi;
+                if (hit) n += grid[w][k];
+            }
+            return n;
         }
 
         static StageDef[] Build()

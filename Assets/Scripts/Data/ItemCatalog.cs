@@ -31,47 +31,47 @@ namespace InkLine
             new ItemDef
             {
                 Id = ItemId.Burst, Name = "鞭炮", Desc = "最前排炸开一圈",
-                When = "最前排有 2 个敌人", Quality = ItemQuality.Green, Cooldown = 14f, Tint = InkTheme.Explode
+                When = "最前排有 2 个敌人", Quality = ItemQuality.Green, Cooldown = 21f, Tint = InkTheme.Explode
             },
             new ItemDef
             {
                 Id = ItemId.Halt, Name = "闹钟", Desc = "全场敌人定住",
-                When = "敌人逼近或场上 5 个以上", Quality = ItemQuality.Blue, Cooldown = 28f, Tint = InkTheme.Word
+                When = "敌人逼近或场上 5 个以上", Quality = ItemQuality.Blue, Cooldown = 42f, Tint = InkTheme.Word
             },
             new ItemDef
             {
                 Id = ItemId.Rage, Name = "能量饮料", Desc = "一阵子炮弹伤害翻倍",
-                When = "场上 3 个以上或首领在场", Quality = ItemQuality.Blue, Cooldown = 32f, Tint = InkTheme.Fire
+                When = "场上 3 个以上或首领在场", Quality = ItemQuality.Blue, Cooldown = 48f, Tint = InkTheme.Fire
             },
             new ItemDef
             {
                 Id = ItemId.Sweep, Name = "大扫把", Desc = "全屏伤害并击退",
-                When = "场上 6 个以上或敌人逼近", Quality = ItemQuality.Purple, Cooldown = 52f, Tint = InkTheme.Ink
+                When = "场上 6 个以上或敌人逼近", Quality = ItemQuality.Purple, Cooldown = 78f, Tint = InkTheme.Ink
             },
             new ItemDef
             {
                 Id = ItemId.Splash, Name = "辣椒酱", Desc = "敌人最多那一列灼烧",
-                When = "同一列有 3 个敌人", Quality = ItemQuality.Purple, Cooldown = 46f, Tint = InkTheme.Poison
+                When = "同一列有 3 个敌人", Quality = ItemQuality.Purple, Cooldown = 69f, Tint = InkTheme.Poison
             },
             new ItemDef
             {
                 Id = ItemId.Mend, Name = "急救包", Desc = "基地回血",
-                When = "基地掉血后", Quality = ItemQuality.Purple, Cooldown = 60f, Tint = InkTheme.Heart
+                When = "基地掉血后", Quality = ItemQuality.Purple, Cooldown = 90f, Tint = InkTheme.Heart
             },
             new ItemDef
             {
                 Id = ItemId.Frost, Name = "冰块", Desc = "全场冰伤并减速",
-                When = "场上 4 个以上", Quality = ItemQuality.Blue, Cooldown = 24f, Tint = InkTheme.Ice
+                When = "场上 4 个以上", Quality = ItemQuality.Blue, Cooldown = 36f, Tint = InkTheme.Ice
             },
             new ItemDef
             {
                 Id = ItemId.Slow, Name = "胶水", Desc = "全场减速一阵",
-                When = "有敌人过了半场", Quality = ItemQuality.Green, Cooldown = 16f, Tint = InkTheme.Water
+                When = "有敌人过了半场", Quality = ItemQuality.Green, Cooldown = 24f, Tint = InkTheme.Water
             },
             new ItemDef
             {
                 Id = ItemId.Snipe, Name = "弹弓", Desc = "最前一个吃一记重击",
-                When = "场上有敌人", Quality = ItemQuality.Green, Cooldown = 12f, Tint = InkTheme.Thunder
+                When = "场上有敌人", Quality = ItemQuality.Green, Cooldown = 18f, Tint = InkTheme.Thunder
             }
         };
 
@@ -83,7 +83,7 @@ namespace InkLine
         static readonly int[][] CardNeed =
         {
             new[] { 6, 10, 18, 30, 50 },
-            new[] { 4, 6, 10, 16, 26 },
+            new[] { 5, 8, 12, 18, 28 },
             new[] { 5, 8, 12, 18, 26 }
         };
 
@@ -122,7 +122,7 @@ namespace InkLine
         public static int RageTime(int lv) => 9 + lv;
         public static int SplashTime(int lv) => 7 + lv;
         public static int FrostTime(int lv) => 5 + lv;
-        // 胶水要够长，脚底下的减速标记才看得出来。冷却 12 到 16 秒，始终盖过这阵减速。
+        // 胶水要够长，脚底下的减速标记才看得出来。冷却 18 到 24 秒，始终盖过这阵减速。
         public static int SlowTime(int lv) => 4 + lv;
 
         public static string QualityName(ItemQuality q) =>
@@ -195,6 +195,8 @@ namespace InkLine
         public string Note;
         public string Shot;      // 不带字时打出去的炮弹叫什么，展台上写给玩家看
         public string Key;       // 美术名：Ui/ico_skin_<Key>、cannon_<Key>
+        public SkinRarity Rarity;
+        public int Shards;       // Way 是 Shard 时，集满这么多碎片就到手
         // 加在单发默认伤害上，之后炮台伤害、强攻照旧乘上去。
         public float DamageAdd;
         // 加在开局金币上，之后金币改装照旧再加。
@@ -217,48 +219,64 @@ namespace InkLine
         Ink,      // 到了章节门槛，花墨买
         Ad,       // 看一次广告
         Check,    // 第一轮七日签到的第 7 天
-        Event     // 活动送，活动还没接上，现在领不了
+        Event,    // 活动送
+        Shard     // 炮台宝箱掉碎片，集满到手
     }
 
-    // 小钢炮白给。糖果炮看广告，机甲炮第一周签到，黄金炮通关第二章后花墨买。
-    // 赤焰、福袋先挂「活动获取」，各带一条专属词条，只在装着时生效。
+    public enum SkinRarity { Common, Advanced, Rare }
+
+    // 钢珠、糖果是普通。机甲、黄金、霜晶是高级。赤焰、福袋是稀有。
+    // 黄金、霜晶、赤焰靠炮台宝箱的碎片集齐。机甲第一周签到，福袋活动送。
+    // 赤焰、福袋各带一条专属词条，只在装着时生效。
     public static class SkinCatalog
     {
-        public const int Count = 6;
+        public const int Count = 7;
+        public const int Gilt = 3;
         public const int Flame = 4;
         public const int Lucky = 5;
+        public const int Frost = 6;
 
         static readonly SkinDef[] All =
         {
             new SkinDef
             {
-                Name = "小钢炮", Key = "plain", Tint = Color.clear, Price = 0,
+                Name = "钢珠", Key = "plain", Tint = Color.clear, Price = 0,
                 Note = "老木架扛着铁炮管，皮实耐打。", Shot = "铁球弹"
             },
             new SkinDef
             {
-                Name = "糖果炮", Key = "cinnabar", Price = 0, Way = SkinWay.Ad,
+                Name = "糖果", Key = "cinnabar", Price = 0, Way = SkinWay.Ad,
                 Tint = InkTheme.Hex("FF5C8A"), Note = "礼物盒上架着拐杖糖，轮子是棒棒糖。", Shot = "糖果弹"
             },
             new SkinDef
             {
-                Name = "机甲炮", Key = "celadon", Price = 0, Way = SkinWay.Check,
+                Name = "机甲", Key = "celadon", Price = 0, Way = SkinWay.Check,
+                Rarity = SkinRarity.Advanced,
                 Tint = InkTheme.Hex("3FA9F5"), Note = "履带小车扛着机甲炮管，打得更狠。", Shot = "能量弹", DamageAdd = 1f
             },
             new SkinDef
             {
-                Name = "黄金炮", Key = "gilt", Price = 365, Way = SkinWay.Ink, Chapter = 1,
+                Name = "黄金", Key = "gilt", Price = 0, Way = SkinWay.Shard,
+                Rarity = SkinRarity.Advanced, Shards = 6,
                 Tint = InkTheme.Hex("E8B43A"), Note = "坐在宝箱上，金币多到溢出来。", Shot = "金光弹", GoldAdd = 20
             },
             new SkinDef
             {
-                Name = "赤焰", Key = "flame", Price = 0, Way = SkinWay.Event,
+                Name = "赤焰", Key = "flame", Price = 0, Way = SkinWay.Shard,
+                Rarity = SkinRarity.Rare, Shards = 8,
                 Tint = InkTheme.Hex("E2552B"), Note = "龙口衔火，一炮一颗流星。", Shot = "火焰流星弹"
             },
             new SkinDef
             {
                 Name = "福袋", Key = "lucky", Price = 0, Way = SkinWay.Event,
+                Rarity = SkinRarity.Rare,
                 Tint = InkTheme.Hex("D9A23A"), Note = "招财猫抱着炮，打出去全是铜钱。", Shot = "铜钱弹"
+            },
+            new SkinDef
+            {
+                Name = "霜晶", Key = "frost", Price = 0, Way = SkinWay.Shard,
+                Rarity = SkinRarity.Advanced, Shards = 6,
+                Tint = InkTheme.Hex("7ED0E8"), Note = "炮口结着冰晶，打出去带着霜。", Shot = "冰晶弹", DamageAdd = 2f
             }
         };
 
@@ -289,6 +307,7 @@ namespace InkLine
                 case SkinWay.Ad: return "看广告获取";
                 case SkinWay.Check: return "七日签到获得";
                 case SkinWay.Event: return "活动获取";
+                case SkinWay.Shard: return "集满碎片获得";
                 case SkinWay.Ink: return "通关第" + ChapterNo(d.Chapter) + "章开放";
                 default: return "";
             }
@@ -313,5 +332,27 @@ namespace InkLine
 
         public static Color Pad(SkinDef d) =>
             d.Tint.a > 0.01f ? d.Tint : InkTheme.Hex("FFE7C4");
+
+        public static string RankName(SkinRarity r)
+        {
+            if (r == SkinRarity.Rare) return "稀有";
+            if (r == SkinRarity.Advanced) return "高级";
+            return "普通";
+        }
+
+        // 跟道具卡同一套：普通绿，高级蓝，稀有紫。
+        public static Color RankColor(SkinRarity r) =>
+            ItemCatalog.QualityColor(QualityOf(r));
+
+        public static Color RankDeep(SkinRarity r) =>
+            ItemCatalog.QualityDeep(QualityOf(r));
+
+        static ItemQuality QualityOf(SkinRarity r) =>
+            r == SkinRarity.Rare ? ItemQuality.Purple
+            : r == SkinRarity.Advanced ? ItemQuality.Blue
+            : ItemQuality.Green;
+
+        // 已经有这门炮时，多出来的碎片按这个价换成墨。
+        public static int ShardInk(SkinRarity r) => r == SkinRarity.Rare ? 40 : 25;
     }
 }

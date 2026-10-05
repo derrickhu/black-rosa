@@ -6,7 +6,7 @@ namespace InkLine
 {
     // 七日签到，照花花的 3+3+1：前六天两排小卡，第七天一张宽卡。
     // 每天体力 + 墨 + 钻石，签的时候看广告翻倍；已经直接签了的，当天还能补看一次再领一份。
-    // 第 7 天另送金宝箱，第一次连签满 7 天还送机甲炮，断一天从第 1 天重来。
+    // 第 7 天另送金宝箱，第一次连签满 7 天还送机甲，断一天从第 1 天重来。
     public sealed class CheckInPanel : MonoBehaviour
     {
         const float BoardW = 640f;

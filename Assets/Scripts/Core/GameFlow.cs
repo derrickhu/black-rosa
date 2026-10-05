@@ -57,14 +57,12 @@ namespace InkLine
         readonly Queue<string> _codexToasts = new Queue<string>();
         readonly Queue<CodexEntry> _discoveries = new Queue<CodexEntry>();
         float _audioSweep;
+        // 启动封面还盖着。第一屏画出来再揭，0 表示已经揭过或不用揭。
+        int _loadingCover;
 
         void Start()
         {
-            WxBridge.InitSdk(() =>
-            {
-                AdStub.Warm();
-                CloudSync.Startup(Begin);
-            });
+            WxBridge.InitSdk(() => CloudSync.Startup(Begin));
             CloudSync.Imported += OnCloudImported;
         }
 
@@ -107,9 +105,9 @@ namespace InkLine
             {
                 ShowHome();
                 StartStage(0);
-                return;
             }
-            Enter();
+            else Enter();
+            _loadingCover = 2;
         }
 
         // 新玩家不看首页，直接进第一关；指引走到一半杀进程的，回到对应那一步。
@@ -130,6 +128,11 @@ namespace InkLine
 
         void Update()
         {
+            if (_loadingCover > 0)
+            {
+                _loadingCover--;
+                if (_loadingCover == 0) WxBridge.HideLoadingCover();
+            }
             if (_canvas == null) return;
             if (_leftGame)
             {
@@ -146,6 +149,7 @@ namespace InkLine
                 AudioBus.Sweep(_layer);
             }
             InkPointer.Pump();
+            if (InkPointer.Down) AudioBus.Unlock();
             bool uiHit = EventSystemOverUi();
             if (_screen == Screen.Lobby && _home != null) _home.Tick();
             if (_screen == Screen.Intro || _screen == Screen.Battle || _screen == Screen.Place || _screen == Screen.Draft
@@ -1067,14 +1071,11 @@ namespace InkLine
             for (int c = 0; c < GameConstants.Columns; c++)
             for (int r = 0; r < GameConstants.Rows; r++)
             {
-                // 没开的格子不画。能放的格子只留黑框，这里不再铺绿色。
                 if (!_world.IsOpen(c, r)) continue;
                 var p = _world.PeekPlace(_held, c, r);
-                Color col = InkTheme.PlaceBad;
-                if (p == BattleWorld.PlaceResult.Placed) col = InkTheme.PlaceOk;
-                else if (p == BattleWorld.PlaceResult.Upgraded) col = InkTheme.PlaceUp;
-                else if (p == BattleWorld.PlaceResult.RejectedMaxStar) col = new Color(0, 0, 0, 0.06f);
-                _view.HighlightCell(c, r, col);
+                if (p == BattleWorld.PlaceResult.RejectedMaxStar) continue;
+                bool drop = p == BattleWorld.PlaceResult.Placed || p == BattleWorld.PlaceResult.Upgraded;
+                _view.HighlightCell(c, r, drop);
             }
         }
 
@@ -1119,7 +1120,8 @@ namespace InkLine
             if (win)
             {
                 AudioBus.Win();
-                _result = _meta.ApplyResult(_pickStage, _world.Ink, _world.StarsEarned);
+                _result = _meta.ApplyResult(_pickStage, _world.Ink, _world.StarsEarned,
+                    _world.BaseHp, _world.MaxBaseHp, _world.RevivesUsed > 0);
                 RankService.Submit(_meta.ClearedCount());
                 ShowVictory(_pickStage, _result);
             }
@@ -1175,6 +1177,12 @@ namespace InkLine
                 },
                 DoubleText = canInk && canChest ? "墨翻倍 + 开宝箱" : canInk ? "墨翻倍" : "立即开宝箱",
                 Home = ShowHome,
+                OpenStarChest = preview || !info.HasStarChest ? null : () =>
+                {
+                    ChestLoot loot = _meta.ClaimStarChest(info.StarChest);
+                    if (loot == null) return;
+                    ChestOpenView.Show(_layer, _meta, loot, null);
+                },
                 Forge = () => ShowHome(HomeScreen.TabForge),
                 Skin = skin =>
                 {
@@ -1216,7 +1224,11 @@ namespace InkLine
 
         void ShowLoss()
         {
-            if (_eventTier >= 0) ShowEventResult(false, 0);
+            if (_eventTier >= 0)
+            {
+                int purse = _world != null ? Mathf.Max(0, _world.Gold) : 0;
+                ShowEventResult(false, 0, "", purse);
+            }
             else ShowDefeat(_pickStage, _world != null ? _world.Progress : 0f);
         }
 
@@ -1230,21 +1242,30 @@ namespace InkLine
                 return;
             }
             AudioBus.Win();
+            bool fresh = _meta.MarkEventTier(_eventTier);
+            string unlocked = fresh && _eventTier + 1 < EventCatalog.TierCount
+                ? EventCatalog.Tier(_eventTier + 1).Name + "开了"
+                : "";
             int banked = _meta.EventDone ? 0 : Mathf.Max(0, _world.Gold);
             _meta.BankEvent(banked);
-            ShowEventResult(true, banked);
+            ShowEventResult(true, banked, unlocked);
         }
 
-        void ShowEventResult(bool win, int banked)
+        void ShowEventResult(bool win, int banked, string unlocked, int purse = 0)
         {
             DropOverlay();
             int tier = _eventTier;
+            int salvage = !win && !_meta.EventDone ? EventCatalog.Salvage(purse) : 0;
+            bool salvaged = false;
             EventResultPanel panel = null;
             panel = EventResultPanel.Show(_layer, _meta, new EventResultArgs
             {
                 Win = win,
                 Done = _meta.EventDone,
                 Banked = banked,
+                Purse = purse,
+                SalvageGold = salvage,
+                Unlocked = unlocked,
                 Interest = _world != null ? _world.Interest : 0,
                 CanDouble = _meta.CanDoubleEvent,
                 Double = () =>
@@ -1255,6 +1276,16 @@ namespace InkLine
                         if (_inkDoubled || !_meta.DoubleEvent(banked)) return;
                         _inkDoubled = true;
                         if (panel != null) panel.Doubled();
+                    });
+                },
+                Salvage = salvage <= 0 ? null : () =>
+                {
+                    AdStub.Reward("event_salvage", () =>
+                    {
+                        if (salvaged) return;
+                        salvaged = true;
+                        _meta.BankEvent(salvage);
+                        if (panel != null) panel.Salvaged();
                     });
                 },
                 Again = () =>
@@ -1303,6 +1334,7 @@ namespace InkLine
                 {
                     Ink = 86, DailyDouble = true, Diamonds = 5,
                     Chest = (int)ChestTier.Gold, ChestFull = true, ChestInk = 50, Stars = 3, NewBest = true, FirstClear = true,
+                    HpLeft = 3, HpMax = 3,
                     NewSkins = new[] { SkinCatalog.Flame, SkinCatalog.Lucky },
                     NewLines = new[] { (int)ForgeLine.BaseHp }
                 }, true);

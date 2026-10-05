@@ -17,7 +17,7 @@ namespace InkLine
                 W(S(0.3f, Walker, 3), S(3.5f, Walker, 2), S(7f, Walker, 3, 2))
             ).Give(Split).Teach(true, false));
 
-            // 这一关已经装上弹弓，多一波收尾。总数只多两只，三格还压在每格 5 只里面。
+            // 这一关已经装上弹弓，多一波收尾。
             s.Add(P("落火", G(".XXX.."),
                 W(S(0.3f, Walker, 1), S(3.5f, Walker, 2), S(7f, Walker, 3)),
                 W(S(0.3f, Walker, 2), S(2.5f, Walker, 1), S(5f, Walker, 3), S(7.5f, Walker, 2, 2)),

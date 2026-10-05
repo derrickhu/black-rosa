@@ -17,5 +17,8 @@ namespace InkLine
         public Text PrevLabel;
         public Button Next;
         public Text NextLabel;
+        public Button StarChest;
+        public Image StarArt;
+        public Text StarLabel;
     }
 }

@@ -23,6 +23,16 @@ namespace InkLine
             init.Invoke(null, new object[] { cb });
         }
 
+        // 启动封面盖住 Unity 黑屏。游戏画面画出来之后再揭，中间不要空一截。
+        public static void HideLoadingCover()
+        {
+#if UNITY_MINIGAME || WEIXINMINIGAME || UNITY_WEIXINMINIGAME || MINIGAME_SUBPLATFORM_WEIXIN
+            if (Application.isEditor) return;
+            try { WeChatWASM.WX.HideLoadingPage(); }
+            catch (Exception e) { Debug.LogWarning("[Wx] hide loading " + e.Message); }
+#endif
+        }
+
         // wx.login 拿一次性 code，换 openid 在云函数里做。非微信构建直接报失败。
         public static void Login(Action<string> ok, Action<string> fail)
         {

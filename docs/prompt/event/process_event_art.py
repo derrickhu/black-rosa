@@ -19,7 +19,7 @@ from PIL import Image
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "..", "enemy"))
 from process_bosses import key_out, drop_bleed, normalize  # noqa: E402
-from process_mobs2 import drop_far  # noqa: E402
+from process_mobs2 import drop_far, neutralize  # noqa: E402
 
 REPO = os.path.abspath(os.path.join(HERE, "..", "..", ".."))
 BASE = "/Users/rosa/rosa_games/game_assets/black-rosa/美术/活动招财"
@@ -32,14 +32,14 @@ CELL_WORK = 512
 
 # (成品名, 母版, 列, 行)  —— 母版都是 2x2。活动怪是偷宝的老鼠，和主线的墨人分开。
 CELLS = [
-    ("evt_walker",  "evt_rat_a.png", 0, 0),  # 抱金元宝的灰鼠
-    ("evt_ball",    "evt_rat_a.png", 1, 0),  # 缩成球的仓鼠
-    ("evt_chubby",  "evt_rat_a.png", 0, 1),  # 扛米袋的胖鼠
-    ("evt_bighead", "evt_rat_a.png", 1, 1),  # 大耳朵鼠
-    ("evt_runner",  "evt_rat_b.png", 0, 0),  # 戴眼罩举红包的快鼠
-    ("evt_swarm",   "evt_rat_b.png", 1, 0),  # 三只举金钱的小鼠
-    ("evt_shield",  "evt_rat_b.png", 0, 1),  # 举锅盖的鼠
-    ("evt_elite",   "evt_rat_b.png", 1, 1),  # 穿红坎肩扛算盘的鼠老大
+    ("evt_walker",  "evt_rat_ink_a.png", 0, 0),  # 抱金元宝
+    ("evt_ball",    "evt_rat_ink_a.png", 1, 0),  # 缩成球
+    ("evt_chubby",  "evt_rat_ink_a.png", 0, 1),  # 扛米袋
+    ("evt_bighead", "evt_rat_ink_a.png", 1, 1),  # 大耳朵
+    ("evt_runner",  "evt_rat_ink_b.png", 0, 0),  # 举红包
+    ("evt_swarm",   "evt_rat_ink_b.png", 1, 0),  # 三只举金钱
+    ("evt_shield",  "evt_rat_ink_b.png", 0, 1),  # 举铜钱盾
+    ("evt_elite",   "evt_rat_ink_b.png", 1, 1),  # 红坎肩扛算盘
 ]
 
 PAPER = np.array([244, 239, 228], dtype=np.float32)
@@ -79,8 +79,7 @@ def mobs():
         res = drop_bleed(img)
         img = res[0] if isinstance(res, tuple) else res
         img, far = drop_far(img)
-        # 老鼠的粉耳朵、粉尾巴正是 neutralize 要拉灰的那一档颜色，这里不能用。
-        tinted = 0
+        img, tinted = neutralize(img)
         img = normalize(img)
         k = MAXDIM / max(img.size)
         if k < 1:

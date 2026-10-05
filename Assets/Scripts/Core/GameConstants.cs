@@ -39,7 +39,7 @@ namespace InkLine
         public const int GiftInk = 100;
         public const int GiftDiamond = 30;
         public const ChestTier GiftChest = ChestTier.Silver;
-        // 七日签到：断一天从第 1 天重来；第一次连签满 7 天送机甲炮（SkinCatalog 2）。
+        // 七日签到：断一天从第 1 天重来；第一次连签满 7 天送机甲（SkinCatalog 2）。
         // 每天给钻石，第 7 天另给一个金宝箱。
         public const int CheckDays = 7;
         public const int CheckStamina = 5;

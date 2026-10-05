@@ -25,11 +25,25 @@ namespace InkLine
         public int Spare;
     }
 
+    // 炮台宝箱开出来的一叠炮台碎片。Have / Need 是入账之后的进度。
+    public struct ShardStack
+    {
+        public int Skin;
+        public int Count;
+        public int Have;
+        public int Need;
+        public bool Unlocked;
+    }
+
     public sealed class ChestLoot
     {
         public ChestTier Tier;
         public int Ink;
         public readonly List<CardStack> Cards = new List<CardStack>();
+        public string Title;     // 有值时盖过品阶名，炮台宝箱用
+        public string ArtKey;    // 有值时用 Ui/chest_<ArtKey>
+        public string Note;
+        public readonly List<ShardStack> Shards = new List<ShardStack>();
     }
 
     // 胜利宝箱。一关大约一两分钟：木箱打完下一关就开好，银箱再打一两关，
@@ -65,6 +79,37 @@ namespace InkLine
 
         public static ChestDef Get(ChestTier t) => All[Mathf.Clamp((int)t, 0, All.Length - 1)];
         public static ChestDef Get(int t) => All[Mathf.Clamp(t, 0, All.Length - 1)];
+
+        // 炮台宝箱。章节满星会发一只，以后别的活动也可以发同一只。
+        // 只从「集碎片到手」的炮里抽。稀有单独占一小截，其余炮平分剩下的概率。
+        public const string CannonName = "炮台宝箱";
+        public const string CannonArt = "cannon";
+        public const float CannonRare = 0.05f;
+        public const int CannonShards = 2;
+
+        public struct CannonRoll
+        {
+            public int Skin;
+            public int Count;
+        }
+
+        public static CannonRoll RollCannon()
+        {
+            var common = new List<int>();
+            var rare = new List<int>();
+            for (int i = 0; i < SkinCatalog.Count; i++)
+            {
+                SkinDef d = SkinCatalog.Get(i);
+                if (d.Way != SkinWay.Shard || d.Shards <= 0) continue;
+                if (d.Rarity == SkinRarity.Rare) rare.Add(i);
+                else common.Add(i);
+            }
+            bool wantRare = rare.Count > 0 && Random.value < CannonRare;
+            List<int> pool = wantRare ? rare : common;
+            if (pool.Count == 0) pool = rare.Count > 0 ? rare : common;
+            int skin = pool.Count > 0 ? pool[Random.Range(0, pool.Count)] : SkinCatalog.Gilt;
+            return new CannonRoll { Skin = skin, Count = CannonShards };
+        }
 
         // 普通关按这张表轮着发，不纯靠随机。boss 关、章底另算。
         static readonly ChestTier[] Cycle =

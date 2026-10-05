@@ -218,6 +218,28 @@ evt_src = read("Data", "StageEvent.cs")
 cast = re.search(r"EventCast = \{([^}]*)\}", evt_src).group(1).replace(" ", "").split(",")
 evt_miss = [c for c in cast if not os.path.exists(os.path.join(ART, "evt_" + (files.get(c) or "walker") + ".png"))]
 check(not evt_miss, f"活动 {len(cast)} 只换皮都有图" + ("" if not evt_miss else ": 缺 " + str(evt_miss)))
+# 活动关不走主线平铺。波数写死，实数 = 出场表 × Density，并且必须一波比一波多。
+evt_density = {"Swarm": 3, "Shield": 1, "Elite": 1}
+evt_cases = re.split(r"case \d+:|default:", re.search(r"EventWaves\(int tier\)\s*\{(.*)\n        \}", evt_src, re.S).group(1))
+evt_cases = [c for c in evt_cases if "W(" in c]
+evt_want = [6, 8, 10]
+evt_bad = []
+for i, body in enumerate(evt_cases[:3]):
+    waves = re.split(r"\bW\(", body)[1:]
+    counts = []
+    for w in waves:
+        n = 0
+        for e, _col, raw in re.findall(r"S\([\d.]+f,\s*(\w+)(?:,\s*(-?\d+))?(?:,\s*(\d+))?\)", w):
+            n += (int(raw) if raw else 1) * evt_density.get(e, 2)
+        counts.append(n)
+    if len(counts) != evt_want[i] or any(counts[k] <= counts[k - 1] for k in range(1, len(counts))):
+        evt_bad.append(f"{i + 1}:{len(counts)} {counts}")
+check(not evt_bad, "活动关 6 / 8 / 10 波，且一波比一波密" + ("" if not evt_bad else ": " + "; ".join(evt_bad)))
+gap_open = float(re.search(r"EventGapOpen = ([\d.]+)f", evt_src).group(1))
+gap_late = float(re.search(r"EventGapLate = ([\d.]+)f", evt_src).group(1))
+wave_min = float(re.search(r"EventWaveMin = ([\d.]+)f", evt_src).group(1))
+check(gap_open > gap_late >= 1.5 and wave_min >= 20,
+      f"活动关出怪间隔 {gap_open:.2f}→{gap_late:.2f} 秒，每波至少 {wave_min:.0f} 秒")
 files["Walker"] = "walker"
 nopng = [f"{e}->{f}.png" for e, f in files.items() if not os.path.exists(os.path.join(ART, f + ".png"))]
 check(not nopng, f"{len(files)} 张贴图都在盘上" + ("" if not nopng else ": 缺 " + str(nopng)))
@@ -247,6 +269,9 @@ wave_span = [float(x) for x in re.findall(
 ramp_open = float(re.search(r"RampOpen\s*=\s*([\d.]+)f", core_src).group(1))
 ramp_late = float(re.search(r"RampLate\s*=\s*([\d.]+)f", core_src).group(1))
 ramp_pow = float(re.search(r"RampPow\s*=\s*([\d.]+)f", core_src).group(1))
+opening_pad = int(re.search(r"OpeningPad\s*=\s*(\d+)", core_src).group(1))
+opening_thick = [int(x) for x in re.findall(
+    r"\d+", re.search(r"OpeningThick\s*=\s*\{([^}]*)\}", core_src).group(1))]
 chapter_bodies = [float(x) for x in re.findall(
     r"[\d.]+", re.search(r"ChapterBodies\s*=\s*\{([^}]*)\}", core_src).group(1))]
 chapter_ink = [float(x) for x in re.findall(
@@ -295,7 +320,8 @@ def waves_of(r):
     """逐波拆，并复刻 StageCatalog.Pace/Tile 和 RampCounts。
 
     平铺会把出场表整体后移一轮再追加一遍。RampCounts 再把只数按时间
-    从疏排到密，总只数不变。怪量和波长都要跟着算，不然经济和时长对不上。
+    从疏排到密，总只数不变；前两章头两波随后按 OpeningPad 再补。
+    怪量和波长都要跟着算，不然经济和时长对不上。
     """
     src = read("Data", f"StageChapter{r['ch'] + 1}.cs")
     starts = [m.start() for m in re.finditer(r"s\.Add\(P\(", src)] + [len(src)]
@@ -325,7 +351,10 @@ def waves_of(r):
         end = last + (rounds - 1) * step_t
         tiled = [(t + r * step_t, e, n) for r in range(rounds) for t, e, n in specs]
         out.append(dict(boss=False, dur=max(span, end + 5.5), specs=tiled))
-    return ramp_bodies(out, chapter_bodies[min(r["ch"], len(chapter_bodies) - 1)])
+    out = ramp_bodies(out, chapter_bodies[min(r["ch"], len(chapter_bodies) - 1)])
+    if r["ch"] <= 1:
+        pad_opening(out, r["ch"])
+    return out
 
 
 def ramp_weight(u):
@@ -397,6 +426,98 @@ def ramp_bodies(waves, body_mul=1.0):
     return out
 
 
+def pad_opening(waves, ch):
+    """复刻 StageCatalog.PadOpening：前两章头两波各补 OpeningPad 只，尽量从后段扣回。"""
+    thick = opening_thick[min(ch, len(opening_thick) - 1)]
+    dur = sum(w["dur"] for w in waves)
+    early_cut, late_lo, late_hi = dur * 0.25, dur * 0.55, dur * 0.85
+    added = 0
+    for wi in range(min(2, len(waves))):
+        specs = waves[wi]["specs"]
+        idxs = [i for i, s in enumerate(specs) if not s[3]]
+        if not idxs:
+            continue
+        have = sum(specs[i][2] for i in idxs)
+        add = min(opening_pad, max(0, thick - have))
+        order = sorted(idxs, key=lambda i: (0 if specs[i][0] > early_cut else 1, -specs[i][0]))
+        for k in range(add):
+            i = order[k % len(order)]
+            t, e, c, b = specs[i]
+            specs[i] = (t, e, c + 1, b)
+        added += add
+
+    def take(tail):
+        nonlocal added
+        while added > 0:
+            found = None
+            for wi in range(len(waves) - 1, 1, -1):
+                specs = waves[wi]["specs"]
+                for si, s in enumerate(specs):
+                    if s[3] or s[2] <= 1:
+                        continue
+                    t = s[0]
+                    ok = t > late_hi if tail else early_cut < t < late_lo
+                    if not ok:
+                        continue
+                    found = (wi, si)
+                    break
+                if found:
+                    break
+            if not found:
+                return
+            wi, si = found
+            t, e, c, b = waves[wi]["specs"][si]
+            waves[wi]["specs"][si] = (t, e, c - 1, b)
+            added -= 1
+
+    take(True)
+    take(False)
+
+    def counts():
+        early = late = 0
+        for w in waves:
+            for t, _e, c, b in w["specs"]:
+                if b:
+                    continue
+                if t <= early_cut:
+                    early += c
+                if late_lo <= t <= late_hi:
+                    late += c
+        return early, late
+
+    early, late = counts()
+    guard = 0
+    while early >= late and guard < 30:
+        guard += 1
+        late_slot = None
+        for w in waves:
+            for si, s in enumerate(w["specs"]):
+                if s[3]:
+                    continue
+                if late_lo <= s[0] <= late_hi:
+                    late_slot = (w, si)
+                    break
+            if late_slot:
+                break
+        if late_slot is None:
+            break
+        w, si = late_slot
+        t, e, c, b = w["specs"][si]
+        w["specs"][si] = (t, e, c + 1, b)
+        funded = False
+        for wi in range(len(waves) - 1, -1, -1):
+            specs = waves[wi]["specs"]
+            for sj, s in enumerate(specs):
+                if s[3] or s[2] <= 1 or s[0] <= late_hi:
+                    continue
+                waves[wi]["specs"][sj] = (s[0], s[1], s[2] - 1, s[3])
+                funded = True
+                break
+            if funded:
+                break
+        early, late = counts()
+
+
 def econ(r):
     t = hp_of(r["ch"], r["slot"])
     dmul = max(0.1, t) ** drop_pow
@@ -455,13 +576,14 @@ check(ch_first[-1] > ch_first[0] * 2, "抽牌起价末章明显高于首章: "
       + " / ".join(f"{x:.1f}" for x in ch_first))
 ink_total = round(sum(e["ink"] for e in eco))
 
-# 开局疏、后段密。总只数没变，所以钱和血还在；变的是它们挤在什么时候。
+# 开局疏、后段密。归一本身不改总只数；前两章头两波另补了几只，两波就结束的关扣不回。
 flat = [f"{r['ch'] + 1}-{r['slot'] + 1}({e['early']}>={e['late']})"
         for e, r in zip(eco, rows) if e["early"] >= e["late"]]
 check(not flat, "每关前 25% 时间的怪少于 55%~85% 那一段" + ("" if not flat else ": " + ", ".join(flat)))
+# 头两波补只之后，起笔两格大约六只半，线放在 7。
 crowd = [f"{tag(r)}({e['kills']}/{e['open']})" for e, r in zip(eco, rows)
-         if r["ch"] == 0 and e["kills"] > e["open"] * 5]
-check(not crowd, "第一章每格不超过 5 只杂兵" + ("" if not crowd else ": " + ", ".join(crowd)))
+         if r["ch"] == 0 and e["kills"] > e["open"] * 7]
+check(not crowd, "第一章每格不超过 7 只杂兵" + ("" if not crowd else ": " + ", ".join(crowd)))
 print("  第一章杂兵 / 格数: " + "  ".join(f"{e['kills']}/{e['open']}" for e, r in zip(eco, rows) if r["ch"] == 0))
 print(f"  开局 1 秒出怪（全关合计）{sum(e['open1'] for e in eco)}，"
       f"前 25% {sum(e['early'] for e in eco)}，中后段 {sum(e['late'] for e in eco)}")

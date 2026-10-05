@@ -64,27 +64,14 @@ namespace InkLine
             System.Action retreat, System.Action draft, System.Action addEmitter)
         {
             // ScreenFit 在没有刘海时也保底 36，那是给首页顶栏的呼吸。
-            // 战斗页再加 8，三个药丸就掉进走怪区，像浮在战场当中。
-            // 真机安全区 / 胶囊下沿已经大于 36，原样贴着排，不再往下加。
+            // 战斗页贴着安全区上沿排，不再往下加一截，免得读数掉进走怪区。
             float pad = ScreenFit.TopPad;
             float top = pad <= 36.1f ? 10f : pad;
 
-            // 读数做成药丸，和首页顶栏一套构件，图标也是同一批手绘图。
-            var chip = new Vector2(172f, 54f);
-            var gold = UiKit.Chip(layer, "gold", InkSprites.Ui("gold"), "0",
-                new Vector2(18f, top), chip, Pin.TopLeft, out RectTransform goldChip);
-
-            // 局内墨摆右上，和左上的金币对称。中间留给波次。
-            // 图标用首页那滴墨，不用闪电 —— 闪电在首页是体力，两处撞图标，
-            // 玩家会以为局内打怪在回体力。
-            var ink = UiKit.Chip(layer, "ink", InkSprites.Ui("ink"), "0",
-                new Vector2(18f, top), chip, Pin.TopRight, out RectTransform inkChip);
-
-            var wavePlate = UiKit.Stroke(layer, "waveplate", new Vector2(0f, top), new Vector2(196f, 54f),
-                Pin.Top, 5f, radius: 27f);
-            wavePlate.GetComponent<Image>().raycastTarget = false;
-            var wave = UiKit.Label(wavePlate, "n", "", 28, Vector2.zero, new Vector2(186f, 48f));
-            UiKit.Bold(wave);
+            // 金币、墨、波次都不铺白底，图标加描边字直接写在地图上。
+            var gold = Readout(layer, "gold", InkSprites.Ui("gold"), "0", false, Pin.TopLeft, out RectTransform goldChip);
+            var ink = Readout(layer, "ink", InkSprites.Ui("ink"), "0", true, Pin.TopRight, out RectTransform inkChip);
+            var wave = ReadoutText(layer, "wave", "", 36, new Vector2(200f, ReadH), Pin.Top);
 
             var toast = UiKit.Label(layer, "toast", "", 24, new Vector2(0, top + 62f), new Vector2(640, 44),
                 TextAnchor.MiddleCenter, Pin.Top);
@@ -103,7 +90,7 @@ namespace InkLine
             var hearts = UiKit.Hearts(layer, Vector2.zero, 36f, maxHp, Pin.Center);
             var heartsWrap = hearts.Length > 0 ? hearts[0].transform.parent as RectTransform : null;
 
-            var hud = new BattleHud(layer, gold, goldChip, hearts, heartsWrap, wavePlate, wave, toast,
+            var hud = new BattleHud(layer, gold, goldChip, hearts, heartsWrap, wave.rectTransform, wave, toast,
                 ink, inkChip, draftBtn, settingsBtn, draftLabel, keys);
             hud._fx = ItemFx.Build(layer);
             hud._world = world;
@@ -128,8 +115,15 @@ namespace InkLine
             root.GetComponent<Image>().raycastTarget = false;
             var visual = UiKit.Panel(root, "v", Vector2.zero, new Vector2(KeyW, KeyH), Color.clear);
             visual.GetComponent<Image>().raycastTarget = false;
-            var glow = UiKit.Icon(visual, InkFx.SoftDisc(), Vector2.zero, KeyW * 2.2f);
-            var ring = UiKit.Icon(visual, InkFx.SoftRing(), Vector2.zero, KeyW * 1.2f);
+            // 浅灰透明垫在图标下，收在图标自己的尺寸里，不往格子上摊。
+            var shade = UiKit.Panel(visual, "shade", Vector2.zero, new Vector2(KeyW, KeyH),
+                new Color(0.55f, 0.52f, 0.48f, 0.42f));
+            var shadeImg = shade.GetComponent<Image>();
+            shadeImg.sprite = UiSprites.Fill(16);
+            shadeImg.type = Image.Type.Sliced;
+            shadeImg.raycastTarget = false;
+            var glow = UiKit.Icon(visual, InkFx.SoftDisc(), Vector2.zero, KeyW * 1.2f);
+            var ring = UiKit.Icon(visual, InkFx.SoftRing(), Vector2.zero, KeyW);
             ring.enabled = false;
             var dim = UiKit.Icon(visual, null, Vector2.zero, KeyW);
 
@@ -154,6 +148,42 @@ namespace InkLine
             };
         }
 
+        // 地图上的读数：浅灰透明底，白字加深色描边，图标贴在字的一侧。
+        static Text Readout(RectTransform layer, string name, Sprite icon, string value, bool iconOnRight, Pin pin,
+            out RectTransform chip)
+        {
+            var root = UiKit.Panel(layer, name, Vector2.zero, new Vector2(ReadW, ReadH),
+                new Color(0.78f, 0.75f, 0.70f, 0.40f), pin);
+            var plate = root.GetComponent<Image>();
+            plate.sprite = UiSprites.Fill(Mathf.RoundToInt(ReadH * 0.5f));
+            plate.type = Image.Type.Sliced;
+            plate.raycastTarget = false;
+            chip = root;
+            float ix = iconOnRight ? ReadW * 0.5f - 8f - ReadIcon * 0.5f : -(ReadW * 0.5f - 8f - ReadIcon * 0.5f);
+            float textW = ReadW - ReadIcon - 20f;
+            float tx = iconOnRight ? -(ReadIcon * 0.5f + 6f) : ReadIcon * 0.5f + 6f;
+            if (icon != null) UiKit.Icon(root, icon, new Vector2(ix, 0f), ReadIcon);
+            var anchor = iconOnRight ? TextAnchor.MiddleRight : TextAnchor.MiddleLeft;
+            return ReadoutText(root, "v", value, 34, new Vector2(tx, 0f), new Vector2(textW, ReadH), anchor, Pin.Center);
+        }
+
+        static Text ReadoutText(RectTransform parent, string name, string value, int size, Vector2 box, Pin pin)
+        {
+            return ReadoutText(parent, name, value, size, Vector2.zero, box, TextAnchor.MiddleCenter, pin);
+        }
+
+        static Text ReadoutText(Transform parent, string name, string value, int size, Vector2 pos, Vector2 box,
+            TextAnchor anchor, Pin pin)
+        {
+            var t = UiKit.Label(parent, name, value, size, pos, box, anchor, pin);
+            t.color = InkTheme.CardFace;
+            UiKit.Bold(t);
+            var outline = t.gameObject.AddComponent<Outline>();
+            outline.effectColor = new Color(0.10f, 0.07f, 0.05f, 0.92f);
+            outline.effectDistance = new Vector2(1.5f, -1.5f);
+            return t;
+        }
+
         static Button GearButton(RectTransform layer, System.Action open)
         {
             var go = new GameObject("settings", typeof(RectTransform), typeof(Image), typeof(Button));
@@ -170,11 +200,14 @@ namespace InkLine
         }
 
         const float RowH = 84f;
-        const float KeyW = 84f;
-        const float KeyH = 84f;
-        const float KeySide = 8f;
-        const float KeyGap = 14f;
+        const float KeyW = 64f;
+        const float KeyH = 64f;
+        const float KeySide = 6f;
+        const float KeyGap = 8f;
         const float Gear = 76f;
+        const float ReadW = 148f;
+        const float ReadH = 52f;
+        const float ReadIcon = 46f;
         const float Side = 16f;
         const float Gap = 10f;
 
@@ -184,22 +217,22 @@ namespace InkLine
             float bot = ScreenFit.BottomPad + 16f;
             float pad = ScreenFit.TopPad;
             float top = pad <= 36.1f ? 10f : pad;
-            float row = top + Gear + 8f;
+            float row = top + Gear + 6f;
             float canvasW = Mathf.Max(720f, _layer.rect.width);
             float draftW = Mathf.Clamp(canvasW - 2f * (Side + Gap), 200f, 460f);
             float draftX = 0f;
 
             PinTop(Settings.transform as RectTransform, new Vector2(Side, top),
                 new Vector2(Gear, Gear), 6f, Pin.TopLeft);
-            PinTop(GoldChip, new Vector2(18f, row), new Vector2(172f, 54f), 7f, Pin.TopLeft);
-            PinTop(_wavePlate, new Vector2(0f, row), new Vector2(196f, 54f), 7f, Pin.Top);
-            PinTop(InkChip, new Vector2(18f, row), new Vector2(172f, 54f), 7f, Pin.TopRight);
+            PinTop(GoldChip, new Vector2(Side, row), new Vector2(ReadW, ReadH), 0f, Pin.TopLeft);
+            PinTop(_wavePlate, new Vector2(0f, row), new Vector2(200f, ReadH), 0f, Pin.Top);
+            PinTop(InkChip, new Vector2(Side, row), new Vector2(ReadW, ReadH), 0f, Pin.TopRight);
             if (Toast != null)
             {
                 var toastRt = Toast.rectTransform;
                 toastRt.anchorMin = toastRt.anchorMax = new Vector2(0.5f, 1f);
                 toastRt.pivot = new Vector2(0.5f, 1f);
-                toastRt.anchoredPosition = new Vector2(0f, -(row + 58f));
+                toastRt.anchoredPosition = new Vector2(0f, -(row + ReadH + 4f));
             }
             PinBottom(Draft.transform as RectTransform, new Vector2(draftX, bot),
                 new Vector2(draftW, RowH), 8f, Pin.Bottom);
@@ -219,25 +252,35 @@ namespace InkLine
             LayoutKeys();
         }
 
-        // 道具竖排贴右边，从格子上沿往上叠，第一格在最下面。炮弹从格子里往上走，
-        // 贴边这一条几乎没有弹道。相机定好之后再算，格子上沿才对得上。
+        // 道具竖排贴在格子右侧的边缝里，从格子上沿往上叠，不压到格子。
+        // 相机定好之后再算，格子右沿才对得上。
         void LayoutKeys()
         {
+            float w = Mathf.Max(1f, _layer.rect.width);
             float h = Mathf.Max(1f, _layer.rect.height);
             float gridTop = WorldToCanvas(_layer, new Vector3(0f, FieldLayout.GridTop, 0f)).y + h * 0.5f;
-            _keyY0 = Mathf.Max(ScreenFit.BottomPad + 16f + RowH + 12f, gridTop + 18f);
+            float gridRight = WorldToCanvas(_layer, new Vector3(FieldLayout.FieldWidth * 0.5f, 0f, 0f)).x + w * 0.5f;
+            float room = w - gridRight;
+            _keyFit = Mathf.Min(KeyW, Mathf.Max(52f, room - 8f));
+            _keySide = Mathf.Max(4f, room - _keyFit - 4f);
+            _keyY0 = Mathf.Max(ScreenFit.BottomPad + 16f + RowH + 12f, gridTop + 8f);
+            float scale = _keyFit / KeyW;
             for (int i = 0; i < Keys.Length; i++)
             {
                 RectTransform rt = Keys[i].Root;
                 if (rt == null) continue;
-                rt.sizeDelta = new Vector2(KeyW, KeyH);
+                rt.sizeDelta = new Vector2(_keyFit, _keyFit);
                 rt.anchorMin = rt.anchorMax = new Vector2(1f, 0f);
                 rt.pivot = new Vector2(1f, 0f);
-                rt.anchoredPosition = new Vector2(-KeySide, _keyY0 + i * (KeyH + KeyGap));
+                rt.anchoredPosition = new Vector2(-_keySide, _keyY0 + i * (_keyFit + KeyGap));
+                if (Keys[i].Visual != null)
+                    Keys[i].Visual.localScale = new Vector3(scale, scale, 1f);
             }
         }
 
         float _keyY0;
+        float _keySide = KeySide;
+        float _keyFit = KeyH;
 
         // 任何长宽比下，炮的下沿都要高过底栏上沿。短了就加视野、必要时下移相机，
         // 同时保住刷怪点还在画面里。
@@ -467,8 +510,8 @@ namespace InkLine
         static void Pop(RectTransform chip, Text value, float pulse, Color flash)
         {
             if (chip == null) return;
-            chip.localScale = Vector3.one * (1f + 0.18f * pulse);
-            if (value != null) value.color = Color.Lerp(InkTheme.TextDark, flash, pulse);
+            chip.localScale = Vector3.one * (1f + 0.12f * pulse);
+            if (value != null) value.color = Color.Lerp(InkTheme.CardFace, flash, pulse);
         }
 
         ItemFx _fx;
@@ -611,7 +654,7 @@ namespace InkLine
                 bool has = id >= 0;
                 if (k.Root.gameObject.activeSelf != has) k.Root.gameObject.SetActive(has);
                 if (!has) continue;
-                k.Root.anchoredPosition = new Vector2(-KeySide, _keyY0 + shown++ * (KeyH + KeyGap));
+                k.Root.anchoredPosition = new Vector2(-_keySide, _keyY0 + shown++ * (_keyFit + KeyGap));
                 ItemDef d = ItemCatalog.Get(id);
                 Color q = ItemCatalog.QualityColor(d.Quality);
                 if (k.Shown != id)

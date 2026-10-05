@@ -7,9 +7,7 @@ namespace InkLine
     public struct EventTierDef
     {
         public string Name;
-        // 通关第几章（从 0 数）才开这一档。
-        public int GateChapter;
-        // 借主线哪一章哪一关的血量、速度、波长和出怪折扣。
+        // 借主线哪一章哪一关的血量、速度、波长和出怪折扣。下一处要打赢上一处才开，不看章节。
         public int Chapter;
         public int Slot;
         public string Brief;
@@ -34,27 +32,28 @@ namespace InkLine
         // 每波结束按钱袋余额给利息：每 InterestStep 金给 1 金，单波最多 InterestCap。
         public const int InterestStep = 10;
         public const int InterestCap = 5;
-        public const int SkinTarget = 6000;
-        // 已经有福袋时，6000 那一档折成活动币。
+        // 小集硬存大约 200、正常打完抽牌大约 60；大集硬存大约 420。门槛按这个大约砍半。
+        public const int SkinTarget = 3000;
+        // 已经有福袋时，这一档折成活动币。
         public const int SkinTokenRefund = 500;
 
         public static readonly EventTierDef[] Tiers =
         {
-            new EventTierDef { Name = "小集", GateChapter = 0, Chapter = 1, Slot = 4, Brief = "四波，怪少钱少" },
-            new EventTierDef { Name = "庙会", GateChapter = 1, Chapter = 2, Slot = 4, Brief = "五波，钱袋翻倍" },
-            new EventTierDef { Name = "大集", GateChapter = 2, Chapter = 4, Slot = 4, Brief = "六波，怪硬钱多" }
+            new EventTierDef { Name = "小集", Chapter = 1, Slot = 4, Brief = "六波，怪少钱少" },
+            new EventTierDef { Name = "庙会", Chapter = 2, Slot = 4, Brief = "八波，钱袋翻倍" },
+            new EventTierDef { Name = "大集", Chapter = 4, Slot = 4, Brief = "十波，怪硬钱多" }
         };
 
         public static readonly EventMilestone[] Milestones =
         {
             // 第一档给墨。够升一级前期伤害，活动不再发钻石。
-            new EventMilestone { Need = 1000, Prize = EventPrize.Ink, Amount = 120 },
-            new EventMilestone { Need = 2500, Prize = EventPrize.Token, Amount = 300 },
-            new EventMilestone { Need = 4000, Prize = EventPrize.Chest, Amount = (int)ChestTier.Gold },
+            new EventMilestone { Need = 500, Prize = EventPrize.Ink, Amount = 120 },
+            new EventMilestone { Need = 1200, Prize = EventPrize.Token, Amount = 300 },
+            new EventMilestone { Need = 2000, Prize = EventPrize.Chest, Amount = (int)ChestTier.Gold },
             new EventMilestone { Need = SkinTarget, Prize = EventPrize.Skin, Amount = SkinCatalog.Lucky },
             // 福袋之后活动币没处花了，后两档改发墨和皇家箱。
-            new EventMilestone { Need = 8000, Prize = EventPrize.Ink, Amount = 400 },
-            new EventMilestone { Need = 10000, Prize = EventPrize.Chest, Amount = (int)ChestTier.Royal }
+            new EventMilestone { Need = 4000, Prize = EventPrize.Ink, Amount = 400 },
+            new EventMilestone { Need = 5000, Prize = EventPrize.Chest, Amount = (int)ChestTier.Royal }
         };
 
         public static int TierCount => Tiers.Length;
@@ -62,6 +61,9 @@ namespace InkLine
 
         public static int Interest(int gold, int cap) =>
             Mathf.Clamp(gold / InterestStep, 0, Mathf.Max(0, cap));
+
+        // 输了看广告能存回的金币：钱袋里的一半，至少留 1 枚。
+        public static int Salvage(int purse) => purse <= 0 ? 0 : Mathf.Max(1, purse / 2);
 
         public static string PrizeName(EventMilestone m)
         {

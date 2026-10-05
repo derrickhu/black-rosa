@@ -828,6 +828,7 @@ namespace InkLine
             CdnAssets.Prefetch("Ui/chapter_" + (_chapter + 2));
             CdnAssets.Prefetch("Bg/battle_bg_" + (_chapter + 1));
             if (board.Title != null) board.Title.text = SortiePageBuilder.ChapterTitle(_chapter);
+            BindStarChest(board);
             int count = Mathf.Min(SortiePageBuilder.PerChapter,
                 GameConstants.StageCount - _chapter * SortiePageBuilder.PerChapter);
             if (board.Route != null)
@@ -877,6 +878,66 @@ namespace InkLine
                 board.Next.onClick.RemoveAllListeners();
                 board.Next.onClick.AddListener(() => ShiftChapter(1));
             }
+        }
+
+        void BindStarChest(HomeChapterBoard board)
+        {
+            if (board.StarChest == null)
+            {
+                var host = new GameObject("starchest", typeof(RectTransform), typeof(Image), typeof(Button));
+                host.transform.SetParent(board.transform, false);
+                var rt = host.GetComponent<RectTransform>();
+                rt.anchorMin = rt.anchorMax = new Vector2(1f, 1f);
+                rt.pivot = new Vector2(1f, 1f);
+                rt.anchoredPosition = new Vector2(-10f, -12f);
+                rt.sizeDelta = new Vector2(112f, 118f);
+                var hit = host.GetComponent<Image>();
+                hit.color = new Color(1f, 1f, 1f, 0f);
+                var btn = host.GetComponent<Button>();
+                btn.transition = Selectable.Transition.None;
+                btn.targetGraphic = hit;
+                board.StarChest = btn;
+                board.StarArt = UiKit.Icon(host.transform, InkSprites.Load("Ui/chest_royal"), new Vector2(0f, 16f), 72f);
+                board.StarLabel = UiKit.Label(host.transform, "t", "", 16, new Vector2(0f, -36f), new Vector2(112f, 24f));
+                UiKit.Bold(board.StarLabel);
+            }
+            bool claimed = _meta.ChapterChestClaimed(_chapter);
+            bool full = _meta.ChapterFullStars(_chapter);
+            string key = "chest_" + ChestCatalog.CannonArt + (claimed ? "_open" : "");
+            Sprite art = InkSprites.Load("Ui/" + key);
+            if (art == null) art = InkSprites.Load(claimed ? "Ui/chest_royal_open" : "Ui/chest_royal");
+            if (board.StarArt != null)
+            {
+                if (art != null) board.StarArt.sprite = art;
+                board.StarArt.color = full || claimed ? Color.white : new Color(0.55f, 0.55f, 0.58f, 1f);
+            }
+            if (board.StarLabel != null)
+            {
+                board.StarLabel.text = claimed ? "已领" : full ? "领取" : "差" + _meta.ChapterStarGaps(_chapter) + "关";
+                board.StarLabel.color = full && !claimed ? InkTheme.Seal : InkTheme.TextMid;
+            }
+            board.StarChest.onClick.RemoveAllListeners();
+            board.StarChest.onClick.AddListener(OnStarChest);
+        }
+
+        void OnStarChest()
+        {
+            int chapter = _chapter;
+            if (_meta.ChapterChestClaimed(chapter))
+            {
+                InkToast.Show(_layer, "这章的" + ChestCatalog.CannonName + "已经领过");
+                return;
+            }
+            if (!_meta.ChapterFullStars(chapter))
+            {
+                AudioBus.Deny();
+                InkToast.Show(_layer, ChapterStars.Preview(chapter));
+                return;
+            }
+            ChestLoot loot = _meta.ClaimStarChest(chapter);
+            if (loot == null) return;
+            AudioBus.Tap();
+            ChestOpenView.Show(_layer, _meta, loot, () => BindChapter(NextStage()));
         }
 
         void ShiftChapter(int dir)
