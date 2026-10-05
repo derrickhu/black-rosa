@@ -10,6 +10,7 @@ namespace InkLine
     public sealed class HomeChestRow
     {
         public const float Slot = 116f;
+        public const float BarY = 8f + Slot * 0.5f;
         const float Gap = 14f;
         const float TagW = 96f;
         const float TagH = 30f;
@@ -62,6 +63,10 @@ namespace InkLine
                     Ghost = UiKit.Icon(box, InkSprites.Load("Ui/chest_wood"), new Vector2(0f, 6f), Slot * 0.5f),
                     Art = UiKit.Icon(box, null, new Vector2(0f, 8f), Slot * 0.74f)
                 };
+                cell.Glow.gameObject.name = "glow";
+                cell.Tray.gameObject.name = "tray";
+                cell.Ghost.gameObject.name = "ghost";
+                cell.Art.gameObject.name = "art";
                 cell.Glow.color = new Color(1f, 0.82f, 0.3f, 0.75f);
                 cell.Ghost.color = new Color(0.36f, 0.25f, 0.16f, 0.16f);
 
@@ -85,6 +90,53 @@ namespace InkLine
                 row._cells[i] = cell;
             }
             return row;
+        }
+
+        // 预制里已经排好的托盘。按钮在进游戏时才接上。
+        public static HomeChestRow Adopt(RectTransform root, Action<int> tap)
+        {
+            if (root == null) return null;
+            var row = new HomeChestRow { Root = root };
+            for (int i = 0; i < ChestCatalog.Slots; i++)
+            {
+                var box = root.Find("c" + i) as RectTransform;
+                if (box == null) return null;
+                var tag = box.Find("tag") as RectTransform;
+                var cell = new Cell
+                {
+                    Glow = box.Find("glow")?.GetComponent<Image>(),
+                    Tray = box.Find("tray")?.GetComponent<Image>(),
+                    Ghost = box.Find("ghost")?.GetComponent<Image>(),
+                    Art = box.Find("art")?.GetComponent<Image>(),
+                    Tag = tag,
+                    TagFill = tag != null ? tag.Find("fill")?.GetComponent<Image>() : null,
+                    Label = tag != null ? tag.Find("t")?.GetComponent<Text>() : null
+                };
+                if (cell.Glow == null || cell.Tray == null || cell.Ghost == null || cell.Art == null
+                    || cell.Tag == null || cell.TagFill == null || cell.Label == null)
+                    return null;
+                Repair(cell);
+                var btn = box.GetComponent<Button>();
+                if (btn != null && tap != null)
+                {
+                    btn.onClick.RemoveAllListeners();
+                    int idx = i;
+                    btn.onClick.AddListener(() => tap(idx));
+                }
+                row._cells[i] = cell;
+            }
+            return row;
+        }
+
+        static void Repair(Cell cell)
+        {
+            if (cell.Glow.sprite == null) cell.Glow.sprite = InkFx.SoftDisc();
+            if (cell.Tray.sprite == null) cell.Tray.sprite = InkSprites.Load("Ui/chest_slot");
+            if (cell.Ghost.sprite == null) cell.Ghost.sprite = InkSprites.Load("Ui/chest_wood");
+            int rad = UiSprites.Tier(TagH * 0.5f);
+            var tagImg = cell.Tag.GetComponent<Image>();
+            UiKit.RepairSlice(tagImg, UiSprites.Fill(rad));
+            UiKit.RepairSlice(cell.TagFill, tagImg != null && tagImg.sprite != null ? tagImg.sprite : UiSprites.Fill(rad));
         }
 
         public void Refresh(MetaProgress meta)

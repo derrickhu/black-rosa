@@ -66,16 +66,24 @@ namespace InkLine
             for (int i = page.childCount - 1; i >= 0; i--)
             {
                 Transform child = page.GetChild(i);
-                if (child.name == "go" || child.name == "adstam" || child.name == "help") continue;
+                if (child.name == "go") continue;
                 Object.DestroyImmediate(child.gameObject);
             }
             view.Logo = null;
             view.Seals = null;
             view.Chapter = null;
             view.SideActs = null;
+            view.AdButton = null;
+            view.AdLabel = null;
+            view.Help = null;
             SortiePageBuilder.Build(page, view);
-            PrefabUtility.SaveAsPrefabAsset(root, Out);
+            PrefabUtility.SaveAsPrefabAsset(root, Out, out bool saved);
             PrefabUtility.UnloadPrefabContents(root);
+            if (!saved)
+            {
+                Debug.LogError("出征页写入失败 " + Out);
+                return;
+            }
             AssetDatabase.SaveAssets();
             Debug.Log("出征页已写入 " + Out + "。炮台和技能页没动。");
         }
@@ -122,75 +130,101 @@ namespace InkLine
             view.StamTip.color = InkTheme.TextMid;
         }
 
+        [MenuItem("墨字防线/重排炮台页")]
+        public static void BakeForgeMenu()
+        {
+            AssetDatabase.ImportAsset("Assets/Resources/Art/Ui",
+                ImportAssetOptions.ImportRecursive | ImportAssetOptions.ForceUpdate);
+            BakeForgeOnly();
+        }
+
+        // 只换炮台页。出征和道具页留着。
+        public static void BakeForgeOnly()
+        {
+            if (!System.IO.File.Exists(Out))
+            {
+                Bake();
+                return;
+            }
+            var root = PrefabUtility.LoadPrefabContents(Out);
+            var view = root.GetComponent<HomeView>();
+            var page = view.ForgePage.GetComponent<RectTransform>();
+            for (int i = page.childCount - 1; i >= 0; i--)
+                Object.DestroyImmediate(page.GetChild(i).gameObject);
+            view.Board = null;
+            view.Skins = null;
+            view.GunSummary = null;
+            view.Boosts = null;
+            BakeForge(page, view);
+            PrefabUtility.SaveAsPrefabAsset(root, Out);
+            PrefabUtility.UnloadPrefabContents(root);
+            AssetDatabase.SaveAssets();
+            Debug.Log("炮台页已写入 " + Out + "。出征和道具页没动。");
+        }
+
         static void BakeForge(RectTransform page, HomeView view)
         {
-            view.Board = Pic(page, "board", "panel_board", new Vector2(0f, 8f), new Vector2(640f, 415f), Pin.Top);
-            view.Board.raycastTarget = false;
-
-            // 运行时由 SkinShowcase 接管并藏掉，这里只留旧的四格占位，HomeScreen 靠它认出预制体。
-            var skins = new HomeSkinCell[4];
-            float[] xs = { -119f, 119f };
-            float[] ys = { 46f, -86f };
-            string[] guns = { "ico_skin_plain", "ico_skin_cinnabar", "ico_skin_ghost", "ico_skin_ghost" };
-            for (int i = 0; i < skins.Length; i++)
-            {
-                var cell = Pic(view.Board.rectTransform, "sk" + i, i == 0 ? "panel_skin_on" : "panel_skin",
-                    new Vector2(xs[i % 2], ys[i / 2]), new Vector2(224f, 124f), Pin.Center);
-                var slot = cell.gameObject.AddComponent<HomeSkinCell>();
-                slot.Card = cell;
-                slot.Button = cell.gameObject.AddComponent<Button>();
-                slot.Button.targetGraphic = cell;
-                slot.Button.transition = Selectable.Transition.None;
-                slot.Gun = Icon(cell.rectTransform, guns[i], new Vector2(0f, 14f), 64f);
-                slot.Name = Label(cell.rectTransform, "n", "", 22, new Vector2(0f, -28f), new Vector2(200, 24), Pin.Center);
-                slot.Tail = Label(cell.rectTransform, "s", "", 16, new Vector2(0f, -48f), new Vector2(200, 20), Pin.Center);
-                skins[i] = slot;
-            }
-            view.Skins = skins;
-
+            view.Board = null;
+            view.Skins = null;
             view.GunSummary = null;
+            SkinShowcase.Create(page, 8f);
 
-            var box = Panel(page, "boosts");
-            box.anchorMin = new Vector2(0.5f, 1f);
-            box.anchorMax = new Vector2(0.5f, 1f);
+            var viewGo = new GameObject("boostView", typeof(RectTransform), typeof(Image), typeof(RectMask2D), typeof(ScrollRect));
+            viewGo.transform.SetParent(page, false);
+            var viewRt = viewGo.GetComponent<RectTransform>();
+            viewRt.anchorMin = Vector2.zero;
+            viewRt.anchorMax = Vector2.one;
+            float top = 8f + SkinShowcase.H + 12f;
+            viewRt.offsetMin = new Vector2(0f, 52f);
+            viewRt.offsetMax = new Vector2(0f, -top);
+            var hit = viewGo.GetComponent<Image>();
+            hit.color = new Color(1f, 1f, 1f, 0f);
+            hit.raycastTarget = true;
+
+            var box = Panel(viewGo.transform, "boosts");
+            box.anchorMin = box.anchorMax = new Vector2(0.5f, 1f);
             box.pivot = new Vector2(0.5f, 1f);
-            box.anchoredPosition = new Vector2(0f, -435f);
-            box.sizeDelta = new Vector2(620f, 520f);
+            box.anchoredPosition = Vector2.zero;
+            box.sizeDelta = new Vector2(HomeForgeRow.Width, 10f);
             box.GetComponent<Image>().color = Color.clear;
             box.GetComponent<Image>().raycastTarget = false;
             var layout = box.gameObject.AddComponent<VerticalLayoutGroup>();
             layout.childAlignment = TextAnchor.UpperCenter;
             layout.spacing = 10f;
+            layout.padding = new RectOffset(0, 0, 4, 20);
             layout.childControlWidth = true;
             layout.childControlHeight = true;
             layout.childForceExpandWidth = true;
             layout.childForceExpandHeight = false;
+            var fit = box.gameObject.AddComponent<ContentSizeFitter>();
+            fit.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+            fit.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+            var scroll = viewGo.GetComponent<ScrollRect>();
+            scroll.content = box;
+            scroll.viewport = viewRt;
+            scroll.horizontal = false;
+            scroll.vertical = true;
+            scroll.movementType = ScrollRect.MovementType.Clamped;
+            scroll.scrollSensitivity = 40f;
+            scroll.inertia = true;
 
             var rows = new HomeBoostRow[ForgeCatalog.LineCount];
             for (int i = 0; i < rows.Length; i++)
             {
-                var row = Pic(box, "fg" + i, "panel_row", Vector2.zero, new Vector2(620f, 92f), Pin.Top);
+                var row = Pic(box, "fg" + i, "panel_skin", Vector2.zero, new Vector2(HomeForgeRow.Width, HomeForgeRow.Height), Pin.Top);
                 var le = row.gameObject.AddComponent<LayoutElement>();
-                le.minHeight = le.preferredHeight = 92f;
+                le.minHeight = le.preferredHeight = HomeForgeRow.Height;
                 var slot = row.gameObject.AddComponent<HomeBoostRow>();
                 slot.Row = row;
                 slot.Button = row.gameObject.AddComponent<Button>();
                 slot.Button.targetGraphic = row;
                 slot.Button.transition = Selectable.Transition.None;
-                slot.Icon = Icon(row.rectTransform, "ico_damage", new Vector2(-250f, 0f), 56f);
-                slot.Title = Label(row.rectTransform, "n", "", 24, new Vector2(-70f, 14f), new Vector2(280, 30), Pin.Center);
-                slot.Title.alignment = TextAnchor.MiddleLeft;
-                slot.Step = Label(row.rectTransform, "s", "", 18, new Vector2(-70f, -16f), new Vector2(280, 24), Pin.Center);
-                slot.Step.alignment = TextAnchor.MiddleLeft;
-                slot.PriceBack = Pic(row.rectTransform, "pill", "panel_price", new Vector2(200f, 0f),
-                    new Vector2(156f, 44f), Pin.Center);
-                slot.PriceBack.raycastTarget = false;
-                slot.Price = Label(row.rectTransform, "p", "", 20, new Vector2(200f, 0f), new Vector2(144, 36), Pin.Center);
-                slot.Price.alignment = TextAnchor.MiddleCenter;
-                UiKit.Bold(slot.Price);
+                HomeForgeRow.Install(row.rectTransform);
                 rows[i] = slot;
             }
             view.Boosts = rows;
+            var mark = new GameObject("forge_v2", typeof(RectTransform));
+            mark.transform.SetParent(page, false);
         }
 
         static void BakeSortie(RectTransform page, HomeView view)
@@ -200,10 +234,10 @@ namespace InkLine
             {
                 view.GoButton = PillBtn(page, "go", "继续  第 1 关", new Vector2(0f, 26f), new Vector2(460f, 106f), true);
                 view.GoLabel = view.GoButton.GetComponentInChildren<Text>();
-                view.AdButton = PillBtn(page, "adstam", "看广告  +6 体力", new Vector2(0f, 150f), new Vector2(400f, 84f), false);
-                view.AdLabel = view.AdButton.GetComponentInChildren<Text>();
-                view.AdButton.gameObject.SetActive(false);
             }
+            view.AdButton = null;
+            view.AdLabel = null;
+            view.Help = null;
         }
 
         static void BakeSpell(RectTransform page, HomeView view)
@@ -352,9 +386,28 @@ namespace InkLine
             {
                 if (!System.IO.File.Exists(Out)) return;
                 string text = System.IO.File.ReadAllText(Out);
-                if (text.Contains("\n  m_Name: sortie_v6\n") || text.Contains("\r\n  m_Name: sortie_v6\r\n"))
+                if (text.Contains("\n  m_Name: sortie_v7\n") || text.Contains("\r\n  m_Name: sortie_v7\r\n"))
                     return;
                 BakeSortieMenu();
+            }
+        }
+
+        // 炮台页换成展台和词条行之后，旧预制里还是四格皮肤卡，编译后补一次。
+        [InitializeOnLoad]
+        static class ForgePrefabHook
+        {
+            static ForgePrefabHook()
+            {
+                EditorApplication.delayCall += Once;
+            }
+
+            static void Once()
+            {
+                if (!System.IO.File.Exists(Out)) return;
+                string text = System.IO.File.ReadAllText(Out);
+                if (text.Contains("\n  m_Name: forge_v2\n") || text.Contains("\r\n  m_Name: forge_v2\r\n"))
+                    return;
+                BakeForgeMenu();
             }
         }
 

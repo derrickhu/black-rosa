@@ -7,29 +7,9 @@ namespace InkLine
 {
     // 图鉴三栏：字谱、秘卷、墨谱。每栏头顶一条收集度，攒到印上就能领墨。
     // 一格三种样子：收录 = 彩色；见过未收录 = 灰影 + 锁；没见过 = 问号。
+    // 壳在 CodexLayout（预制 Prefabs/Codex），这里只填数据。
     public sealed class CodexPanel : MonoBehaviour
     {
-        const float BoardW = 660f;
-        const float Gap = 12f;
-        // 板子顶上那条「图鉴」飘带往下压到 70 左右，页签得排在它下面，红点才露得出来。
-        const float ListTop = 410f;
-        const float TabY = 78f;
-        const float TabW = 186f;
-        const float TabH = 96f;
-        const float TabStep = 200f;
-        const float TrackY = 184f;
-        const float TrackW = 600f;
-        const float TrackH = 64f;
-        const float MileY = 258f;
-        const float MileW = 190f;
-        const float MileH = 110f;
-        const float MileStep = 204f;
-        const float CellW = 196f;
-        const float CellH = 240f;
-
-        // 卡框按这个高度画出原图的边厚。框比它小也不会把边挤没。
-        public const float CardRefH = 240f;
-
         // 九宫格的边按「原图高 / 目标高」缩，整张图按比例缩到目标高度再只横向拉中段。
         // 不缩的话 640 高的卡框画进 240 的格子，边厚还是 78，卡面就只剩一条缝。
         public static RectTransform Slab(Transform parent, string name, string key, Vector2 pos, Vector2 size,
@@ -47,7 +27,8 @@ namespace InkLine
         Action _changed;
         RectTransform _layer;
         RectTransform _board;
-        RectTransform _body;
+        ScrollRect _list;
+        RectTransform _cell;
         CodexTab _tab;
         bool[] _seenCards;
         bool[] _seenEnemies;
@@ -56,8 +37,7 @@ namespace InkLine
 
         public static void Show(RectTransform layer, MetaProgress meta, Action changed)
         {
-            var dim = UiKit.Dimmer(layer);
-            dim.name = "codex";
+            var dim = CodexLayout.Main(layer);
             var panel = dim.gameObject.AddComponent<CodexPanel>();
             panel._meta = meta;
             panel._changed = changed;
@@ -68,8 +48,29 @@ namespace InkLine
             float top = ScreenFit.TopPad + 48f;
             float bottom = ScreenFit.BottomPad + 28f;
             float h = Mathf.Max(900f, ScreenFit.CanvasH - top - bottom);
-            panel._board = PanelKit.Board(dim, "图鉴", new Vector2(0f, top), new Vector2(BoardW, h), Pin.Top, panel.Close);
+            panel._board = (RectTransform)dim.Find("board");
+            panel._board.anchoredPosition = new Vector2(0f, -top);
+            panel._board.sizeDelta = new Vector2(CodexLayout.BoardW, h);
+            panel.Wire();
             panel.Refresh();
+        }
+
+        void Wire()
+        {
+            _board.Find("close").GetComponent<Button>().onClick.AddListener(Close);
+            for (int i = 0; i < CodexLayout.Tabs.Length; i++)
+            {
+                CodexTab tab = CodexLayout.Tabs[i];
+                _board.Find("tab" + i).GetComponent<Button>().onClick.AddListener(() => Switch(tab));
+            }
+            for (int i = 0; i < 3; i++)
+            {
+                int idx = i;
+                _board.Find("mile" + i).GetComponent<Button>().onClick.AddListener(() => Claim(idx));
+            }
+            _list = _board.Find("list").GetComponent<ScrollRect>();
+            _cell = (RectTransform)_board.Find("cell");
+            _list.onValueChanged.AddListener(v => _scroll = v.y);
         }
 
         void Close()
@@ -81,20 +82,11 @@ namespace InkLine
 
         void Refresh()
         {
-            if (_body != null) Destroy(_body.gameObject);
-            _body = UiKit.Panel(_board, "body", Vector2.zero, Vector2.zero, Color.clear);
-            _body.anchorMin = Vector2.zero;
-            _body.anchorMax = Vector2.one;
-            _body.offsetMin = _body.offsetMax = Vector2.zero;
-            _body.GetComponent<Image>().raycastTarget = false;
-            _body.SetSiblingIndex(0);
-
-            BuildTabs();
-            BuildProgress();
-            var hint = UiKit.Label(_body, "hint", CodexCatalog.TabHint(_tab), 20,
-                new Vector2(0f, 378f), new Vector2(BoardW - 48f, 28f), TextAnchor.MiddleCenter, Pin.Top);
-            hint.color = InkTheme.TextMid;
-            BuildGrid(CodexCatalog.Of(_tab));
+            float keep = _scroll;
+            PaintTabs();
+            PaintProgress();
+            _board.Find("hint").GetComponent<Text>().text = CodexCatalog.TabHint(_tab);
+            FillGrid(CodexCatalog.Of(_tab), keep);
         }
 
         void Switch(CodexTab tab)
@@ -106,80 +98,62 @@ namespace InkLine
             Refresh();
         }
 
-        void BuildTabs()
+        void PaintTabs()
         {
-            CodexTab[] tabs = { CodexTab.Glyph, CodexTab.Pair, CodexTab.Enemy };
-            for (int i = 0; i < tabs.Length; i++)
+            for (int i = 0; i < CodexLayout.Tabs.Length; i++)
             {
-                CodexTab tab = tabs[i];
+                CodexTab tab = CodexLayout.Tabs[i];
                 bool on = _tab == tab;
-                var size = new Vector2(TabW, TabH);
-                float x = (i - 1) * TabStep;
-                var plate = UiKit.Art(_body, "tab" + i, on ? "Ui/codex_tab_on" : "Ui/codex_tab_off",
-                    new Vector2(x, TabY), size, Pin.Top);
-                Sprite ico = InkSprites.Load(CodexCatalog.TabIcon(tab));
-                if (ico != null)
-                    UiKit.Icon(plate, ico, new Vector2(-size.x * 0.5f + 44f, -6f), 40f);
-                var t = UiKit.Label(plate, "t", CodexCatalog.TabName(tab), 28,
-                    new Vector2(18f, -6f), new Vector2(size.x - 76f, 40f));
-                t.color = on ? InkTheme.CardFace : InkTheme.TextDark;
-                UiKit.Bold(t);
-                var btn = plate.gameObject.AddComponent<Button>();
-                btn.targetGraphic = plate.GetComponent<Image>();
-                btn.onClick.AddListener(() => Switch(tab));
-                // 云头两侧的肩比中间低一截，红点放在右肩上。
-                if (_meta.CodexTabNew(tab))
-                    Dot(plate, new Vector2(size.x * 0.5f - 22f, size.y * 0.5f - 26f));
+                Transform plate = _board.Find("tab" + i);
+                plate.GetComponent<Image>().sprite = InkSprites.Load(on ? "Ui/codex_tab_on" : "Ui/codex_tab_off");
+                plate.Find("t").GetComponent<Text>().color = on ? InkTheme.CardFace : InkTheme.TextDark;
+                plate.Find("dot").gameObject.SetActive(_meta.CodexTabNew(tab));
             }
         }
 
-        void BuildProgress()
+        void PaintProgress()
         {
             IReadOnlyList<CodexEntry> list = CodexCatalog.Of(_tab);
             int known = CodexCatalog.CountKnown(_meta, list);
             CodexMile[] miles = CodexCatalog.Miles(_tab);
             float ratio = list.Count > 0 ? (float)known / list.Count : 0f;
 
-            var track = Slab(_body, "track", "Ui/codex_track", new Vector2(0f, TrackY),
-                new Vector2(TrackW, TrackH));
+            Transform track = _board.Find("track");
+            const float trackW = CodexLayout.TrackW;
+            const float trackH = CodexLayout.TrackH;
             // 凹槽在原图里占高的 44%、略偏上，两头各缩进 9%。
-            float grooveH = TrackH * 0.44f;
-            float inset = TrackH * 0.25f;
+            float grooveH = trackH * 0.44f;
+            float inset = trackH * 0.25f;
+            var fill = (RectTransform)track.Find("fill");
+            fill.gameObject.SetActive(ratio > 0.01f);
             if (ratio > 0.01f)
             {
-                float inner = TrackW - inset * 2f;
+                float inner = trackW - inset * 2f;
                 float fillH = grooveH - 2f;
                 float fillW = Mathf.Clamp(inner * ratio, fillH * 1.2f, inner);
-                Slab(track, "fill", "Ui/codex_track_fill",
-                    new Vector2(-inner * 0.5f + fillW * 0.5f, TrackH * 0.04f), new Vector2(fillW, fillH), Pin.Center);
+                fill.anchoredPosition = new Vector2(-inner * 0.5f + fillW * 0.5f, trackH * 0.04f);
+                fill.sizeDelta = new Vector2(fillW, fillH);
             }
-            var n = UiKit.Label(track, "count", "已收录 " + known + "/" + list.Count, 22,
-                new Vector2(0f, TrackH * 0.04f), new Vector2(TrackW - 80f, 30f));
-            n.color = InkTheme.CardFace;
-            UiKit.Bold(n);
+            track.Find("count").GetComponent<Text>().text = "已收录 " + known + "/" + list.Count;
 
-            for (int i = 0; i < miles.Length; i++)
+            for (int i = 0; i < miles.Length && i < 3; i++)
             {
                 bool reached = known >= miles[i].Need;
                 bool claimed = _meta.MileClaimed(_tab, i);
                 bool ready = reached && !claimed;
-                string key = claimed ? "Ui/codex_mile_done" : ready ? "Ui/codex_mile_ready" : "Ui/codex_mile_off";
-                float x = (i - 1) * MileStep;
-                var host = UiKit.Art(_body, "mile" + i, key, new Vector2(x, MileY),
-                    new Vector2(MileW, MileH), Pin.Top);
-                string cond = claimed ? "已领" : "收录 " + miles[i].Need + " 个";
-                // 票右边那块奶油底才是写字的地方，约占票宽 60%、中心偏右 12%。
-                var condLab = UiKit.Label(host, "need", cond, 18, new Vector2(MileW * 0.12f, -15f), new Vector2(104f, 26f));
-                var inkLab = UiKit.Label(host, "ink", "墨 +" + miles[i].Ink, 22, new Vector2(MileW * 0.12f, 13f), new Vector2(104f, 30f));
+                Transform host = _board.Find("mile" + i);
+                host.GetComponent<Image>().sprite = InkSprites.Load(
+                    claimed ? "Ui/codex_mile_done" : ready ? "Ui/codex_mile_ready" : "Ui/codex_mile_off");
+                var condLab = host.Find("need").GetComponent<Text>();
+                var inkLab = host.Find("ink").GetComponent<Text>();
+                condLab.text = claimed ? "已领" : "收录 " + miles[i].Need + " 个";
+                inkLab.text = "墨 +" + miles[i].Ink;
                 condLab.color = ready ? InkTheme.TextDark : InkTheme.TextMid;
                 inkLab.color = claimed ? InkTheme.TextDim : ready ? InkTheme.Gold : InkTheme.TextDark;
-                UiKit.Bold(condLab);
-                UiKit.Bold(inkLab);
-                int idx = i;
-                var btn = host.gameObject.AddComponent<Button>();
-                btn.targetGraphic = host.GetComponent<Image>();
-                btn.onClick.AddListener(() => Claim(idx));
-                if (ready) _anim.Breathe(host, 0f, 0.045f, 1.15f);
+                var pulse = UiAnim.On(host);
+                pulse.Clear();
+                host.localScale = Vector3.one;
+                if (ready) pulse.Breathe(host, 0f, 0.045f, 1.15f);
             }
         }
 
@@ -197,10 +171,10 @@ namespace InkLine
                 return;
             }
             AudioBus.UnlockSting();
-            Transform ticket = _body != null ? _body.Find("mile" + i) : null;
+            Transform ticket = _board.Find("mile" + i);
             Vector2 from = RewardFly.Local(_layer, ticket);
             RewardFly.Play(_layer, from, new[] { RewardFly.Ink(_layer, ink) });
-            Burst(new Vector2((i - 1) * MileStep, MileY + MileH * 0.5f), ink);
+            Burst(new Vector2((i - 1) * CodexLayout.MileStep, CodexLayout.MileY + CodexLayout.MileH * 0.5f), ink);
             Refresh();
         }
 
@@ -244,106 +218,81 @@ namespace InkLine
             _anim.At(0.68f, () => { if (lab != null) Destroy(lab.gameObject); });
         }
 
-        void BuildGrid(IReadOnlyList<CodexEntry> list)
+        void FillGrid(IReadOnlyList<CodexEntry> list, float keep)
         {
-            int cols = 3;
-            float cellW = CellW;
-            float cellH = CellH;
-            var vp = new GameObject("list", typeof(RectTransform), typeof(Image), typeof(RectMask2D), typeof(ScrollRect));
-            vp.transform.SetParent(_body, false);
-            var viewport = vp.GetComponent<RectTransform>();
-            viewport.anchorMin = Vector2.zero;
-            viewport.anchorMax = Vector2.one;
-            viewport.offsetMin = new Vector2(16f, 28f);
-            viewport.offsetMax = new Vector2(-16f, -ListTop);
-            vp.GetComponent<Image>().color = Color.clear;
-
-            var go = new GameObject("cells", typeof(RectTransform));
-            go.transform.SetParent(viewport, false);
-            var content = go.GetComponent<RectTransform>();
-            content.anchorMin = new Vector2(0f, 1f);
-            content.anchorMax = new Vector2(1f, 1f);
-            content.pivot = new Vector2(0.5f, 1f);
-            content.anchoredPosition = Vector2.zero;
-            int rows = (list.Count + cols - 1) / cols;
-            content.sizeDelta = new Vector2(0f, rows * (cellH + Gap) + 16f);
-
-            var scroll = vp.GetComponent<ScrollRect>();
-            scroll.content = content;
-            scroll.viewport = viewport;
-            scroll.horizontal = false;
-            scroll.vertical = true;
-            scroll.movementType = ScrollRect.MovementType.Elastic;
-            scroll.scrollSensitivity = 30f;
-
-            for (int i = 0; i < list.Count; i++) Cell(content, list[i], i, cols, cellW, cellH);
+            RectTransform content = _list.content;
+            for (int i = content.childCount - 1; i >= 0; i--)
+            {
+                GameObject old = content.GetChild(i).gameObject;
+                old.SetActive(false);
+                Destroy(old);
+            }
+            int rows = (list.Count + CodexLayout.Cols - 1) / CodexLayout.Cols;
+            content.sizeDelta = new Vector2(0f, rows * (CodexLayout.CellH + CodexLayout.Gap) + 16f);
+            for (int i = 0; i < list.Count; i++) Cell(content, list[i], i);
             Canvas.ForceUpdateCanvases();
-            if (_scroll >= 0f) scroll.verticalNormalizedPosition = _scroll;
-            scroll.onValueChanged.AddListener(v => _scroll = v.y);
+            _list.verticalNormalizedPosition = keep >= 0f ? keep : 1f;
         }
 
-        void Cell(RectTransform content, CodexEntry e, int i, int cols, float cellW, float cellH)
+        void Cell(RectTransform content, CodexEntry e, int i)
         {
-            float x = (i % cols - (cols - 1) * 0.5f) * (cellW + Gap);
-            float y = 8f + (i / cols) * (cellH + Gap);
+            const float cellW = CodexLayout.CellW;
+            const float cellH = CodexLayout.CellH;
+            const int cols = CodexLayout.Cols;
+            float x = (i % cols - (cols - 1) * 0.5f) * (cellW + CodexLayout.Gap);
+            float y = 8f + (i / cols) * (cellH + CodexLayout.Gap);
             bool[] seen = e.Kind == CodexKind.Enemy ? _seenEnemies : _seenCards;
             CodexState st = CodexCatalog.StateOf(_meta, e, seen);
             bool known = st == CodexState.Known;
-            var size = new Vector2(cellW, cellH);
-            string art = known ? "Ui/codex_card_on" : st == CodexState.Unknown ? "Ui/codex_card_dim" : "Ui/codex_card";
-            var card = Slab(content, "c" + i, art, new Vector2(x, y), size, Pin.Top, CardRefH);
-            var cardImg = card.GetComponent<Image>();
-            cardImg.raycastTarget = true;
-            var btn = card.gameObject.AddComponent<Button>();
-            btn.targetGraphic = cardImg;
-            btn.onClick.AddListener(() => Open(e, st));
 
-            // 卡框边厚约 30，卡面是中间 136×180 那块。名牌压在卡面下沿，图画在它上面。
-            const float faceY = 20f;
-            var plate = Slab(card, "plate", "Ui/codex_nameplate",
-                new Vector2(0f, -cellH * 0.5f + 52f), new Vector2(cellW - 52f, 40f), Pin.Center);
+            var card = Instantiate(_cell, content, false);
+            card.name = "c" + i;
+            card.anchoredPosition = new Vector2(x, -y);
+            card.gameObject.SetActive(true);
+            Sprite frame = InkSprites.Load(known ? "Ui/codex_face" : st == CodexState.Unknown ? "Ui/codex_back" : "Ui/codex_face_dim");
+            if (frame != null) card.GetComponent<Image>().sprite = frame;
+            card.GetComponent<Button>().onClick.AddListener(() => Open(e, st));
 
+            var name = card.Find("n").GetComponent<Text>();
             if (st == CodexState.Unknown)
             {
-                var q = UiKit.Label(card, "q", "？", 72, new Vector2(0f, faceY), new Vector2(cellW, 90f));
-                q.color = InkTheme.Hex("A06A44");
-                UiKit.Bold(q);
                 bool hinted = e.Kind == CodexKind.Pair && CodexCatalog.PairHinted(_meta, e.Index);
-                string blank = hinted ? "似曾相识" : "？？";
-                var n = UiKit.Label(plate, "n", blank, 20, Vector2.zero, new Vector2(cellW - 80f, 34f));
-                n.color = hinted ? InkTheme.Gold : InkTheme.TextDim;
-                UiKit.Bold(n);
+                name.text = hinted ? "似曾相识" : "？？";
+                name.color = hinted ? InkTheme.Gold : InkTheme.TextDim;
                 return;
             }
 
             // 见过没收录：字图半透明叠在同色卡面上，看得出是哪个字但发虚。
             Color tint = known ? Color.white : new Color(1f, 1f, 1f, 0.42f);
             if (e.Kind == CodexKind.Glyph)
-                UiKit.Icon(card, InkArt.Glyph((CardId)e.Index, 160), new Vector2(0f, faceY), 116f).color = tint;
+                Put(card, "art", InkArt.Glyph((CardId)e.Index, 160), 144f, tint);
             else if (e.Kind == CodexKind.Word)
             {
                 CardId[] parts = CodexCatalog.PartsOf((WordId)e.Index);
-                for (int k = 0; k < parts.Length; k++)
-                    UiKit.Icon(card, InkArt.Glyph(parts[k], 160), new Vector2(k == 0 ? -33f : 33f, faceY), 68f).color = tint;
+                for (int k = 0; k < parts.Length && k < 2; k++)
+                    Put(card, k == 0 ? "ga" : "gb", InkArt.Glyph(parts[k], 160), 74f, tint);
             }
             else if (e.Kind == CodexKind.Enemy)
-                UiKit.Icon(card, InkSprites.Person((EnemyId)e.Index), new Vector2(0f, faceY), 112f).color =
-                    known ? Color.white : new Color(0.3f, 0.26f, 0.22f, 0.6f);
+                Put(card, "art", InkSprites.Person((EnemyId)e.Index), 136f,
+                    known ? Color.white : new Color(0.3f, 0.26f, 0.22f, 0.6f));
             else
-                UiKit.Icon(card, PairFrame(e.Index), new Vector2(0f, faceY), 104f).color = tint;
+                Put(card, "art", PairFrame(e.Index), 124f, tint);
 
-            var name = UiKit.Label(plate, "n", CodexCatalog.Title(e), 22, Vector2.zero, new Vector2(cellW - 80f, 34f));
+            name.text = CodexCatalog.Title(e);
             name.color = known ? InkTheme.TextDark : InkTheme.TextDim;
-            UiKit.Bold(name);
+            card.Find("lock").gameObject.SetActive(!known);
+            card.Find("dot").gameObject.SetActive(known && _meta.CodexIsNew(e.Kind, e.Index));
+        }
 
-            if (!known)
-            {
-                var lk = UiKit.Icon(card, InkArt.Icon(InkShape.Lock, 64),
-                    new Vector2(cellW * 0.5f - 38f, cellH * 0.5f - 38f), 26f);
-                lk.color = InkTheme.GraphiteHi;
-            }
-            else if (_meta.CodexIsNew(e.Kind, e.Index))
-                Dot(card, new Vector2(cellW * 0.5f - 14f, cellH * 0.5f - 14f));
+        public static void Put(Transform host, string path, Sprite sprite, float size, Color tint)
+        {
+            Transform t = host.Find(path);
+            if (t == null || sprite == null) return;
+            var img = t.GetComponent<Image>();
+            img.sprite = sprite;
+            img.color = tint;
+            img.rectTransform.sizeDelta = new Vector2(size, size);
+            t.gameObject.SetActive(true);
         }
 
         void Open(CodexEntry e, CodexState st)
@@ -351,34 +300,12 @@ namespace InkLine
             AudioBus.Tap();
             if (st == CodexState.Unknown)
             {
-                string tip = e.Kind == CodexKind.Pair ? "两字同弹，方见真形"
-                    : e.Kind == CodexKind.Enemy ? "还没在关卡里遇见过" : "还没在关卡里遇见过";
+                string tip = e.Kind == CodexKind.Pair ? "两字同弹，方见真形" : "还没在关卡里遇见过";
                 InkToast.Show(_layer, tip);
                 return;
             }
             if (st == CodexState.Known) _meta.CodexSeen(e.Kind, e.Index);
             CodexDetail.Show(_layer, e, st == CodexState.Known, Refresh);
-        }
-
-        static void Dot(Transform parent, Vector2 pos)
-        {
-            var ring = UiKit.Icon(parent, UiSprites.Disc(), pos, 26f);
-            ring.gameObject.name = "dot";
-            ring.color = InkTheme.CardFace;
-            UiKit.Icon(ring.transform, UiSprites.Disc(), Vector2.zero, 20f).color = InkTheme.Seal;
-        }
-
-        public static Color Tone(CodexEntry e)
-        {
-            switch (e.Kind)
-            {
-                case CodexKind.Glyph: return CardCatalog.Accent((CardId)e.Index);
-                case CodexKind.Word: return InkTheme.Gold;
-                case CodexKind.Enemy: return InkTheme.Ink;
-                default:
-                    SignaturePair p = SignaturePairs.All[e.Index];
-                    return Color.Lerp(CardCatalog.Accent(p.A), CardCatalog.Accent(p.B), 0.5f);
-            }
         }
 
         public static Sprite PairFrame(int pair)
@@ -390,31 +317,27 @@ namespace InkLine
     }
 
     // 点开一格：左边字、右边炮弹，下面是说明和三档数值。点星级那一行，炮弹跟着换。
+    // 壳在 CodexLayout（预制 Prefabs/CodexDetail），按种类开关 stars / pair / enemy 三组。
     public sealed class CodexDetail : MonoBehaviour
     {
-        const float BoardW = 640f;
-        const float BoardH = 900f;
-        const float RowW = 572f;
-
-        static readonly Color PickFill = InkTheme.Hex("FFF6E6");
-
         CodexEntry _e;
         bool _known;
         Action _closed;
         RectTransform _board;
         CodexShot _shot;
         Image _glyph;
-        readonly List<RectTransform> _rows = new List<RectTransform>();
+        readonly List<Image> _rows = new List<Image>();
 
         public static void Show(RectTransform layer, CodexEntry e, bool known, Action closed)
         {
-            var dim = UiKit.Dimmer(layer);
-            dim.name = "codex_detail";
+            var dim = CodexLayout.Detail(layer);
             var d = dim.gameObject.AddComponent<CodexDetail>();
             d._e = e;
             d._known = known;
             d._closed = closed;
-            d._board = PanelKit.Board(dim, CodexCatalog.Title(e), new Vector2(0f, -10f), new Vector2(BoardW, BoardH), Pin.Center, d.Close);
+            d._board = (RectTransform)dim.Find("board");
+            CodexLayout.SetTitle(d._board, CodexCatalog.Title(e));
+            d._board.Find("close").GetComponent<Button>().onClick.AddListener(d.Close);
             d.Build();
         }
 
@@ -425,14 +348,23 @@ namespace InkLine
             Destroy(gameObject);
         }
 
+        Text Lab(string path) => _board.Find(path).GetComponent<Text>();
+
         void Build()
         {
-            if (_e.Kind == CodexKind.Enemy)
+            bool enemy = _e.Kind == CodexKind.Enemy;
+            bool pair = _e.Kind == CodexKind.Pair;
+            _board.Find("shotBox").gameObject.SetActive(!enemy);
+            _board.Find("note").gameObject.SetActive(!enemy);
+            _board.Find("enemy").gameObject.SetActive(enemy);
+            _board.Find("pair").gameObject.SetActive(pair);
+            _board.Find("stars").gameObject.SetActive(!enemy && !pair);
+            BuildFace();
+            if (enemy)
             {
                 BuildEnemy();
                 return;
             }
-            BuildFace();
             BuildShotBox();
 
             string note;
@@ -460,16 +392,12 @@ namespace InkLine
                 note = "";
                 lore = "？？？\n在关卡里用上一次，就能看清它的本事。";
             }
-
-            var n = UiKit.Label(_board, "note", note, 22, new Vector2(0f, 366f), new Vector2(RowW, 30f), TextAnchor.MiddleCenter, Pin.Top);
-            n.color = InkTheme.TextMid;
-
-            var para = UiKit.Label(_board, "lore", lore, 26, new Vector2(0f, 408f), new Vector2(RowW, 120f), TextAnchor.UpperLeft, Pin.Top);
-            para.horizontalOverflow = HorizontalWrapMode.Wrap;
-            para.lineSpacing = 1.15f;
+            Lab("note").text = note;
+            var para = Lab("lore");
+            para.text = lore;
             para.color = _known ? InkTheme.TextDark : InkTheme.TextDim;
 
-            if (_e.Kind == CodexKind.Pair) BuildPairEffect();
+            if (pair) BuildPairEffect();
             else BuildStars();
         }
 
@@ -477,72 +405,53 @@ namespace InkLine
         {
             var id = (EnemyId)_e.Index;
             EnemyDef d = EnemyCatalog.Base(id);
-            BuildFace();
-
-            var size = new Vector2(330f, 250f);
-            var box = CodexPanel.Slab(_board, "stat", "Ui/codex_card", new Vector2(118f, 100f), size, Pin.Top, CodexPanel.CardRefH);
-            if (!_known)
+            Transform box = _board.Find("enemy/stat");
+            box.Find("q").gameObject.SetActive(!_known);
+            string[] rows =
             {
-                var q = UiKit.Label(box, "q", "？", 90, Vector2.zero, size);
-                q.color = InkTheme.LineDim;
-                UiKit.Bold(q);
-            }
-            else
+                "血  " + Mathf.RoundToInt(d.Hp),
+                "速  " + d.Speed.ToString("0.00"),
+                "金  " + d.Gold,
+                "墨  " + (d.Ink < 0.05f ? "少许" : d.Ink.ToString(d.Ink >= 1f ? "0.#" : "0.00"))
+            };
+            for (int i = 0; i < rows.Length; i++)
             {
-                string[] rows =
-                {
-                    "血  " + Mathf.RoundToInt(d.Hp),
-                    "速  " + d.Speed.ToString("0.00"),
-                    "金  " + d.Gold,
-                    "墨  " + (d.Ink < 0.05f ? "少许" : d.Ink.ToString(d.Ink >= 1f ? "0.#" : "0.00"))
-                };
-                for (int i = 0; i < rows.Length; i++)
-                {
-                    var t = UiKit.Label(box, "s" + i, rows[i], 28,
-                        new Vector2(0f, 78f - i * 48f), new Vector2(size.x - 40f, 40f), TextAnchor.MiddleLeft);
-                    t.color = InkTheme.TextDark;
-                    UiKit.Bold(t);
-                }
+                var t = box.Find("s" + i).GetComponent<Text>();
+                t.gameObject.SetActive(_known);
+                t.text = rows[i];
+                t.color = InkTheme.TextDark;
             }
 
-            string lore = _known
-                ? EnemyCatalog.Lore(id)
-                : "打倒它一次，才写得进墨谱。";
-            var para = UiKit.Label(_board, "lore", lore, 26, new Vector2(0f, 380f), new Vector2(RowW, 110f),
-                TextAnchor.UpperLeft, Pin.Top);
-            para.horizontalOverflow = HorizontalWrapMode.Wrap;
-            para.lineSpacing = 1.15f;
+            var para = Lab("lore");
+            para.text = _known ? EnemyCatalog.Lore(id) : "打倒它一次，才写得进墨谱。";
             para.color = _known ? InkTheme.TextDark : InkTheme.TextDim;
+            para.rectTransform.anchoredPosition = new Vector2(0f, -390f);
+            para.rectTransform.sizeDelta = new Vector2(CodexLayout.RowW, 110f);
 
-            string trait = _known ? EnemyCatalog.TraitLine(d) : "？？？";
-            var cap = UiKit.Label(_board, "cap", "本事", 24, new Vector2(-RowW * 0.5f + 40f, 520f),
-                new Vector2(80f, 30f), TextAnchor.MiddleCenter, Pin.Top);
-            cap.color = InkTheme.TextDark;
-            UiKit.Bold(cap);
-            var traitBox = CodexPanel.Slab(_board, "trait", "Ui/codex_card", new Vector2(0f, 556f),
-                new Vector2(RowW, 130f), Pin.Top, CodexPanel.CardRefH);
-            var tv = UiKit.Label(traitBox, "v", trait, 26, Vector2.zero, new Vector2(RowW - 70f, 80f));
-            tv.horizontalOverflow = HorizontalWrapMode.Wrap;
+            var tv = Lab("enemy/trait/v");
+            tv.text = _known ? EnemyCatalog.TraitLine(d) : "？？？";
             tv.color = _known ? InkTheme.TextDark : InkTheme.TextDim;
         }
 
         void BuildFace()
         {
-            var size = new Vector2(220f, 250f);
-            string face = _known ? "Ui/codex_card_on" : "Ui/codex_card";
-            // 卡框边厚约 30，卡面是中间 160×190 那块，图都收在里面。
-            var card = CodexPanel.Slab(_board, "face", face, new Vector2(-166f, 100f), size, Pin.Top, 250f);
+            var card = _board.Find("face");
+            Sprite frame = InkSprites.Load(_known ? "Ui/codex_face" : "Ui/codex_face_dim");
+            if (frame != null) card.GetComponent<Image>().sprite = frame;
+            var name = card.Find("n").GetComponent<Text>();
+            name.text = CodexCatalog.Title(_e);
+            name.color = _known ? InkTheme.TextDark : InkTheme.TextDim;
             Color tint = _known ? Color.white : new Color(1f, 1f, 1f, 0.42f);
             if (_e.Kind == CodexKind.Enemy)
             {
-                UiKit.Icon(card, InkSprites.Person((EnemyId)_e.Index), Vector2.zero, 150f).color =
-                    _known ? Color.white : new Color(0.3f, 0.26f, 0.22f, 0.6f);
+                CodexPanel.Put(card, "person", InkSprites.Person((EnemyId)_e.Index), 140f,
+                    _known ? Color.white : new Color(0.3f, 0.26f, 0.22f, 0.6f));
                 return;
             }
             if (_e.Kind == CodexKind.Glyph)
             {
-                _glyph = UiKit.Icon(card, InkArt.Glyph((CardId)_e.Index, 160), Vector2.zero, 156f);
-                _glyph.color = tint;
+                CodexPanel.Put(card, "glyph", InkArt.Glyph((CardId)_e.Index, 160), 150f, tint);
+                _glyph = card.Find("glyph").GetComponent<Image>();
                 return;
             }
             CardId[] parts;
@@ -552,38 +461,21 @@ namespace InkLine
                 SignaturePair p = SignaturePairs.All[_e.Index];
                 parts = new[] { p.A, p.B };
             }
-            UiKit.Icon(card, InkArt.Glyph(parts[0], 160), new Vector2(0f, 46f), 88f).color = tint;
-            UiKit.Icon(card, InkArt.Glyph(parts[1], 160), new Vector2(0f, -46f), 88f).color = tint;
-            if (_e.Kind == CodexKind.Pair)
-            {
-                var plus = UiKit.Label(card, "plus", "+", 30, new Vector2(62f, 0f), new Vector2(34f, 36f));
-                plus.color = InkTheme.TextMid;
-                UiKit.Bold(plus);
-            }
+            CodexPanel.Put(card, "ga", InkArt.Glyph(parts[0], 160), 84f, tint);
+            CodexPanel.Put(card, "gb", InkArt.Glyph(parts[1], 160), 84f, tint);
+            card.Find("plus").gameObject.SetActive(_e.Kind == CodexKind.Pair);
         }
 
         void BuildShotBox()
         {
-            var size = new Vector2(330f, 250f);
-            var box = CodexPanel.Slab(_board, "shotBox", "Ui/codex_card", new Vector2(118f, 100f), size, Pin.Top, 250f);
-            var cap = UiKit.Label(box, "cap", "炮弹", 20, new Vector2(-size.x * 0.5f + 60f, size.y * 0.5f - 44f), new Vector2(60f, 26f));
-            cap.color = InkTheme.TextMid;
-            if (!_known)
-            {
-                var q = UiKit.Label(box, "q", "？", 110, new Vector2(0f, 4f), size);
-                q.color = InkTheme.LineDim;
-                UiKit.Bold(q);
-                return;
-            }
-            _shot = CodexShot.Build(box, size - new Vector2(56f, 56f));
+            var box = (RectTransform)_board.Find("shotBox");
+            box.Find("q").gameObject.SetActive(!_known);
+            if (!_known) return;
+            _shot = CodexShot.Build(box, box.sizeDelta - new Vector2(56f, 56f));
             if (_e.Kind == CodexKind.Glyph) _shot.ShowGlyph((CardId)_e.Index, 1);
             else if (_e.Kind == CodexKind.Word) _shot.ShowWord((WordId)_e.Index);
             else _shot.ShowPair(_e.Index);
-            if (_e.Kind == CodexKind.Glyph && !ChangesLook((CardId)_e.Index))
-            {
-                var t = UiKit.Label(box, "plain", "不改炮弹外形", 20, new Vector2(0f, -size.y * 0.5f + 46f), new Vector2(size.x - 60f, 26f));
-                t.color = InkTheme.TextMid;
-            }
+            box.Find("plain").gameObject.SetActive(_e.Kind == CodexKind.Glyph && !ChangesLook((CardId)_e.Index));
         }
 
         static bool ChangesLook(CardId id)
@@ -596,39 +488,25 @@ namespace InkLine
 
         void BuildStars()
         {
-            const float top = 544f;
-            const float rowH = 90f;
-            var cap = UiKit.Label(_board, "cap", "星级数值", 24, new Vector2(-RowW * 0.5f + 60f, top - 8f), new Vector2(140f, 30f), TextAnchor.MiddleCenter, Pin.Top);
-            cap.color = InkTheme.TextDark;
-            UiKit.Bold(cap);
-            if (_known && _e.Kind == CodexKind.Glyph)
-            {
-                var tip = UiKit.Label(_board, "tip", "点一行看对应星级的炮弹", 20, new Vector2(RowW * 0.5f - 130f, top - 8f), new Vector2(260f, 30f), TextAnchor.MiddleRight, Pin.Top);
-                tip.color = InkTheme.TextDim;
-            }
+            bool pickable = _known && _e.Kind == CodexKind.Glyph;
+            Transform g = _board.Find("stars");
+            g.Find("tip").gameObject.SetActive(pickable);
             for (int s = 1; s <= GameConstants.MaxStar; s++)
             {
                 int star = s;
-                var row = UiKit.Stroke(_board, "s" + s, new Vector2(0f, top + 28f + (s - 1) * (rowH + 8f)), new Vector2(RowW, rowH),
-                    Pin.Top, 3f, InkTheme.Outline, InkTheme.CardFace, 18f);
-                _rows.Add(row);
-                for (int k = 0; k < s; k++)
-                    UiKit.Icon(row, InkSprites.Ui("star"), new Vector2(-RowW * 0.5f + 34f + k * 30f, 0f), 30f);
-                string text = !_known ? "？？？"
+                Transform row = g.Find("s" + s);
+                if (row == null) continue;
+                var img = row.GetComponent<Image>();
+                _rows.Add(img);
+                var t = row.Find("v").GetComponent<Text>();
+                t.text = !_known ? "？？？"
                     : _e.Kind == CodexKind.Glyph ? CodexCatalog.StarLine((CardId)_e.Index, s)
                     : CodexCatalog.WordStarLine((WordId)_e.Index, s);
-                var t = UiKit.Label(row, "v", text, 23, new Vector2(62f, 0f), new Vector2(RowW - 150f, rowH - 8f), TextAnchor.MiddleLeft);
-                t.horizontalOverflow = HorizontalWrapMode.Wrap;
                 t.color = _known ? InkTheme.TextDark : InkTheme.TextDim;
-                if (_known && _e.Kind == CodexKind.Glyph)
-                {
-                    var btn = row.gameObject.AddComponent<Button>();
-                    btn.targetGraphic = row.GetComponent<Image>();
-                    btn.onClick.AddListener(() => PickStar(star));
-                }
-                else row.GetComponent<Image>().raycastTarget = false;
+                img.raycastTarget = pickable;
+                if (pickable) row.GetComponent<Button>().onClick.AddListener(() => PickStar(star));
             }
-            if (_known && _e.Kind == CodexKind.Glyph) Highlight(1);
+            if (pickable) Highlight(1);
         }
 
         void PickStar(int star)
@@ -646,28 +524,18 @@ namespace InkLine
 
         void Highlight(int star)
         {
+            Sprite on = InkSprites.Load("Ui/codex_row_on");
+            Sprite off = InkSprites.Load("Ui/codex_row");
             for (int i = 0; i < _rows.Count; i++)
-                _rows[i].GetComponent<Image>().color = i + 1 == star ? PickFill : InkTheme.CardFace;
+            {
+                Sprite s = i + 1 == star ? on : off;
+                if (s != null) _rows[i].sprite = s;
+            }
         }
 
         void BuildPairEffect()
         {
-            SignaturePair p = SignaturePairs.All[_e.Index];
-            const float top = 544f;
-            var cap = UiKit.Label(_board, "cap", "额外效果", 24, new Vector2(-RowW * 0.5f + 60f, top - 8f), new Vector2(140f, 30f), TextAnchor.MiddleCenter, Pin.Top);
-            cap.color = InkTheme.TextDark;
-            UiKit.Bold(cap);
-            var box = UiKit.Stroke(_board, "effect", new Vector2(0f, top + 28f), new Vector2(RowW, 120f), Pin.Top, 4f,
-                CodexPanel.Tone(_e), PickFill, 18f);
-            box.GetComponent<Image>().raycastTarget = false;
-            var t = UiKit.Label(box, "v", p.Note, 28, Vector2.zero, new Vector2(RowW - 40f, 100f));
-            t.horizontalOverflow = HorizontalWrapMode.Wrap;
-            t.color = InkTheme.TextDark;
-            UiKit.Bold(t);
-            var how = UiKit.Label(_board, "how", "再叠第三个字也照样生效，炮弹会多挂一颗对应颜色的小珠。", 21,
-                new Vector2(0f, top + 176f), new Vector2(RowW, 60f), TextAnchor.UpperCenter, Pin.Top);
-            how.horizontalOverflow = HorizontalWrapMode.Wrap;
-            how.color = InkTheme.TextMid;
+            Lab("pair/effect/v").text = SignaturePairs.All[_e.Index].Note;
         }
     }
 }

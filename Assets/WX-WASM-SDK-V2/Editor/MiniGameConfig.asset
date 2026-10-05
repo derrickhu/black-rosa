@@ -27,7 +27,7 @@ MonoBehaviour:
     bundleExcludeExtensions: json;
     AssetsUrl: 
     MemorySize: 256
-    HideAfterCallMain: 1
+    HideAfterCallMain: 0
     preloadFiles: 
     Orientation: 0
     bgImageSrc: Assets/Art/Loading/loading.jpg

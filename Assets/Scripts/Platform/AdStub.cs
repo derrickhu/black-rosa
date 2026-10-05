@@ -37,12 +37,15 @@ namespace InkLine
             }
         }
 
-        public static void Reward(string slot, Action onOk)
+        // 返回 false 表示这次没播成（没广告位，或上一条还在播）。播成了才会在结束时调 onSettled，
+        // 看完、中途关掉、加载失败都算结束。编辑器里没有广告，当场发奖并结束。
+        public static bool Reward(string slot, Action onOk, Action onSettled = null)
         {
             if (!WxBridge.CanAskProfile)
             {
                 onOk?.Invoke();
-                return;
+                onSettled?.Invoke();
+                return true;
             }
 #if UNITY_MINIGAME || WEIXINMINIGAME || UNITY_WEIXINMINIGAME || MINIGAME_SUBPLATFORM_WEIXIN
             string unit = UnitOf(slot);
@@ -50,9 +53,11 @@ namespace InkLine
             {
                 Debug.LogWarning("[Ad] 没有广告位 " + slot);
                 Tell("这个广告还没配好");
-                return;
+                return false;
             }
-            Play(unit, onOk);
+            return Play(unit, onOk, onSettled);
+#else
+            return false;
 #endif
         }
 
@@ -61,6 +66,7 @@ namespace InkLine
         {
             public WeChatWASM.WXRewardedVideoAd Ad;
             public Action Pending;
+            public Action Settled;
             public bool Busy;
             public int Gen;
         }
@@ -102,19 +108,21 @@ namespace InkLine
             for (int i = 0; i < drop.Count; i++) Holders.Remove(drop[i]);
         }
 
-        static void Play(string unit, Action onOk)
+        static bool Play(string unit, Action onOk, Action onSettled)
         {
             Holder h = HolderOf(unit);
             if (h.Busy)
             {
                 Tell("广告还在播");
-                return;
+                return false;
             }
             h.Busy = true;
             h.Pending = onOk;
+            h.Settled = onSettled;
             int gen = ++h.Gen;
             AudioBus.Duck(true);
             h.Ad.Show(_ => { }, _ => LoadThenShow(h, gen));
+            return true;
         }
 
         // 还没加载好时 show 会失败，补拉一次再播。官方推荐的写法。
@@ -155,9 +163,12 @@ namespace InkLine
         {
             if (!h.Busy || gen != h.Gen) return;
             h.Busy = false;
+            Action settled = h.Settled;
             h.Pending = null;
+            h.Settled = null;
             h.Gen++;
             AudioBus.Duck(false);
+            settled?.Invoke();
             if (msg == null) return;
             AudioBus.Deny();
             Tell(msg);

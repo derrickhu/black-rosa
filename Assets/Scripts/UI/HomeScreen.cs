@@ -66,7 +66,7 @@ namespace InkLine
             var go = UnityEngine.Object.Instantiate(prefab, _layer, false);
             go.name = "Home";
             _view = go.GetComponent<HomeView>();
-            if (_view == null || _view.Skins == null || _view.Skins.Length == 0)
+            if (_view == null || _view.ForgePage == null || _view.SortiePage == null || _view.SpellPage == null)
             {
                 UnityEngine.Object.Destroy(go);
                 _view = null;
@@ -721,7 +721,13 @@ namespace InkLine
             if (page == null) return;
             if (_chests == null || _chests.Root == null)
             {
-                _chests = HomeChestRow.Build(page, new Vector2(0f, ChestY + HomeChestRow.Slot * 0.5f), OpenChestSlot);
+                var existing = page.Find("chests") as RectTransform;
+                if (existing != null) _chests = HomeChestRow.Adopt(existing, OpenChestSlot);
+                if (_chests == null)
+                {
+                    if (existing != null) UnityEngine.Object.Destroy(existing.gameObject);
+                    _chests = HomeChestRow.Build(page, new Vector2(0f, HomeChestRow.BarY), OpenChestSlot);
+                }
             }
             PlaceWaitingChests();
             _chests.Refresh(_meta);
@@ -847,16 +853,12 @@ namespace InkLine
                     if (show) BindNode(slot, _chapter * SortiePageBuilder.PerChapter + i, frontier);
                 }
             }
+            SortiePageBuilder.RepairChrome(board);
             if (board.Dots != null)
             {
                 for (int i = 0; i < board.Dots.Length; i++)
                 {
                     if (board.Dots[i] == null) continue;
-                    if (board.Dots[i].sprite == null)
-                    {
-                        board.Dots[i].sprite = UiSprites.Fill(8);
-                        board.Dots[i].type = Image.Type.Sliced;
-                    }
                     board.Dots[i].color = i == _chapter ? InkTheme.Cta : InkTheme.LineDim;
                 }
             }

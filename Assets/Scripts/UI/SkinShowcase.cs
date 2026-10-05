@@ -61,25 +61,51 @@ namespace InkLine
             _changed = changed;
         }
 
-        // 预制体路径每次 Rebuild 只重新绑定，不重建；无预制体路径页面整个清掉，跟着重建。
+        // 烘预制时搭一份壳。圆角标签和圆章的图是运行时生成的，进游戏再补。
+        public static void Create(RectTransform page, float top)
+        {
+            var root = MakeRoot(page, top);
+            var s = new SkinShowcase(null, root, null, null);
+            s.Build(false);
+        }
+
+        // 预制里已经有展台就接着用；没有才现搭。
         public static SkinShowcase Ensure(SkinShowcase have, RectTransform page, float top, MetaProgress meta,
             Action<int> focusChanged, Action changed)
         {
             if (have != null && have._root != null && have._root.parent == page) return have;
-            var root = UiKit.Art(page, "showcase", "Ui/skin_stage", new Vector2(0f, top), new Vector2(W, H), Pin.Top);
-            root.GetComponent<Image>().raycastTarget = false;
+            var existing = page != null ? page.Find("showcase") as RectTransform : null;
+            if (existing != null)
+            {
+                var baked = new SkinShowcase(meta, existing, focusChanged, changed);
+                if (baked.Capture())
+                {
+                    baked.Repair();
+                    baked.Rewire();
+                    return baked;
+                }
+                UnityEngine.Object.Destroy(existing.gameObject);
+            }
+            var root = MakeRoot(page, top);
             var s = new SkinShowcase(meta, root, focusChanged, changed);
-            s.Build();
+            s.Build(true);
             return s;
         }
 
-        void Build()
+        static RectTransform MakeRoot(RectTransform page, float top)
+        {
+            var root = UiKit.Art(page, "showcase", "Ui/skin_stage", new Vector2(0f, top), new Vector2(W, H), Pin.Top);
+            root.GetComponent<Image>().raycastTarget = false;
+            return root;
+        }
+
+        void Build(bool motion)
         {
             // 横划区垫在炮下面，箭头、按钮和头像在它上层，点它们不会被吞。
+            // 滑动脚本进游戏再挂。这个脚本资源没有稳定的 guid，烘进预制会变成丢失脚本，整份预制就存不了。
             var swipe = UiKit.Panel(_root, "swipe", new Vector2(0f, 40f), new Vector2(460f, 320f),
                 new Color(1f, 1f, 1f, 0f));
-            _motion = swipe.gameObject.AddComponent<SkinStageMotion>();
-            _motion.Swiped = dir => Step(dir);
+            if (motion) AttachMotion(swipe);
 
             _name = UiKit.Label(_root, "name", "", 34, new Vector2(0f, NameY), new Vector2(220f, 44f));
             _name.color = InkTheme.TextDark;
@@ -97,9 +123,14 @@ namespace InkLine
             UiKit.Bold(_perk);
 
             _gun = UiKit.Icon(_root, null, new Vector2(0f, GunCenter), GunSize);
-            _motion.Gun = _gun.rectTransform;
-            _motion.BaseY = GunCenter;
+            _gun.gameObject.name = "gun";
+            if (_motion != null)
+            {
+                _motion.Gun = _gun.rectTransform;
+                _motion.BaseY = GunCenter;
+            }
             _lock = UiKit.Icon(_root, InkSprites.Ui("lock"), new Vector2(0f, GunCenter + 8f), 72f);
+            _lock.gameObject.name = "lock";
             _lockText = UiKit.Label(_root, "need", "", 26, new Vector2(0f, GunCenter - 44f), new Vector2(460f, 36f));
             _lockText.color = InkTheme.CardFace;
             UiKit.Bold(_lockText);
@@ -132,8 +163,9 @@ namespace InkLine
                 int idx = i;
                 btn.onClick.AddListener(() => Show(idx, 0, true));
                 _faces[i] = UiKit.Icon(cell, null, new Vector2(0f, 5f), 54f);
-                _used[i] = Seal(cell, "用", new Vector2(22f, 28f), 26f, InkTheme.Seal);
-                _dots[i] = Seal(cell, "", new Vector2(24f, 30f), 16f, InkTheme.Rose);
+                _faces[i].gameObject.name = "face";
+                _used[i] = Seal(cell, "used", "用", new Vector2(22f, 28f), 26f, InkTheme.Seal);
+                _dots[i] = Seal(cell, "dot", "", new Vector2(24f, 30f), 16f, InkTheme.Rose);
             }
             BuildFx();
         }
@@ -233,9 +265,114 @@ namespace InkLine
             btn.onClick.AddListener(() => Step(dir));
         }
 
-        static RectTransform Seal(RectTransform parent, string text, Vector2 pos, float size, Color fill)
+        bool Capture()
         {
-            var b = UiKit.Panel(parent, "seal", pos, new Vector2(size, size), fill);
+            var swipe = _root.Find("swipe") as RectTransform;
+            _motion = swipe != null ? swipe.GetComponent<SkinStageMotion>() : null;
+            _name = _root.Find("name")?.GetComponent<Text>();
+            _rankTag = _root.Find("rank") as RectTransform;
+            _rankBg = _rankTag != null ? _rankTag.GetComponent<Image>() : null;
+            _rank = _rankTag != null ? _rankTag.Find("t")?.GetComponent<Text>() : null;
+            _perk = _root.Find("perk")?.GetComponent<Text>();
+            _gun = _root.Find("gun")?.GetComponent<Image>();
+            _lock = _root.Find("lock")?.GetComponent<Image>();
+            _lockText = _root.Find("need")?.GetComponent<Text>();
+            _act = _root.Find("act")?.GetComponent<Button>();
+            _actText = _act != null ? _act.GetComponentInChildren<Text>() : null;
+            if (swipe == null || _name == null || _rankBg == null || _gun == null || _lock == null
+                || _lockText == null || _act == null || _actText == null)
+                return false;
+
+            int n = SkinCatalog.Count;
+            _frames = new Image[n];
+            _faces = new Image[n];
+            _used = new RectTransform[n];
+            _dots = new RectTransform[n];
+            for (int i = 0; i < n; i++)
+            {
+                Transform cell = _root.Find("av" + i);
+                if (cell == null) return false;
+                _frames[i] = cell.GetComponent<Image>();
+                _faces[i] = cell.Find("face")?.GetComponent<Image>();
+                _used[i] = cell.Find("used") as RectTransform;
+                _dots[i] = cell.Find("dot") as RectTransform;
+                if (_frames[i] == null || _faces[i] == null || _used[i] == null || _dots[i] == null) return false;
+            }
+            _fxName = new Text[FxSlots];
+            _fxVal = new Text[FxSlots];
+            for (int i = 0; i < FxSlots; i++)
+            {
+                _fxName[i] = _root.Find("fxn" + i)?.GetComponent<Text>();
+                _fxVal[i] = _root.Find("fxv" + i)?.GetComponent<Text>();
+                if (_fxName[i] == null || _fxVal[i] == null) return false;
+            }
+            return true;
+        }
+
+        void Repair()
+        {
+            if (_rankBg.sprite == null)
+            {
+                _rankBg.sprite = UiSprites.Fill(8);
+                _rankBg.type = Image.Type.Sliced;
+            }
+            for (int i = 0; i < _used.Length; i++)
+            {
+                RepairDisc(_used[i]);
+                RepairDisc(_dots[i]);
+            }
+            UiKit.RepairBtn(_act);
+        }
+
+        static void RepairDisc(RectTransform seal)
+        {
+            if (seal == null) return;
+            var img = seal.GetComponent<Image>();
+            if (img != null && img.sprite == null) img.sprite = UiSprites.Disc();
+        }
+
+        void AttachMotion(RectTransform swipe)
+        {
+            if (swipe == null) return;
+            _motion = swipe.GetComponent<SkinStageMotion>();
+            if (_motion == null) _motion = swipe.gameObject.AddComponent<SkinStageMotion>();
+            _motion.Swiped = dir => Step(dir);
+            if (_gun != null)
+            {
+                _motion.Gun = _gun.rectTransform;
+                _motion.BaseY = GunCenter;
+            }
+        }
+
+        void Rewire()
+        {
+            var swipe = _root.Find("swipe") as RectTransform;
+            AttachMotion(swipe);
+            WireArrow("prev", -1);
+            WireArrow("next", 1);
+            _act.onClick.RemoveAllListeners();
+            _act.onClick.AddListener(OnAct);
+            for (int i = 0; i < _frames.Length; i++)
+            {
+                var btn = _frames[i].GetComponent<Button>();
+                if (btn == null) continue;
+                btn.onClick.RemoveAllListeners();
+                int idx = i;
+                btn.onClick.AddListener(() => Show(idx, 0, true));
+            }
+        }
+
+        void WireArrow(string name, int dir)
+        {
+            var btn = _root.Find(name)?.GetComponent<Button>();
+            if (btn == null) return;
+            btn.onClick.RemoveAllListeners();
+            btn.onClick.AddListener(() => Step(dir));
+        }
+
+        static RectTransform Seal(RectTransform parent, string name, string text, Vector2 pos, float size, Color fill)
+        {
+            var b = UiKit.Panel(parent, name, pos, new Vector2(size, size), fill);
             var img = b.GetComponent<Image>();
             img.sprite = UiSprites.Disc();
             img.raycastTarget = false;

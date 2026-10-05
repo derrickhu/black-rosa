@@ -148,6 +148,7 @@ namespace InkLine
                 slot.Plate = img;
                 slot.Button = btn;
                 slot.Number = num;
+                slot.Stars = NodeStars(plate.transform);
                 nodes[i] = slot;
             }
             chapter.Nodes = nodes;
@@ -174,12 +175,70 @@ namespace InkLine
 
             chapter.Prev = MakeTab(boardRt, "prev", "上一章", false, cardW, out chapter.PrevLabel);
             chapter.Next = MakeTab(boardRt, "next", "下一章", true, cardW, out chapter.NextLabel);
+            BuildStarChest(boardRt, chapter);
 
             view.Chapter = chapter;
             view.SideActs = BuildSides(page);
-            var mark = new GameObject("sortie_v6", typeof(RectTransform));
+            if (page.Find("chests") == null)
+                HomeChestRow.Build(page, new Vector2(0f, HomeChestRow.BarY), null);
+            var mark = new GameObject("sortie_v7", typeof(RectTransform));
             mark.transform.SetParent(page, false);
             swipe.Moved = null;
+        }
+
+        static Image[] NodeStars(Transform node)
+        {
+            float size = NodeSize;
+            float s = Mathf.Max(18f, size * 0.34f);
+            var stars = new Image[3];
+            for (int i = 0; i < 3; i++)
+            {
+                float x = (i - 1) * s * 0.92f;
+                float y = -size * 0.5f - s * 0.1f + (i == 1 ? -s * 0.18f : 0f);
+                stars[i] = UiKit.Icon(node, Spr("result_star_off"), new Vector2(x, y), s);
+                stars[i].gameObject.name = "star" + i;
+                stars[i].gameObject.SetActive(false);
+            }
+            return stars;
+        }
+
+        static void BuildStarChest(RectTransform board, HomeChapterBoard chapter)
+        {
+            var host = new GameObject("starchest", typeof(RectTransform), typeof(Image), typeof(Button));
+            host.transform.SetParent(board, false);
+            var rt = host.GetComponent<RectTransform>();
+            rt.anchorMin = rt.anchorMax = new Vector2(1f, 1f);
+            rt.pivot = new Vector2(1f, 1f);
+            rt.anchoredPosition = new Vector2(-10f, -12f);
+            rt.sizeDelta = new Vector2(112f, 118f);
+            var hit = host.GetComponent<Image>();
+            hit.color = new Color(1f, 1f, 1f, 0f);
+            var btn = host.GetComponent<Button>();
+            btn.transition = Selectable.Transition.None;
+            btn.targetGraphic = hit;
+            chapter.StarChest = btn;
+            chapter.StarArt = UiKit.Icon(host.transform, Spr("chest_" + ChestCatalog.CannonArt), new Vector2(0f, 16f), 72f);
+            chapter.StarArt.gameObject.name = "art";
+            chapter.StarLabel = UiKit.Label(host.transform, "t", "", 16, new Vector2(0f, -36f), new Vector2(112f, 24f));
+            UiKit.Bold(chapter.StarLabel);
+        }
+
+        // 翻页圆点和章节小票的圆角图存不进预制，进游戏时补。
+        public static void RepairChrome(HomeChapterBoard board)
+        {
+            if (board == null) return;
+            if (board.Dots != null)
+                for (int i = 0; i < board.Dots.Length; i++)
+                    UiKit.RepairSlice(board.Dots[i], UiSprites.Fill(8));
+            RepairTab(board.Prev);
+            RepairTab(board.Next);
+        }
+
+        static void RepairTab(Button btn)
+        {
+            if (btn == null) return;
+            UiKit.RepairSlice(btn.GetComponent<Image>(), UiSprites.Fill(8));
+            UiKit.RepairSlice(btn.transform.Find("face")?.GetComponent<Image>(), UiSprites.Fill(8));
         }
 
         // 合稿右下角那张小票：奶油底、一圈细描边，挂在卡片下角。

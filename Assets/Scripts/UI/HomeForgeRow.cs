@@ -29,6 +29,15 @@ namespace InkLine
         RectTransform _fresh;
         RectTransform _own;
 
+        // 烘进预制的那一行。运行时 Ensure 认到同名节点就接着用。
+        public static void Install(RectTransform card)
+        {
+            if (card == null) return;
+            float w = card.sizeDelta.x;
+            if (w < 300f) w = Width;
+            Build(card, w);
+        }
+
         public static HomeForgeRow Ensure(HomeBoostRow slot, RectTransform card)
         {
             if (slot == null || card == null) return null;
@@ -36,6 +45,22 @@ namespace InkLine
             if (w < 300f) w = Width;
             var row = slot.Ui;
             if (row != null && row.Root != null && Mathf.Abs(row._builtW - w) < 1f) return row;
+            var baked = card.Find("row") as RectTransform;
+            if (baked != null)
+            {
+                var got = Capture(baked);
+                if (got != null)
+                {
+                    for (int i = card.childCount - 1; i >= 0; i--)
+                    {
+                        Transform c = card.GetChild(i);
+                        if (c != baked) c.gameObject.SetActive(false);
+                    }
+                    got.Repair();
+                    slot.Ui = got;
+                    return got;
+                }
+            }
             for (int i = card.childCount - 1; i >= 0; i--)
             {
                 Transform c = card.GetChild(i);
@@ -64,6 +89,7 @@ namespace InkLine
             var r = new HomeForgeRow { Root = root, _builtW = w };
 
             r._icon = UiKit.Icon(root, null, new Vector2(left + 58f, 10f), 76f);
+            r._icon.gameObject.name = "ico";
 
             float x0 = left + 112f;
             r._name = UiKit.Label(root, "name", "", 26, new Vector2(x0 + 60f, 42f), new Vector2(120f, 34f), TextAnchor.MiddleLeft);
@@ -89,6 +115,7 @@ namespace InkLine
             r._gate = UiKit.Label(root, "gate", "", 18, new Vector2(x0 + 136f, needY), new Vector2(128f, 28f), TextAnchor.MiddleLeft);
             UiKit.Bold(r._gate);
             r._inkIco = UiKit.Icon(root, InkSprites.Ui("ink"), new Vector2(x0 + 214f, needY), 28f);
+            r._inkIco.gameObject.name = "inkIco";
             r._ink = UiKit.Label(root, "ink", "", 19, new Vector2(x0 + 262f, needY), new Vector2(64f, 28f), TextAnchor.MiddleLeft);
             UiKit.Bold(r._ink);
 
@@ -248,6 +275,42 @@ namespace InkLine
             _act.interactable = can;
             if (can) UiKit.PaintBtn(_act, InkTheme.Cta, InkTheme.CtaDeep, InkTheme.CardFace);
             else UiKit.PaintBtn(_act, InkTheme.CardDim, InkTheme.LineDim, InkTheme.TextDark);
+        }
+
+        static HomeForgeRow Capture(RectTransform row)
+        {
+            if (row == null) return null;
+            var r = new HomeForgeRow
+            {
+                Root = row,
+                _builtW = row.sizeDelta.x > 300f ? row.sizeDelta.x : Width,
+                _icon = row.Find("ico")?.GetComponent<Image>(),
+                _name = row.Find("name")?.GetComponent<Text>(),
+                _lv = row.Find("lv")?.GetComponent<Text>(),
+                _live = row.Find("live") as RectTransform,
+                _value = row.Find("value")?.GetComponent<Text>(),
+                _needTag = row.Find("needTag")?.GetComponent<Text>(),
+                _gate = row.Find("gate")?.GetComponent<Text>(),
+                _inkIco = row.Find("inkIco")?.GetComponent<Image>(),
+                _ink = row.Find("ink")?.GetComponent<Text>(),
+                _act = row.Find("act")?.GetComponent<Button>(),
+                _fresh = row.Find("fresh") as RectTransform,
+                _own = row.Find("own") as RectTransform
+            };
+            if (r._icon == null || r._name == null || r._lv == null || r._live == null || r._value == null
+                || r._needTag == null || r._gate == null || r._inkIco == null || r._ink == null
+                || r._act == null || r._fresh == null || r._own == null)
+                return null;
+            return r;
+        }
+
+        void Repair()
+        {
+            UiKit.RepairSlice(_live.GetComponent<Image>(), UiSprites.Fill(12));
+            UiKit.RepairSlice(_fresh.GetComponent<Image>(), UiSprites.Fill(12));
+            UiKit.RepairSlice(_own.GetComponent<Image>(), UiSprites.Fill(12));
+            if (_inkIco.sprite == null) _inkIco.sprite = InkSprites.Ui("ink");
+            UiKit.RepairBtn(_act);
         }
     }
 }

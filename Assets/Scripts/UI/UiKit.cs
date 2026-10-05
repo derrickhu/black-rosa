@@ -484,6 +484,33 @@ namespace InkLine
             if (t != null) t.color = label;
         }
 
+        // 圆角、描边、投影是运行时烘的图，预制体存不住。缺图时按按钮尺寸补上。
+        public static void RepairBtn(Button btn)
+        {
+            if (btn == null) return;
+            var rt = btn.transform as RectTransform;
+            Vector2 size = rt != null ? rt.sizeDelta : new Vector2(200f, 58f);
+            int rad = UiSprites.TierFor(size);
+            RepairSlice(btn.GetComponent<Image>(), UiSprites.Fill(rad));
+            RepairSlice(btn.transform.Find("ln")?.GetComponent<Image>(), UiSprites.Line(rad, 5));
+            Transform face = btn.transform.Find("face");
+            if (face != null)
+            {
+                RepairSlice(face.GetComponent<Image>(), UiSprites.Fill(rad));
+                RepairSlice(face.Find("ln")?.GetComponent<Image>(), UiSprites.Line(rad, 5));
+            }
+            Transform parent = btn.transform.parent;
+            Image shadow = parent != null ? parent.Find(btn.name + "_sh")?.GetComponent<Image>() : null;
+            RepairSlice(shadow, UiSprites.Shadow(rad, 12));
+        }
+
+        public static void RepairSlice(Image img, Sprite sprite)
+        {
+            if (img == null || img.sprite != null || sprite == null) return;
+            img.sprite = sprite;
+            img.type = Image.Type.Sliced;
+        }
+
         public static void PaintTab(Button[] tabs, int active)
         {
             if (tabs == null) return;

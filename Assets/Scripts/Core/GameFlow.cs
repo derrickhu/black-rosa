@@ -207,15 +207,22 @@ namespace InkLine
 
         bool _askingRetreat;
         bool _leftGame;
+        // 看广告加炮时战斗已经停了。广告自己会触发切后台，不能再弹一层设置把暂停状态弄乱。
+        bool _holdForAd;
 
         // 切出去、锁屏、被盖住。回来时设置页已经在上面，点继续才接着打。
         void NoteLeft()
         {
+            if (_holdForAd) return;
             _leftGame = true;
             PauseForReturn();
         }
 
-        void NoteBack() => _leftGame = true;
+        void NoteBack()
+        {
+            if (_holdForAd) return;
+            _leftGame = true;
+        }
 
         void PauseForReturn()
         {
@@ -748,12 +755,26 @@ namespace InkLine
                 OpenDraft();
             }, () =>
             {
-                if (_screen != Screen.Battle || _world == null) return;
+                if (_screen != Screen.Battle || _world == null || _holdForAd) return;
                 if (_world.EmitterCount >= GameConstants.AdEmitterCap) return;
-                AdStub.Reward("emitter", () =>
+                bool wasPaused = _world.Paused;
+                _world.Paused = true;
+                _holdForAd = true;
+                bool started = AdStub.Reward("emitter", () =>
                 {
                     if (_world != null) _world.AddEmitter();
+                }, () =>
+                {
+                    _holdForAd = false;
+                    _leftGame = false;
+                    if (_world == null || _askingRetreat || _screen != Screen.Battle) return;
+                    _world.Paused = wasPaused;
                 });
+                if (!started)
+                {
+                    _holdForAd = false;
+                    _world.Paused = wasPaused;
+                }
             });
             _hud.GunSkin = _meta.Skin;
             _hud.Guided = _guide;
