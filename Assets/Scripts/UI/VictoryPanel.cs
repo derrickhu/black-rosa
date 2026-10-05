@@ -15,21 +15,25 @@ namespace InkLine
         public Action DoubleInk;          // 看一次广告：墨翻倍并当场开这关的宝箱；null：两样都没得给
         public string DoubleText;
         public Action Home;
+        public Action OpenStarChest;      // 本章刚满星，当场打开炮台宝箱
         public Action Forge;              // 解锁卡上「去炮台」
         public Action<int> Skin;          // 新炮台卡上「去看看」，炮台页停在那一款
+        // 新手指引：只弹词条卡，卡上只留「去炮台」。卡摆好后把按钮交出去给遮罩镂空；没有卡就交 null。
+        public bool Guide;
+        public Action<RectTransform> OnCard;
     }
 
     // 通关页。一整段编排：光芒转起来 → 横幅砸下 → 三颗星依次砸进星座 → 彩带 →
-    // 奖励卡弹出滚数 → 下一关预告 → 按钮。点屏幕任意处跳到最后。
+    // 奖励卡弹出滚数 → 下一关有新字才预告 → 按钮。点屏幕任意处跳到最后。
     public sealed class VictoryPanel : MonoBehaviour
     {
-        const float StarY = 150f;
-        const float RewardY = -40f;
+        const float StarY = 158f;
+        const float RewardY = -60f;
         const float TeaserY = -238f;
         const float NextY = -414f;
 
-        static readonly Vector2[] StarPos = { new Vector2(-150f, 0f), new Vector2(0f, 26f), new Vector2(150f, 0f) };
-        static readonly float[] StarSize = { 122f, 150f, 122f };
+        static readonly Vector2[] StarPos = { new Vector2(-132f, 0f), new Vector2(0f, 16f), new Vector2(132f, 0f) };
+        static readonly float[] StarSize = { 86f, 104f, 86f };
         static readonly float[] StarTilt = { 14f, 0f, -14f };
 
         UiAnim _anim;
@@ -37,8 +41,11 @@ namespace InkLine
         Text _inkText;
         RectTransform _inkCard;
         Button _double;
+        RectTransform _home;
+        float _homeParkY;
         int _ink;
         Text _chestNote;
+        bool _starOpened;
 
         public RectTransform Root => _root;
 
@@ -63,7 +70,6 @@ namespace InkLine
         void Build(VictoryArgs a)
         {
             ResultInfo info = a.Info;
-            StageDef stage = StageCatalog.Get(a.Stage);
             var stage0 = ResultKit.Group(_root, "stage", Vector2.zero, new Vector2(ScreenFit.DesignW, ScreenFit.DesignH));
 
             // 光芒 + 横幅
@@ -75,13 +81,14 @@ namespace InkLine
                  .Punch(banner, 0.47f, 0.10f, 0.3f)
                  .At(0.42f, AudioBus.Stamp);
 
-            var sub = UiKit.Label(stage0, "sub", $"第 {a.Stage + 1} 关 · {stage.Title}", 30,
+            var sub = UiKit.Label(stage0, "sub", $"第 {a.Stage + 1} 关", 30,
                 new Vector2(0f, 258f), new Vector2(560f, 44f));
             sub.color = InkTheme.Hex("FFE7B8");
             UiKit.Bold(sub);
             _anim.Fade(sub, 0.45f, 0.3f, 0f, 1f);
 
             BuildStars(stage0, info);
+            BuildStarRule(stage0, a);
             float t = 0.95f + info.Stars * 0.3f;
             _anim.At(t - 0.1f, () =>
             {
@@ -90,9 +97,19 @@ namespace InkLine
             });
 
             t = BuildRewards(stage0, a, t + 0.1f);
-            t = BuildTeaser(stage0, a, t + 0.1f);
-            BuildButtons(stage0, a, t + 0.1f);
+            bool teased = BuildTeaser(stage0, a, t + 0.1f, out t);
+            BuildButtons(stage0, a, t + 0.1f, teased ? NextY : -248f);
             int[] cards = RevealCards(info);
+            if (a.Guide)
+            {
+                cards = System.Array.FindAll(cards, c => c >= 0);
+                if (cards.Length > 0) cards = new[] { cards[0] };
+                else
+                {
+                    _anim.At(t + 0.7f, () => a.OnCard?.Invoke(null));
+                    return;
+                }
+            }
             if (cards.Length > 0)
                 _anim.At(t + 0.7f, () => Reveal(a, cards, 0));
         }
@@ -173,7 +190,7 @@ namespace InkLine
                  .Breathe(icon.transform, 1.0f, 0.05f, 1.2f)
                  .At(0.6f, () =>
                  {
-                     AudioBus.Unlock();
+                     AudioBus.UnlockSting();
                      UiConfetti.Sparks(_root, new Vector2(0f, 130f), InkTheme.GoldHi, 22, 640f);
                  });
 
@@ -194,13 +211,18 @@ namespace InkLine
                  .Fade(foot, 1.1f, 0.25f, 0f, 1f);
 
             bool last = k + 1 >= lines.Length;
-            var go = ResultKit.Group(g, "go", new Vector2(-136f, -310f), new Vector2(232f, 88f));
+            var go = ResultKit.Group(g, "go", new Vector2(a.Guide ? 0f : -136f, -310f), new Vector2(232f, 88f));
             UiKit.Btn(go, "b", goText, Vector2.zero, new Vector2(232f, 88f), () =>
             {
                 if (skin && a.Skin != null) a.Skin(skinId);
                 else if (a.Forge != null) a.Forge();
                 else Destroy(dim.gameObject);
-            }, false);
+            }, a.Guide);
+            if (a.Guide)
+            {
+                _anim.Pop(go, 1.2f, 0.3f).At(1.55f, () => a.OnCard?.Invoke(go));
+                return;
+            }
             var ok = ResultKit.Group(g, "ok", new Vector2(136f, -310f), new Vector2(232f, 88f));
             UiKit.Btn(ok, "b", last ? "知道了" : "下一个", Vector2.zero, new Vector2(232f, 88f), () =>
             {
@@ -240,9 +262,30 @@ namespace InkLine
                 _anim.Shake(parent, 0.8f + 2 * 0.3f + 0.22f, 12f, 0.28f);
 
             if (info.NewBest && !info.FirstClear)
-                Stamp(parent, "新纪录", new Vector2(218f, StarY + 86f), 16f, InkTheme.Rose, 0.8f + info.Stars * 0.3f);
+                Stamp(parent, "新纪录", new Vector2(200f, StarY + 58f), 16f, InkTheme.Rose, 0.8f + info.Stars * 0.3f);
             else if (info.FirstClear)
-                Stamp(parent, "首通", new Vector2(218f, StarY + 86f), 16f, InkTheme.Rose, 0.8f + info.Stars * 0.3f);
+                Stamp(parent, "首通", new Vector2(200f, StarY + 58f), 16f, InkTheme.Rose, 0.8f + info.Stars * 0.3f);
+        }
+
+        // 星下面写清这一局为什么是这颗数，以及三星、两星的门槛。炮台宝箱在规则放完后当场开。
+        void BuildStarRule(RectTransform parent, VictoryArgs a)
+        {
+            ResultInfo info = a.Info;
+            var why = UiKit.Label(parent, "why", StarRules.Why(info), 18,
+                new Vector2(0f, 104f), new Vector2(680f, 26f));
+            why.color = InkTheme.Hex("FFE7B8");
+            UiKit.Bold(why);
+            var rule = UiKit.Label(parent, "rule", StarRules.Rule, 16,
+                new Vector2(0f, 82f), new Vector2(680f, 24f));
+            rule.color = InkTheme.Hex("CDBFA8");
+            _anim.Fade(why, 1.65f, 0.25f, 0f, 1f).Fade(rule, 1.8f, 0.25f, 0f, 1f);
+            if (a.OpenStarChest == null) return;
+            _anim.At(2.05f, () =>
+            {
+                if (_starOpened) return;
+                _starOpened = true;
+                a.OpenStarChest();
+            });
         }
 
         // 斜着盖上去的小红章。
@@ -305,7 +348,7 @@ namespace InkLine
             return end;
         }
 
-        // 宝箱从天上砸下来、弹两下落进卡里。底下一行告诉玩家不开会怎样：进宝箱位，或位满折成墨。
+        // 宝箱从天上砸下来、弹两下落进卡里。底下一行告诉玩家不开会怎样：进宝箱位，或位满了离开后再选。
         float BuildChest(RectTransform parent, VictoryArgs a, Vector2 pos, float w, float h, float at)
         {
             ResultInfo info = a.Info;
@@ -326,98 +369,116 @@ namespace InkLine
                  .At(at + 0.32f, AudioBus.ChestLand)
                  .Punch(box, at + 0.6f, 0.18f, 0.3f);
 
-            string note = info.ChestFull ? $"位满 不开折 {info.ChestInk} 墨" : "不开就放进宝箱位";
-            _chestNote = UiKit.Label(card, "note", note, 18, new Vector2(0f, -h * 0.5f - 18f), new Vector2(w + 60f, 26f));
-            _chestNote.color = info.ChestFull ? InkTheme.Hex("FFB4A0") : InkTheme.Hex("FFE7B8");
+            string note = info.ChestFull ? "位满了，离开后再选" : "不开就放进宝箱位";
+            _chestNote = UiKit.Label(card, "note", note, 18, new Vector2(0f, -h * 0.5f - 18f), new Vector2(w + 80f, 26f));
+            _chestNote.color = info.ChestFull ? InkTheme.Hex("FFE1A8") : InkTheme.Hex("FFE7B8");
             _anim.Fade(_chestNote, at + 0.7f, 0.25f, 0f, 1f);
             return at + 0.9f;
         }
 
-        float BuildTeaser(RectTransform parent, VictoryArgs a, float at)
+        // 没有新字就不预告下一关。有新字才留一张字卡。
+        // 重打已经通关的关时，下一关早就解锁过了，不再预告。
+        bool BuildTeaser(RectTransform parent, VictoryArgs a, float at, out float end)
         {
+            end = at;
+            if (!a.Info.FirstClear) return false;
             int next = a.Stage + 1;
-            if (next >= GameConstants.StageCount) return at;
-            StageDef nd = StageCatalog.Get(next);
+            if (next >= GameConstants.StageCount) return false;
             List<CardId> fresh = StageCatalog.NewCards(next);
-            bool chapter = next % GameConstants.ChapterSize == 0;
+            if (fresh.Count == 0) return false;
+            end = BuildFresh(parent, fresh, at);
+            return true;
+        }
 
-            var box = ResultKit.Group(parent, "teaser", new Vector2(0f, TeaserY), new Vector2(600f, 156f));
-            UiKit.Stroke(box, "bg", Vector2.zero, new Vector2(600f, 156f), Pin.Center, 5f,
-                fill: InkTheme.Hex("FFF6E2"), radius: 28f);
-
-            string ribbon = fresh.Count > 0 ? "下一关解锁新字" : chapter ? "新章节开启" : "下一关";
-            var rib = UiKit.Stroke(box, "rib", new Vector2(0f, 78f), new Vector2(250f, 44f), Pin.Center, 4f,
+        // 下一关新给的字。只亮字，效果进了关自己能看见。
+        float BuildFresh(RectTransform parent, List<CardId> fresh, float at)
+        {
+            bool one = fresh.Count == 1;
+            var host = ResultKit.Group(parent, "teaser", new Vector2(0f, TeaserY), new Vector2(640f, one ? 168f : 150f));
+            var rib = UiKit.Stroke(host, "rib", new Vector2(0f, one ? 70f : 64f), new Vector2(250f, 44f), Pin.Center, 4f,
                 fill: InkTheme.Seal, radius: 22f);
-            var rt = UiKit.Label(rib, "t", ribbon, 24, Vector2.zero, new Vector2(250f, 44f));
+            var rt = UiKit.Label(rib, "t", "下一关解锁新字", 24, Vector2.zero, new Vector2(250f, 44f));
             rt.color = Color.white;
             UiKit.Bold(rt);
 
-            if (fresh.Count > 0)
+            int n = fresh.Count;
+            float icon = one ? 108f : Mathf.Min(96f, (520f - (n - 1) * 16f) / n);
+            float step = icon + 16f;
+            float x0 = -(n - 1) * step * 0.5f;
+            float glyphY = one ? -16f : -18f;
+            _anim.Pop(host, at, 0.34f).At(at + 0.3f, AudioBus.UnlockSting);
+            for (int i = 0; i < n; i++)
             {
-                // 只给字图。名字和效果留到下一关自己看见。
-                int n = fresh.Count;
-                float icon = n == 1 ? 118f : Mathf.Min(100f, (520f - (n - 1) * 18f) / n);
-                float step = icon + 18f;
-                float x0 = -(n - 1) * step * 0.5f;
-                _anim.Pop(box, at, 0.34f).At(at + 0.3f, AudioBus.Unlock);
-                for (int i = 0; i < n; i++)
-                {
-                    float x = x0 + i * step;
-                    var glow = UiKit.Icon(box, InkSprites.Load("Ui/result_rays"), new Vector2(x, -6f), icon + 72f);
-                    glow.color = new Color(1f, 0.78f, 0.35f, 0.9f);
-                    _anim.Spin(glow.transform, -30f);
-                    var heap = UiKit.Icon(box, InkSprites.Heap(fresh[i]), new Vector2(x, -6f), icon);
-                    _anim.Pop(heap.transform, at + 0.25f + i * 0.08f, 0.4f, 0f)
-                         .Breathe(heap.transform, at + 0.7f, 0.06f, 1.1f);
-                }
-            }
-            else
-            {
-                int chap = nd.Chapter;
-                string title = chapter ? SortiePageBuilder.ChapterTitle(chap) : $"第 {next + 1} 关 · {nd.Title}";
-                string line = nd.HasBoss ? "首领坐镇，打过去拿大奖" : $"{nd.Waves.Length} 波敌人，越打越强";
-                var tt = UiKit.Label(box, "name", title, 36, new Vector2(0f, 10f), new Vector2(560f, 50f));
-                UiKit.Bold(tt);
-                var ln = UiKit.Label(box, "desc", line, 24, new Vector2(0f, -38f), new Vector2(560f, 40f));
-                ln.color = InkTheme.TextMid;
-                _anim.Pop(box, at, 0.34f).At(at + 0.1f, AudioBus.Chime);
+                float x = x0 + i * step;
+                var glow = UiKit.Icon(host, InkSprites.Load("Ui/result_rays"), new Vector2(x, glyphY), icon + 64f);
+                glow.color = new Color(1f, 0.78f, 0.35f, 0.9f);
+                _anim.Spin(glow.transform, -30f);
+                var heap = UiKit.Icon(host, InkSprites.Heap(fresh[i]), new Vector2(x, glyphY), icon);
+                _anim.Pop(heap.transform, at + 0.25f + i * 0.08f, 0.4f, 0f)
+                     .Breathe(heap.transform, at + 0.7f, 0.06f, 1.1f);
             }
             return at + 0.5f;
         }
 
-        void BuildButtons(RectTransform parent, VictoryArgs a, float at)
+        void BuildButtons(RectTransform parent, VictoryArgs a, float at, float y)
         {
-            float y = NextY;
             bool hasNext = a.Next != null && a.NextCost >= 0;
+            bool ad = a.DoubleInk != null;
+            const float nextW = 400f, nextH = 90f;
+            const float adW = 460f, adH = 80f;
+            const float gap = 14f;
+            const float floor = -618f;
+            float homeH = !hasNext && !ad ? 100f : 76f;
+            float homeW = !hasNext && !ad ? 360f : 280f;
+
+            float yNext = y, yAd = y, yHome = y;
+            if (hasNext)
+                yHome = y - nextH * 0.5f - gap - (ad ? adH + gap : 0f) - homeH * 0.5f;
+            if (ad)
+            {
+                yAd = hasNext ? y - nextH * 0.5f - gap - adH * 0.5f : y;
+                yHome = yAd - adH * 0.5f - gap - homeH * 0.5f;
+            }
+            float bottom = yHome - homeH * 0.5f;
+            if (bottom < floor)
+            {
+                float lift = floor - bottom;
+                yNext += lift;
+                yAd += lift;
+                yHome += lift;
+            }
+
             if (hasNext)
             {
-                var g = ResultKit.Group(parent, "next", new Vector2(0f, y), new Vector2(440f, 112f));
-                var btn = UiKit.Btn(g, "b", "下一关", Vector2.zero, new Vector2(440f, 112f), () =>
+                var g = ResultKit.Group(parent, "next", new Vector2(0f, yNext), new Vector2(nextW, nextH));
+                var btn = UiKit.Btn(g, "b", "下一关", Vector2.zero, new Vector2(nextW, nextH), () =>
                 {
                     if (a.NextAffordable) a.Next();
                     else AudioBus.Deny();
                 });
                 var label = btn.transform.Find("face/t")?.GetComponent<Text>();
-                if (label != null) label.fontSize = 40;
+                if (label != null) label.fontSize = 34;
                 ResultKit.CostTag(btn, a.NextCost);
                 if (!a.NextAffordable) UiKit.PaintBtn(btn, InkTheme.CtaOff, InkTheme.Hex("5E5A54"), InkTheme.CardFace);
                 _anim.Pop(g, at, 0.36f);
                 if (a.NextAffordable) _anim.Breathe(g, at + 0.4f, 0.045f, 1.3f);
-                y -= 112f;
             }
 
-            if (a.DoubleInk != null)
+            if (ad)
             {
-                var g = ResultKit.Group(parent, "double", new Vector2(0f, y), new Vector2(400f, 86f));
-                _double = UiKit.Btn(g, "b", a.DoubleText ?? "墨翻倍", Vector2.zero, new Vector2(400f, 86f), a.DoubleInk, false);
-                ResultKit.AdMark(_double, 46f);
+                var g = ResultKit.Group(parent, "double", new Vector2(0f, yAd), new Vector2(adW, adH));
+                _double = UiKit.Btn(g, "b", a.DoubleText ?? "墨翻倍", Vector2.zero, new Vector2(adW, adH), a.DoubleInk, false);
+                UiKit.PaintBtn(_double, InkTheme.CoinFace, InkTheme.CoinDeep, InkTheme.TextDark);
+                ResultKit.AdMark(_double, 36f);
+                var dl = _double.GetComponentInChildren<Text>();
+                if (dl != null) dl.fontSize = 26;
                 _anim.Pop(g, at + 0.12f, 0.32f);
-                y -= 92f;
+                _homeParkY = yAd;
             }
 
-            var hg = ResultKit.Group(parent, "home", new Vector2(0f, y - 4f), new Vector2(hasNext ? 220f : 360f, hasNext ? 70f : 100f));
-            UiKit.Btn(hg, "b", "回首页", Vector2.zero, hg.sizeDelta, () => a.Home?.Invoke(), !hasNext);
-            _anim.Pop(hg, at + 0.24f, 0.3f);
+            _home = ResultKit.Group(parent, "home", new Vector2(0f, yHome), new Vector2(homeW, homeH));
+            UiKit.Btn(_home, "b", "回首页", Vector2.zero, _home.sizeDelta, () => a.Home?.Invoke(), !hasNext && !ad);
+            _anim.Pop(_home, at + (ad ? 0.24f : 0.12f), 0.3f);
         }
 
         // 看完广告（开箱演出收下之后）：墨数字从现值滚到两倍，按钮收起来。
@@ -429,6 +490,8 @@ namespace InkLine
                 _double.interactable = false;
                 _double.transform.parent.gameObject.SetActive(false);
             }
+            if (_home != null)
+                _home.anchoredPosition = new Vector2(0f, _homeParkY);
             if (chestOpened && _chestNote != null)
             {
                 _chestNote.text = "已打开";

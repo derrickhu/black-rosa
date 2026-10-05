@@ -57,24 +57,17 @@ for ch in range(chapters):
     for k in range(len(starts) - 1):
         b = src[starts[k]:starts[k + 1]]
         title = re.search(r'P\("([^"]+)"', b).group(1)
-        m = re.search(r'P\("[^"]+",\s*(Row\(([^)]*)\)|Full)', b)
-        cells = [6, 6, 6] if m.group(1) == "Full" else [int(x) for x in re.findall(r"\d+", m.group(2))]
-        mask = re.search(r"\.Holes\(([^)]*)\)", b)
-        mask = re.findall(r'"([X.]+)"', mask.group(1)) if mask else None
+        m = re.search(r'P\("[^"]+",\s*G\(([^)]*)\)', b)
+        mask = re.findall(r'"([^"]*)"', m.group(1)) if m else []
         give = re.search(r"\.Give\(([^)]*)\)", b)
         give = [x.strip() for x in give.group(1).split(",")] if give else []
-        limit = re.search(r"\.Limit\(([^)]*)\)", b)
-        limit = [x.strip() for x in limit.group(1).split(",")] if limit else None
-        rules = re.findall(r"StageRule\.(\w+)", b)
-        puts = [(int(a), int(r), c) for a, r, c in re.findall(r"\.Put\((\d+),\s*(\d+),\s*(\w+)", b)]
         waves = len(re.findall(r"\bW\(", b)) + len(re.findall(r"\bBoss\(", b))
         main = re.search(r"\bBoss\((Boss\w+)", b)
         main = main.group(1) if main else None
         bosses = re.findall(r"\b(Boss[A-Z]\w+)\b", b)
         enemies = [e for e in re.findall(r"S\([\d.]+f,\s*(\w+)", b) if not e.startswith("Boss")]
-        rows.append(dict(i=len(rows), ch=ch, slot=k, title=title, cells=cells, mask=mask, give=give,
-                         limit=limit, rules=rules, puts=puts, waves=waves, main=main, bosses=bosses,
-                         enemies=enemies))
+        rows.append(dict(i=len(rows), ch=ch, slot=k, title=title, mask=mask, give=give,
+                         waves=waves, main=main, bosses=bosses, enemies=enemies))
 
 print("关卡数")
 check(len(rows) == want, f"{chapters} 章 × {size} 关 = {want}，实到 {len(rows)}")
@@ -85,30 +78,39 @@ for ch in range(chapters):
 
 
 def open_cells(r):
-    if r["mask"]:
-        return {(c, y) for y, line in enumerate(r["mask"]) for c, ch in enumerate(line) if ch == "X"}
-    order = [2, 3, 1, 4, 0, 5]
-    return {(order[k], y) for y, n in enumerate(r["cells"]) for k in range(n)}
+    return {(c, y) for y, line in enumerate(r["mask"]) for c, ch in enumerate(line) if ch == "X"}
+
+
+def tag(r):
+    return f"{r['ch'] + 1}-{r['slot'] + 1}"
 
 
 # ---------- 格子 ----------
-print("\n格子（前三章逐行打开，不许回退；残局另算）")
-plain = [r for r in rows if not r["mask"]]
-seq = [sum(r["cells"]) for r in plain]
-drops = [f"{plain[k]['ch'] + 1}-{plain[k]['slot'] + 1}" for k in range(1, len(plain)) if seq[k] < seq[k - 1]]
-check(not drops, "开放格子数单调不减" + ("" if not drops else "  回退于 " + ", ".join(drops)))
-jumps = [f"{plain[k]['ch'] + 1}-{plain[k]['slot'] + 1}" for k in range(1, len(plain))
-         if len(plain[k]["cells"]) - len(plain[k - 1]["cells"]) > 1]
-check(not jumps, "开放行数一行一行加")
-for ch, rowsn in [(0, 1), (1, 2), (2, 3)]:
-    got = {len(r["cells"]) for r in rows if r["ch"] == ch and not r["mask"]}
-    check(got == {rowsn}, f"第 {ch + 1} 章只开到第 {rowsn} 排: {sorted(got)}")
-bad_mask = [f"{r['ch'] + 1}-{r['slot'] + 1}" for r in rows if r["mask"]
-            and (len(r["mask"]) > 3 or any(len(x) != 6 for x in r["mask"]))]
-check(not bad_mask, "残局掩码都是 ≤3 行 × 6 列" + ("" if not bad_mask else ": " + ", ".join(bad_mask)))
-bad_put = [f"{r['ch'] + 1}-{r['slot'] + 1} ({c},{y})" for r in rows for c, y, _ in r["puts"]
-           if (c, y) not in open_cells(r)]
-check(not bad_put, "残卷预置的字都落在开放格上" + ("" if not bad_put else ": " + ", ".join(bad_put)))
+# 格子到第八章章底才第一次开满；每章有自己的格数区间和最高排数，
+# 章内不要求逐关变多，但相邻两关的形状必须不同，同样的字才会换一种摆法。
+print("\n格子（逐章慢开，第八章章底才开满）")
+bad_mask = [tag(r) for r in rows
+            if not 1 <= len(r["mask"]) <= 3 or any(len(x) != 6 or set(x) - {"X", "."} for x in r["mask"])
+            or "X" not in r["mask"][-1]]
+check(not bad_mask, "形状都是 1~3 行 × 6 列、最上一排有格子" + ("" if not bad_mask else ": " + ", ".join(bad_mask)))
+cell_range = {0: (2, 7), 1: (8, 9), 2: (10, 12), 3: (11, 13), 4: (12, 14), 5: (13, 15), 6: (14, 16), 7: (15, 18)}
+row_cap = {0: 2, 1: 2, 2: 2}
+for ch in range(chapters):
+    part = [r for r in rows if r["ch"] == ch]
+    lo, hi = cell_range.get(ch, (1, 18))
+    got = [len(open_cells(r)) for r in part]
+    check(all(lo <= n <= hi for n in got), f"第 {ch + 1} 章格数在 {lo}~{hi}: {got}")
+    cap = row_cap.get(ch, 3)
+    tall = [tag(r) for r in part if len(r["mask"]) > cap]
+    if tall:
+        check(False, f"第 {ch + 1} 章最多开 {cap} 排: {tall}")
+full = [tag(r) for r in rows if len(open_cells(r)) == 18]
+check(full == [tag(rows[-1])], "只有最后一关三排全开" + ("" if full == [tag(rows[-1])] else f": {full}"))
+avg = [sum(len(open_cells(r)) for r in rows if r["ch"] == ch) / size for ch in range(chapters)]
+back = [f"第 {k + 1} 章" for k in range(1, chapters) if avg[k] <= avg[k - 1]]
+check(not back, "章均格数逐章上升: " + " / ".join(f"{x:.1f}" for x in avg))
+same = [tag(rows[k]) for k in range(1, len(rows)) if rows[k]["mask"] == rows[k - 1]["mask"] and not rows[k]["bosses"]]
+check(not same, "相邻两关形状不同（关底除外）" + ("" if not same else ": " + ", ".join(same)))
 
 # ---------- 字 ----------
 print("\n字")
@@ -126,15 +128,8 @@ check(not split, "成词的两个字同关给" + ("" if not split else ": " + st
 multi = [f"{r['ch'] + 1}-{r['slot'] + 1}" for r in rows
          if len(r["give"]) > 2 or (len(r["give"]) == 2 and tuple(r["give"]) not in pairs)]
 check(not multi, "一关最多给一个字（成词对算一个）")
-have = []
-bad_limit = []
-for r in rows:
-    have += r["give"]
-    if r["limit"]:
-        off = [c for c in r["limit"] if c not in have]
-        if off:
-            bad_limit.append(f"{r['ch'] + 1}-{r['slot'] + 1}: {off}")
-check(not bad_limit, "限字里的字都已经发过" + ("" if not bad_limit else ": " + ", ".join(bad_limit)))
+dry = [f"第 {ch + 1} 章" for ch in range(chapters) if not any(r["give"] for r in rows if r["ch"] == ch)]
+check(not dry, "每章都有新字或新词" + ("" if not dry else ": " + ", ".join(dry)))
 
 # ---------- 关底 ----------
 print("\n关底")
@@ -173,8 +168,8 @@ check(not soft, "小关底比本章章底软")
 # ---------- 敌人 ----------
 print("\n敌人放开顺序")
 plan = {
-    0: {"Walker", "Swarm", "Chubby", "Tall", "Ball", "BigHead"},
-    1: {"Crawler", "Belt", "Runner", "Strafer"},
+    0: {"Walker", "Chubby", "Tall", "Ball", "BigHead"},
+    1: {"Swarm", "Crawler", "Belt", "Runner", "Strafer"},
     2: {"Shield", "Splitter", "Sprinter"},
     3: {"Mender", "Bulwark"},
     4: {"Elite"},
@@ -191,18 +186,20 @@ late = {e for e, r in first.items() if r["ch"] > 5}
 check(not late, "第七章起不再引入新兵")
 
 # ---------- 新鲜感 ----------
-print("\n每关都有新东西（新字 / 新兵 / 格子变化 / 规则 / 关底）")
+print("\n每关都有新东西（新字 / 新兵 / 格子变化 / 关底）")
 bland = []
-prev_cells = None
+prev_mask = None
 for r in rows:
     new_enemy = any(first[e] is r for e in set(r["enemies"]))
-    cells = sum(r["cells"]) if not r["mask"] else -1
-    fresh = r["give"] or new_enemy or r["rules"] or r["limit"] or r["puts"] or r["mask"] \
-        or r["bosses"] or cells != prev_cells
+    fresh = r["give"] or new_enemy or r["bosses"] or r["mask"] != prev_mask
     if not fresh:
-        bland.append(f"{r['ch'] + 1}-{r['slot'] + 1} {r['title']}")
-    prev_cells = cells
+        bland.append(f"{tag(r)} {r['title']}")
+    prev_mask = r["mask"]
 check(not bland, "没有平淡关" + ("" if not bland else ": " + ", ".join(bland)))
+# 第一章 6 关里有 5 关单排：同一屏怪太多，玩家还没摸清字就被淹了。
+ch1_pure = {"Walker", "Chubby", "Tall", "Ball", "BigHead"}
+odd = sorted({e for r in rows if r["ch"] == 0 for e in r["enemies"]} - ch1_pure)
+check(not odd, "第一章只出纯墨兵" + ("" if not odd else f": {odd}"))
 
 waves = [r["waves"] for r in rows]
 check(min(waves[2:]) >= 3, f"第三关起每关至少 3 波（最少 {min(waves[2:])}）")
@@ -211,11 +208,38 @@ check(min(waves[2:]) >= 3, f"第三关起每关至少 3 波（最少 {min(waves[
 print("\n美术")
 enum_body = re.search(r"enum EnemyId\s*\{(.*?)\}", ids_src, re.S).group(1)
 all_ids = [x for x in re.findall(r"^\s*(\w+),?\s*$", enum_body, re.M)]
-mapped = set(re.findall(r"case EnemyId\.(\w+): return Load\(", sprite_src))
+mapped = set(re.findall(r"case EnemyId\.(\w+): return \"", sprite_src))
 missing = [e for e in all_ids if e not in mapped and e != "Walker"]
 check(not missing, f"{len(all_ids)} 个 EnemyId 都接了图" + ("" if not missing else ": 缺 " + str(missing)))
 
-files = dict(re.findall(r'case EnemyId\.(\w+): return Load\("([^"]+)"\)', sprite_src))
+files = dict(re.findall(r'case EnemyId\.(\w+): return "([^"]+)"', sprite_src))
+# 活动换皮：EventCast 每只都要有 evt_ 前缀的图。
+evt_src = read("Data", "StageEvent.cs")
+cast = re.search(r"EventCast = \{([^}]*)\}", evt_src).group(1).replace(" ", "").split(",")
+evt_miss = [c for c in cast if not os.path.exists(os.path.join(ART, "evt_" + (files.get(c) or "walker") + ".png"))]
+check(not evt_miss, f"活动 {len(cast)} 只换皮都有图" + ("" if not evt_miss else ": 缺 " + str(evt_miss)))
+# 活动关不走主线平铺。波数写死，实数 = 出场表 × Density，并且必须一波比一波多。
+evt_density = {"Swarm": 3, "Shield": 1, "Elite": 1}
+evt_cases = re.split(r"case \d+:|default:", re.search(r"EventWaves\(int tier\)\s*\{(.*)\n        \}", evt_src, re.S).group(1))
+evt_cases = [c for c in evt_cases if "W(" in c]
+evt_want = [6, 8, 10]
+evt_bad = []
+for i, body in enumerate(evt_cases[:3]):
+    waves = re.split(r"\bW\(", body)[1:]
+    counts = []
+    for w in waves:
+        n = 0
+        for e, _col, raw in re.findall(r"S\([\d.]+f,\s*(\w+)(?:,\s*(-?\d+))?(?:,\s*(\d+))?\)", w):
+            n += (int(raw) if raw else 1) * evt_density.get(e, 2)
+        counts.append(n)
+    if len(counts) != evt_want[i] or any(counts[k] <= counts[k - 1] for k in range(1, len(counts))):
+        evt_bad.append(f"{i + 1}:{len(counts)} {counts}")
+check(not evt_bad, "活动关 6 / 8 / 10 波，且一波比一波密" + ("" if not evt_bad else ": " + "; ".join(evt_bad)))
+gap_open = float(re.search(r"EventGapOpen = ([\d.]+)f", evt_src).group(1))
+gap_late = float(re.search(r"EventGapLate = ([\d.]+)f", evt_src).group(1))
+wave_min = float(re.search(r"EventWaveMin = ([\d.]+)f", evt_src).group(1))
+check(gap_open > gap_late >= 1.5 and wave_min >= 20,
+      f"活动关出怪间隔 {gap_open:.2f}→{gap_late:.2f} 秒，每波至少 {wave_min:.0f} 秒")
 files["Walker"] = "walker"
 nopng = [f"{e}->{f}.png" for e, f in files.items() if not os.path.exists(os.path.join(ART, f + ".png"))]
 check(not nopng, f"{len(files)} 张贴图都在盘上" + ("" if not nopng else ": 缺 " + str(nopng)))
@@ -245,9 +269,16 @@ wave_span = [float(x) for x in re.findall(
 ramp_open = float(re.search(r"RampOpen\s*=\s*([\d.]+)f", core_src).group(1))
 ramp_late = float(re.search(r"RampLate\s*=\s*([\d.]+)f", core_src).group(1))
 ramp_pow = float(re.search(r"RampPow\s*=\s*([\d.]+)f", core_src).group(1))
+opening_pad = int(re.search(r"OpeningPad\s*=\s*(\d+)", core_src).group(1))
+opening_thick = [int(x) for x in re.findall(
+    r"\d+", re.search(r"OpeningThick\s*=\s*\{([^}]*)\}", core_src).group(1))]
 chapter_bodies = [float(x) for x in re.findall(
     r"[\d.]+", re.search(r"ChapterBodies\s*=\s*\{([^}]*)\}", core_src).group(1))]
-picks_per_cell = float(re.search(r"DraftPicksPerCell\s*=\s*([\d.]+)f", core_src).group(1))
+chapter_ink = [float(x) for x in re.findall(
+    r"[\d.]+", re.search(r"ChapterInk\s*=\s*\{([^}]*)\}", core_src).group(1))]
+picks_per_cell = float(re.search(r" DraftPicksPerCell\s*=\s*([\d.]+)f", core_src).group(1))
+first_picks_per_cell = float(re.search(r"FirstChapterPicksPerCell\s*=\s*([\d.]+)f", core_src).group(1))
+second_picks_per_cell = float(re.search(r"SecondChapterPicksPerCell\s*=\s*([\d.]+)f", core_src).group(1))
 budget_share = float(re.search(r"DraftBudgetShare\s*=\s*([\d.]+)f", core_src).group(1))
 
 
@@ -289,7 +320,8 @@ def waves_of(r):
     """逐波拆，并复刻 StageCatalog.Pace/Tile 和 RampCounts。
 
     平铺会把出场表整体后移一轮再追加一遍。RampCounts 再把只数按时间
-    从疏排到密，总只数不变。怪量和波长都要跟着算，不然经济和时长对不上。
+    从疏排到密，总只数不变；前两章头两波随后按 OpeningPad 再补。
+    怪量和波长都要跟着算，不然经济和时长对不上。
     """
     src = read("Data", f"StageChapter{r['ch'] + 1}.cs")
     starts = [m.start() for m in re.finditer(r"s\.Add\(P\(", src)] + [len(src)]
@@ -319,7 +351,10 @@ def waves_of(r):
         end = last + (rounds - 1) * step_t
         tiled = [(t + r * step_t, e, n) for r in range(rounds) for t, e, n in specs]
         out.append(dict(boss=False, dur=max(span, end + 5.5), specs=tiled))
-    return ramp_bodies(out, "Rich" in r["rules"], chapter_bodies[min(r["ch"], len(chapter_bodies) - 1)])
+    out = ramp_bodies(out, chapter_bodies[min(r["ch"], len(chapter_bodies) - 1)])
+    if r["ch"] <= 1:
+        pad_opening(out, r["ch"])
+    return out
 
 
 def ramp_weight(u):
@@ -327,7 +362,7 @@ def ramp_weight(u):
     return ramp_open + (ramp_late - ramp_open) * (u ** ramp_pow)
 
 
-def ramp_bodies(waves, rich, body_mul=1.0):
+def ramp_bodies(waves, body_mul=1.0):
     """复刻 StageCatalog.RampCounts：只数按时间加权后再归一，关底本人不动。"""
     import math
     total = sum(max(0.01, w["dur"]) for w in waves)
@@ -338,8 +373,6 @@ def ramp_bodies(waves, rich, body_mul=1.0):
         for t, e, n in w["specs"]:
             boss = e.startswith("Boss")
             count = n * density.get(e, 1)
-            if rich and not boss:
-                count = math.ceil(count * 1.25)
             u = min(1.0, max(0.0, (cursor + min(dur, max(0.0, t))) / total)) if total > 0.01 else 1.0
             ev.append(dict(t=cursor + t, e=e, raw=count, boss=boss, w=ramp_weight(u)))
         cursor += dur
@@ -393,8 +426,99 @@ def ramp_bodies(waves, rich, body_mul=1.0):
     return out
 
 
+def pad_opening(waves, ch):
+    """复刻 StageCatalog.PadOpening：前两章头两波各补 OpeningPad 只，尽量从后段扣回。"""
+    thick = opening_thick[min(ch, len(opening_thick) - 1)]
+    dur = sum(w["dur"] for w in waves)
+    early_cut, late_lo, late_hi = dur * 0.25, dur * 0.55, dur * 0.85
+    added = 0
+    for wi in range(min(2, len(waves))):
+        specs = waves[wi]["specs"]
+        idxs = [i for i, s in enumerate(specs) if not s[3]]
+        if not idxs:
+            continue
+        have = sum(specs[i][2] for i in idxs)
+        add = min(opening_pad, max(0, thick - have))
+        order = sorted(idxs, key=lambda i: (0 if specs[i][0] > early_cut else 1, -specs[i][0]))
+        for k in range(add):
+            i = order[k % len(order)]
+            t, e, c, b = specs[i]
+            specs[i] = (t, e, c + 1, b)
+        added += add
+
+    def take(tail):
+        nonlocal added
+        while added > 0:
+            found = None
+            for wi in range(len(waves) - 1, 1, -1):
+                specs = waves[wi]["specs"]
+                for si, s in enumerate(specs):
+                    if s[3] or s[2] <= 1:
+                        continue
+                    t = s[0]
+                    ok = t > late_hi if tail else early_cut < t < late_lo
+                    if not ok:
+                        continue
+                    found = (wi, si)
+                    break
+                if found:
+                    break
+            if not found:
+                return
+            wi, si = found
+            t, e, c, b = waves[wi]["specs"][si]
+            waves[wi]["specs"][si] = (t, e, c - 1, b)
+            added -= 1
+
+    take(True)
+    take(False)
+
+    def counts():
+        early = late = 0
+        for w in waves:
+            for t, _e, c, b in w["specs"]:
+                if b:
+                    continue
+                if t <= early_cut:
+                    early += c
+                if late_lo <= t <= late_hi:
+                    late += c
+        return early, late
+
+    early, late = counts()
+    guard = 0
+    while early >= late and guard < 30:
+        guard += 1
+        late_slot = None
+        for w in waves:
+            for si, s in enumerate(w["specs"]):
+                if s[3]:
+                    continue
+                if late_lo <= s[0] <= late_hi:
+                    late_slot = (w, si)
+                    break
+            if late_slot:
+                break
+        if late_slot is None:
+            break
+        w, si = late_slot
+        t, e, c, b = w["specs"][si]
+        w["specs"][si] = (t, e, c + 1, b)
+        funded = False
+        for wi in range(len(waves) - 1, -1, -1):
+            specs = waves[wi]["specs"]
+            for sj, s in enumerate(specs):
+                if s[3] or s[2] <= 1 or s[0] <= late_hi:
+                    continue
+                waves[wi]["specs"][sj] = (s[0], s[1], s[2] - 1, s[3])
+                funded = True
+                break
+            if funded:
+                break
+        early, late = counts()
+
+
 def econ(r):
-    mul = (1.5 if "Rich" in r["rules"] else 1) * (1.2 if "Swift" in r["rules"] else 1)
     t = hp_of(r["ch"], r["slot"])
     dmul = max(0.1, t) ** drop_pow
     waves = waves_of(r)
@@ -405,8 +529,8 @@ def econ(r):
     for w in waves:
         for t_abs, e, count, boss in w["specs"]:
             g, ink_one = drop_of.get(e, (2, 1))
-            gold += count * drop(drop(g, dmul), mul)
-            ink += count * ink_one * dmul * mul
+            gold += count * drop(g, dmul)
+            ink += count * ink_one * dmul * chapter_ink[min(r["ch"], len(chapter_ink) - 1)]
             hp_total += count * hp_base.get(e, 4.5) * t
             if boss:
                 continue
@@ -423,7 +547,12 @@ def econ(r):
     purse_all = gold + round(chests * chest_gold_share * cg)
 
     open_n = max(1, len(open_cells(r)))
-    n_want = min(max(round(open_n * picks_per_cell), open_n + 2), open_n * 3)
+    if r["ch"] == 0:
+        n_want = max(3, round(open_n * first_picks_per_cell))
+    elif r["ch"] == 1:
+        n_want = max(2, round(open_n * second_picks_per_cell))
+    else:
+        n_want = min(max(round(open_n * picks_per_cell), open_n + 2), open_n * 3)
     budget = (purse_all + start_gold) * budget_share
     first_d = max(first_cost, round(budget / n_want * 0.5))
     step = max(0.0, 2 * (budget - n_want * first_d) / (n_want * (n_want - 1))) if n_want > 1 else 0.0
@@ -435,7 +564,7 @@ def econ(r):
     ink_all = ink + chests * (1 - chest_gold_share) * ci
     return dict(gold=gold, purse=purse_all, first=first_d, step=step, drafts=n_d, ink=ink_all,
                 chests=chests, open=open_n, want=n_want, hp=hp_total, dur=dur_total,
-                open1=open1, early=early, late=late)
+                open1=open1, early=early, late=late, kills=kills)
 
 
 eco = [econ(r) for r in rows]
@@ -447,18 +576,24 @@ check(ch_first[-1] > ch_first[0] * 2, "抽牌起价末章明显高于首章: "
       + " / ".join(f"{x:.1f}" for x in ch_first))
 ink_total = round(sum(e["ink"] for e in eco))
 
-# 开局疏、后段密。总只数没变，所以钱和血还在；变的是它们挤在什么时候。
+# 开局疏、后段密。归一本身不改总只数；前两章头两波另补了几只，两波就结束的关扣不回。
 flat = [f"{r['ch'] + 1}-{r['slot'] + 1}({e['early']}>={e['late']})"
         for e, r in zip(eco, rows) if e["early"] >= e["late"]]
 check(not flat, "每关前 25% 时间的怪少于 55%~85% 那一段" + ("" if not flat else ": " + ", ".join(flat)))
+# 头两波补只之后，起笔两格大约六只半，线放在 7。
+crowd = [f"{tag(r)}({e['kills']}/{e['open']})" for e, r in zip(eco, rows)
+         if r["ch"] == 0 and e["kills"] > e["open"] * 7]
+check(not crowd, "第一章每格不超过 7 只杂兵" + ("" if not crowd else ": " + ", ".join(crowd)))
+print("  第一章杂兵 / 格数: " + "  ".join(f"{e['kills']}/{e['open']}" for e, r in zip(eco, rows) if r["ch"] == 0))
 print(f"  开局 1 秒出怪（全关合计）{sum(e['open1'] for e in eco)}，"
       f"前 25% {sum(e['early'] for e in eco)}，中后段 {sum(e['late'] for e in eco)}")
 
 # 单局成长：一局的钱至少要够把开放格子铺满，第三章起还要够把大半格子顶到二三星。
 # 铺不满，玩家一局里就永远看不到盘面长成型，也就没有「变强」那一下。
+# 前两章故意不铺满：一局短，铺满要五六秒弹一次三选一。
 thin = [f"{r['ch'] + 1}-{r['slot'] + 1}({e['drafts']}<{e['open']})"
-        for e, r in zip(eco, rows) if e["drafts"] < e["open"]]
-check(not thin, "每关的钱都够铺满棋盘" + ("" if not thin else ": " + ", ".join(thin)))
+        for e, r in zip(eco, rows) if r["ch"] >= 2 and e["drafts"] < e["open"]]
+check(not thin, "第三章起每关的钱都够铺满棋盘" + ("" if not thin else ": " + ", ".join(thin)))
 off = [f"{r['ch'] + 1}-{r['slot'] + 1}({e['drafts']}/{e['open']})"
        for e, r in zip(eco, rows) if r["ch"] >= 2 and not 1.5 <= e["drafts"] / e["open"] <= 2.2]
 check(not off, "第三章起单局抽牌数落在开放格数的 1.5~2.2 倍" + ("" if not off else ": " + ", ".join(off)))
@@ -504,13 +639,16 @@ for ch in range(chapters):
     part = [e for e, r in zip(eco, rows) if r["ch"] == ch]
     need = sum(e["hp"] for e in part) / max(1.0, sum(e["dur"] for e in part))
     head.append(forged_at(ch * size) / need)
-# 解锁新炮台那几章会有台阶式的回弹，属于设计意图，所以不要求严格单调，
-# 只盯住整条曲线别塌：最低处不能比最高处低一半，末章不能比首章低三成。
+# 第一章是教学章，故意最松，单独要求它比第二章松。
+# 第二章起格子还在逐章开，前面盘小、后面靠升级补，裕度允许缓降；
+# 解锁新炮台那几章会有台阶式的回弹，所以不要求严格单调，只盯住曲线别塌。
 print("  战力裕度: " + " / ".join(f"{x:.2f}" for x in head))
-check(min(head) / max(head) >= 0.5,
-      f"战力裕度最低 / 最高 = {min(head) / max(head):.2f}（要 ≥0.50）")
-slump = head[-1] / head[0]
-check(slump >= 0.7, f"末章裕度 / 首章裕度 = {slump:.2f}（要 ≥0.70，低于此说明后期战力跟不上血量）")
+check(head[0] > head[1], f"第一章裕度 {head[0]:.2f} 高于第二章 {head[1]:.2f}（教学章要最松）")
+tail = head[1:]
+check(min(tail) / max(tail) >= 0.5,
+      f"第二章起裕度最低 / 最高 = {min(tail) / max(tail):.2f}（要 ≥0.50）")
+slump = tail[-1] / tail[0]
+check(slump >= 0.5, f"末章裕度 / 第二章裕度 = {slump:.2f}（要 ≥0.50，低于此说明后期战力跟不上血量）")
 item_src = read("Data", "ItemCatalog.cs")
 chest_src = read("Data", "ChestCatalog.cs")
 forge_cost = sum(int(x) for grp in re.findall(r"Cost = new\[\] \{([^}]*)\}", forge_src) for x in re.findall(r"\d+", grp))
@@ -577,18 +715,12 @@ for ch in range(chapters):
 
 # ---------- 明细表 ----------
 print("\n明细")
-print("  关     名字    格子          血倍   波  新字            规则 / 关底")
+print("  关     名字    格子                    格数  血倍   波  新字            关底")
 for r in rows:
-    cells = "残局" if r["mask"] else str(r["cells"])
-    tag = " ".join(r["rules"])
-    if r["limit"]:
-        tag += " 限" + "".join(r["limit"])
-    if r["puts"]:
-        tag += " 残卷"
-    if r["bosses"]:
-        tag += " " + "+".join(b.replace("Boss", "") for b in r["bosses"])
-    print(f"  {r['ch'] + 1}-{r['slot'] + 1}   {r['title']:<5} {cells:<12} {hp_of(r['ch'], r['slot']):>5.2f}  "
-          f"{r['waves']:>2}  {','.join(r['give']):<14}  {tag.strip()}")
+    shape = "/".join(r["mask"])
+    boss = "+".join(b.replace("Boss", "") for b in r["bosses"])
+    print(f"  {tag(r)}   {r['title']:<5} {shape:<22} {len(open_cells(r)):>3}  {hp_of(r['ch'], r['slot']):>5.2f}  "
+          f"{r['waves']:>2}  {','.join(r['give']):<14}  {boss}")
 
 print()
 if fail:

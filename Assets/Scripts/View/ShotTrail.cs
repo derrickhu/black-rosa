@@ -64,8 +64,9 @@ namespace InkLine
 
         static readonly Color PierceHi = InkTheme.Hex("A8DDF5");
         static readonly Color PierceLo = InkTheme.Hex("4F8FC0");
-        static readonly Color HeavyHi = InkTheme.Hex("E8A56A");
-        static readonly Color HeavyLo = InkTheme.Hex("9C4A22");
+        // 秤砣的新铜币色，和 heavy_shot / hitv_heavy 同一套。
+        static readonly Color HeavyHi = InkTheme.Hex("F0A040");
+        static readonly Color HeavyLo = InkTheme.Hex("A8521E");
         static readonly Color SplitHi = InkTheme.Hex("8FE0D8");
         static readonly Color TrackHi = InkTheme.Hex("E2C6F7");
         static readonly Color TrackLit = InkTheme.Hex("C98AF0");
@@ -116,7 +117,7 @@ namespace InkLine
             Run(m.Star(CardId.Earth), Slot.Earth, 0.12f, d);
             Run(m.Star(CardId.Pierce), Slot.Pierce, 0.07f, d);
             Run(m.Star(CardId.Gold), Slot.Gold, 0.13f, d);
-            Run(m.Star(CardId.Heavy), Slot.Heavy, 0.34f, d);
+            Run(m.Star(CardId.Heavy), Slot.Heavy, 0.10f, d);
             Run(m.Star(CardId.Wood), Slot.Wood, 0.15f, d);
             Run(m.Star(CardId.Confuse), Slot.Confuse, 0.16f, d);
             Run(m.Star(CardId.Split), Slot.Split, 0.18f, d);
@@ -329,10 +330,15 @@ namespace InkLine
                 0.13f + 0.02f * s, InkTheme.EarthHi, InkTheme.Earth, R(-500f, 500f), 2f, false, 6f);
         }
 
-        // 重：一圈圈往外撑的深铜冲击波。
+        // 重：身后三道粗铜色速度线，隔几下掉一块铜屑。弹体不换，这就是重的全部样子。
         void Heavy(int s)
         {
-            E(SparkKind.Wave, _pos - _dir * 0.05f, -_dir * 0.3f, 0.32f, 0.55f + 0.10f * s, HeavyHi, HeavyLo, 0f, 3f);
+            float side = ((_n % 3) - 1) * (0.07f + 0.015f * s);
+            E(SparkKind.Streak, _pos - _dir * 0.16f + _side * side, -_dir * R(0.7f, 1.0f), 0.13f,
+                0.20f + 0.04f * s, HeavyHi, HeavyLo, 0f, 0f, true);
+            if (_n % 4 == 0)
+                E(SparkKind.Shard, Back(0.12f, 0.10f), -_dir * 0.4f + _side * R(-0.8f, 0.8f), 0.36f,
+                    0.09f + 0.015f * s, HeavyHi, HeavyLo, R(-500f, 500f), 2f, false, 7f);
         }
 
         // 木：打着旋慢慢飘落的叶子。
@@ -484,7 +490,7 @@ namespace InkLine
         {
             CardId.Explode, CardId.Fire, CardId.Ice, CardId.Water, CardId.Poison, CardId.Earth,
             CardId.Thunder, CardId.Wind, CardId.Stun, CardId.Gold, CardId.Wood, CardId.Confuse,
-            CardId.Heavy, CardId.Pierce, CardId.Accel, CardId.Track, CardId.Split
+            CardId.Pierce, CardId.Accel, CardId.Track, CardId.Split
         };
 
         public static Color Tone(ShotMods m, ShotView v)

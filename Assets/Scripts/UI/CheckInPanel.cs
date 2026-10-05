@@ -6,7 +6,7 @@ namespace InkLine
 {
     // 七日签到，照花花的 3+3+1：前六天两排小卡，第七天一张宽卡。
     // 每天体力 + 墨 + 钻石，签的时候看广告翻倍；已经直接签了的，当天还能补看一次再领一份。
-    // 第 7 天另送金宝箱，第一次连签满 7 天还送机甲炮，断一天从第 1 天重来。
+    // 第 7 天另送金宝箱，第一次连签满 7 天还送机甲，断一天从第 1 天重来。
     public sealed class CheckInPanel : MonoBehaviour
     {
         const float BoardW = 640f;
@@ -193,10 +193,25 @@ namespace InkLine
                 ? $"连签 {GameConstants.CheckDays} 天，{SkinCatalog.Get(GameConstants.CheckSkin).Name}皮肤已换上"
                 : $"签到成功 墨×{GameConstants.CheckInk * k} 钻石×{MetaProgress.CheckDiamondOf(day) * k}";
             if (chest >= 0) msg += "  金宝箱已放进宝箱位";
-            else if (chest == -1) msg += "  宝箱位满了，金宝箱折成墨";
+            else if (chest == -1) msg += "  宝箱位满了，选个位置放下";
+            else if (chest == -3) msg += "  宝箱位满了，金宝箱换成墨";
+            Transform card = _body != null ? _body.Find(day == GameConstants.CheckDays ? "day7" : "day" + day) : null;
+            Vector2 from = RewardFly.Local(_layer, card);
+            int ink = GameConstants.CheckInk * k;
+            if (chest == -3) ink += ChestCatalog.InkAvg(ChestTier.Gold);
+            var pieces = new System.Collections.Generic.List<RewardFly.Piece>(5)
+            {
+                RewardFly.Stamina(_layer, GameConstants.CheckStamina * k),
+                RewardFly.Ink(_layer, ink),
+                RewardFly.Diamond(_layer, MetaProgress.CheckDiamondOf(day) * k)
+            };
+            if (chest >= 0) pieces.Add(RewardFly.Chest(_layer, ChestTier.Gold, chest));
+            if (skin) pieces.Add(RewardFly.Skin(_layer, GameConstants.CheckSkin));
             InkToast.Show(_layer, msg);
+            RewardFly.Play(_layer, from, pieces.ToArray());
             _changed?.Invoke();
             Refresh();
+            if (chest == -1) ChestOverflowView.Show(_layer, _meta, _changed);
         }
 
         void Bonus()
@@ -206,7 +221,15 @@ namespace InkLine
             {
                 if (this == null || !_meta.CheckAdBonus()) return;
                 string msg = $"额外领取 墨×{GameConstants.CheckInk} 钻石×{MetaProgress.CheckDiamondOf(_meta.CheckRun)}";
+                Transform btn = _body != null ? _body.Find("bonus") : null;
+                Vector2 from = RewardFly.Local(_layer, btn);
                 InkToast.Show(_layer, msg);
+                RewardFly.Play(_layer, from, new[]
+                {
+                    RewardFly.Stamina(_layer, GameConstants.CheckStamina),
+                    RewardFly.Ink(_layer, GameConstants.CheckInk),
+                    RewardFly.Diamond(_layer, MetaProgress.CheckDiamondOf(_meta.CheckRun))
+                });
                 _changed?.Invoke();
                 Refresh();
             });

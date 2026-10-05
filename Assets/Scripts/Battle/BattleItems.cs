@@ -70,8 +70,6 @@ namespace InkLine
 
         public int SlotItem(int slot) => slot >= 0 && slot < _slots.Length ? _slots[slot] : -1;
 
-        public bool ItemsSealed => Stage != null && Stage.Has(StageRule.NoItem);
-
         // 0 刚丢完，1 冷却好了。
         public float SlotCharge(int slot)
         {
@@ -125,7 +123,7 @@ namespace InkLine
 
         void TickItems(float dt)
         {
-            if (ItemsSealed || PreviewFill) return;
+            if (PreviewFill) return;
             for (int i = _pending.Count - 1; i >= 0; i--)
             {
                 PendingCast p = _pending[i];
@@ -297,7 +295,7 @@ namespace InkLine
         void CastHalt()
         {
             int lv = RankOf((int)ItemId.Halt);
-            float time = 1.2f + 0.4f * lv;
+            float time = ItemCatalog.HaltTime(lv);
             for (int i = 0; i < Enemies.Count; i++)
             {
                 EnemyActor e = Enemies[i];
@@ -316,7 +314,7 @@ namespace InkLine
         void CastRage()
         {
             int lv = RankOf((int)ItemId.Rage);
-            RageTime = 4f + lv;
+            RageTime = ItemCatalog.RageTime(lv);
             RageMul = 2f + (lv - 1) / 2;
         }
 
@@ -347,7 +345,7 @@ namespace InkLine
             if (best < 0) return;
             int lv = RankOf((int)ItemId.Splash);
             float dps = ShotBase * ItemCatalog.SplashMul(lv);
-            float time = 2.2f + 0.6f * lv;
+            float time = ItemCatalog.SplashTime(lv);
             float bx = FieldLayout.ColumnX(best);
             for (int i = 0; i < Enemies.Count; i++)
             {
@@ -377,7 +375,7 @@ namespace InkLine
             int lv = RankOf((int)ItemId.Frost);
             float dmg = ShotBase * ItemCatalog.FrostMul(lv);
             float factor = Mathf.Max(0.4f, 0.58f - 0.04f * (lv - 1));
-            float time = 1.6f + 0.3f * lv;
+            float time = ItemCatalog.FrostTime(lv);
             for (int i = 0; i < Enemies.Count; i++)
             {
                 EnemyActor e = Enemies[i];
@@ -400,7 +398,7 @@ namespace InkLine
         {
             int lv = RankOf((int)ItemId.Slow);
             float factor = Mathf.Max(0.35f, 0.62f - 0.05f * (lv - 1));
-            float time = 2.4f + 0.45f * lv;
+            float time = ItemCatalog.SlowTime(lv);
             for (int i = 0; i < Enemies.Count; i++)
             {
                 EnemyActor e = Enemies[i];

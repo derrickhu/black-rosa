@@ -23,6 +23,16 @@ namespace InkLine
             init.Invoke(null, new object[] { cb });
         }
 
+        // 启动封面盖住 Unity 黑屏。游戏画面画出来之后再揭，中间不要空一截。
+        public static void HideLoadingCover()
+        {
+#if UNITY_MINIGAME || WEIXINMINIGAME || UNITY_WEIXINMINIGAME || MINIGAME_SUBPLATFORM_WEIXIN
+            if (Application.isEditor) return;
+            try { WeChatWASM.WX.HideLoadingPage(); }
+            catch (Exception e) { Debug.LogWarning("[Wx] hide loading " + e.Message); }
+#endif
+        }
+
         // wx.login 拿一次性 code，换 openid 在云函数里做。非微信构建直接报失败。
         public static void Login(Action<string> ok, Action<string> fail)
         {
@@ -246,6 +256,86 @@ namespace InkLine
 #endif
             done(null, null, "not minigame");
         }
+
+        static bool _shareOn;
+
+        // 右上角「转发」默认是灰的。启动后打开菜单，并用后台审核过的图。
+        // 朋友圈的回调要等首帧之后再挂，开屏阶段调会在鸿蒙上崩。
+        public static void InstallShare()
+        {
+            if (_shareOn) return;
+            _shareOn = true;
+#if UNITY_MINIGAME || WEIXINMINIGAME || UNITY_WEIXINMINIGAME || MINIGAME_SUBPLATFORM_WEIXIN
+            if (Application.isEditor) return;
+            try
+            {
+                WeChatWASM.WX.ShowShareMenu(new WeChatWASM.ShowShareMenuOption
+                {
+                    menus = new[] { "shareAppMessage", "shareTimeline" },
+                });
+                WeChatWASM.WX.OnShareAppMessage(MessageOf(ShareCatalog.Pick()), done =>
+                {
+                    done(MessageOf(ShareCatalog.Pick()));
+                });
+                WeChatWASM.WX.OnShareTimeline(done =>
+                {
+                    done(TimelineOf(ShareCatalog.Pick()));
+                });
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning("[Share] " + e.Message);
+            }
+#endif
+        }
+
+        // 游戏里主动拉起转发。编辑器里没有这个界面。
+        public static void Share()
+        {
+#if UNITY_MINIGAME || WEIXINMINIGAME || UNITY_WEIXINMINIGAME || MINIGAME_SUBPLATFORM_WEIXIN
+            if (Application.isEditor) return;
+            WeChatWASM.WX.ShareAppMessage(ActiveOf(ShareCatalog.Pick()));
+#endif
+        }
+
+#if UNITY_MINIGAME || WEIXINMINIGAME || UNITY_WEIXINMINIGAME || MINIGAME_SUBPLATFORM_WEIXIN
+        static WeChatWASM.WXShareAppMessageParam MessageOf(ShareCatalog.Card card)
+        {
+            var p = new WeChatWASM.WXShareAppMessageParam
+            {
+                title = card.Title,
+                toCurrentGroup = true,
+            };
+            if (ShareCatalog.HasImage(card))
+            {
+                p.imageUrlId = card.ImageUrlId;
+                p.imageUrl = card.ImageUrl;
+            }
+            return p;
+        }
+
+        static WeChatWASM.OnShareTimelineListenerResult TimelineOf(ShareCatalog.Card card)
+        {
+            var p = new WeChatWASM.OnShareTimelineListenerResult { title = card.Title };
+            if (ShareCatalog.HasImage(card))
+            {
+                p.imageUrlId = card.ImageUrlId;
+                p.imageUrl = card.ImageUrl;
+            }
+            return p;
+        }
+
+        static WeChatWASM.ShareAppMessageOption ActiveOf(ShareCatalog.Card card)
+        {
+            var p = new WeChatWASM.ShareAppMessageOption { title = card.Title };
+            if (ShareCatalog.HasImage(card))
+            {
+                p.imageUrlId = card.ImageUrlId;
+                p.imageUrl = card.ImageUrl;
+            }
+            return p;
+        }
+#endif
 
         // 从游戏圈切回来时刷新进度。编辑器里没有，返回 false。
         public static bool OnShow(Action show)

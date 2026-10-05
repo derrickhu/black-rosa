@@ -8,6 +8,7 @@ namespace InkLine
 {
     // 点道具卡弹出的详情：大图、品质、等级、冷却、什么时候自己丢、这一级和下一级效果，
     // 底下「装备 / 卸下」和「解锁 / 升级」。栏满了点装备，交给道具页进入换栏。
+    // 只开了一格时没有得挑，直接换上那一格。
     public sealed class ItemPanel : MonoBehaviour
     {
         const float BoardW = 620f;
@@ -20,6 +21,19 @@ namespace InkLine
         Action _changed;
         Action<int> _swap;
         bool _leveled;
+        Button _up;
+        Button _equip;
+
+        // 新手道具指引用：解锁后先别自动装上，让玩家自己点一次「装备」。
+        public static bool HoldEquip;
+        public static event Action<ItemPanel> Opened;
+        public static event Action<int> UnlockShown;
+        public static event Action<int> UnlockDone;
+        public static event Action<int> EquipDone;
+
+        public int Item => _item;
+        public RectTransform UpRect => _up != null ? _up.transform as RectTransform : null;
+        public RectTransform EquipRect => _equip != null ? _equip.transform as RectTransform : null;
 
         public static void Show(RectTransform layer, MetaProgress meta, int item, Action changed, Action<int> swap,
             bool leveled = false)
@@ -33,6 +47,7 @@ namespace InkLine
             panel._swap = swap;
             panel._leveled = leveled;
             panel.Build(dim);
+            Opened?.Invoke(panel);
         }
 
         void Close()
@@ -69,7 +84,7 @@ namespace InkLine
                     (RectTransform)lv.transform.parent, q);
 
             float y = 346f;
-            Line(board, Tag("冷却", Mid) + $"{ItemCatalog.CooldownAt(d, Mathf.Max(1, rank)):0.#} 秒", ref y);
+            Line(board, Tag("冷却", Mid) + $"{ItemCatalog.CooldownAt(d, Mathf.Max(1, rank)):0} 秒", ref y);
             Line(board, Tag("触发", Mid) + d.When, ref y);
             string cur = ItemCatalog.Blurb(d, Mathf.Max(1, rank), _meta.ShotBase);
             Line(board, Tag(owned ? "当前" : "解锁后", owned ? Mid : Green) + cur, ref y);
@@ -87,13 +102,13 @@ namespace InkLine
             BuildButtons(board, rank, maxed);
         }
 
-        // 道具卡的小图：空卡面里嵌这件道具，看得出要的是哪一种卡，不是通用卡。
+        // 道具卡的小图：竖卡垫底，道具图盖住中间的星，边框还露着，才看得出是这件道具的卡。
         public const float CardInset = 0.6f;
 
         public static Image CardIcon(Transform parent, ItemId id, Vector2 pos, float size)
         {
-            var card = UiKit.Icon(parent, InkSprites.Ui("card_blank"), pos, size);
-            UiKit.Icon(card.transform, InkSprites.Ui(id), Vector2.zero, size * CardInset);
+            var card = UiKit.Icon(parent, InkSprites.Ui("card"), pos, size);
+            UiKit.Icon(card.transform, InkSprites.Ui(id), Vector2.zero, size * 0.5f);
             return card;
         }
 
@@ -124,13 +139,13 @@ namespace InkLine
             int have = _meta.ItemCardCount(_item);
             int need = ItemCatalog.NextCards(d, rank);
             int price = ItemCatalog.NextPrice(d, rank);
-            var row = UiKit.Panel(board, "cost", new Vector2(0f, y), new Vector2(BoardW - 80f, 48f), Color.clear, Pin.Top);
+            var row = UiKit.Panel(board, "cost", new Vector2(0f, y), new Vector2(BoardW - 80f, 88f), Color.clear, Pin.Top);
             row.GetComponent<Image>().raycastTarget = false;
             var head = UiKit.Label(row, "need", rank <= 0 ? "解锁需要" : "升级需要", 22, new Vector2(-190f, 0f),
                 new Vector2(140f, 34f), TextAnchor.MiddleLeft);
             head.color = InkTheme.TextMid;
-            CardIcon(row, d.Id, new Vector2(-70f, 0f), 52f);
-            var cards = UiKit.Label(row, "cards", have + "/" + need, 26, new Vector2(-6f, 0f), new Vector2(90f, 34f),
+            CardIcon(row, d.Id, new Vector2(-82f, 0f), 80f);
+            var cards = UiKit.Label(row, "cards", have + "/" + need, 26, new Vector2(4f, 0f), new Vector2(90f, 34f),
                 TextAnchor.MiddleLeft);
             cards.color = have >= need ? InkTheme.TextDark : InkTheme.Rose;
             UiKit.Bold(cards);
@@ -151,10 +166,12 @@ namespace InkLine
             {
                 var eq = UiKit.Btn(board, "equip", worn ? "卸下" : "装备", new Vector2(-138f, 48f), size, OnEquip, false, Pin.Bottom);
                 if (worn) UiKit.PaintBtn(eq, InkTheme.Plain, InkTheme.PlainDeep, InkTheme.Seal);
+                _equip = eq;
             }
             if (maxed) return;
             bool can = _meta.CanUpgradeItem(_item, out _);
             var up = UiKit.Btn(board, "up", owned ? "升级" : "解锁", new Vector2(owned ? 138f : 0f, 48f), size, OnUpgrade, true, Pin.Bottom);
+            _up = up;
             if (!can) PanelKit.Dim(up, true);
             else UiAnim.On(this).Breathe(up.transform, 0.2f, 0.04f, 1.3f);
         }
@@ -169,14 +186,31 @@ namespace InkLine
                 Done();
                 return;
             }
-            if (_meta.Equip(_item))
+            if (_meta.Equip(_item) || EquipOnlySlot(layer))
             {
+                int item = _item;
                 Done();
+                EquipDone?.Invoke(item);
                 return;
             }
             Destroy(gameObject);
             if (_swap != null) _swap(_item);
             else InkToast.Show(layer, "道具栏满了，先卸下一个");
+        }
+
+        // 只开着一格、里面又有东西：点装备就是换掉它，不用再点格子。
+        bool EquipOnlySlot(RectTransform layer)
+        {
+            if (_meta.ItemSlotsOpen != 1) return false;
+            for (int s = 0; s < GameConstants.ItemSlots; s++)
+            {
+                if (!_meta.ItemSlotOpen(s)) continue;
+                bool occupied = _meta.Equipped[s] >= 0;
+                if (!_meta.EquipAt(_item, s)) return false;
+                if (occupied) InkToast.Show(layer, "换上 " + ItemCatalog.Get(_item).Name);
+                return true;
+            }
+            return false;
         }
 
         void OnUpgrade()
@@ -189,10 +223,15 @@ namespace InkLine
                 return;
             }
             bool fresh = _meta.ItemRank(_item) <= 0;
-            if (!_meta.UpgradeItem(_item)) return;
+            if (!_meta.UpgradeItem(_item, !(fresh && HoldEquip))) return;
             _changed?.Invoke();
             Destroy(gameObject);
-            if (fresh) ItemCelebrate.Unlock(layer, _meta, _item, null);
+            int item = _item;
+            if (fresh)
+            {
+                UnlockShown?.Invoke(item);
+                ItemCelebrate.Unlock(layer, _meta, item, () => UnlockDone?.Invoke(item));
+            }
             else Show(layer, _meta, _item, _changed, _swap, true);
         }
 

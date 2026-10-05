@@ -56,8 +56,6 @@ namespace InkLine
                     StageDef st = StageCatalog.Get(s);
                     if (st.Pool != null)
                         for (int i = 0; i < st.Pool.Length; i++) AddCard(st.Pool[i], added);
-                    if (st.Preset != null)
-                        for (int i = 0; i < st.Preset.Length; i++) AddCard(st.Preset[i].Id, added);
                 }
                 for (int i = 1; i < CardCatalog.IdCount; i++) AddCard((CardId)i, added);
                 return _base;
@@ -193,7 +191,7 @@ namespace InkLine
 
         // ---- 状态 ----
 
-        // 已解锁关卡的牌池 / 预置字里出现过，就算「见过」：只露字，不露作用。
+        // 已解锁关卡的牌池里出现过，就算「见过」：只露字，不露作用。
         public static bool[] SeenCards(MetaProgress meta)
         {
             var seen = new bool[CardCatalog.IdCount];
@@ -203,8 +201,6 @@ namespace InkLine
                 StageDef st = StageCatalog.Get(s);
                 if (st.Pool != null)
                     for (int i = 0; i < st.Pool.Length; i++) seen[(int)st.Pool[i]] = true;
-                if (st.Preset != null)
-                    for (int i = 0; i < st.Preset.Length; i++) seen[(int)st.Preset[i].Id] = true;
             }
             return seen;
         }
@@ -271,6 +267,8 @@ namespace InkLine
         public static string WakeNote(CardId id)
         {
             CardDef def = CardCatalog.Get(id);
+            if (id == CardId.Heavy)
+                return $"每 {CardCatalog.ChargeNeed(id, 1)} 发经过才生效一次，2 星起每 {CardCatalog.ChargeNeed(id, 2)} 发";
             return def.Wake == CardWake.Charge
                 ? $"每 {def.ChargeNeed} 发经过才生效一次"
                 : "炮弹每次经过都生效";
@@ -288,15 +286,15 @@ namespace InkLine
                 case CardId.Poison: return "命中上毒。毒伤低、持续久，同一个敌人可以叠好几层。";
                 case CardId.Thunder: return "命中处炸开一圈电，把主目标和身边几个敌人一起晕住。";
                 case CardId.Stun: return "这一列蓄满的那一发，命中把敌人晕住，单体控得久。";
-                case CardId.Confuse: return "命中让敌人神志不清，掉头去打身边的同伴。头目不吃迷惑，改为减速。";
+                case CardId.Confuse: return "命中让敌人神志不清，扑过去咬身边的同伴，每口固定伤害。头目不吃迷惑，改为减速。";
                 case CardId.Gold: return "给炮弹加一笔固定伤害。它最先算，后面的乘算都会把它一起放大。";
-                case CardId.Heavy: return "这一列蓄满的那一发变得又粗又沉，伤害成倍。";
+                case CardId.Heavy: return "这一列蓄满的那一发伤害成倍。";
                 case CardId.Wood: return "把一部分伤害化作生机，攒满一点就给城墙补一格血。它本身不加伤害。";
                 case CardId.Earth: return "命中把敌人往回推，落地后还会僵住一小会儿。";
                 case CardId.Wind: return "命中把敌人吹到别的列去，打乱它们的队形。";
                 case CardId.Split: return "炮弹穿过后一分为几，扇形散开。每一发的伤害会打折。";
-                case CardId.Track: return "炮弹会拐弯去追敌人，拖出一道紫色的尾巴。";
-                case CardId.Accel: return "炮弹穿过后飞得更快，拖出一道绿色的尾巴。";
+                case CardId.Track: return "炮弹会拐弯去追敌人。";
+                case CardId.Accel: return "炮弹穿过后飞得更快。";
                 case CardId.Pierce: return "这一列蓄满的那一发能穿过敌人继续往前飞，每穿一个伤害略减。";
                 case CardId.Explode: return "这一列蓄满的那一发命中时爆开，爆圈里的敌人都吃一部分伤害。";
                 default: return CardCatalog.Get(id).Desc;
@@ -323,11 +321,11 @@ namespace InkLine
                 case CardId.Stun:
                     return $"晕 {F(g.Time.At(s))} 秒";
                 case CardId.Confuse:
-                    return $"迷惑 {F(g.Time.At(s))} 秒；头目改为减速 {P(g.Power.At(s))}";
+                    return $"迷惑 {F(g.Time.At(s))} 秒，每口咬同伴 {F(GlyphTable.ConfuseBite(s))}；头目改为减速 {P(g.Power.At(s))}";
                 case CardId.Gold:
                     return $"伤害 +{F(g.AddDamage.At(s))}（基础 1.8）";
                 case CardId.Heavy:
-                    return $"伤害 ×{F(g.MulDamage.At(s))}，体型 ×{F(g.Size.At(s))}";
+                    return $"每 {CardCatalog.ChargeNeed(id, s)} 发一次，伤害 ×{F(g.MulDamage.At(s))}";
                 case CardId.Wood:
                     return $"{P(g.Leech.At(s))} 伤害转生机，每波最多回 {g.LeechCap.IntAt(s)} 格血";
                 case CardId.Earth:

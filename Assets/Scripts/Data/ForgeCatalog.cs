@@ -60,7 +60,8 @@ namespace InkLine
         // 暴击打几倍。改这里要同步 check_stages 的战力裕度（它从这一行读）。
         public const float CritMul = 2f;
 
-        // 前期每 2~3 关亮一样新东西：通用词条 0/2/4/6/9 关，之后是 12、15 关的新皮肤和它们的专属词条。
+        // 通用词条：伤害打完第一关才亮，射速在第一章后段，打完第一章给多一门炮；
+        // 第二章是开局金币和基地生命。专属词条跟着皮肤走。
         // 已经点过的线永远留着，免得存档玩家看见自己买过的东西消失。
         // 门槛铺满 72 关：每章都有几级可升，最后一级落在第七、八章。
         // 价 = 门槛那一关的墨 ×4 再加 80，同一条线每级再贵一截。
@@ -73,9 +74,9 @@ namespace InkLine
             new ForgeDef
             {
                 Line = ForgeLine.Damage, Name = "伤害", Stat = "炮弹伤害", Amount = 16f,
-                Icon = "damage", Reveal = 0, Brief = "所有炮弹的伤害一起涨",
-                Cost = new[] { 120, 140, 170, 200, 240, 300, 380, 470, 580, 700, 840, 1000 },
-                Gate = new[] { 0, 2, 6, 12, 20, 28, 36, 44, 52, 58, 64, 69 }
+                Icon = "damage", Reveal = 1, Brief = "所有炮弹的伤害一起涨",
+                Cost = new[] { 110, 140, 170, 200, 240, 300, 380, 470, 580, 700, 840, 1000 },
+                Gate = new[] { 1, 2, 6, 12, 20, 28, 36, 44, 52, 58, 64, 69 }
             },
             new ForgeDef
             {
@@ -87,25 +88,25 @@ namespace InkLine
             new ForgeDef
             {
                 Line = ForgeLine.FireRate, Name = "射速", Stat = "开火间隔", Amount = 8f,
-                Icon = "rate", Reveal = 2, Brief = "每门炮开火更快",
+                Icon = "rate", Reveal = 6, Brief = "每门炮开火更快",
                 Cost = new[] { 130, 160, 220, 300, 400 },
-                Gate = new[] { 2, 9, 24, 45, 62 }
+                Gate = new[] { 6, 9, 24, 45, 62 }
             },
             // 开局金币 8 级，每级 +8，满级开局 70。门槛铺到第七、八章，
             // 后期一张改装要几十金币，开局要够先拿下一张。
             new ForgeDef
             {
                 Line = ForgeLine.StartGold, Name = "开局金币", Stat = "开局金币", Amount = 8f,
-                Icon = "gold", Reveal = 4, Brief = "开局多带金币，先手改装",
+                Icon = "gold", Reveal = 12, Brief = "开局多带金币，先手改装",
                 Cost = new[] { 140, 160, 210, 270, 360, 480, 640, 820 },
-                Gate = new[] { 4, 10, 22, 36, 48, 56, 62, 68 }
+                Gate = new[] { 12, 18, 26, 36, 48, 56, 62, 68 }
             },
             new ForgeDef
             {
                 Line = ForgeLine.BaseHp, Name = "基地生命", Stat = "基地生命", Amount = 1f,
-                Icon = "hp", Reveal = 6, Brief = "基地多扛一次突破",
+                Icon = "hp", Reveal = 17, Brief = "基地多扛一次突破",
                 Cost = new[] { 190, 280, 420 },
-                Gate = new[] { 6, 27, 50 }
+                Gate = new[] { 17, 27, 50 }
             },
             // ---- 皮肤专属：拥有皮肤才露面，装着才生效。Reveal 写皮肤的开放关，和 Gate[0] 对齐 ----
             // 赤焰 · 暴击 5 级，每级 +4%，满级 20% 的炮弹打双倍。跳出来的大红字是最直接的爽点。

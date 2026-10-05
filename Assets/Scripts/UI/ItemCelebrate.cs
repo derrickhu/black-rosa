@@ -41,7 +41,7 @@ namespace InkLine
                 .Breathe(icon.transform, 1.0f, 0.05f, 1.2f)
                 .At(0.6f, () =>
                 {
-                    AudioBus.Unlock();
+                    AudioBus.UnlockSting();
                     UiConfetti.Sparks(dim, new Vector2(0f, 120f), hi, 24, 660f);
                     UiConfetti.Burst(dim, 80);
                 });

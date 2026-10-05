@@ -7,6 +7,7 @@ namespace InkLine
     {
         readonly Transform _root;
         readonly List<SpriteRenderer> _grid = new List<SpriteRenderer>();
+        readonly List<SpriteRenderer> _hints = new List<SpriteRenderer>();
         readonly List<SpriteRenderer> _stamps = new List<SpriteRenderer>();
         readonly List<SpriteRenderer> _plates = new List<SpriteRenderer>();
         readonly List<TextMesh> _ranks = new List<TextMesh>();
@@ -22,7 +23,7 @@ namespace InkLine
         readonly List<SpriteRenderer> _glints = new List<SpriteRenderer>();
         readonly CellJuice _juice;
 
-        // 皮肤直接换炮身图，底下再垫一团同色的光。小钢炮的 tint 是透明，不能拿它判断换没换皮肤。
+        // 皮肤直接换炮身图，底下再垫一团同色的光。钢珠的 tint 是透明，不能拿它判断换没换皮肤。
         public int EmitterSkin;
         public Color EmitterTint = Color.clear;
         int _skinPainted = -1;
@@ -62,6 +63,10 @@ namespace InkLine
                 var cell = Make("cell", InkArt.Cell(), FieldLayout.CellPos(c, r), GameConstants.CellWidth);
                 cell.sortingOrder = 0;
                 _grid.Add(cell);
+                var hint = Make("hint", InkArt.Cell(), FieldLayout.CellPos(c, r), GameConstants.CellWidth);
+                hint.sortingOrder = 6;
+                hint.enabled = false;
+                _hints.Add(hint);
                 var stamp = Make("stamp", InkArt.Heap(CardId.Fire, 128), FieldLayout.CellPos(c, r), 0.92f);
                 stamp.sortingOrder = 2;
                 stamp.enabled = false;
@@ -117,9 +122,10 @@ namespace InkLine
 
         // 每章一张地面，铺满镜头（cover）。图没导进来就留原来的纯色底和中间那块提亮。
         // 包里是缩略图，高清版由 CdnAssets 换上，尺寸变了 Sync 里每帧的 FitBackdrop 会重新铺。
-        public void SetBackdrop(int chapter)
+        public void SetBackdrop(int chapter) => SetBackdrop("Bg/battle_bg_" + (chapter + 1));
+
+        public void SetBackdrop(string name)
         {
-            string name = "Bg/battle_bg_" + (chapter + 1);
             Sprite s = InkSprites.Load(name);
             if (s == null) return;
             if (_slab != null) _slab.enabled = false;
@@ -161,6 +167,7 @@ namespace InkLine
                 _juice.Base(c, r, out Vector2 baseShift, out Color baseTint);
                 _grid[i].color = baseTint;
                 _grid[i].transform.position = home + (Vector3)baseShift;
+                _hints[i].enabled = false;
                 if (open && w.Grid[c, r].HasValue)
                 {
                     CardId id = w.Grid[c, r].Value;
@@ -280,6 +287,8 @@ namespace InkLine
             w.Bursts.Clear();
             for (int n = 0; n < w.Deaths.Count; n++) InkSpill.Play(w.Deaths[n]);
             w.Deaths.Clear();
+            for (int n = 0; n < w.Arcs.Count; n++) InkArc.Play(w.Arcs[n]);
+            w.Arcs.Clear();
             if (w.ShakeWanted > 0f)
             {
                 InkShake.Kick(Camera.main, w.ShakeWanted);
@@ -464,7 +473,7 @@ namespace InkLine
             }
             else
             {
-                segs = Mathf.Clamp(CardCatalog.Get(id).ChargeNeed, 1, PipN);
+                segs = Mathf.Clamp(CardCatalog.ChargeNeed(id, star), 1, PipN);
                 filled = 0;
                 metering = false;
             }
@@ -610,11 +619,22 @@ namespace InkLine
             return sr;
         }
 
-        public void HighlightCell(int col, int row, Color color)
+        // 手里拿着字时，每个能放的格子外圈黑框一起闪，空格闪得更明显。
+        public void HighlightCell(int col, int row, bool empty)
         {
             int i = col * GameConstants.Rows + row;
-            if (i < 0 || i >= _grid.Count || !_grid[i].enabled) return;
-            // 能放的格子始终是黑框，不再把整格乘成绿色。颜色归 Sync 管，拒绝时那一下红才留得住。
+            if (i < 0 || i >= _hints.Count || !_grid[i].enabled) return;
+            float pulse = 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * 7.4f);
+            var hint = _hints[i];
+            hint.enabled = true;
+            hint.transform.position = _grid[i].transform.position;
+            float grow = empty ? 0.12f : 0.05f;
+            float s = GameConstants.CellWidth * (1f + grow * pulse);
+            hint.transform.localScale = new Vector3(s, s, 1f);
+            float a = empty ? pulse : Mathf.Lerp(0.28f, 0.72f, pulse);
+            hint.color = new Color(1f, 1f, 1f, a);
+            if (empty)
+                _grid[i].color = new Color(1f, 1f, 1f, Mathf.Lerp(1f, 0.4f, pulse));
         }
 
         public void Dispose()

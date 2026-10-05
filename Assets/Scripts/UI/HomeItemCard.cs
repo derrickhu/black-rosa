@@ -21,5 +21,6 @@ namespace InkLine
         public Image CardIcon;
         public Image CardItem;
         public Button Button;
+        [System.NonSerialized] public int Item = -1;
     }
 }

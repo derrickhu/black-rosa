@@ -73,6 +73,9 @@ namespace InkLine
                 }
             }
 
+            // 新手关不给关、不给重刷：传 null 就整颗藏掉。
+            Show(Reroll, reroll != null);
+            Show(Close, close != null);
             if (Reroll != null)
             {
                 Reroll.interactable = !rerolled;
@@ -88,6 +91,14 @@ namespace InkLine
                 Close.onClick.RemoveAllListeners();
                 if (close != null) Close.onClick.AddListener(() => close());
             }
+        }
+
+        static void Show(Button btn, bool on)
+        {
+            if (btn == null) return;
+            btn.gameObject.SetActive(on);
+            Transform sh = btn.transform.parent != null ? btn.transform.parent.Find(btn.name + "_sh") : null;
+            if (sh != null) sh.gameObject.SetActive(on);
         }
 
         void RescueCards()

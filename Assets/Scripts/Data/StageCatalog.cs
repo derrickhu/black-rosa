@@ -32,36 +32,6 @@ namespace InkLine
         }
     }
 
-    // 关卡规则，可叠加。每条只改一处，名字就是玩家看到的那两个字。
-    [Flags]
-    public enum StageRule
-    {
-        None = 0,
-        Preset = 1,     // 残卷：开局格子里已经摆好几张字
-        Limited = 2,    // 限字：牌池只给指定几个字
-        Swift = 4,      // 疾行：敌人快两成，金币也多两成
-        Rich = 8,       // 丰年：金币多五成，刷怪多四分之一
-        Frail = 16,     // 孤城：基地只有 1 血，首通墨多五成
-        Masked = 32,    // 残局：格子逐格开关，能挖洞、留窄巷
-        NoItem = 64     // 禁道具：道具一个都不带，首通墨多五成
-    }
-
-    public readonly struct PresetCard
-    {
-        public readonly int Col;
-        public readonly int Row;
-        public readonly CardId Id;
-        public readonly int Star;
-
-        public PresetCard(int col, int row, CardId id, int star = 1)
-        {
-            Col = col;
-            Row = row;
-            Id = id;
-            Star = star;
-        }
-    }
-
     public sealed class StageDef
     {
         public int Index;
@@ -70,25 +40,26 @@ namespace InkLine
         public string Title;
         public string Name;
 
-        // 每行开放几格，长度就是开放的行数。{2} 是「只有第一排中间两格能放字」，
-        // {6,3} 是「第一排全开、第二排开中间三格」。有 Mask 时以 Mask 为准。
-        public int[] OpenCells;
-        // 残局用。一行一个字符串，从第一排往上；'X' 开、'.' 关，左到右对应第 0~5 列。
+        // 格子形状。一行一个字符串，从第一排往上；'X' 开、'.' 关，左到右对应第 0~5 列。
+        // 每关手写，不要求比上一关多 —— 位置换一换，同样的字就得换一种摆法。
         public string[] Mask;
 
         public CardId[] Pool;
         public WaveDef[] Waves;
-        // 和 Waves 一一对应的实际出怪只数：已经乘过密度、丰年，并按开局疏、收尾密摊过。
+        // 和 Waves 一一对应的实际出怪只数：已经乘过密度和章节折扣，并按开局疏、收尾密摊过。
         // 战斗刷怪和 Price 都读它，避免两处各算一遍。
         public int[][] Bodies;
         public bool TeachDraft;
         public bool TeachStar;
-        public StageRule Rules;
-        public PresetCard[] Preset;
+        // 这一关新给的字。抽牌时加权，保证第一次就抽得到。
+        public CardId[] Fresh;
         public float Hp = 1f;
         public bool Finale;
         public bool Mini;
         public int StaminaCost = GameConstants.StaminaPerStage;
+        // 活动关的档位，主线关是 -1。活动关不掉墨、不出墨箱，每波按钱袋给利息。
+        public int EventTier = -1;
+        public bool Event => EventTier >= 0;
 
         // 这一关的钱袋，全部在 Build 里按波次表算好。
         // KillGold 是击杀赏金总和；GoldPurse 再加上黄箱的期望值，改装定价按它走。
@@ -103,13 +74,10 @@ namespace InkLine
         // 小数。由 Price 按目标抽牌数反推，凑整会让曲线一下差出好几次抽牌。
         public float DraftStep = GameConstants.DraftCostStep;
 
-        public bool Has(StageRule r) => (Rules & r) != 0;
-
-        public int OpenRows => Mask != null ? Mask.Length : OpenCells.Length;
+        public int OpenRows => Mask.Length;
 
         public bool CellOpen(int col, int row)
         {
-            if (Mask == null) return StageCatalog.CellOpen(OpenCells, col, row);
             if (row < 0 || row >= Mask.Length || col < 0 || col >= Mask[row].Length) return false;
             return Mask[row][col] == 'X';
         }
@@ -138,25 +106,10 @@ namespace InkLine
                 return false;
             }
         }
-
-        public string RuleLabel => StageCatalog.RuleLabel(Rules);
     }
 
     public static partial class StageCatalog
     {
-        // 一行里格子按中间往两边开：2、3 先开，最外侧两列最后开。
-        // 中间两列是敌人最密的地方，新手关只开这两格也立刻能感到「放字有用」。
-        static readonly int[] ColOpenOrder = { 2, 3, 1, 4, 0, 5 };
-
-        public static bool CellOpen(int[] openCells, int col, int row)
-        {
-            if (openCells == null || row < 0 || row >= openCells.Length) return false;
-            int n = Mathf.Min(openCells[row], ColOpenOrder.Length);
-            for (int i = 0; i < n; i++)
-                if (ColOpenOrder[i] == col) return true;
-            return false;
-        }
-
         public static readonly string[] ChapterNames =
         {
             "草地", "土路", "石院", "沙漠", "森林", "河滩", "雪原", "火山"
@@ -171,8 +124,8 @@ namespace InkLine
         }
 
         // 章底数。章内每关再加 5%，章底额外 ×1.15。
-        // 第三章以后格子已经满开，玩家变强只剩新字、星级和局外成长，曲线要比前三章平。
-        static readonly float[] ChapterHp = { 1.0f, 1.3f, 1.6f, 1.9f, 2.2f, 2.5f, 2.8f, 3.1f };
+        // 格子到第八章才开满，前几章盘面小，血量跟着压低；后面靠星级、词条和道具补上差距。
+        static readonly float[] ChapterHp = { 0.85f, 1.15f, 1.4f, 1.65f, 1.85f, 2.2f, 2.5f, 2.8f };
         const float SlotHpStep = 0.05f;
         const float FinaleHp = 1.15f;
 
@@ -182,31 +135,17 @@ namespace InkLine
             return c * (1f + SlotHpStep * slot) * (finale ? FinaleHp : 1f);
         }
 
-        public static string RuleLabel(StageRule rules)
-        {
-            var parts = new List<string>();
-            if ((rules & StageRule.Preset) != 0) parts.Add("残卷");
-            if ((rules & StageRule.Limited) != 0) parts.Add("限字");
-            if ((rules & StageRule.Swift) != 0) parts.Add("疾行");
-            if ((rules & StageRule.Rich) != 0) parts.Add("丰年");
-            if ((rules & StageRule.Frail) != 0) parts.Add("孤城");
-            if ((rules & StageRule.Masked) != 0) parts.Add("残局");
-            if ((rules & StageRule.NoItem) != 0) parts.Add("禁道具");
-            return string.Join(" · ", parts);
-        }
+        // 怪的移速章节系数。前两章格子少、字少，怪慢一点玩家才来得及看清字在干什么。
+        static readonly float[] ChapterSpeed = { 0.75f, 0.85f, 0.92f, 1f, 1f, 1.04f, 1.07f, 1.1f };
 
-        public static string RuleHint(StageRule rules)
-        {
-            var parts = new List<string>();
-            if ((rules & StageRule.Preset) != 0) parts.Add("残卷：开局已摆好字");
-            if ((rules & StageRule.Limited) != 0) parts.Add("限字：只抽这几个字");
-            if ((rules & StageRule.Swift) != 0) parts.Add("疾行：敌快，金币多");
-            if ((rules & StageRule.Rich) != 0) parts.Add("丰年：敌多，金币多");
-            if ((rules & StageRule.Frail) != 0) parts.Add("孤城：基地只剩一血");
-            if ((rules & StageRule.Masked) != 0) parts.Add("残局：有格子被封");
-            if ((rules & StageRule.NoItem) != 0) parts.Add("禁道具：道具不生效");
-            return string.Join("  ", parts);
-        }
+        public static float SpeedOf(int chapter) =>
+            ChapterSpeed[Mathf.Clamp(chapter, 0, ChapterSpeed.Length - 1)];
+
+        // 每只怪掉墨的章节系数。前期盘小、怪少、血薄，按怪算墨会少到升不了一级，这里补回来。
+        static readonly float[] ChapterInk = { 4.4f, 1.55f, 1.45f, 1.5f, 1.35f, 1.4f, 1.22f, 1.2f };
+
+        public static float InkOf(int chapter) =>
+            ChapterInk[Mathf.Clamp(chapter, 0, ChapterInk.Length - 1)];
 
         static StageDef[] _all;
 
@@ -223,8 +162,7 @@ namespace InkLine
 
         public static bool IsFinale(int index) => index % GameConstants.ChapterSize == GameConstants.ChapterSize - 1;
 
-        // 这一关第一次出现的字：前面所有关的字池和预置字里都没有过的。
-        // 不拿相邻两关做差 —— Limit 关的字池是缩过的，下一关会把老字「重新放出来」。
+        // 这一关第一次出现的字：前面所有关的字池里都没有过的。
         public static List<CardId> NewCards(int stage)
         {
             var list = new List<CardId>();
@@ -243,8 +181,6 @@ namespace InkLine
         {
             if (s.Pool != null)
                 for (int i = 0; i < s.Pool.Length; i++) into.Add(s.Pool[i]);
-            if (s.Preset != null)
-                for (int i = 0; i < s.Preset.Length; i++) into.Add(s.Preset[i].Id);
         }
 
         // ---------- 写关卡用的小工具 ----------
@@ -252,48 +188,21 @@ namespace InkLine
         sealed class Plan
         {
             public string Title;
-            public int[] Cells;
             public string[] Mask;
             public CardId[] Gives = new CardId[0];
-            public CardId[] Only;
-            public StageRule Rules;
-            public readonly List<PresetCard> Preset = new List<PresetCard>();
             public WaveDef[] Waves;
             public bool TeachDraft;
             public bool TeachStar;
 
             public Plan Give(params CardId[] ids) { Gives = ids; return this; }
-
-            public Plan Limit(params CardId[] ids)
-            {
-                Only = ids;
-                Rules |= StageRule.Limited;
-                return this;
-            }
-
-            public Plan Put(int col, int row, CardId id, int star = 1)
-            {
-                Preset.Add(new PresetCard(col, row, id, star));
-                Rules |= StageRule.Preset;
-                return this;
-            }
-
-            public Plan Holes(params string[] rows)
-            {
-                Mask = rows;
-                Rules |= StageRule.Masked;
-                return this;
-            }
-
-            public Plan Rule(StageRule r) { Rules |= r; return this; }
             public Plan Teach(bool draft, bool star) { TeachDraft = draft; TeachStar = star; return this; }
         }
 
-        static Plan P(string title, int[] cells, params WaveDef[] waves) =>
-            new Plan { Title = title, Cells = cells, Waves = waves };
+        static Plan P(string title, string[] shape, params WaveDef[] waves) =>
+            new Plan { Title = title, Mask = shape, Waves = waves };
 
-        static int[] Row(params int[] cells) => cells;
-        static readonly int[] Full = { 6, 6, 6 };
+        // 格子形状，从第一排往上写。
+        static string[] G(params string[] rows) => rows;
 
         static SpawnSpec S(float t, EnemyId id, int col = -1, int n = 1) => new SpawnSpec(t, id, col, n);
 
@@ -368,14 +277,21 @@ namespace InkLine
         const float RampLate = 1.9f;
         const float RampPow = 1.7f;
 
-        // 每章杂兵只数的折扣。前两章格子少、字少，同样的怪量压不住；第三章起格子开满，按表出。
+        // 每章杂兵只数的折扣。格子是逐章慢慢开的，盘面越小怪越要少；第七章起按表出。
         // 钱跟着怪少一截，抽牌价由钱袋反推，会一起降下来。
-        static readonly float[] ChapterBodies = { 0.82f, 0.9f, 1f, 1f, 1f, 1f, 1f, 1f };
+        static readonly float[] ChapterBodies = { 0.7f, 0.85f, 0.9f, 0.92f, 0.95f, 0.97f, 1f, 1f };
 
         // 整关出怪按时间从疏排到密，再归一回原来的总只数。
         // 总血量、总掉落不变，变的是它们挤在开局还是挤在后段。
         // 关底本人不参与：双首还是两只，墨王还是一只。护送和小兵一起爬。
-        static int[][] RampCounts(WaveDef[] waves, bool rich, int chapter)
+        // 前两章头两波按这个权重会被压到两三只。每波再补 OpeningPad 只，
+        // 补到 OpeningThick 就停，已经成群压上来的波不再加。
+        // 多出来的只数优先从收尾、其次从中段扣回，开局窗和中后段窗里的怪不动。
+        // 只有两波的关扣不回来，那几只是实打实多出来的。
+        const int OpeningPad = 2;
+        static readonly int[] OpeningThick = { 8, 16 };
+
+        static int[][] RampCounts(WaveDef[] waves, int chapter)
         {
             int nW = waves.Length;
             float bodyMul = ChapterBodies[Mathf.Clamp(chapter, 0, ChapterBodies.Length - 1)];
@@ -406,7 +322,6 @@ namespace InkLine
                     SpawnSpec sp = list[k];
                     bool isBoss = EnemyIds.IsBoss(sp.Id);
                     int count = sp.Count * EnemyCatalog.Density(sp.Id);
-                    if (rich && !isBoss) count = Mathf.CeilToInt(count * 1.25f);
                     float u = total > 0.01f
                         ? Mathf.Clamp01((cursor + Mathf.Clamp(sp.Time, 0f, dur)) / total)
                         : 1f;
@@ -487,7 +402,122 @@ namespace InkLine
             var grid = new int[nW][];
             for (int w = 0; w < nW; w++) grid[w] = new int[waves[w].Spawns.Length];
             for (int i = 0; i < n; i++) grid[waveOf[i]][idxOf[i]] = final[i];
+            PadOpening(grid, waves, chapter);
             return grid;
+        }
+
+        static void PadOpening(int[][] grid, WaveDef[] waves, int chapter)
+        {
+            if (chapter > 1) return;
+            int thick = OpeningThick[Mathf.Min(chapter, OpeningThick.Length - 1)];
+            int nW = waves.Length;
+            var abs = new float[nW][];
+            float cursor = 0f;
+            float total = 0f;
+            for (int w = 0; w < nW; w++)
+            {
+                float dur = Mathf.Max(0.01f, waves[w].Duration);
+                total += dur;
+                SpawnSpec[] list = waves[w].Spawns;
+                abs[w] = new float[list.Length];
+                for (int k = 0; k < list.Length; k++) abs[w][k] = cursor + list[k].Time;
+                cursor += dur;
+            }
+            float earlyCut = total * 0.25f;
+            float lateLo = total * 0.55f;
+            float lateHi = total * 0.85f;
+
+            int added = 0;
+            int limit = Mathf.Min(2, nW);
+            for (int w = 0; w < limit; w++)
+            {
+                SpawnSpec[] list = waves[w].Spawns;
+                int sum = 0;
+                var order = new List<int>();
+                for (int k = 0; k < list.Length; k++)
+                {
+                    if (EnemyIds.IsBoss(list[k].Id)) continue;
+                    sum += grid[w][k];
+                    order.Add(k);
+                }
+                if (order.Count == 0) continue;
+                int add = Mathf.Min(OpeningPad, Mathf.Max(0, thick - sum));
+                order.Sort((a, b) =>
+                {
+                    int ae = abs[w][a] <= earlyCut ? 1 : 0;
+                    int be = abs[w][b] <= earlyCut ? 1 : 0;
+                    if (ae != be) return ae.CompareTo(be);
+                    return abs[w][b].CompareTo(abs[w][a]);
+                });
+                for (int step = 0; step < add; step++)
+                    grid[w][order[step % order.Count]]++;
+                added += add;
+            }
+
+            while (added > 0 && TakeOpening(grid, waves, abs, true, earlyCut, lateLo, lateHi))
+                added--;
+            while (added > 0 && TakeOpening(grid, waves, abs, false, earlyCut, lateLo, lateHi))
+                added--;
+
+            int guard = 0;
+            while (guard++ < 30
+                   && BandCount(grid, waves, abs, earlyCut, earlyCut, true)
+                      >= BandCount(grid, waves, abs, lateLo, lateHi, false))
+            {
+                int lw = -1, lk = -1;
+                for (int w = 0; w < nW && lw < 0; w++)
+                for (int k = 0; k < grid[w].Length; k++)
+                {
+                    if (EnemyIds.IsBoss(waves[w].Spawns[k].Id)) continue;
+                    if (abs[w][k] < lateLo || abs[w][k] > lateHi) continue;
+                    lw = w;
+                    lk = k;
+                    break;
+                }
+                if (lw < 0) break;
+                grid[lw][lk]++;
+                bool funded = false;
+                for (int w = nW - 1; w >= 0 && !funded; w--)
+                for (int k = 0; k < grid[w].Length && !funded; k++)
+                {
+                    if (EnemyIds.IsBoss(waves[w].Spawns[k].Id)) continue;
+                    if (grid[w][k] <= 1 || abs[w][k] <= lateHi) continue;
+                    grid[w][k]--;
+                    funded = true;
+                }
+            }
+        }
+
+        // tail 为真时从 85% 之后扣，否则从开局窗和中后段窗之间的中段扣。只扣第 3 波起、且该拨多于 1 只的。
+        static bool TakeOpening(int[][] grid, WaveDef[] waves, float[][] abs, bool tail,
+            float earlyCut, float lateLo, float lateHi)
+        {
+            for (int w = grid.Length - 1; w >= 2; w--)
+            for (int k = 0; k < grid[w].Length; k++)
+            {
+                if (EnemyIds.IsBoss(waves[w].Spawns[k].Id)) continue;
+                if (grid[w][k] <= 1) continue;
+                float t = abs[w][k];
+                bool ok = tail ? t > lateHi : t > earlyCut && t < lateLo;
+                if (!ok) continue;
+                grid[w][k]--;
+                return true;
+            }
+            return false;
+        }
+
+        static int BandCount(int[][] grid, WaveDef[] waves, float[][] abs, float lo, float hi, bool early)
+        {
+            int n = 0;
+            for (int w = 0; w < grid.Length; w++)
+            for (int k = 0; k < grid[w].Length; k++)
+            {
+                if (EnemyIds.IsBoss(waves[w].Spawns[k].Id)) continue;
+                float t = abs[w][k];
+                bool hit = early ? t <= lo : t >= lo && t <= hi;
+                if (hit) n += grid[w][k];
+            }
+            return n;
         }
 
         static StageDef[] Build()
@@ -519,20 +549,18 @@ namespace InkLine
                     Slot = slot,
                     Title = p.Title,
                     Name = ChapterLabel(ch) + " · " + p.Title,
-                    OpenCells = p.Cells,
                     Mask = p.Mask,
-                    Pool = p.Only ?? have.ToArray(),
+                    Pool = have.ToArray(),
+                    Fresh = p.Gives,
                     Waves = Pace(p.Waves, ch),
                     TeachDraft = p.TeachDraft,
                     TeachStar = p.TeachStar,
-                    Rules = p.Rules,
-                    Preset = p.Preset.ToArray(),
                     Hp = HpOf(ch, slot, finale),
                     Finale = finale,
                     Mini = slot == 4 && ch > 0,
-                    StaminaCost = finale ? GameConstants.StaminaFinale : GameConstants.StaminaPerStage
+                    StaminaCost = GameConstants.StaminaPerStage
                 };
-                s[i].Bodies = RampCounts(s[i].Waves, s[i].Has(StageRule.Rich), ch);
+                s[i].Bodies = RampCounts(s[i].Waves, ch);
                 Price(s[i]);
             }
             return s;
@@ -544,19 +572,20 @@ namespace InkLine
         // 一局的目标抽牌数：先把开放格子铺满，再把大半格子顶到二三星。
         // 抽牌费用由它反推，所以以后加章、改棋盘大小都自动对得上，不用手调。
         const float DraftPicksPerCell = 1.8f;
+        // 前两章一局短、钱少，按 1.8 算会五六秒弹一次三选一。
+        // 这两章不要求铺满，同样的钱摊到更少的次数上，每张就贵一些，大约十秒一张。
+        const float FirstChapterPicksPerCell = 0.8f;
+        const float SecondChapterPicksPerCell = 1.1f;
         // 道具不花金币，钱几乎全给抽牌；留一成半给抽到中意那张之前的试错，不把定价压到刚好买满。
         const float DraftBudgetShare = 0.85f;
 
-        public static float GoldMulOf(StageRule rules) =>
-            ((rules & StageRule.Rich) != 0 ? 1.5f : 1f) * ((rules & StageRule.Swift) != 0 ? 1.2f : 1f);
-
         // 掉落跟着怪走，这里只是把整关加一遍当统计用：校验脚本、抽牌定价和结算页读它。
         // 算法和 BattleWorld.Spawn + Make 必须一致 —— 只数用 RampCounts 摊过的 Bodies，
-        // 每只掉满自己那份，章节系数和丰年/疾行倍率分两次套，每次都保底 1。
-        static void Price(StageDef s)
+        // 每只掉满自己那份，章节系数保底 1。
+        static void Price(StageDef s, float share = DraftBudgetShare)
         {
-            float mul = GoldMulOf(s.Rules);
             float drop = EnemyCatalog.DropMul(s.Hp);
+            float inkMul = drop * InkOf(s.Chapter);
             int gold = 0, kills = 0;
             float ink = 0f;
             for (int w = 0; w < s.Waves.Length; w++)
@@ -569,8 +598,8 @@ namespace InkLine
                     int count = s.Bodies != null ? s.Bodies[w][k]
                         : sp.Count * EnemyCatalog.Density(sp.Id);
                     EnemyDef d = EnemyCatalog.Base(sp.Id);
-                    gold += count * EnemyCatalog.Drop(EnemyCatalog.Drop(d.Gold, drop), mul);
-                    ink += count * d.Ink * drop * mul;
+                    gold += count * EnemyCatalog.Drop(d.Gold, drop);
+                    ink += count * d.Ink * inkMul;
                     if (!boss) kills += count;
                 }
             }
@@ -582,8 +611,11 @@ namespace InkLine
             s.GoldPurse = s.KillGold + Mathf.RoundToInt(chests * ChestGoldShare * s.ChestGold);
 
             int open = Mathf.Max(1, s.OpenCount);
-            int n = Mathf.Clamp(Mathf.RoundToInt(open * DraftPicksPerCell), open + 2, open * 3);
-            float budget = (s.GoldPurse + ForgeStats.Default.StartGold) * DraftBudgetShare;
+            int n;
+            if (s.Chapter == 0) n = Mathf.Max(3, Mathf.RoundToInt(open * FirstChapterPicksPerCell));
+            else if (s.Chapter == 1) n = Mathf.Max(2, Mathf.RoundToInt(open * SecondChapterPicksPerCell));
+            else n = Mathf.Clamp(Mathf.RoundToInt(open * DraftPicksPerCell), open + 2, open * 3);
+            float budget = (s.GoldPurse + ForgeStats.Default.StartGold) * share;
             // 起价定成平均价的一半，步长再反推，费用就从便宜缓缓爬到贵，
             // 而整条曲线累计下来刚好吃满预算。
             s.DraftFirst = Mathf.Max(GameConstants.FirstDraftCost, Mathf.RoundToInt(budget / n * 0.5f));

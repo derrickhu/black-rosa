@@ -16,6 +16,8 @@ namespace InkLine
         public int Stamina = GameConstants.StaminaMax;
         public long StaminaTick;
         public int AdStaminaToday;
+        // 1：体力上限从 12 提到 20。当时是满的，补到新上限。
+        public int StaminaRulesVer;
         public int LastDay;
         public bool DailyWinDone;
         public bool StarterGranted;
@@ -23,16 +25,30 @@ namespace InkLine
         public int[] Forge = new int[ForgeCatalog.LineCount];
         public int Skin;
         public bool[] SkinOwned = new bool[SkinCatalog.Count];
+        // 炮台碎片。下标跟皮肤走，集满 SkinDef.Shards 就到手。
+        public int[] SkinShards = new int[SkinCatalog.Count];
+        // 章节满星宝箱领过没有。位下标是章。
+        public int ChapterChest;
         // 道具：等级 0 是还没解锁；卡是攒着的、还没花掉的张数。
         public int[] ItemLevel = new int[ItemCatalog.Count];
         public int[] ItemCards = new int[ItemCatalog.Count];
-        public int[] Equipped = { 0, -1, -1 };
+        public int[] Equipped = { -1, -1, -1 };
         public bool ItemStarterDone;
+        // 1：取消开局白送道具。老档里那只还停在 1 级、旁边没有别的道具的鞭炮收回。
+        public int ItemRulesVer;
         // 胜利宝箱位：0 是空，其余是 ChestTier + 1。ChestDone 是解锁完成的 UTC 毫秒，0 表示还没开始解锁。
         public int[] ChestSlot = new int[ChestCatalog.Slots];
         public long[] ChestDone = new long[ChestCatalog.Slots];
+        // 刚打开或换成墨之后，后面的箱子要滑到前面。下标是新格子，值是这只原来的格子。不进存档。
+        [System.NonSerialized] public int[] ChestSlideFrom;
+        // 开箱演出还挡着的时候先别滑，等演出关掉、格子重新摆出来再滑。
+        [System.NonSerialized] public bool DeferChestSlide;
         public int ChestCycle;
         public int PendingChest;   // 结算页上还没处理的宝箱，品阶 + 1；0 表示没有
+        // 宝箱位满了、玩家还没决定的箱子。先寄在这里，不悄悄折成墨。品阶 + 1，0 是空。
+        // 第二只留给「结算和签到撞在一起」这种很少见的情况。
+        public int OverflowChest;
+        public int OverflowExtra;
         // 钻石：只买时间和便利 —— 宝箱立即开、补体力。
         public int Diamond;
         public int DiamondStamCount;
@@ -42,6 +58,8 @@ namespace InkLine
         public int CheckDay;
         public int CheckRun;
         public int CheckAdDay;
+        // 签到页自动弹出记在哪一天。跟签没签无关，当天弹过就不再弹。
+        public int CheckPopDay;
         public bool CheckSkinDone;
         public int CheckLoops;
         // 图鉴：位掩码。字按 CardId、词按 WordId、秘卷按 SignaturePairs 下标。
@@ -67,6 +85,80 @@ namespace InkLine
         public int SkinNew;
         // 活动货币，留给皮肤专属词条。ForgeCoin.Token 从这里扣。
         public int Token;
+        // 招财进宝：期号、聚宝盆累计、里程碑领取位、当天打了几局、当天广告加次数和翻倍用过没。
+        // 期号和 EventCatalog.Id 对不上就整份清零。
+        public int EventId;
+        public int EventBank;
+        public int EventClaims;
+        public int EventDay;
+        public int EventPlays;
+        public bool EventAdDone;
+        public bool EventDoubleDone;
+        // 打赢过的地点。位下标是档位，赢了上一处才开下一处。
+        public int EventClears;
+        // 新手指引走到哪一步。跟着整份存档上云，清缓存、换机都不重走。
+        public int GuideStep;
+        public const int GuideBattle = 0;
+        public const int GuideForge = 1;
+        public const int GuideChest = 2;
+        public const int GuideGift = 3;
+        public const int GuideSortie = 4;
+        // 领完新手奖励后教弹弓解锁、装备。比出征大一号，是后加的一步，教完再回到 GuideSortie。
+        public const int GuideItem = 5;
+        public const int GuideDone = 9;
+        // 第一次攒够卡能解锁道具时教解锁、装备。教过一次就不再教。
+        public bool ItemGuideDone;
+
+        public bool Guiding => GuideStep < GuideDone;
+
+        public void SetGuide(int step)
+        {
+            if (GuideStep == step) return;
+            GuideStep = step;
+            Save();
+            CloudSync.FlushNow("guide");
+        }
+
+        // 第一个攒够卡、还没解锁的道具；没有返回 -1。
+        public int FirstUnlockable
+        {
+            get
+            {
+                for (int i = 0; i < ItemCatalog.Count; i++)
+                    if (ItemRank(i) <= 0 && CanUpgradeItem(i, out _)) return i;
+                return -1;
+            }
+        }
+
+        public int FirstChestSlot
+        {
+            get
+            {
+                for (int i = 0; i < ChestSlot.Length; i++)
+                    if (ChestStateOf(i) != ChestState.Empty) return i;
+                return -1;
+            }
+        }
+
+        public void SetItemGuideDone()
+        {
+            if (ItemGuideDone) return;
+            ItemGuideDone = true;
+            Save();
+        }
+
+        public void GrantGuideGift()
+        {
+            if (GuideStep != GuideGift) return;
+            Diamond += GameConstants.GuideDiamond;
+            Ink += GameConstants.GuideInk;
+            Stamina += GameConstants.GuideStamina;
+            int snipe = (int)ItemId.Snipe;
+            if (snipe >= 0 && snipe < ItemCards.Length) ItemCards[snipe] += GameConstants.GuideSlingshot;
+            GuideStep = GuideItem;
+            Save();
+            CloudSync.FlushNow("guide");
+        }
 
         public static MetaProgress Load()
         {
@@ -110,6 +202,7 @@ namespace InkLine
             Stars = Fit(Stars, GameConstants.StageCount);
             Forge = Fit(Forge, ForgeCatalog.LineCount);
             SkinOwned = Fit(SkinOwned, SkinCatalog.Count);
+            SkinShards = Fit(SkinShards, SkinCatalog.Count);
             ItemLevel = Fit(ItemLevel, ItemCatalog.Count);
             ItemCards = Fit(ItemCards, ItemCatalog.Count);
             if (Equipped == null || Equipped.Length != GameConstants.ItemSlots)
@@ -124,15 +217,27 @@ namespace InkLine
                 Forge[i] = Mathf.Clamp(Forge[i], 0, ForgeCatalog.MaxLevel(i));
             for (int i = 0; i < Stars.Length; i++)
                 Stars[i] = Mathf.Clamp(Stars[i], 0, GameConstants.MaxStar);
+            for (int i = 0; i < SkinShards.Length; i++)
+                SkinShards[i] = Mathf.Max(0, SkinShards[i]);
+            ChapterChest &= (1 << GameConstants.Chapters) - 1;
             SkinOwned[0] = true;
+            bool rulesChanged = false;
             if (!ItemStarterDone)
             {
-                // 开局白送一个绿色道具，第一关就能看到「道具自己丢出去」是怎么回事。
                 ItemStarterDone = true;
-                int first = (int)ItemCatalog.Starter;
-                if (ItemLevel[first] <= 0) ItemLevel[first] = 1;
-                for (int s = 0; s < Equipped.Length; s++) Equipped[s] = -1;
-                Equipped[0] = first;
+                rulesChanged = true;
+            }
+            if (ItemRulesVer < 1)
+            {
+                ItemRulesVer = 1;
+                rulesChanged = true;
+                RevokeGiftItem();
+            }
+            if (StaminaRulesVer < 1)
+            {
+                StaminaRulesVer = 1;
+                rulesChanged = true;
+                if (Stamina >= 12) Stamina = GameConstants.StaminaMax;
             }
             for (int i = 0; i < ItemLevel.Length; i++)
             {
@@ -145,8 +250,20 @@ namespace InkLine
                 if (ChestSlot[i] == 0) ChestDone[i] = 0L;
             }
             if (PendingChest < 0 || PendingChest > 4) PendingChest = 0;
-            // 结算页上被杀进程，宝箱照常放进宝箱位，不白丢。
-            ResolvePending();
+            if (OverflowChest < 0 || OverflowChest > 4) OverflowChest = 0;
+            if (OverflowExtra < 0 || OverflowExtra > 4) OverflowExtra = 0;
+            if (OverflowChest <= 0) PromoteOverflow();
+            // 结算页上被杀进程，宝箱照常放进宝箱位。位满了就寄着，等玩家回来选，不折成墨。
+            // 老档中间有空格的，先按原来的先后靠拢，新箱子才进得了最后一格。
+            bool chestMoved = PackChests(false);
+            chestMoved = ResolvePending() || chestMoved;
+            while (OverflowChest > 0 && AddChest(OverflowTier) >= 0)
+            {
+                OverflowChest = 0;
+                PromoteOverflow();
+                chestMoved = true;
+            }
+            if (chestMoved) rulesChanged = true;
             Skin = SkinOwned[Mathf.Clamp(Skin, 0, SkinCatalog.Count - 1)] ? Mathf.Clamp(Skin, 0, SkinCatalog.Count - 1) : 0;
             for (int s = 0; s < Equipped.Length; s++)
             {
@@ -158,7 +275,24 @@ namespace InkLine
             Ink = Mathf.Max(0, Ink);
             Diamond = Mathf.Max(0, Diamond);
             Token = Mathf.Max(0, Token);
-            Stamina = Mathf.Clamp(Stamina, 0, GameConstants.StaminaMax);
+            // 奖励来的体力可以超过上限，这里只防负数，否则重进游戏多出来的就被削掉。
+            Stamina = Mathf.Max(0, Stamina);
+            if (GuideStep == GuideBattle && ClearedCount() > 0)
+            {
+                GuideStep = Forge[(int)ForgeLine.Damage] > 0 || ClearedCount() > 1 ? GuideDone : GuideForge;
+                rulesChanged = true;
+            }
+            if (!ItemGuideDone)
+            {
+                for (int i = 0; i < ItemLevel.Length; i++)
+                    if (ItemLevel[i] > 0)
+                    {
+                        ItemGuideDone = true;
+                        rulesChanged = true;
+                        break;
+                    }
+            }
+            if (rulesChanged) Save();
             if (ForgeSeenVer < 1)
             {
                 // 加解锁卡之前就有的五条，老存档早就见过，不再补弹。
@@ -230,6 +364,17 @@ namespace InkLine
             if (src != null)
                 for (int i = 0; i < src.Length && i < len; i++) dst[i] = src[i];
             return dst;
+        }
+
+        // 开局不发道具。白送的那一只如果还是 1 级、也没解锁过别的，收回去。
+        // 卡片留着：宝箱掉的卡照旧攒着，够数了自己解锁。
+        void RevokeGiftItem()
+        {
+            int first = (int)ItemId.Burst;
+            if (first >= ItemLevel.Length || ItemLevel[first] != 1) return;
+            for (int i = 0; i < ItemLevel.Length; i++)
+                if (i != first && ItemLevel[i] > 0) return;
+            ItemLevel[first] = 0;
         }
 
         void GrantStarter()
@@ -316,6 +461,7 @@ namespace InkLine
         public void Refresh()
         {
             bool dirty = RollDay();
+            if (RollEvent()) dirty = true;
             if (RegenStamina()) dirty = true;
             if (TickChests()) dirty = true;
             if (dirty) Save();
@@ -341,6 +487,170 @@ namespace InkLine
             DiamondStamCount = 0;
             DailyWinDone = false;
             return true;
+        }
+
+        bool RollEvent()
+        {
+            bool dirty = false;
+            if (EventId != EventCatalog.Id)
+            {
+                EventId = EventCatalog.Id;
+                EventBank = 0;
+                EventClaims = 0;
+                EventClears = 0;
+                EventDay = 0;
+                dirty = true;
+            }
+            int today = Today;
+            if (EventDay != today)
+            {
+                EventDay = today;
+                EventPlays = 0;
+                EventAdDone = false;
+                EventDoubleDone = false;
+                dirty = true;
+            }
+            return dirty;
+        }
+
+        // 招财进宝：常驻，通完第一章才露入口。
+        public bool EventOpen => ChapterCleared(0);
+
+        // 里程碑全领完了：还能打，但不再存钱，也没有翻倍。
+        public bool EventDone
+        {
+            get
+            {
+                for (int i = 0; i < EventCatalog.Milestones.Length; i++) if (!EventClaimed(i)) return false;
+                return true;
+            }
+        }
+
+        public bool EventTierWon(int t) => t >= 0 && (EventClears & (1 << t)) != 0;
+
+        // 小集一直开着。后面每一处要打赢紧挨着的上一处。
+        public bool EventTierOpen(int t) => t <= 0 || EventTierWon(t - 1);
+
+        // 这处第一次打赢时记下，用来开下一处。已经赢过返回 false。
+        public bool MarkEventTier(int t)
+        {
+            if (t < 0 || t >= EventCatalog.TierCount) return false;
+            int bit = 1 << t;
+            if ((EventClears & bit) != 0) return false;
+            EventClears |= bit;
+            Save();
+            return true;
+        }
+
+        public int EventPlaysLeft
+        {
+            get
+            {
+                RollEvent();
+                int cap = EventCatalog.PlaysPerDay + (EventAdDone ? EventCatalog.AdPlays : 0);
+                return Mathf.Max(0, cap - EventPlays);
+            }
+        }
+
+        public bool SpendEventPlay()
+        {
+            if (EventPlaysLeft <= 0) return false;
+            EventPlays++;
+            Save();
+            return true;
+        }
+
+        public bool GrantEventAdPlays()
+        {
+            RollEvent();
+            if (EventAdDone) return false;
+            EventAdDone = true;
+            Save();
+            return true;
+        }
+
+        public void BankEvent(int gold)
+        {
+            if (gold <= 0 || EventDone) return;
+            RollEvent();
+            EventBank += gold;
+            Save();
+        }
+
+        public bool CanDoubleEvent
+        {
+            get { RollEvent(); return !EventDoubleDone && !EventDone; }
+        }
+
+        public bool DoubleEvent(int gold)
+        {
+            if (gold <= 0 || !CanDoubleEvent) return false;
+            EventDoubleDone = true;
+            EventBank += gold;
+            Save();
+            return true;
+        }
+
+        public bool EventReached(int i) => EventBank >= EventCatalog.Milestones[i].Need;
+        public bool EventClaimed(int i) => (EventClaims & (1 << i)) != 0;
+        public bool EventClaimable(int i) => EventReached(i) && !EventClaimed(i);
+
+        public bool EventHasClaim()
+        {
+            for (int i = 0; i < EventCatalog.Milestones.Length; i++) if (EventClaimable(i)) return true;
+            return false;
+        }
+
+            // 已有福袋时皮肤那档折成活动币，refunded 告诉界面换说法。
+        // chest 是宝箱进了哪个位：-2 这场不是宝箱，-1 位满了先寄着，-3 寄不下才折成墨。
+        public bool ClaimEvent(int i, out bool refunded, out int chest)
+        {
+            refunded = false;
+            chest = -2;
+            if (i < 0 || i >= EventCatalog.Milestones.Length || !EventClaimable(i)) return false;
+            EventMilestone m = EventCatalog.Milestones[i];
+            EventClaims |= 1 << i;
+            switch (m.Prize)
+            {
+                case EventPrize.Ink: Ink += m.Amount; break;
+                case EventPrize.Token: Token += m.Amount; break;
+                case EventPrize.Chest: chest = GrantChest((ChestTier)m.Amount); break;
+                default:
+                    if (!GrantSkin(m.Amount))
+                    {
+                        Token += EventCatalog.SkinTokenRefund;
+                        refunded = true;
+                    }
+                    break;
+            }
+            Save();
+            return true;
+        }
+
+        public void GmEventBank(int gold)
+        {
+            RollEvent();
+            EventBank += gold;
+            Save();
+        }
+
+        // 进度、领取、打下的地点、当天次数全清，期号不动。
+        public void GmEventReset()
+        {
+            EventBank = 0;
+            EventClaims = 0;
+            EventClears = 0;
+            EventDay = 0;
+            RollEvent();
+            Save();
+        }
+
+        // 活动关的字池：打到哪关，就用那关的字池。
+        public CardId[] EventPool()
+        {
+            int top = 0;
+            for (int i = 0; i < Stars.Length && i < GameConstants.StageCount; i++) if (Stars[i] > 0) top = i;
+            return StageCatalog.Get(top).Pool;
         }
 
         static long RegenTicks => TimeSpan.TicksPerMinute * GameConstants.StaminaRegenMinutes;
@@ -394,13 +704,13 @@ namespace InkLine
             Save();
         }
 
-        public bool CanAdStamina => AdStaminaToday < GameConstants.AdStaminaPerDay
-                                    && Stamina < GameConstants.StaminaMax;
+        // 上限只管自动回复停不停。奖励、购买来的体力一律照加，可以超过上限。
+        public bool CanAdStamina => AdStaminaToday < GameConstants.AdStaminaPerDay;
 
         public void GrantAdStamina()
         {
             AdStaminaToday++;
-            Stamina = Mathf.Min(GameConstants.StaminaMax, Stamina + GameConstants.AdStaminaGain);
+            Stamina += GameConstants.AdStaminaGain;
             Save();
         }
 
@@ -442,13 +752,90 @@ namespace InkLine
 
         // 结算的墨就是这一局亲手拾到的墨，关卡不再另发一笔。星级只留历史最高；
         // 过没过仍按 Stars > 0 判，旧存档里只有 1 的照样算通关。
-        public ResultInfo ApplyResult(int stage, int collected, int stars)
+        public int SkinShardCount(int i) =>
+            SkinShards != null && i >= 0 && i < SkinShards.Length ? SkinShards[i] : 0;
+
+        public bool ChapterChestClaimed(int chapter) =>
+            chapter >= 0 && (ChapterChest & (1 << chapter)) != 0;
+
+        public int ChapterStarGaps(int chapter)
+        {
+            int n = GameConstants.ChapterSize;
+            int start = chapter * n;
+            int end = Mathf.Min(start + n, Stars == null ? 0 : Stars.Length);
+            int gaps = 0;
+            for (int i = start; i < end; i++)
+                if (Stars[i] < GameConstants.MaxStar) gaps++;
+            return start >= end ? GameConstants.ChapterSize : gaps;
+        }
+
+        public bool ChapterFullStars(int chapter) =>
+            chapter >= 0 && chapter < GameConstants.Chapters && ChapterStarGaps(chapter) == 0;
+
+        // 章节满星送一只炮台宝箱，当场开。已经有这门炮时，碎片换成墨。集满就直接到手。
+        public ChestLoot ClaimStarChest(int chapter)
+        {
+            if (!ChapterFullStars(chapter) || ChapterChestClaimed(chapter)) return null;
+            ChapterChest |= 1 << chapter;
+            return OpenCannonChest();
+        }
+
+        // 开一只炮台宝箱。不记章节，活动以后也可以调。
+        public ChestLoot OpenCannonChest()
+        {
+            ChestCatalog.CannonRoll drop = ChestCatalog.RollCannon();
+            SkinDef skin = SkinCatalog.Get(drop.Skin);
+            SkinShards = Fit(SkinShards, SkinCatalog.Count);
+            var loot = new ChestLoot { Title = ChestCatalog.CannonName, ArtKey = ChestCatalog.CannonArt };
+            if (drop.Skin >= 0 && drop.Skin < SkinOwned.Length && SkinOwned[drop.Skin])
+            {
+                int ink = drop.Count * SkinCatalog.ShardInk(skin.Rarity);
+                Ink += ink;
+                loot.Ink = ink;
+                loot.Note = "已有" + skin.Name + "，碎片换成了墨";
+                Save();
+                return loot;
+            }
+            SkinShards[drop.Skin] += drop.Count;
+            int need = Mathf.Max(1, skin.Shards);
+            bool unlocked = false;
+            if (skin.Way == SkinWay.Shard && SkinShards[drop.Skin] >= need)
+                unlocked = GrantSkin(drop.Skin);
+            else
+            {
+                SkinNew |= 1 << drop.Skin;
+                Save();
+            }
+            loot.Shards.Add(new ShardStack
+            {
+                Skin = drop.Skin,
+                Count = drop.Count,
+                Have = SkinShards[drop.Skin],
+                Need = need,
+                Unlocked = unlocked
+            });
+            return loot;
+        }
+
+        public bool TryCraftSkin(int i)
+        {
+            if (i < 0 || i >= SkinCatalog.Count) return false;
+            SkinDef d = SkinCatalog.Get(i);
+            if (d.Way != SkinWay.Shard || SkinOwned[i]) return false;
+            if (SkinShardCount(i) < d.Shards) return false;
+            return GrantSkin(i);
+        }
+
+        public ResultInfo ApplyResult(int stage, int collected, int stars, int hpLeft, int hpMax, bool revived)
         {
             var r = new ResultInfo { Chest = -1 };
             if (stage < 0 || stage >= Stars.Length) return r;
             StageDef def = StageCatalog.Get(stage);
             stars = Mathf.Clamp(stars, 1, GameConstants.MaxStar);
             r.Stars = stars;
+            r.HpLeft = Mathf.Clamp(hpLeft, 0, Mathf.Max(1, hpMax));
+            r.HpMax = Mathf.Max(1, hpMax);
+            r.Revived = revived;
             r.FirstClear = Stars[stage] <= 0;
             r.NewBest = stars > Stars[stage];
             if (r.FirstClear)
@@ -466,6 +853,9 @@ namespace InkLine
             r.ChestFull = ChestsFull;
             r.ChestInk = r.ChestFull ? ChestCatalog.InkAvg(tier) : 0;
             if (r.NewBest) Stars[stage] = stars;
+            int chapter = stage / GameConstants.ChapterSize;
+            r.StarChest = chapter;
+            r.HasStarChest = ChapterFullStars(chapter) && !ChapterChestClaimed(chapter);
             r.NewLines = TakeForgeReveals();
             r.NewSkins = TakeSkinReveals();
             int ink = Mathf.Max(0, collected);
@@ -477,6 +867,12 @@ namespace InkLine
             }
             Ink += ink;
             r.Ink = ink;
+            // 新手打完第一关要能当场升一级伤害。一局掉得太少时悄悄补齐，结算页的数不变。
+            if (stage == 0 && r.FirstClear && GuideStep == GuideBattle)
+            {
+                Ink = Mathf.Max(Ink, ForgeCatalog.Get((int)ForgeLine.Damage).Cost[0]);
+                GuideStep = GuideForge;
+            }
             Save();
             return r;
         }
@@ -510,7 +906,7 @@ namespace InkLine
 
         public bool ClubClaimedToday => ClubDay == Today;
 
-        // slot 是木宝箱进了哪个位，-1 表示位满了，折成了墨。
+        // slot 是木宝箱进了哪个位。-1 位满了先寄着，-3 寄不下才折成墨。
         public bool ClaimClub(out int slot)
         {
             slot = -1;
@@ -523,6 +919,16 @@ namespace InkLine
         }
 
         public bool CheckedToday => CheckDay == Today;
+
+        // 新手指引走完，并且今天还没自动弹过签到页。
+        public bool CheckPopDue => !Guiding && CheckPopDay != Today;
+
+        public void MarkCheckPop()
+        {
+            if (CheckPopDay == Today) return;
+            CheckPopDay = Today;
+            Save();
+        }
 
         public bool CheckAdDoneToday => CheckAdDay == Today;
 
@@ -548,7 +954,7 @@ namespace InkLine
         }
 
         // 返回今天是第几天（1~7），签过了返回 0。skin 表示这一签送了签到皮肤。
-        // chest 是第 7 天的金宝箱进了哪个位：-2 今天没有宝箱，-1 位满了已折成墨。
+        // chest 是第 7 天的金宝箱进了哪个位：-2 今天没有宝箱，-1 位满了先寄着，-3 寄不下才折成墨。
         public int CheckIn(bool doubled, out bool skin, out int chest)
         {
             skin = false;
@@ -561,7 +967,7 @@ namespace InkLine
             if (doubled) CheckAdDay = Today;
             Ink += GameConstants.CheckInk * times;
             Diamond += CheckDiamondOf(day) * times;
-            Stamina = Mathf.Min(GameConstants.StaminaMax, Stamina + GameConstants.CheckStamina * times);
+            Stamina += GameConstants.CheckStamina * times;
             if (day == GameConstants.CheckDays)
             {
                 chest = GrantChest(ChestTier.Gold);
@@ -583,7 +989,7 @@ namespace InkLine
             CheckAdDay = Today;
             Ink += GameConstants.CheckInk;
             Diamond += CheckDiamondOf(CheckRun);
-            Stamina = Mathf.Min(GameConstants.StaminaMax, Stamina + GameConstants.CheckStamina);
+            Stamina += GameConstants.CheckStamina;
             Save();
             return true;
         }
@@ -593,6 +999,7 @@ namespace InkLine
         {
             CheckDay = ShiftDay(CheckDay, -1);
             CheckAdDay = ShiftDay(CheckAdDay, -1);
+            CheckPopDay = ShiftDay(CheckPopDay, -1);
             Save();
         }
 
@@ -854,7 +1261,8 @@ namespace InkLine
             return true;
         }
 
-        public bool UpgradeItem(int i)
+        // equip=false 时解锁后不自动装上，新手指引要让玩家自己点一次「装备」。
+        public bool UpgradeItem(int i, bool equip = true)
         {
             if (!CanUpgradeItem(i, out _)) return false;
             int rank = ItemRank(i);
@@ -862,7 +1270,7 @@ namespace InkLine
             Ink -= ItemCatalog.NextPrice(d, rank);
             ItemCards[i] -= ItemCatalog.NextCards(d, rank);
             ItemLevel[i] = rank + 1;
-            if (rank <= 0 && EquippedSlot(i) < 0 && FreeItemSlot >= 0) Equipped[FreeItemSlot] = i;
+            if (equip && rank <= 0 && EquippedSlot(i) < 0 && FreeItemSlot >= 0) Equipped[FreeItemSlot] = i;
             Save();
             return true;
         }
@@ -960,37 +1368,167 @@ namespace InkLine
             return dirty;
         }
 
-        // 放进第一个空位，返回位号；满了返回 -1，由调用方决定怎么补偿。不落盘。
+        // 靠到最后一个空位。前面有洞时先按原来的先后靠拢，新箱子不插队。满了返回 -1。不落盘。
         int AddChest(ChestTier t)
         {
             ChestSlot = Fit(ChestSlot, ChestCatalog.Slots);
             ChestDone = Fit(ChestDone, ChestCatalog.Slots);
+            PackChests(false);
+            int dest = -1;
             for (int i = 0; i < ChestSlot.Length; i++)
             {
                 if (ChestSlot[i] > 0) continue;
-                ChestSlot[i] = (int)t + 1;
-                ChestDone[i] = 0L;
-                TickChests();
-                return i;
+                dest = i;
+                break;
             }
-            return -1;
+            if (dest < 0) return -1;
+            ChestSlot[dest] = (int)t + 1;
+            ChestDone[dest] = 0L;
+            TickChests();
+            return dest;
         }
 
-        // 签到、游戏圈、GM 发箱子走这里：满了就把箱里的墨折给玩家，不白丢。
+        // 空格留给后面的箱子。slide 为真时记下每只从哪一格来，界面用来滑过去。
+        bool PackChests(bool slide)
+        {
+            ChestSlot = Fit(ChestSlot, ChestCatalog.Slots);
+            ChestDone = Fit(ChestDone, ChestCatalog.Slots);
+            int n = ChestSlot.Length;
+            var slot = new int[n];
+            var done = new long[n];
+            var from = new int[n];
+            int w = 0;
+            bool moved = false;
+            for (int i = 0; i < n; i++)
+            {
+                from[i] = -1;
+                if (ChestSlot[i] <= 0) continue;
+                slot[w] = ChestSlot[i];
+                done[w] = ChestDone[i];
+                from[w] = i;
+                if (i != w) moved = true;
+                w++;
+            }
+            if (!moved)
+            {
+                if (slide) ChestSlideFrom = null;
+                return false;
+            }
+            ChestSlot = slot;
+            ChestDone = done;
+            if (slide) ChestSlideFrom = from;
+            return true;
+        }
+
+        public bool HasOverflow => OverflowChest > 0;
+
+        public ChestTier OverflowTier => (ChestTier)Mathf.Clamp(OverflowChest - 1, 0, 3);
+
+        // 签到、游戏圈、活动、GM 发箱子走这里。
+        // 返回位号；-1 是位满了，箱子寄在 OverflowChest，等玩家选；-3 是两只都寄不下，已折成墨。
         public int GrantChest(ChestTier t)
         {
             int slot = AddChest(t);
-            if (slot < 0) Ink += ChestCatalog.InkAvg(t);
+            if (slot >= 0)
+            {
+                Save();
+                return slot;
+            }
+            if (ParkChest(t))
+            {
+                Save();
+                return -1;
+            }
+            Ink += ChestCatalog.InkAvg(t);
+            Save();
+            return -3;
+        }
+
+        bool ParkChest(ChestTier t)
+        {
+            int v = (int)t + 1;
+            if (v < 1 || v > 4) return false;
+            if (OverflowChest <= 0) { OverflowChest = v; return true; }
+            if (OverflowExtra <= 0)
+            {
+                // 新来的先给玩家看，原来那只排在后面。
+                OverflowExtra = OverflowChest;
+                OverflowChest = v;
+                return true;
+            }
+            return false;
+        }
+
+        void PromoteOverflow()
+        {
+            if (OverflowChest > 0) return;
+            OverflowChest = OverflowExtra;
+            OverflowExtra = 0;
+        }
+
+        // 把寄着的那只放进空位。没空位返回 -1，箱子还在。
+        public int PlaceOverflow()
+        {
+            if (OverflowChest <= 0) return -1;
+            int slot = AddChest(OverflowTier);
+            if (slot < 0) return -1;
+            OverflowChest = 0;
+            PromoteOverflow();
             Save();
             return slot;
+        }
+
+        // 寄着的那只不占格子，当场开掉。看广告走这条。
+        public ChestLoot OpenOverflow()
+        {
+            if (OverflowChest <= 0) return null;
+            ChestTier tier = OverflowTier;
+            OverflowChest = 0;
+            PromoteOverflow();
+            ChestLoot loot = ChestCatalog.Roll(tier, ItemLevel, Equipped);
+            ApplyLoot(loot);
+            Save();
+            return loot;
+        }
+
+        // 寄着的那只换成箱里的平均墨，卡不要了。
+        public int ScrapOverflow()
+        {
+            if (OverflowChest <= 0) return 0;
+            int ink = ChestCatalog.InkAvg(OverflowTier);
+            OverflowChest = 0;
+            PromoteOverflow();
+            Ink += ink;
+            Save();
+            return ink;
+        }
+
+        // 还在等的那只换成平均墨，腾出格子。已经可以打开的不走这里，打开更划算。
+        public int ScrapWaitingChest(int slot)
+        {
+            ChestState st = ChestStateOf(slot);
+            if (st != ChestState.Locked && st != ChestState.Timing) return 0;
+            int ink = ChestCatalog.InkAvg(ChestTierOf(slot));
+            ChestSlot[slot] = 0;
+            ChestDone[slot] = 0L;
+            PackChests(true);
+            Ink += ink;
+            TickChests();
+            Save();
+            return ink;
         }
 
         public ChestLoot OpenChest(int slot)
         {
             if (ChestStateOf(slot) != ChestState.Ready) return null;
-            ChestLoot loot = ChestCatalog.Roll(ChestTierOf(slot), ItemLevel, Equipped);
+            ChestTier tier = ChestTierOf(slot);
+            // 指引里打开的就是第一关那只木箱，卡固定 3 张弹弓。之后的木箱仍随机。
+            ChestLoot loot = GuideStep == GuideChest && tier == ChestTier.Wood
+                ? ChestCatalog.GuideSlingshot(tier)
+                : ChestCatalog.Roll(tier, ItemLevel, Equipped);
             ChestSlot[slot] = 0;
             ChestDone[slot] = 0L;
+            PackChests(true);
             ApplyLoot(loot);
             TickChests();
             Save();
@@ -1046,7 +1584,7 @@ namespace InkLine
             return loot;
         }
 
-        // 离开结算页：放进宝箱位，满了折成墨。
+        // 离开结算页：放进宝箱位。满了就寄着，等玩家选，不折成墨。
         public void StorePending()
         {
             if (PendingChest <= 0) return;
@@ -1054,12 +1592,14 @@ namespace InkLine
             Save();
         }
 
-        void ResolvePending()
+        bool ResolvePending()
         {
-            if (PendingChest <= 0) return;
+            if (PendingChest <= 0) return false;
             var t = (ChestTier)Mathf.Clamp(PendingChest - 1, 0, 3);
             PendingChest = 0;
-            if (AddChest(t) < 0) Ink += ChestCatalog.InkAvg(t);
+            if (AddChest(t) >= 0) return true;
+            if (!ParkChest(t)) Ink += ChestCatalog.InkAvg(t);
+            return true;
         }
 
         // GM：把在解的那个箱子直接解完。
@@ -1093,14 +1633,14 @@ namespace InkLine
             DiamondStamCount < GameConstants.DiamondStaminaPerDay ? GameConstants.DiamondStaminaPrice : -1;
 
         public bool CanBuyStamina =>
-            StaminaDiamondPrice > 0 && Diamond >= StaminaDiamondPrice && Stamina < GameConstants.StaminaMax;
+            StaminaDiamondPrice > 0 && Diamond >= StaminaDiamondPrice;
 
         public bool BuyStamina()
         {
             if (!CanBuyStamina) return false;
             Diamond -= StaminaDiamondPrice;
             DiamondStamCount++;
-            Stamina = Mathf.Min(GameConstants.StaminaMax, Stamina + GameConstants.DiamondStaminaGain);
+            Stamina += GameConstants.DiamondStaminaGain;
             Save();
             return true;
         }

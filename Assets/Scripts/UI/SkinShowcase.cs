@@ -21,7 +21,7 @@ namespace InkLine
         const float PerkY = 156f;
         const float ActY = -108f;
         const float ShelfY = -178f;
-        const float AvatarStep = 84f;
+        const float AvatarStep = 72f;
         const float ArrowX = 262f;
         const float ArrowY = 24f;
 
@@ -35,6 +35,9 @@ namespace InkLine
         Image _lock;
         Text _lockText;
         Text _name;
+        RectTransform _rankTag;
+        Image _rankBg;
+        Text _rank;
         Text _perk;
         Button _act;
         Text _actText;
@@ -44,6 +47,8 @@ namespace InkLine
         RectTransform[] _dots;
         SkinStageMotion _motion;
         int _focus;
+        Text[] _fxName;
+        Text[] _fxVal;
 
         public RectTransform Root => _root;
         public int Focus => _focus;
@@ -76,9 +81,17 @@ namespace InkLine
             _motion = swipe.gameObject.AddComponent<SkinStageMotion>();
             _motion.Swiped = dir => Step(dir);
 
-            _name = UiKit.Label(_root, "name", "", 34, new Vector2(0f, NameY), new Vector2(300f, 44f));
+            _name = UiKit.Label(_root, "name", "", 34, new Vector2(0f, NameY), new Vector2(220f, 44f));
             _name.color = InkTheme.TextDark;
             UiKit.Bold(_name);
+            _rankTag = UiKit.Panel(_root, "rank", new Vector2(0f, NameY), new Vector2(54f, 26f), InkTheme.Hex("3A8EE6"));
+            _rankBg = _rankTag.GetComponent<Image>();
+            _rankBg.sprite = UiSprites.Fill(8);
+            _rankBg.type = Image.Type.Sliced;
+            _rankBg.raycastTarget = false;
+            _rank = UiKit.Label(_rankTag, "t", "", 16, Vector2.zero, new Vector2(54f, 26f));
+            _rank.color = Color.white;
+            UiKit.Bold(_rank);
             _perk = UiKit.Label(_root, "perk", "", 19, new Vector2(0f, PerkY), new Vector2(320f, 28f));
             _perk.color = InkTheme.Seal;
             UiKit.Bold(_perk);
@@ -87,7 +100,7 @@ namespace InkLine
             _motion.Gun = _gun.rectTransform;
             _motion.BaseY = GunCenter;
             _lock = UiKit.Icon(_root, InkSprites.Ui("lock"), new Vector2(0f, GunCenter + 8f), 72f);
-            _lockText = UiKit.Label(_root, "need", "", 26, new Vector2(0f, GunCenter - 44f), new Vector2(260f, 36f));
+            _lockText = UiKit.Label(_root, "need", "", 26, new Vector2(0f, GunCenter - 44f), new Vector2(460f, 36f));
             _lockText.color = InkTheme.CardFace;
             UiKit.Bold(_lockText);
             var lo = _lockText.gameObject.AddComponent<Outline>();
@@ -121,6 +134,90 @@ namespace InkLine
                 _faces[i] = UiKit.Icon(cell, null, new Vector2(0f, 5f), 54f);
                 _used[i] = Seal(cell, "用", new Vector2(22f, 28f), 26f, InkTheme.Seal);
                 _dots[i] = Seal(cell, "", new Vector2(24f, 30f), 16f, InkTheme.Rose);
+            }
+            BuildFx();
+        }
+
+        // 炮右边列当前生效的词条，和进战斗的结算同一套：点过级、装着的专属才算。
+        // 名字靠左，数值靠右一列，字号更大、各用各的颜色，扫一眼不用翻下面的列表。
+        const int FxSlots = 7;
+        const float FxTop = 138f;
+        const float FxStep = 30f;
+        const float FxNameX = 137f;
+        const float FxValX = 214f;
+
+        void BuildFx()
+        {
+            _fxName = new Text[FxSlots];
+            _fxVal = new Text[FxSlots];
+            for (int i = 0; i < FxSlots; i++)
+            {
+                float y = FxTop - i * FxStep;
+                _fxName[i] = UiKit.Label(_root, "fxn" + i, "", 17,
+                    new Vector2(FxNameX, y), new Vector2(74f, 30f), TextAnchor.MiddleLeft);
+                _fxName[i].color = InkTheme.TextDark;
+                UiKit.Bold(_fxName[i]);
+                _fxVal[i] = UiKit.Label(_root, "fxv" + i, "", 22,
+                    new Vector2(FxValX, y), new Vector2(84f, 32f), TextAnchor.MiddleLeft);
+                UiKit.Bold(_fxVal[i]);
+                var shade = _fxVal[i].gameObject.AddComponent<Shadow>();
+                shade.effectColor = new Color(0.22f, 0.13f, 0.08f, 0.28f);
+                shade.effectDistance = new Vector2(1f, -1f);
+                _fxName[i].gameObject.SetActive(false);
+                _fxVal[i].gameObject.SetActive(false);
+            }
+        }
+
+        void PaintFx()
+        {
+            if (_fxName == null) return;
+            int n = 0;
+            int[] order = new int[ForgeCatalog.LineCount];
+            int skin = _meta.Skin;
+            for (int i = 0; i < ForgeCatalog.LineCount; i++)
+            {
+                ForgeDef d = ForgeCatalog.Get(i);
+                if (_meta.ForgeLevel(i) <= 0) continue;
+                if (d.Exclusive && d.Skin != skin) continue;
+                order[n++] = i;
+            }
+            for (int a = 1; a < n; a++)
+            {
+                int v = order[a];
+                int b = a;
+                while (b > 0 && ForgeCatalog.Rank(order[b - 1]) > ForgeCatalog.Rank(v))
+                {
+                    order[b] = order[b - 1];
+                    b--;
+                }
+                order[b] = v;
+            }
+            int shown = Mathf.Min(n, FxSlots);
+            for (int s = 0; s < FxSlots; s++)
+            {
+                bool on = s < shown;
+                _fxName[s].gameObject.SetActive(on);
+                _fxVal[s].gameObject.SetActive(on);
+                if (!on) continue;
+                ForgeDef d = ForgeCatalog.Get(order[s]);
+                _fxName[s].text = d.Stat;
+                _fxVal[s].text = ForgeCatalog.Value(order[s], _meta.ForgeLevel(order[s]));
+                _fxVal[s].color = FxColor(d.Line);
+            }
+        }
+
+        static Color FxColor(ForgeLine line)
+        {
+            switch (line)
+            {
+                case ForgeLine.Damage: return InkTheme.Hex("E25B2A");
+                case ForgeLine.FireRate: return InkTheme.Hex("1E8E4E");
+                case ForgeLine.StartGold: return InkTheme.Hex("C98416");
+                case ForgeLine.BaseHp: return InkTheme.Hex("D23B4A");
+                case ForgeLine.Emitters: return InkTheme.Hex("1C8C8C");
+                case ForgeLine.Crit: return InkTheme.Hex("7A3EC8");
+                case ForgeLine.GoldGain: return InkTheme.Hex("B86E12");
+                default: return InkTheme.TextDark;
             }
         }
 
@@ -173,15 +270,26 @@ namespace InkLine
 
             SkinDef d = SkinCatalog.Get(i);
             bool owned = _meta.SkinOwned[i];
-            // 看广告的也先按没解锁画：暗影加锁。到手之前不给看彩色大图。
-            bool shown = owned || _meta.SkinOpened(i);
+            bool shard = d.Way == SkinWay.Shard;
+            int have = shard ? _meta.SkinShardCount(i) : 0;
+            int need = Mathf.Max(1, d.Shards);
+            // 看广告的也先按没解锁画：暗影加锁。碎片还是 0 的同样锁成灰色，攒到了才亮出这门炮。
+            bool shown = owned || _meta.SkinOpened(i) || (shard && have > 0);
             bool ad = !owned && d.Way == SkinWay.Ad;
+            bool progress = !owned && shard;
             _gun.sprite = InkSprites.Ui("skin_" + d.Key);
             _gun.color = shown ? Color.white : Shadow;
             _lock.gameObject.SetActive(!shown);
-            _lockText.gameObject.SetActive(!shown && !ad);
-            _lockText.text = SkinCatalog.LockText(d);
+            _lockText.gameObject.SetActive(progress || (!owned && !shown && !ad));
+            _lockText.fontSize = progress ? 20 : 26;
+            _lockText.text = progress
+                ? "碎片 " + have + "/" + need + " 通过" + ChestCatalog.CannonName + "获取"
+                : SkinCatalog.LockText(d);
             _name.text = d.Name;
+            _name.color = SkinCatalog.RankDeep(d.Rarity);
+            _rank.text = SkinCatalog.RankName(d.Rarity);
+            _rankBg.color = SkinCatalog.RankColor(d.Rarity);
+            PlaceTitle();
             _motion.Alpha = _gun.color.a;
             _motion.SlideIn(dir);
 
@@ -192,7 +300,21 @@ namespace InkLine
 
             BindAct(i, d, owned, shown);
             for (int k = 0; k < _frames.Length; k++) BindAvatar(k);
+            PaintFx();
             if (notify && moved) _focusChanged?.Invoke(i);
+        }
+
+        // 名字始终钉在正中。标签贴在字的左侧，不参与居中。
+        void PlaceTitle()
+        {
+            Canvas.ForceUpdateCanvases();
+            float nameW = _name.preferredWidth;
+            if (nameW < 8f) nameW = _name.text.Length * _name.fontSize;
+            const float tagW = 54f;
+            const float tagH = 26f;
+            const float gap = 8f;
+            _rankTag.sizeDelta = new Vector2(tagW, tagH);
+            _rankTag.anchoredPosition = new Vector2(-nameW * 0.5f - gap - tagW * 0.5f, NameY);
         }
 
         void BindAct(int i, SkinDef d, bool owned, bool ready)
@@ -205,6 +327,13 @@ namespace InkLine
             else if (d.Way == SkinWay.Ad) { text = "看广告解锁"; live = true; }
             else if (d.Way == SkinWay.Check) { text = "签到获得"; live = false; }
             else if (d.Way == SkinWay.Event) { text = "活动获取"; live = false; }
+            else if (d.Way == SkinWay.Shard)
+            {
+                int have = _meta.SkinShardCount(i);
+                int need = Mathf.Max(1, d.Shards);
+                text = have >= need ? "合成" : "碎片 " + have + "/" + need;
+                live = have >= need;
+            }
             else if (ready) { text = d.Price + "墨 购买"; live = _meta.CanBuySkin(i, out _); }
             else { text = "未开放"; live = false; }
             _actText.text = text;
@@ -217,16 +346,28 @@ namespace InkLine
         void BindAvatar(int k)
         {
             bool owned = _meta.SkinOwned[k];
-            bool ready = owned || _meta.SkinReady(k);
+            SkinDef dk0 = SkinCatalog.Get(k);
+            bool ready = owned || _meta.SkinReady(k)
+                || (dk0.Way == SkinWay.Shard && _meta.SkinShardCount(k) > 0);
             string key = k == _focus ? "Ui/skin_frame_on" : (ready ? "Ui/skin_frame" : "Ui/skin_frame_lock");
             Sprite spr = InkSprites.Load(key);
             if (spr != null) _frames[k].sprite = spr;
             _frames[k].rectTransform.localScale = Vector3.one * (k == _focus ? 1.12f : 1f);
-            _faces[k].sprite = InkSprites.Ui("skin_" + SkinCatalog.Get(k).Key);
+            _faces[k].sprite = InkSprites.Ui("skin_" + dk0.Key);
             _faces[k].color = ready ? Color.white : Shadow;
             _used[k].gameObject.SetActive(_meta.Skin == k);
-            bool ad = !owned && SkinCatalog.Get(k).Way == SkinWay.Ad;
-            _dots[k].gameObject.SetActive(ad || (!owned && _meta.Skin != k && _meta.CanBuySkin(k, out _)));
+            bool ad = !owned && dk0.Way == SkinWay.Ad;
+            bool craft = !owned && dk0.Way == SkinWay.Shard && _meta.SkinShardCount(k) >= dk0.Shards;
+            _dots[k].gameObject.SetActive(ad || craft || (!owned && _meta.Skin != k && _meta.CanBuySkin(k, out _)));
+        }
+
+        void FlySkin(int i)
+        {
+            if (_root == null) return;
+            RectTransform layer = RewardFly.LayerOf(_root);
+            Vector2 from = RewardFly.Local(layer, _act != null ? _act.transform : _root);
+            RectTransform gun = _gun != null ? _gun.rectTransform : null;
+            RewardFly.Play(layer, from, new[] { RewardFly.Skin(layer, i, gun) });
         }
 
         void OnAct()
@@ -243,11 +384,22 @@ namespace InkLine
                 AdStub.Reward("skin", () =>
                 {
                     if (!_meta.GrantSkin(i)) return;
+                    FlySkin(i);
                     if (_root != null) _changed?.Invoke();
                 });
                 return;
             }
-            if (_meta.BuySkin(i)) _changed?.Invoke();
+            if (SkinCatalog.Get(i).Way == SkinWay.Shard && _meta.TryCraftSkin(i))
+            {
+                FlySkin(i);
+                if (_root != null) _changed?.Invoke();
+                return;
+            }
+            if (_meta.BuySkin(i))
+            {
+                FlySkin(i);
+                _changed?.Invoke();
+            }
         }
     }
 

@@ -1,0 +1,25 @@
+A 2 by 2 grid of 4 full-body game enemy characters. Every empty area of the picture, including the gaps between the four characters, is one flat fluorescent magenta field, the colour of #FF00FF. The attached reference is only for the ink-blob drawing style. The new picture's background is this fluorescent magenta field.
+
+The attached image only shows the drawing style of this game's existing ink enemies. Copy that drawing language and draw new characters:
+- A chunky rounded blob body filled with dark charcoal ink, the colour of a wet ink stick, with a slightly lighter grey sheen along the top of the head and shoulders.
+- A very thick solid black outline around the whole silhouette and around every limb.
+- Simple mitten hands and simple rounded feet.
+- One stitched cross-shaped patch on the charcoal skin.
+- A few small solid black ink specks floating close to the body.
+- Flat, simple shapes, few details, the same modest level of detail as the attached ink enemies.
+
+Each new character is that same ink blob turned into a fierce rat. Two round ears sit on top of the head, the same dark charcoal outside, the inside of each ear the dark brown of a roasted chestnut. A short blunt snout sticks forward. A thin charcoal tail grows from the lower back and stays attached to the body in one continuous shape. The eyes are two narrow pure-white slits slanting inward in an angry glare. The mouth is a short open snarl with two small white fangs the colour of rice. The body leans forward, shoulders hunched, ready to bite. The whole body stays that same dark charcoal, so the silhouette reads dark.
+
+Colour appears only on the one treasure each rat carries. That treasure is bright and saturated.
+
+Top-left, "Ingot Rat": an ordinary-size ink rat walking upright, hunched forward, both mitten paws hugging one shiny gold ingot, a Chinese yuanbao, boat-shaped with a rounded hump. The ingot is the warm yellow of a brand-new gold coin.
+
+Top-right, "Rolling Rat": the whole body is one big round charcoal ball, with two small round ears, a short snout, two angry white eye-slits, two white fangs, and a short thin tail. Four tiny stubby limbs poke out. A small round copper coin with a square hole sits on the side of the ball, the coin the warm reddish brown of a new copper penny. The coin face is smooth plain copper showing only the square hole and a raised rim.
+
+Bottom-left, "Sack Rat": a short, very fat, heavy ink rat with a big round belly, walking slowly, a bulging burlap rice sack over one shoulder. The sack is the tan of a paper grocery bag, tied with string the bright red of a red envelope. A few plain white rice grains spill from a small hole in the sack. Ears, snout, fangs and tail stay visible.
+
+Bottom-right, "Big-Ear Rat": a small narrow body under a huge round head. Two enormous round ears make the head most of his height. A Chinese lucky knot hangs on his chest: a diamond-shaped knot the bright red of a red envelope, with a red tassel and one small gold bead the yellow of a new gold coin.
+
+Layout: exactly 2 columns and 2 rows, 4 characters. Each character sits centred in its own quadrant, fully inside it, with a wide band of plain magenta all around it. The whole background is one perfectly flat, uniform solid magenta. The image contains only these four rats and their treasure.
+
+NO TEXT, no letters, no numbers, no labels, no captions, no writing anywhere in the image.

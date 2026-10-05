@@ -84,10 +84,23 @@ JOBS = {
     "wind_shot":    dict(src="v3_shot_wind", mode="ball", cols=4, rows=2, shave=14, largest=True,
                          pick=[0, 1, 2, 2, 5, 3, 6, 7]),
 
+    # 重：秤砣弹体，单帧。星级只靠 GlyphTable 里的 Size 放大。
+    "heavy_shot":   dict(src="v4_shot_heavy", mode="marks", cols=1, rows=1, names=["heavy_shot_00"]),
+
     "dot_marks":    dict(src="v2_dot_marks", mode="marks", cols=2, rows=2,
-                         names=["dot_poison", "dot_stun", "dot_confuse", "dot_ripple"],
+                         names=["dot_poison", "dot_stun", "dot_confuse", None],
                          holes=True),
+
+    # v4：减速改成脚下一块冰面（4 帧闪光循环），替掉一圈蓝水纹
+    "dot_frost":    dict(src="v4_slow_mark", mode="hang", cols=2, rows=2, shave=14),
+
+    # v4 命中：对标 hit_explode 的分层平涂四帧。提示词见 docs/prompt/vfx/build_v4_hits.py
+    **{f"hitv_{k}": dict(src=f"v4_hit_{k}", mode="burst", cols=2, rows=2, shave=12)
+       for k in ("fire", "ice", "water", "thunder", "poison", "earth", "wind", "gold", "wood",
+                 "heavy", "ink", "stun", "confuse", "kill", "cleave", "knock", "arrow", "fireice")},
 }
+
+HIT_SIZE = 128    # 普通命中在屏上约 100 px；平涂特效不压缩导入，再大包体吃不消
 
 
 def cut(sheet, cols, rows, shave=10, pick=None):
@@ -233,6 +246,22 @@ def run(key, cfg):
             w, h = emit(cell, mask, cy - up, cy + down, cx - half, cx + half, SIZE, f"{key}_{i:02d}")
         sink = 0.5 - up / (up + down)
         print(f"  {key}_00..{len(cells) - 1:02d}  {w}x{h}   Sink = {sink:+.3f}")
+        return
+
+    if mode == "burst":
+        # 四帧共用格子中心当锚点、共用一个方窗口：命中原地炸开，各帧不能各自居中
+        half = 0
+        for mask in masks:
+            h, w = mask.shape
+            cy, cx = h // 2, w // 2
+            t, b, l, r = box(mask)
+            half = max(half, cy - t, b - cy, cx - l, r - cx)
+        half += 4
+        for i, (cell, mask) in enumerate(zip(cells, masks)):
+            h, w = mask.shape
+            cy, cx = h // 2, w // 2
+            ww, hh = emit(cell, mask, cy - half, cy + half, cx - half, cx + half, HIT_SIZE, f"{key}_{i:02d}")
+        print(f"  {key}_00..{len(cells) - 1:02d}  {ww}x{hh}")
         return
 
     # rise / hang：共用包围盒，只是对齐的那条边不同

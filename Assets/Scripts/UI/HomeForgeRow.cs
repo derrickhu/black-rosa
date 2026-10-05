@@ -14,6 +14,7 @@ namespace InkLine
         const string Green = "2E9E55";
 
         public RectTransform Root;
+        public Button Act => _act;
         float _builtW;
         Image _icon;
         Text _name;

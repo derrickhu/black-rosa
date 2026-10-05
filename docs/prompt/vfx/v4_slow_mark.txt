@@ -1,0 +1,6 @@
+2D game status-mark sprite sheet for a cute casual mobile tower-defense game, a FROSTY SLOW PATCH that sits on the ground under a monster's feet, seen from a gentle three-quarter top view so it is a wide flat ellipse. Layout: exactly 2 columns x 2 rows = 4 square cells, evenly spaced, on a plain pure white background (#FFFFFF), with only empty white space between the cells. Each patch sits centered in its own cell with a wide white margin, about 80 percent of the cell wide and about 30 percent of the cell tall.
+
+The attached reference image shows the drawing style of the same game: flat cel-shaded layered shapes, one solid color per layer, crisp edges, a thick dark outline. Use it only for that style.
+
+Subject: a flat icy puddle ellipse, the surface like a frozen pond (pale ice-pop blue) with a lighter inner shine band like fresh snow, a swimming-pool blue rim, a thick deep navy outline like dark denim, and four or five small chunky ice crystals standing up along the back edge of the ellipse, with two small white four-point sparkles.
+The four cells are a gentle looping shimmer of the same patch: identical ellipse and position in all four, only the sparkles move to new spots and the shine band slides slightly left to right.

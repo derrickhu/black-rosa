@@ -40,7 +40,9 @@ namespace InkLine
         // 绕
         OrbitWind, OrbitSplit, OrbitWood,
         // 晕光
-        BloomHeavy, BloomGold
+        BloomHeavy, BloomGold,
+        // 体 · 重的秤砣。后补的，接在最后不挪前面的值
+        FormHeavy
     }
 
     // 三档数值。星只放大数字，★3 才允许加新动词。
@@ -160,8 +162,9 @@ namespace InkLine
             {
                 Id = CardId.Heavy, Family = GlyphFamily.Hurt,
                 MulDamage = new Tri(1.6f, 1.9f, 2.3f),
+                // Size 只拉长、加粗拖尾。重不换弹体，叠上别的字时炮弹仍是那个字的样子。
                 Size = new Tri(1.15f, 1.35f, 1.6f),
-                Bloom = ShotFx.BloomHeavy, Hit = HitFx.Heavy
+                Hit = HitFx.Heavy
             },
             new GlyphDef
             {
@@ -197,7 +200,8 @@ namespace InkLine
             {
                 Id = CardId.Water, Family = GlyphFamily.Status, Status = StatusKind.Slow,
                 Power = new Tri(0.85f, 0.75f, 0.62f), Time = new Tri(1.5f),
-                Radius = new Tri(0.6f),
+                // 一格宽 1.16。范围按到怪身边缘算，0.9 能溅到隔壁列贴得近的那只。
+                Radius = new Tri(0.9f),
                 Form = ShotFx.FormWater, Hit = HitFx.Water
             },
             // 雷常驻、范围、短控；晕蓄力、单体、长控。雷不额外加伤。
@@ -205,7 +209,8 @@ namespace InkLine
             {
                 Id = CardId.Thunder, Family = GlyphFamily.Status, Status = StatusKind.Stun,
                 Time = new Tri(0.5f, 0.75f, 1.0f),
-                Radius = new Tri(0.5f, 0.7f, 0.9f),
+                // 连带要能跳到隔壁列，否则只在同一列里串，玩家根本看不到传导。
+                Radius = new Tri(1.3f, 1.5f, 1.8f),
                 Count = new Tri(1f, 2f, 3f),
                 Form = ShotFx.FormThunder, Hit = HitFx.Thunder
             },
@@ -267,7 +272,8 @@ namespace InkLine
             new GlyphDef
             {
                 Id = CardId.Explode, Family = GlyphFamily.Area,
-                Radius = new Tri(0.55f, 0.82f, 1.12f), Decay = new Tri(0.6f),
+                // ★1 炸到同列和贴边的邻列，★2 盖住左右各一列，★3 再大一圈。
+                Radius = new Tri(0.85f, 1.15f, 1.45f), Decay = new Tri(0.6f),
                 Form = ShotFx.FormExplode, Hit = HitFx.Explode
             },
 
@@ -348,6 +354,12 @@ namespace InkLine
         // 冰 ★3 有几率把「缓」升级成「冻」。
         public const float IceFreezeChance = 0.35f;
         public const float IceFreezeTime = 0.45f;
+
+        // 惑：被迷住的那只每口咬同伴多少，固定值不跟谁的血量走 ——
+        // 按血量比例的话杂兵咬一口才 1 点，玩家根本看不出它在打人。
+        static readonly float[] ConfuseBites = { 4f, 6f, 9f };
+        public const float ConfuseBiteCd = 0.6f;
+        public static float ConfuseBite(int star) => ConfuseBites[Mathf.Clamp(star, 1, 3) - 1];
 
         public static bool FreezeOnHit(int star) => star >= 3;
         public static bool BurnPop(int star) => star >= 2;

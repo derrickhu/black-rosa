@@ -1,0 +1,15 @@
+A 2 by 2 grid of 4 full-body cartoon enemy characters for a cute casual mobile tower-defense game, on a pure solid magenta background (#FF00FF).
+
+Style: bright cheerful flat cartoon like a cute casual phone game. Very thick solid black outline around the whole silhouette and around every limb. Simple rounded chunky shapes, flat even colours with gentle two-tone cel shading, big round shiny black eyes with one white highlight dot each. Cute-but-mischievous expressions. Full body, seen from the front at a slight three-quarter angle.
+
+Theme: a gang of little thief mice sneaking into a Chinese New Year temple fair to steal rice and treasure. Every mouse has round ears with pink insides the colour of a peach, a pink nose, thin pink tail, and soft fur the warm grey of a pigeon's feathers, with a cream belly the colour of rice pudding. Each mouse carries one stolen treasure, drawn bright and saturated so it reads clearly when the character is tiny on screen.
+
+Top-left, "Ingot Mouse": an ordinary-size mouse walking upright on two hind legs, hugging one shiny gold ingot (a Chinese yuanbao, boat-shaped with a rounded hump) against his chest. The ingot is the warm yellow of a brand-new gold coin with a bright highlight.
+
+Top-right, "Rolling Hamster": a tiny very round fat hamster curled into an almost perfect ball, rolling forward, fur the orange-tan of a toasted peanut with a cream belly, little paws tucked in, cheeks stuffed round and full of rice. One single grain of white rice sticks out of his mouth.
+
+Bottom-left, "Rice Sack Fatty": a short, very fat, heavy mouse with a big round belly, walking slowly, carrying a big bulging burlap rice sack over his shoulder, the sack the tan of a paper grocery bag, tied at the top with red string the red of a red envelope, a few white rice grains spilling from a small hole.
+
+Bottom-right, "Big-Ear Mouse": a mouse with a huge round head and two enormous round ears, his head making up most of his height, on a small narrow body standing upright. A Chinese lucky knot hangs on a red cord around his neck: a diamond-shaped woven knot the bright red of a red envelope with a red tassel below.
+
+Layout: exactly 2 columns and 2 rows, 4 characters. Each character sits centred in its own quadrant, fully inside it, with a wide band of plain magenta all around it. The whole background is one perfectly flat, uniform solid magenta. The image contains only these four characters and their treasure on the magenta background; every treasure has a smooth plain surface decorated only with simple shapes and highlights.

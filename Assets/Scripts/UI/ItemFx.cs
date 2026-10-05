@@ -9,10 +9,13 @@ namespace InkLine
     // 三档排场跟品质走：普通只在目标附近热闹一下；高级加一层全屏氛围和名字横幅；
     // 稀有先压暗全场、亮出大图标和名字，再出手。等级越高粒子越多、范围越大。
     // 伤害由 BattleWorld 在 ItemCast.Impact 秒后结算，这里的「命中」点要和它对齐。
+    [DefaultExecutionOrder(-20)]
     public sealed class ItemFx : MonoBehaviour
     {
         RectTransform _root;
         RectTransform _layer;
+        BattleWorld _watch;
+        readonly List<UiAnim> _casts = new List<UiAnim>();
 
         public static ItemFx Build(RectTransform layer)
         {
@@ -43,6 +46,7 @@ namespace InkLine
         public void Play(BattleWorld.ItemCast c, BattleWorld w, Vector2 key, Vector2 hearts)
         {
             if (w == null) return;
+            _watch = w;
             var g = ResultKit.Group(_root, "cast_" + c.Id, Vector2.zero, Vector2.zero);
             g.anchorMin = Vector2.zero;
             g.anchorMax = Vector2.one;
@@ -71,7 +75,22 @@ namespace InkLine
                 default: end = 1f; break;
             }
             s.A.At(end, () => { if (g != null) Destroy(g.gameObject); });
+            _casts.Add(s.A);
+            Hold(w.Paused);
         }
+
+        // 字牌、确认、设置把世界停住时，道具演出停在这一帧，回来再接着播。
+        public void Hold(bool hold)
+        {
+            for (int i = _casts.Count - 1; i >= 0; i--)
+            {
+                UiAnim a = _casts[i];
+                if (a == null) { _casts.RemoveAt(i); continue; }
+                a.SetHeld(hold);
+            }
+        }
+
+        void Update() => Hold(_watch != null && _watch.Paused);
 
         // ---------- 普通：弹弓、鞭炮、胶水 ----------
 
@@ -222,17 +241,8 @@ namespace InkLine
                     drop.rectTransform.anchoredPosition = p;
                     drop.enabled = k > 0f && k < 1f;
                 });
-                var puddle = Pic(s.G, InkSprites.Load("Vfx/dot_ripple"), at(), 130f * s.Pow, glue);
-                puddle.preserveAspect = true;
-                s.A.Tween(T, hold, k =>
-                {
-                    puddle.rectTransform.anchoredPosition = at() + new Vector2(0f, -18f);
-                    float grow = Ease.OutBack(Mathf.Clamp01(k * 6f));
-                    float wob = 1f + 0.05f * Mathf.Sin(k * 18f);
-                    puddle.rectTransform.localScale = new Vector3(grow * wob, grow / wob, 1f);
-                    float a = k < 0.8f ? 0.9f : 0.9f * (1f - k) / 0.2f;
-                    puddle.color = Alpha(glue, a);
-                });
+                // 落点只溅一下；之后脚下的减速冰面由 InkDot 按状态画，这里不再另摊一滩
+                s.A.At(T, () => Boom(s, "Vfx/hitv_water_", 4, at(), 120f * s.Pow, Color.white, 0f, 0.3f));
             }
             s.A.At(T, () =>
             {
@@ -271,7 +281,7 @@ namespace InkLine
             for (int i = 0; i < waves; i++)
                 Shock(s, mid, InkTheme.Word, 160f, s.Half.y * 2.6f, 0.24f + i * 0.13f, 0.55f);
 
-            float stop = 1.2f + 0.4f * s.Lv;
+            float stop = ItemCatalog.HaltTime(s.Lv);
             s.A.At(T, () =>
             {
                 Flash(s, Color.white, T, 0.45f, 0.35f);
@@ -319,7 +329,7 @@ namespace InkLine
                     can.enabled = k < 1f;
                 });
 
-            float dur = 4f + s.Lv;
+            float dur = ItemCatalog.RageTime(s.Lv);
             int mul = 2 + (s.Lv - 1) / 2;
             s.A.At(T + 0.22f, () =>
             {
@@ -394,12 +404,12 @@ namespace InkLine
                 Vector2 from = new Vector2(x, s.Half.y + 80f);
                 Vector2 to = new Vector2(x, s.Half.y - 52f + UnityEngine.Random.Range(-14f, 8f));
                 float t0 = T - 0.12f + Mathf.Abs(i - cols * 0.5f) * 0.018f;
-                float hold = 1.6f + 0.3f * s.Lv;
+                float hold = ItemCatalog.FrostTime(s.Lv);
                 s.A.Move(ice.rectTransform, from, to, t0, 0.22f, Ease.OutBounce)
                     .Fade(ice, t0 + hold, 0.4f, 1f, 0f);
             }
 
-            float slow = 1.6f + 0.3f * s.Lv;
+            float slow = ItemCatalog.FrostTime(s.Lv);
             s.A.At(T, () =>
             {
                 Flash(s, InkTheme.IceHi, T, 0.5f, 0.35f);
@@ -511,7 +521,7 @@ namespace InkLine
                 stream.enabled = thin > 0.02f && grow > 0f;
             });
 
-            float burn = 2.2f + 0.6f * s.Lv;
+            float burn = ItemCatalog.SplashTime(s.Lv);
             s.A.At(T, () =>
             {
                 AudioBus.HitFire();

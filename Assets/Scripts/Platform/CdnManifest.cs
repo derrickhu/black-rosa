@@ -20,6 +20,7 @@ namespace InkLine
                 { "Bg/battle_bg_6", ("Bg/battle_bg_6_a578ffc59bcc4c6b50aca3b0d48fc27d.jpg", "Bg/battle_bg_6.png") },
                 { "Bg/battle_bg_7", ("Bg/battle_bg_7_6c0cb190bc7b8a9b08ec57aff855d305.jpg", "Bg/battle_bg_7.png") },
                 { "Bg/battle_bg_8", ("Bg/battle_bg_8_b8a48b8a0f08e6faf79581586933af4d.jpg", "Bg/battle_bg_8.png") },
+                { "Bg/battle_bg_event", ("Bg/battle_bg_event_4d1936d0dbb8135f3ffd6dd5b719d51f.jpg", "Bg/battle_bg_event.png") },
                 { "Ui/chapter_1", ("Ui/chapter_1_adfd2e87979423feb14ed7ce2c08ff65.png", "Ui/chapter_1.png") },
                 { "Ui/chapter_2", ("Ui/chapter_2_78aa3b9400f20e3fd798b6dd2b532b40.png", "Ui/chapter_2.png") },
                 { "Ui/chapter_3", ("Ui/chapter_3_a5e31c71a5508125e8e26cc07aba8dc2.png", "Ui/chapter_3.png") },

@@ -25,15 +25,29 @@ namespace InkLine
         public int Spare;
     }
 
+    // 炮台宝箱开出来的一叠炮台碎片。Have / Need 是入账之后的进度。
+    public struct ShardStack
+    {
+        public int Skin;
+        public int Count;
+        public int Have;
+        public int Need;
+        public bool Unlocked;
+    }
+
     public sealed class ChestLoot
     {
         public ChestTier Tier;
         public int Ink;
         public readonly List<CardStack> Cards = new List<CardStack>();
+        public string Title;     // 有值时盖过品阶名，炮台宝箱用
+        public string ArtKey;    // 有值时用 Ui/chest_<ArtKey>
+        public string Note;
+        public readonly List<ShardStack> Shards = new List<ShardStack>();
     }
 
-    // 胜利宝箱。时长按「打一关一两分钟」定：木箱、银箱打下一关时就开好了，
-    // 金箱、皇家箱要打几关，有点盼头又不至于劝退。
+    // 胜利宝箱。一关大约一两分钟：木箱打完下一关就开好，银箱再打一两关，
+    // 金箱、皇家箱留着慢慢等。
     public static class ChestCatalog
     {
         public const int Slots = 4;
@@ -43,28 +57,59 @@ namespace InkLine
         {
             new ChestDef
             {
-                Tier = ChestTier.Wood, Name = "木宝箱", Key = "wood", Seconds = 60,
-                InkMin = 8, InkMax = 12, Cards = 6
+                Tier = ChestTier.Wood, Name = "木宝箱", Key = "wood", Seconds = 120,
+                InkMin = 8, InkMax = 12, Cards = 2
             },
             new ChestDef
             {
-                Tier = ChestTier.Silver, Name = "银宝箱", Key = "silver", Seconds = 180,
-                InkMin = 18, InkMax = 26, Cards = 14
+                Tier = ChestTier.Silver, Name = "银宝箱", Key = "silver", Seconds = 300,
+                InkMin = 18, InkMax = 26, Cards = 4
             },
             new ChestDef
             {
-                Tier = ChestTier.Gold, Name = "金宝箱", Key = "gold", Seconds = 480,
-                InkMin = 42, InkMax = 58, Cards = 30, PurpleChance = 0.35f
+                Tier = ChestTier.Gold, Name = "金宝箱", Key = "gold", Seconds = 720,
+                InkMin = 42, InkMax = 58, Cards = 6, PurpleChance = 0.35f
             },
             new ChestDef
             {
-                Tier = ChestTier.Royal, Name = "皇家宝箱", Key = "royal", Seconds = 900,
-                InkMin = 90, InkMax = 120, Cards = 40, PurpleChance = 1f
+                Tier = ChestTier.Royal, Name = "皇家宝箱", Key = "royal", Seconds = 1200,
+                InkMin = 90, InkMax = 120, Cards = 8, PurpleChance = 1f
             }
         };
 
         public static ChestDef Get(ChestTier t) => All[Mathf.Clamp((int)t, 0, All.Length - 1)];
         public static ChestDef Get(int t) => All[Mathf.Clamp(t, 0, All.Length - 1)];
+
+        // 炮台宝箱。章节满星会发一只，以后别的活动也可以发同一只。
+        // 只从「集碎片到手」的炮里抽。稀有单独占一小截，其余炮平分剩下的概率。
+        public const string CannonName = "炮台宝箱";
+        public const string CannonArt = "cannon";
+        public const float CannonRare = 0.05f;
+        public const int CannonShards = 2;
+
+        public struct CannonRoll
+        {
+            public int Skin;
+            public int Count;
+        }
+
+        public static CannonRoll RollCannon()
+        {
+            var common = new List<int>();
+            var rare = new List<int>();
+            for (int i = 0; i < SkinCatalog.Count; i++)
+            {
+                SkinDef d = SkinCatalog.Get(i);
+                if (d.Way != SkinWay.Shard || d.Shards <= 0) continue;
+                if (d.Rarity == SkinRarity.Rare) rare.Add(i);
+                else common.Add(i);
+            }
+            bool wantRare = rare.Count > 0 && Random.value < CannonRare;
+            List<int> pool = wantRare ? rare : common;
+            if (pool.Count == 0) pool = rare.Count > 0 ? rare : common;
+            int skin = pool.Count > 0 ? pool[Random.Range(0, pool.Count)] : SkinCatalog.Gilt;
+            return new CannonRoll { Skin = skin, Count = CannonShards };
+        }
 
         // 普通关按这张表轮着发，不纯靠随机。boss 关、章底另算。
         static readonly ChestTier[] Cycle =
@@ -102,42 +147,39 @@ namespace InkLine
             seconds >= 60 ? (seconds / 60) + " 分钟" : seconds + " 秒";
 
         // 一个箱子里分几叠、每叠什么品质。数字是每叠的张数，合计等于 Cards。
+        // 单叠停在解锁线下面：绿要 6 张、蓝要 4 张、紫要 5 张。一箱只推进一步。
         static void Plan(ChestTier t, List<(ItemQuality q, int n)> into)
         {
             ChestDef d = Get(t);
             switch (t)
             {
                 case ChestTier.Wood:
-                    into.Add((ItemQuality.Green, 4));
                     into.Add((ItemQuality.Green, 2));
                     break;
                 case ChestTier.Silver:
-                    into.Add((ItemQuality.Green, 7));
-                    into.Add((ItemQuality.Green, 4));
-                    into.Add((ItemQuality.Blue, 3));
+                    into.Add((ItemQuality.Green, 2));
+                    into.Add((ItemQuality.Green, 1));
+                    into.Add((ItemQuality.Blue, 1));
                     break;
                 case ChestTier.Gold:
                     if (Random.value < d.PurpleChance)
                     {
-                        into.Add((ItemQuality.Green, 18));
-                        into.Add((ItemQuality.Blue, 6));
-                        into.Add((ItemQuality.Blue, 4));
-                        into.Add((ItemQuality.Purple, 2));
+                        into.Add((ItemQuality.Green, 3));
+                        into.Add((ItemQuality.Blue, 2));
+                        into.Add((ItemQuality.Purple, 1));
                     }
                     else
                     {
-                        into.Add((ItemQuality.Green, 12));
-                        into.Add((ItemQuality.Green, 8));
-                        into.Add((ItemQuality.Blue, 6));
-                        into.Add((ItemQuality.Blue, 4));
+                        into.Add((ItemQuality.Green, 3));
+                        into.Add((ItemQuality.Green, 1));
+                        into.Add((ItemQuality.Blue, 2));
                     }
                     break;
                 default:
-                    into.Add((ItemQuality.Green, 16));
-                    into.Add((ItemQuality.Green, 5));
-                    into.Add((ItemQuality.Blue, 10));
-                    into.Add((ItemQuality.Blue, 6));
-                    into.Add((ItemQuality.Purple, 3));
+                    into.Add((ItemQuality.Green, 4));
+                    into.Add((ItemQuality.Green, 1));
+                    into.Add((ItemQuality.Blue, 2));
+                    into.Add((ItemQuality.Purple, 1));
                     break;
             }
         }
@@ -164,6 +206,15 @@ namespace InkLine
                 loot.Cards.Add(new CardStack { Item = pick, Count = plan[i].n });
             }
             loot.Cards.Sort((a, b) => ItemCatalog.Get(a.Item).Quality.CompareTo(ItemCatalog.Get(b.Item).Quality));
+            return loot;
+        }
+
+        // 新手第一关的木箱：墨照常，卡固定是弹弓。普通木箱仍走 Roll。
+        public static ChestLoot GuideSlingshot(ChestTier t)
+        {
+            ChestDef d = Get(t);
+            var loot = new ChestLoot { Tier = t, Ink = Random.Range(d.InkMin, d.InkMax + 1) };
+            loot.Cards.Add(new CardStack { Item = (int)ItemId.Snipe, Count = GameConstants.GuideSlingshot });
             return loot;
         }
 

@@ -135,15 +135,21 @@ namespace InkLine
             u.Home = pos;
 
             int heavy = m.Star(CardId.Heavy);
-            float grow = heavy > 0 ? GlyphTable.Get(CardId.Heavy).Size.At(heavy) : 1f;
+            bool heavyTrail = heavy > 0 && _v.Elements == 0 && !_v.Form.On && !_v.Trail.On;
+            float trailMul = heavyTrail ? GlyphTable.Get(CardId.Heavy).Size.At(heavy) : 1f;
             bool bright = ShotSparks.Bright;
             Color tone = ShotTrail.Tone(m, _v);
             ShotAura aura = ShotTrail.Aura(m, _v);
             Material add = bright ? InkFx.AddMat() : null;
 
             // 尾槽（速 / 瞄）一串渐小的圆点，平涂体自带尾巴就不再补墨尾。
-            if (_v.Trail.On) Trail(u.Root, Color.Lerp(_v.Trail.Tint, Color.white, 0.2f), _v.Trail.Tint, 8, 34f * grow);
-            else if (!_flat) Trail(u.Root, Head(), Tail(), 4, 22f * grow);
+            if (_v.Trail.On) Trail(u.Root, Color.Lerp(_v.Trail.Tint, Color.white, 0.2f), _v.Trail.Tint, 8, 34f);
+            else if (!_flat)
+            {
+                Color head = heavyTrail ? Color.Lerp(ShotTrail.GlowOf(CardId.Heavy), Color.white, 0.28f) : Head();
+                Color tail = heavyTrail ? ShotTrail.GlowOf(CardId.Heavy) : Tail();
+                Trail(u.Root, head, tail, heavyTrail ? 7 : 4, 22f * trailMul);
+            }
 
             if (!bright)
             {
@@ -152,14 +158,14 @@ namespace InkLine
                 if (_v.Bloom.On)
                 {
                     glow = Fade(_v.Bloom.Tint, 0.45f);
-                    glowS = _v.Bloom.Fx == ShotFx.BloomHeavy ? 150f : 130f;
+                    glowS = 130f;
                 }
                 else if (!_flat && _v.Elements > 0) glow = Fade(_v.Mixed, 0.36f);
-                if (glow.a > 0f) Img(u.Root, InkFx.SoftDisc(), Vector2.zero, glowS * grow, glow);
+                if (glow.a > 0f) Img(u.Root, InkFx.SoftDisc(), Vector2.zero, glowS, glow);
             }
             else if (aura.Glow.a > 0f)
             {
-                u.Flare = Img(u.Root, InkFx.SoftDisc(), Vector2.zero, 90f * aura.Flare * grow, aura.Glow);
+                u.Flare = Img(u.Root, InkFx.SoftDisc(), Vector2.zero, 90f * aura.Flare, aura.Glow);
                 u.Flare.material = add;
             }
 
@@ -176,7 +182,7 @@ namespace InkLine
                 u.Body = Img(u.Root, first, Vector2.zero, 10f, Color.white);
                 if (first != null)
                 {
-                    float h = Mathf.Min(first.bounds.size.y * _fb.Scale * Kilo() * grow, 210f);
+                    float h = Mathf.Min(first.bounds.size.y * _fb.Scale * Kilo(), 210f);
                     float w = h * first.rect.width / Mathf.Max(1f, first.rect.height);
                     u.Body.rectTransform.sizeDelta = new Vector2(w, h);
                     u.Body.rectTransform.anchoredPosition = new Vector2(0f, -_fb.Sink * h + h * 0.18f);
@@ -186,8 +192,8 @@ namespace InkLine
             {
                 Color pellet = _v.Elements > 0 ? _v.Mixed
                     : (bright && tone.a > 0f ? Color.Lerp(tone, Color.white, 0.15f) : InkTheme.Ink);
-                u.Body = Img(u.Root, InkArt.Heap(InkShape.Circle, Color.white, 64), Vector2.zero, 40f * grow, pellet);
-                if (_v.Elements > 0) Img(u.Root, InkFx.SoftDisc(), new Vector2(-4f, 5f), 20f * grow, Fade(Color.white, 0.6f));
+                u.Body = Img(u.Root, InkArt.Heap(InkShape.Circle, Color.white, 64), Vector2.zero, 40f, pellet);
+                if (_v.Elements > 0) Img(u.Root, InkFx.SoftDisc(), new Vector2(-4f, 5f), 20f, Fade(Color.white, 0.6f));
             }
 
             BuildOrn(u, total, bright);

@@ -231,6 +231,42 @@ namespace InkLine
                 if (_pages[i] != null) _pages[i].gameObject.SetActive(i == tab);
             UiKit.PaintTab(_tabs, tab);
             Rebuild(tab);
+            TabPicked?.Invoke(tab);
+        }
+
+        // ---------- 新手指引要用的几个落点 ----------
+
+        public int Tab => _tab;
+        public event Action<int> TabPicked;
+        // 词条买成功后报一声，下标是词条。
+        public event Action<int> ForgeBought;
+
+        public RectTransform TabRect(int tab) =>
+            _tabs != null && tab >= 0 && tab < _tabs.Length && _tabs[tab] != null ? _tabs[tab].transform as RectTransform : null;
+
+        public RectTransform GoRect => _view != null && _view.GoButton != null ? _view.GoButton.transform as RectTransform : null;
+
+        public RectTransform BoostAct(int line)
+        {
+            if (_view == null || _view.Boosts == null || line < 0 || line >= _view.Boosts.Length) return null;
+            HomeBoostRow slot = _view.Boosts[line];
+            Button act = slot != null && slot.Ui != null ? slot.Ui.Act : null;
+            return act != null ? act.transform as RectTransform : null;
+        }
+
+        public void RefreshWallet()
+        {
+            _shownSec = -1;
+            Rebuild(_tab);
+        }
+
+        // 顶栏三个格子，奖励飞进来落在这里。
+        public RectTransform WalletChip(string key)
+        {
+            Text t = key == "diamond" ? _diamond : key == "ink" ? _ink : _stamina;
+            if (t == null) return null;
+            Transform p = t.transform.parent;
+            return (p != null ? p : t.transform) as RectTransform;
         }
 
         void Rebuild(int tab)
@@ -345,9 +381,12 @@ namespace InkLine
 
         void WatchStaminaAd()
         {
+            Transform fromBtn = _view != null && _view.AdButton != null ? _view.AdButton.transform : WalletChip("stamina");
             AdStub.Reward("stamina", () =>
             {
                 _meta.GrantAdStamina();
+                RewardFly.Play(_layer, RewardFly.Local(_layer, fromBtn),
+                    new[] { RewardFly.Stamina(_layer, GameConstants.AdStaminaGain) });
                 Rebuild(_tab);
             });
         }
@@ -595,6 +634,7 @@ namespace InkLine
                     if (!_meta.BuyForge(idx)) return;
                     Rebuild(TabForge);
                     ItemCelebrate.Row(_layer, BoostRow(idx), "Lv." + _meta.ForgeLevel(idx));
+                    ForgeBought?.Invoke(idx);
                 },
                 (_forgeFresh & (1L << line)) != 0);
             MuteRow(slot);
@@ -683,7 +723,46 @@ namespace InkLine
             {
                 _chests = HomeChestRow.Build(page, new Vector2(0f, ChestY + HomeChestRow.Slot * 0.5f), OpenChestSlot);
             }
+            PlaceWaitingChests();
             _chests.Refresh(_meta);
+            SyncHoldChip(page);
+        }
+
+        // 之前寄着的箱子，只要有空位就放进去。挑选页还开着时格子是满的，这里放不进去。
+        void PlaceWaitingChests()
+        {
+            int n = 0;
+            var slots = new int[2];
+            var tiers = new ChestTier[2];
+            while (n < slots.Length && _meta.HasOverflow)
+            {
+                tiers[n] = _meta.OverflowTier;
+                int slot = _meta.PlaceOverflow();
+                if (slot < 0) break;
+                slots[n++] = slot;
+            }
+            if (n <= 0 || _layer == null) return;
+            var pieces = new RewardFly.Piece[n];
+            for (int i = 0; i < n; i++) pieces[i] = RewardFly.Chest(_layer, tiers[i], slots[i]);
+            RewardFly.Play(_layer, new Vector2(0f, -80f), pieces);
+            InkToast.Show(_layer, "空位放进了新宝箱");
+        }
+
+        void SyncHoldChip(RectTransform page)
+        {
+            Transform old = page.Find("hold");
+            Transform sh = page.Find("hold_sh");
+            if (!_meta.HasOverflow)
+            {
+                if (old != null) UnityEngine.Object.Destroy(old.gameObject);
+                if (sh != null) UnityEngine.Object.Destroy(sh.gameObject);
+                return;
+            }
+            if (old != null) return;
+            UiKit.Btn(page, "hold", "新箱待放", new Vector2(0f, GoY + GoH + 12f), new Vector2(210f, 52f), () =>
+            {
+                ChestOverflowView.Show(_layer, _meta, RefreshWallet);
+            }, true, Pin.Bottom).transform.SetAsLastSibling();
         }
 
         void OpenChestSlot(int slot)
@@ -695,7 +774,42 @@ namespace InkLine
                 return;
             }
             AudioBus.Tap();
-            ChestPanel.Show(_layer, _meta, slot, AfterReward);
+            ChestPanel panel = ChestPanel.Show(_layer, _meta, slot, AfterReward, ChestFree);
+            if (panel != null) ChestOpened?.Invoke(panel);
+        }
+
+        // 新手指引那一次开箱免费加速。
+        public bool ChestFree;
+        public event Action<ChestPanel> ChestOpened;
+
+        public RectTransform ChestRect(int slot)
+        {
+            if (_chests == null || _chests.Root == null) return null;
+            return _chests.Root.Find("c" + slot) as RectTransform;
+        }
+
+        public RectTransform ItemCardRect(int item)
+        {
+            HomeItemPage host = ItemPage();
+            return host != null ? host.CardOf(item) : null;
+        }
+
+        public RectTransform ItemShelfRect()
+        {
+            HomeItemPage host = ItemPage();
+            return host != null ? host.ShelfRect : null;
+        }
+
+        public RectTransform ItemSlotRect(int slot)
+        {
+            HomeItemPage host = ItemPage();
+            return host != null ? host.SlotRect(slot) : null;
+        }
+
+        HomeItemPage ItemPage()
+        {
+            RectTransform page = _pages != null && _pages.Length > TabSpell ? _pages[TabSpell] : null;
+            return page != null ? page.GetComponent<HomeItemPage>() : null;
         }
 
         void BindChapter(int frontier)
@@ -714,6 +828,7 @@ namespace InkLine
             CdnAssets.Prefetch("Ui/chapter_" + (_chapter + 2));
             CdnAssets.Prefetch("Bg/battle_bg_" + (_chapter + 1));
             if (board.Title != null) board.Title.text = SortiePageBuilder.ChapterTitle(_chapter);
+            BindStarChest(board);
             int count = Mathf.Min(SortiePageBuilder.PerChapter,
                 GameConstants.StageCount - _chapter * SortiePageBuilder.PerChapter);
             if (board.Route != null)
@@ -763,6 +878,66 @@ namespace InkLine
                 board.Next.onClick.RemoveAllListeners();
                 board.Next.onClick.AddListener(() => ShiftChapter(1));
             }
+        }
+
+        void BindStarChest(HomeChapterBoard board)
+        {
+            if (board.StarChest == null)
+            {
+                var host = new GameObject("starchest", typeof(RectTransform), typeof(Image), typeof(Button));
+                host.transform.SetParent(board.transform, false);
+                var rt = host.GetComponent<RectTransform>();
+                rt.anchorMin = rt.anchorMax = new Vector2(1f, 1f);
+                rt.pivot = new Vector2(1f, 1f);
+                rt.anchoredPosition = new Vector2(-10f, -12f);
+                rt.sizeDelta = new Vector2(112f, 118f);
+                var hit = host.GetComponent<Image>();
+                hit.color = new Color(1f, 1f, 1f, 0f);
+                var btn = host.GetComponent<Button>();
+                btn.transition = Selectable.Transition.None;
+                btn.targetGraphic = hit;
+                board.StarChest = btn;
+                board.StarArt = UiKit.Icon(host.transform, InkSprites.Load("Ui/chest_royal"), new Vector2(0f, 16f), 72f);
+                board.StarLabel = UiKit.Label(host.transform, "t", "", 16, new Vector2(0f, -36f), new Vector2(112f, 24f));
+                UiKit.Bold(board.StarLabel);
+            }
+            bool claimed = _meta.ChapterChestClaimed(_chapter);
+            bool full = _meta.ChapterFullStars(_chapter);
+            string key = "chest_" + ChestCatalog.CannonArt + (claimed ? "_open" : "");
+            Sprite art = InkSprites.Load("Ui/" + key);
+            if (art == null) art = InkSprites.Load(claimed ? "Ui/chest_royal_open" : "Ui/chest_royal");
+            if (board.StarArt != null)
+            {
+                if (art != null) board.StarArt.sprite = art;
+                board.StarArt.color = full || claimed ? Color.white : new Color(0.55f, 0.55f, 0.58f, 1f);
+            }
+            if (board.StarLabel != null)
+            {
+                board.StarLabel.text = claimed ? "已领" : full ? "领取" : "差" + _meta.ChapterStarGaps(_chapter) + "关";
+                board.StarLabel.color = full && !claimed ? InkTheme.Seal : InkTheme.TextMid;
+            }
+            board.StarChest.onClick.RemoveAllListeners();
+            board.StarChest.onClick.AddListener(OnStarChest);
+        }
+
+        void OnStarChest()
+        {
+            int chapter = _chapter;
+            if (_meta.ChapterChestClaimed(chapter))
+            {
+                InkToast.Show(_layer, "这章的" + ChestCatalog.CannonName + "已经领过");
+                return;
+            }
+            if (!_meta.ChapterFullStars(chapter))
+            {
+                AudioBus.Deny();
+                InkToast.Show(_layer, ChapterStars.Preview(chapter));
+                return;
+            }
+            ChestLoot loot = _meta.ClaimStarChest(chapter);
+            if (loot == null) return;
+            AudioBus.Tap();
+            ChestOpenView.Show(_layer, _meta, loot, () => BindChapter(NextStage()));
         }
 
         void ShiftChapter(int dir)
@@ -865,6 +1040,7 @@ namespace InkLine
                 else if (i == SideCheckIn) btn.onClick.AddListener(() => CheckInPanel.Show(_layer, _meta, AfterReward));
                 else if (i == SideCodex) btn.onClick.AddListener(() => CodexPanel.Show(_layer, _meta, AfterReward));
                 else if (i == SideRank) btn.onClick.AddListener(() => RankPanel.Show(_layer, _meta));
+                else if (i == SideEvent) btn.onClick.AddListener(OpenEvent);
             }
             if (_view.SideActs.Length != SortiePageBuilder.SideCount) return;
             Button gift = _view.SideActs[SideGift];
@@ -873,6 +1049,18 @@ namespace InkLine
             RedDot(_view.SideActs[SideClub], !_meta.ClubClaimedToday);
             RedDot(_view.SideActs[SideCheckIn], !_meta.CheckedToday);
             RedDot(_view.SideActs[SideCodex], _meta.CodexHasNew);
+            Button ev = _view.SideActs[SideEvent];
+            if (ev != null) ev.gameObject.SetActive(_meta.EventOpen);
+            RedDot(ev, _meta.EventOpen && (_meta.EventHasClaim() || (!_meta.EventDone && _meta.EventPlaysLeft > 0)));
+        }
+
+        // GameFlow 接上开打活动关；结算页「回活动」也从这里重开活动面板。
+        public Action<int> StartEvent;
+
+        public void OpenEvent()
+        {
+            if (!_meta.EventOpen) return;
+            EventPanel.Show(_layer, _meta, tier => StartEvent?.Invoke(tier), AfterReward);
         }
 
         // 领了礼包 / 游戏圈奖励：顶栏数值、礼包贴纸、皮肤页都要跟着变。
@@ -943,6 +1131,7 @@ namespace InkLine
         const int SideCheckIn = 2;
         const int SideCodex = 3;
         const int SideRank = 4;
+        const int SideEvent = 5;
 
         void BindSeal(HomeSealCell slot, int index)
         {

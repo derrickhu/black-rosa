@@ -21,17 +21,28 @@ namespace InkLine
         Text _gemCost;
         ChestState _last = (ChestState)(-1);
         int _lastSec = -1;
+        bool _free;
 
-        public static void Show(RectTransform layer, MetaProgress meta, int slot, Action changed)
+        // 新手指引：加速不要钱也不看广告，只剩一颗「免费加速」，加速完不直接开，等玩家自己点「打开」。
+        public RectTransform SpeedRect => _ad != null ? _ad.transform as RectTransform : null;
+        public RectTransform OpenRect => _open != null ? _open.transform as RectTransform : null;
+        public RectTransform StateRect => _state != null ? _state.rectTransform : null;
+        public event Action Sped;
+        public event Action Opening;
+        public event Action Revealed;
+
+        public static ChestPanel Show(RectTransform layer, MetaProgress meta, int slot, Action changed, bool free = false)
         {
-            if (meta == null || meta.ChestStateOf(slot) == ChestState.Empty) return;
+            if (meta == null || meta.ChestStateOf(slot) == ChestState.Empty) return null;
             var dim = UiKit.Dimmer(layer);
             dim.name = "chest_panel";
             var panel = dim.gameObject.AddComponent<ChestPanel>();
             panel._meta = meta;
             panel._slot = slot;
             panel._changed = changed;
+            panel._free = free;
             panel.Build(dim);
+            return panel;
         }
 
         void Close()
@@ -75,7 +86,23 @@ namespace InkLine
             _gemCost = UiKit.Label(face, "cost", "", 26, new Vector2(84f, 0f), new Vector2(60f, 36f));
             _gemCost.color = InkTheme.TextDark;
             UiKit.Bold(_gemCost);
+            if (_free)
+            {
+                Transform sh = _ad.transform.parent.Find(_ad.name + "_sh");
+                if (sh != null) Destroy(sh.gameObject);
+                Destroy(_ad.gameObject);
+                _ad = UiKit.Btn(board, "free", "免费加速", new Vector2(0f, 70f), new Vector2(400f, 100f), OnFree, true, Pin.Bottom);
+            }
             Refresh();
+        }
+
+        void OnFree()
+        {
+            AudioBus.Tap();
+            if (!_meta.AdRushChest(_slot)) return;
+            AudioBus.UnlockSting();
+            Refresh();
+            Sped?.Invoke();
         }
 
         static void ContentChip(RectTransform board, string icon, string text, Vector2 pos)
@@ -106,7 +133,7 @@ namespace InkLine
             bool ready = st == ChestState.Ready;
             SetShown(_open, ready);
             SetShown(_ad, !ready);
-            SetShown(_gem, !ready);
+            SetShown(_gem, !ready && !_free);
             if (ready)
             {
                 _state.text = "已解锁，可以打开";
@@ -162,9 +189,17 @@ namespace InkLine
         {
             RectTransform layer = (RectTransform)transform.parent;
             Action changed = _changed;
+            Action revealed = Revealed;
+            Opening?.Invoke();
             Destroy(gameObject);
+            _meta.DeferChestSlide = true;
             changed?.Invoke();
-            ChestOpenView.Show(layer, _meta, loot, changed);
+            ChestOpenView.Show(layer, _meta, loot, () =>
+            {
+                _meta.DeferChestSlide = false;
+                changed?.Invoke();
+                revealed?.Invoke();
+            });
         }
     }
 }

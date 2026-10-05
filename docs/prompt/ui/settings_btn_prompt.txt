@@ -1,0 +1,7 @@
+A single round settings button for a flat 2D mobile game, centered in the frame.
+
+The button is a cream circle the color of xuan paper, with a thick even walnut-brown outline the color of dark soy sauce. Inside the circle sits one chunky gear: six thick rectangular teeth, the gear body is the red of a Chinese red envelope, and the center hub is a small circle the yellow of a gold coin, also outlined in walnut brown. The gear is flat cut-paper, hard edges between a base red and one darker red crescent, no soft shading.
+
+The entire background outside the circle is one perfectly uniform solid magenta, the color of a highlighter marker, with a wide empty magenta margin on all four sides. The circle does not touch the edges.
+
+Flat solid color only. Uniform thick walnut outline. No gradients, no gloss, no shadow, no 3D, no texture, no text, no letters, no numbers.

@@ -14,8 +14,9 @@ namespace InkLine
         const string Reroll = "adunit-11415a8a0688700b";
         const string Stamina = "adunit-9d8f7809fe38e610";
         const string CheckIn = "adunit-501d0517137c5114";
+        const string Event = "adunit-b9540a99a3ceffcb";
 
-        // 签到当天补领一份和当场翻倍是同一个广告位。
+        // 签到当天补领一份和当场翻倍是同一个广告位；招财进宝加次数、存钱翻倍、失败存回也共用一个。
         // 结算「墨翻倍 + 开宝箱」(double) 和复活 (revive) 还没给广告位，真机上不发奖。
         static string UnitOf(string slot)
         {
@@ -29,6 +30,9 @@ namespace InkLine
                 case "stamina": return Stamina;
                 case "checkin_double":
                 case "checkin_bonus": return CheckIn;
+                case "event_plays":
+                case "event_double":
+                case "event_salvage": return Event;
                 default: return null;
             }
         }
@@ -52,16 +56,6 @@ namespace InkLine
 #endif
         }
 
-        // SDK 起来之后预拉一遍，第一次点不用等加载。
-        public static void Warm()
-        {
-#if UNITY_MINIGAME || WEIXINMINIGAME || UNITY_WEIXINMINIGAME || MINIGAME_SUBPLATFORM_WEIXIN
-            if (Application.isEditor) return;
-            foreach (string unit in new[] { ChestSpeed, StarterGift, Emitter, Skin, Reroll, Stamina, CheckIn })
-                HolderOf(unit);
-#endif
-        }
-
 #if UNITY_MINIGAME || WEIXINMINIGAME || UNITY_WEIXINMINIGAME || MINIGAME_SUBPLATFORM_WEIXIN
         sealed class Holder
         {
@@ -79,17 +73,36 @@ namespace InkLine
         static Holder HolderOf(string unit)
         {
             if (Holders.TryGetValue(unit, out Holder got)) return got;
+            // 开局把 8 个位一起建出来，微信会警告「实例过多」，鸿蒙上这一下能卡接近一秒。
+            // 同时只留一个：换广告位之前先拆掉闲着的。multiton 还是要开，
+            // 否则全局只认第一次的广告位，看完不发奖。
+            DropIdle();
             var h = new Holder();
             h.Ad = WeChatWASM.WX.CreateRewardedVideoAd(new WeChatWASM.WXCreateRewardedVideoAdParam
             {
                 adUnitId = unit,
-                multiton = false,
+                multiton = true,
             });
             h.Ad.OnClose(r => Closed(h, r));
             h.Ad.OnError(e => Errored(h, e));
             h.Ad.Load(_ => { }, e => Debug.LogWarning("[Ad] 预加载失败 " + e.errCode + " " + e.errMsg));
             Holders[unit] = h;
             return h;
+        }
+
+        static void DropIdle()
+        {
+            List<string> drop = null;
+            foreach (var kv in Holders)
+            {
+                if (kv.Value.Busy || kv.Value.Ad == null) continue;
+                try { kv.Value.Ad.Destroy(); }
+                catch (Exception e) { Debug.LogWarning("[Ad] " + e.Message); }
+                if (drop == null) drop = new List<string>();
+                drop.Add(kv.Key);
+            }
+            if (drop == null) return;
+            for (int i = 0; i < drop.Count; i++) Holders.Remove(drop[i]);
         }
 
         static void Play(string unit, string slot, Action onOk)

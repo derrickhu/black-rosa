@@ -43,6 +43,7 @@ namespace InkLine
         public float StunGuard;
         public float HoldTime;     // 土的落地硬直，不算硬控
         public float ConfuseCd;
+        public float ConfuseBite;
         public float PoisonLeech;  // 蚀生：毒伤入吸血池的每波上限，0 表示不入
         public float Shock;        // 焦雷：晕结束时要补的那一下
         public float StrafeDir = 1f;
@@ -141,6 +142,14 @@ namespace InkLine
         public bool Boss;
     }
 
+    // 雷的连带：一道从 A 打到 B 的电弧，只是表现，结算在 SpreadStatus 里已经做完。
+    public struct ArcFx
+    {
+        public Vector2 A;
+        public Vector2 B;
+        public Color Tint;
+    }
+
     // 这一下伤害是哪来的。域和连斩不再走斩杀，也不再触发新的域。
     public enum HitSource { Direct, Cleave, Area, Arrow }
 
@@ -191,6 +200,19 @@ namespace InkLine
         public bool BossKilled;
         public int WaveIndex;
         public float WaveTime;
+
+        // 同一组多于一只时，不要在同一帧倒出来。先出一只，剩下的隔开再进。
+        // 活动关已经拆成一只一个时间点，这里 count 为 1，不会再隔一次。
+        const float DripGap = 1.1f;
+        struct Drip
+        {
+            public EnemyId Id;
+            public int Column;
+            public int Left;
+            public int Ord;
+            public float Wait;
+        }
+        readonly List<Drip> _drip = new List<Drip>();
         public float BattleTime;
         public int NextActorId = 1;
         public StageDef Stage;
@@ -202,6 +224,7 @@ namespace InkLine
         public readonly List<FxBurst> Bursts = new List<FxBurst>();
         public readonly List<DropItem> Drops = new List<DropItem>();
         public readonly List<DeathFx> Deaths = new List<DeathFx>();
+        public readonly List<ArcFx> Arcs = new List<ArcFx>();
         public readonly List<CellPulse> Pulses = new List<CellPulse>();
 
         // 顶栏两个药丸在世界里的位置，由 BattleView 每帧按画布算好塞进来。
@@ -243,6 +266,8 @@ namespace InkLine
         int[,] _charge;
         float _critChance;
         float _goldGain = 1f;
+        // GM 调局内捡金币的倍数，只在模拟器里能改，不落盘。
+        public static int GmGoldMul = 1;
         float _goldFrac;
         WordId[] _word;
         int[] _wordStar;
@@ -289,7 +314,7 @@ namespace InkLine
             _critChance = Mathf.Clamp01(forge.CritChance);
             _goldGain = Mathf.Max(1f, forge.GoldMul);
             _goldFrac = 0f;
-            MaxBaseHp = stage.Has(StageRule.Frail) ? 1 : Mathf.Max(1, forge.BaseHp);
+            MaxBaseHp = Mathf.Max(1, forge.BaseHp);
             BaseHp = MaxBaseHp;
             BeginItems(equipped);
             Enemies.Clear();
@@ -298,6 +323,7 @@ namespace InkLine
             Bursts.Clear();
             Drops.Clear();
             Deaths.Clear();
+            Arcs.Clear();
             Pulses.Clear();
             ResetChests();
             if (PreviewFill)
@@ -309,28 +335,9 @@ namespace InkLine
                 ApplyPreviewFill();
                 RailX = FieldLayout.ColumnX(0);
             }
-            else
-            {
-                PlacePreset(stage.Preset);
-                if (stage.Rules != StageRule.None) ShowToast(StageCatalog.RuleHint(stage.Rules), 3.2f);
-            }
             ClampRail();
             for (int c = 0; c < GameConstants.Columns; c++) RefreshCol(c);
         }
-
-        void PlacePreset(PresetCard[] preset)
-        {
-            if (preset == null) return;
-            for (int i = 0; i < preset.Length; i++)
-            {
-                PresetCard p = preset[i];
-                if (!IsOpen(p.Col, p.Row)) continue;
-                Grid[p.Col, p.Row] = p.Id;
-                Stars[p.Col, p.Row] = Mathf.Clamp(p.Star, 1, GameConstants.MaxStar);
-            }
-        }
-
-        float GoldMul => StageCatalog.GoldMulOf(Stage.Rules);
 
         // 进关之后再套皮肤：默认弹伤和开局金币加上去，改装的乘算、加算照旧。
         public void ApplySkin(int skin)
@@ -487,37 +494,89 @@ namespace InkLine
                 if (WaveTime - dt < s.Time && WaveTime >= s.Time)
                     Spawn(s, i);
             }
-            if (WaveTime >= wave.Duration)
+            TickDrip(dt);
+            // 这一组还在陆续进场时不切波，免得后半截被下一波掐掉，或和下一波挤在同一帧。
+            if (WaveTime >= wave.Duration && _drip.Count == 0)
             {
                 WaveIndex++;
                 WaveTime = 0f;
                 _leechGiven = 0f;
+                if (Stage.Event) PayInterest();
             }
+        }
+
+        void TickDrip(float dt)
+        {
+            for (int i = _drip.Count - 1; i >= 0; i--)
+            {
+                Drip d = _drip[i];
+                d.Wait -= dt;
+                while (d.Left > 0 && d.Wait <= 0f)
+                {
+                    Emit(d.Id, d.Column, false, d.Ord, false);
+                    d.Left--;
+                    d.Ord++;
+                    d.Wait += DripGap;
+                }
+                if (d.Left <= 0) _drip.RemoveAt(i);
+                else _drip[i] = d;
+            }
+        }
+
+        // 活动关：每波收尾按钱袋余额给利息。钱压着不花才有，这是「存」的那一半。
+        public int Interest;
+
+        void PayInterest()
+        {
+            int n = EventCatalog.Interest(Gold, EventCatalog.InterestCap);
+            if (n <= 0) return;
+            Gold += n;
+            Interest += n;
+            GoldPop = 1f;
+            AudioBus.Pickup();
+            ShowFloat(GoldChip + new Vector2(0f, -0.7f), "利息 +" + n, InkTheme.CoinDeep, 1.1f);
         }
 
         void Spawn(SpawnSpec spec, int spawnIndex)
         {
             int count = BodyCount(spawnIndex, spec);
-            // 只数在关卡表里已经按「开局疏、收尾密」摊过，这里只负责把它们铺开。
+            // 只数在关卡表里已经按「开局疏、收尾密」摊过。这里只负责进场。
             // 血和掉落都不摊 —— 每只吃满表血、掉满自己那份。
+            // 关底成对进场仍是同一下。杂兵多于一只就隔开出，不在出生点叠成一串。
             bool boss = EnemyIds.IsBoss(spec.Id);
-            for (int i = 0; i < count; i++)
+            if (count <= 0) return;
+            if (count == 1 || boss)
             {
-                int col = spec.Column;
-                if (col < 0) col = boss ? UnityEngine.Random.Range(0, GameConstants.Columns) : PickColumn();
-                int picked = spec.Column < 0 ? col : -1;
-                col = Mathf.Clamp(col + Fan(i), 0, GameConstants.Columns - 1);
-                // 随机挑中的空列已经是按份额给的，不再挪；指定列和铺开落进空列的才挪。
-                if (!boss && col != picked) col = SteerColumn(col);
-                // 每三只往上退一排，进场是一队一队而不是叠在一个点上。
-                var at = new Vector2(
-                    FieldLayout.ColumnX(col) + UnityEngine.Random.Range(-0.1f, 0.1f),
-                    GameConstants.SpawnY + i / 3 * 0.62f + UnityEngine.Random.Range(0f, 0.12f));
-                Enemies.Add(Make(spec.Id, at));
+                for (int i = 0; i < count; i++)
+                    Emit(spec.Id, spec.Column, boss, i, true);
+                return;
             }
+            Emit(spec.Id, spec.Column, false, 0, false);
+            _drip.Add(new Drip
+            {
+                Id = spec.Id,
+                Column = spec.Column,
+                Left = count - 1,
+                Ord = 1,
+                Wait = DripGap
+            });
         }
 
-        // Bodies 是这一拨摊过密度、丰年和开局曲线之后的只数。表没铺上时退回旧算法。
+        void Emit(EnemyId id, int column, bool boss, int ordinal, bool stack)
+        {
+            int col = column;
+            if (col < 0) col = boss ? UnityEngine.Random.Range(0, GameConstants.Columns) : PickColumn();
+            int picked = column < 0 ? col : -1;
+            col = Mathf.Clamp(col + Fan(ordinal), 0, GameConstants.Columns - 1);
+            // 随机挑中的空列已经是按份额给的，不再挪；指定列和铺开落进空列的才挪。
+            if (!boss && col != picked) col = SteerColumn(col);
+            float y = GameConstants.SpawnY + UnityEngine.Random.Range(0f, 0.12f);
+            if (stack) y += ordinal / 3 * 0.62f;
+            var at = new Vector2(FieldLayout.ColumnX(col) + UnityEngine.Random.Range(-0.1f, 0.1f), y);
+            Enemies.Add(Make(id, at));
+        }
+
+        // Bodies 是这一拨摊过密度、章节折扣和开局曲线之后的只数。表没铺上时退回旧算法。
         int BodyCount(int spawnIndex, SpawnSpec spec)
         {
             int[][] grid = Stage.Bodies;
@@ -526,10 +585,7 @@ namespace InkLine
                 int[] row = grid[WaveIndex];
                 if (row != null && spawnIndex >= 0 && spawnIndex < row.Length) return row[spawnIndex];
             }
-            int count = spec.Count * EnemyCatalog.Density(spec.Id);
-            if (Stage.Has(StageRule.Rich) && !EnemyIds.IsBoss(spec.Id))
-                count = Mathf.CeilToInt(count * 1.25f);
-            return count;
+            return spec.Count * EnemyCatalog.Density(spec.Id);
         }
 
         // 前几章格子没开满，怪要多走有格子的列，玩家放的字才打得着。
@@ -600,9 +656,7 @@ namespace InkLine
         {
             EnemyDef def = EnemyCatalog.Get(id, Stage.Hp);
             float hp = Mathf.Max(1f, def.Hp * hpShare);
-            float speed = Stage.Has(StageRule.Swift) ? def.Speed * 1.2f : def.Speed;
-            // 丰年、疾行按只加成。以前是把整波的钱袋乘完再摊，玩家看不出哪一只变值钱了。
-            float drop = GoldMul;
+            float speed = def.Speed * StageCatalog.SpeedOf(Stage.Chapter);
             var e = new EnemyActor
             {
                 Id = NextActorId++,
@@ -613,8 +667,8 @@ namespace InkLine
                 HpShare = hpShare,
                 Speed = speed,
                 Radius = def.Radius,
-                Gold = EnemyCatalog.Drop(def.Gold, drop),
-                Ink = def.Ink * drop,
+                Gold = def.Gold,
+                Ink = Stage.Event ? 0f : def.Ink * StageCatalog.InkOf(Stage.Chapter),
                 Shield = def.HasShield,
                 Strafe = def.Strafe,
                 PreferEmpty = def.PreferEmpty,
@@ -787,7 +841,7 @@ namespace InkLine
                 m.ExplodeR = Mathf.Max(m.ExplodeR, g.Radius.At(_explodeStar[col]));
                 m.ExplodeShare = g.Decay.At(_explodeStar[col]);
             }
-            if (_heavyStar[col] > 0 && PullCharge(col, ChHeavy, CardCatalog.Get(CardId.Heavy).ChargeNeed))
+            if (_heavyStar[col] > 0 && PullCharge(col, ChHeavy, CardCatalog.ChargeNeed(CardId.Heavy, _heavyStar[col])))
             {
                 // 只放大视觉，碰撞半径不动 —— 之前连 Radius 一起乘，炮弹会撑满格。
                 m.Mark(CardId.Heavy, _heavyStar[col]);
@@ -1094,7 +1148,9 @@ namespace InkLine
             {
                 EnemyActor e = Enemies[i];
                 if (e.Dead) continue;
-                if ((e.Pos - pos).sqrMagnitude > r * r) continue;
+                // 量到怪身边缘：大个子半个身子在圈里就该挨炸。
+                float reach = r + e.Radius;
+                if ((e.Pos - pos).sqrMagnitude > reach * reach) continue;
                 if (!src.HitIds.Contains(e.Id))
                 {
                     src.HitIds.Add(e.Id);
@@ -1200,19 +1256,41 @@ namespace InkLine
             }
         }
 
-        // 水是范围内全体，雷是主目标外再连带 Chain 个。
+        readonly List<EnemyActor> _spread = new List<EnemyActor>();
+
+        // 水是范围内全体，雷是主目标外再连带 Chain 个，从最近的挑起。
+        // 被波及的怪各自冒一下小特效，雷还要从主目标拉一道电弧过去，看得出是传过去的。
         void SpreadStatus(EnemyActor hit, StatusHit s, ShotMods m)
         {
-            int cap = s.Chain > 0 ? s.Chain : int.MaxValue;
-            int n = 0;
-            for (int i = 0; i < Enemies.Count && n < cap; i++)
+            _spread.Clear();
+            for (int i = 0; i < Enemies.Count; i++)
             {
                 EnemyActor e = Enemies[i];
                 if (e.Dead || e.Id == hit.Id) continue;
-                if ((e.Pos - hit.Pos).sqrMagnitude > s.Radius * s.Radius) continue;
-                ApplyStatus(e, s, m);
-                n++;
+                float reach = s.Radius + e.Radius;
+                if ((e.Pos - hit.Pos).sqrMagnitude > reach * reach) continue;
+                _spread.Add(e);
             }
+            if (_spread.Count == 0) return;
+            Vector2 from = hit.Pos;
+            _spread.Sort((a, b) => (a.Pos - from).sqrMagnitude.CompareTo((b.Pos - from).sqrMagnitude));
+            int cap = s.Chain > 0 ? Mathf.Min(s.Chain, _spread.Count) : _spread.Count;
+            bool chain = s.Chain > 0;
+            for (int i = 0; i < cap; i++)
+            {
+                EnemyActor e = _spread[i];
+                ApplyStatus(e, s, m);
+                if (chain) Arcs.Add(new ArcFx { A = hit.Pos, B = e.Pos, Tint = InkTheme.Thunder });
+                Bursts.Add(new FxBurst
+                {
+                    Pos = e.Pos,
+                    Kind = chain ? HitFx.Thunder : HitFx.Water,
+                    Event = s.Kind == StatusKind.Stun ? HitEvent.Stun : HitEvent.None,
+                    Tint = chain ? InkTheme.ThunderHi : InkTheme.WaterHi,
+                    Scale = 0.8f
+                });
+            }
+            if (chain) AudioBus.Zap();
         }
 
         void ApplyStatus(EnemyActor e, StatusHit s, ShotMods m)
@@ -1230,6 +1308,8 @@ namespace InkLine
             if (GlyphTable.IsHard(kind))
             {
                 ApplyHard(e, kind, time, s.Power);
+                if (kind == StatusKind.Confuse && e.Confused)
+                    e.ConfuseBite = GlyphTable.ConfuseBite(m.Star(CardId.Confuse));
                 // 焦雷：这一下的账记在敌人身上，晕结束时再结
                 if (kind == StatusKind.Stun && m.Shock > 0f)
                     e.Shock = Mathf.Max(e.Shock, m.Shock);
@@ -1627,7 +1707,7 @@ namespace InkLine
                 _goldFrac += amount * (_goldGain - 1f);
                 int extra = Mathf.FloorToInt(_goldFrac);
                 _goldFrac -= extra;
-                Gold += amount + extra;
+                Gold += (amount + extra) * Mathf.Max(1, GmGoldMul);
                 GoldPop = 1f;
             }
             else
@@ -1766,15 +1846,16 @@ namespace InkLine
             Enemies.RemoveAll(e => e.Dead);
         }
 
-        // 惑：掉头往回走，并定期砍最近的同类。
+        // 惑：扑向身边最近的同类，贴上了就咬，咬一口固定掉 ConfuseBite。
+        // 附近没有同类就掉头往回走。以前只会往回走，和往下走的同伴一错身就够不着了。
+        const float ConfuseSeek = 2.6f;
+        const float ConfuseReach = 0.3f;
+
         void TickConfused(EnemyActor e, float dt)
         {
-            e.Pos.y = Mathf.Min(GameConstants.SpawnY - 0.35f, e.Pos.y + e.Speed * e.Slow * 0.5f * dt);
-            e.ConfuseCd -= dt;
-            if (e.ConfuseCd > 0f) return;
-            e.ConfuseCd = 0.5f;
+            if (e.ConfuseCd > 0f) e.ConfuseCd -= dt;
             EnemyActor best = null;
-            float bestD = 1.2f * 1.2f;
+            float bestD = ConfuseSeek * ConfuseSeek;
             for (int i = 0; i < Enemies.Count; i++)
             {
                 EnemyActor other = Enemies[i];
@@ -1782,15 +1863,35 @@ namespace InkLine
                 float d = (other.Pos - e.Pos).sqrMagnitude;
                 if (d < bestD) { bestD = d; best = other; }
             }
-            if (best == null) return;
-            float dmg = e.MaxHp * 0.08f;
+            float speed = e.Speed * e.Slow;
+            if (best == null)
+            {
+                e.Pos.y = Mathf.Min(GameConstants.SpawnY - 0.35f, e.Pos.y + speed * 0.5f * dt);
+                return;
+            }
+            Vector2 to = best.Pos - e.Pos;
+            float gap = to.magnitude - e.Radius - best.Radius;
+            if (gap > ConfuseReach)
+            {
+                Vector2 step = to.normalized * Mathf.Min(gap, speed * 1.4f * dt);
+                e.Pos += step;
+                e.Pos.y = Mathf.Clamp(e.Pos.y, GameConstants.LeakY + 0.4f, GameConstants.SpawnY - 0.35f);
+                return;
+            }
+            if (e.ConfuseCd > 0f) return;
+            e.ConfuseCd = GlyphTable.ConfuseBiteCd;
+            float dmg = Mathf.Max(1f, e.ConfuseBite);
             best.Hp -= dmg;
             best.HitFlash = 0.14f;
-            ShowDamage(best, dmg, InkTheme.Confuse, 0.9f, false);
+            Recoil(e, to, 0.3f);
+            Recoil(best, to, 0.2f);
+            ShowDamage(best, dmg, InkTheme.Confuse, 1.05f, false);
             Bursts.Add(new FxBurst
             {
-                Pos = best.Pos, Kind = HitFx.Confuse, Tint = InkTheme.ConfuseHi, Scale = 1f
+                Pos = Vector2.Lerp(e.Pos, best.Pos, 0.6f), Kind = HitFx.Confuse,
+                Tint = InkTheme.ConfuseHi, Scale = 0.9f
             });
+            AudioBus.Hit();
             if (best.Hp <= 0f) Kill(best, null);
         }
 
@@ -1874,17 +1975,8 @@ namespace InkLine
             return true;
         }
 
-        // 通关评星：按剩余防线血量。续过命的最多两星 —— 三星得是自己守下来的。
-        public int StarsEarned
-        {
-            get
-            {
-                float ratio = BaseHp / (float)Mathf.Max(1, MaxBaseHp);
-                int s = ratio >= 0.7f ? 3 : ratio >= 0.35f ? 2 : 1;
-                if (RevivesUsed > 0) s = Mathf.Min(s, 2);
-                return s;
-            }
-        }
+        // 通关评星见 StarRules：剩七成血且没续命是三星，剩三成半是两星，续过命最多两星。
+        public int StarsEarned => StarRules.Earn(BaseHp, MaxBaseHp, RevivesUsed);
 
         // 本关完成度，失败页说「已完成 xx%」用。按波次时间推进算，
         // 有关底的关把最后两成留给 boss 的血量。封顶 99%：没赢就不能说 100%。
@@ -2070,8 +2162,8 @@ namespace InkLine
             CardDef def = CardCatalog.Get(Grid[col, row].Value);
             if (def.Wake == CardWake.Charge)
             {
-                need = def.ChargeNeed;
-                now = _charge[col, ChargeKind(def.Id)];
+                need = CardCatalog.ChargeNeed(def.Id, def.Id == CardId.Heavy ? _heavyStar[col] : Stars[col, row]);
+                now = Mathf.Min(_charge[col, ChargeKind(def.Id)], need);
             }
             else if (def.Wake == CardWake.WordPart && _word[col] == def.Word)
             {

@@ -8,6 +8,7 @@ namespace InkLine
     // 结算页这类「一段编排好的演出」用的轻量补间。挂在面板根节点上，面板销毁就一起停。
     // 全部走 unscaled time：结算时战场已暂停，timeScale 也可能被别处动过。
     // 每条轨都有起点和时长；Finish() 把钟拨到最后一条轨结束，玩家点一下就能跳过演出。
+    [DefaultExecutionOrder(40)]
     public sealed class UiAnim : MonoBehaviour
     {
         sealed class Track
@@ -22,8 +23,33 @@ namespace InkLine
         readonly List<Track> _tracks = new List<Track>();
         float _born = -1f;
         float _skip;
+        float _heldFor;
+        float _heldAt = -1f;
 
-        public float Now => _born < 0f ? 0f : Time.unscaledTime - _born + _skip;
+        // 抽牌、摆字、设置这些时候战场是停的。演出钟要一起停，
+        // 否则道具的定身、加速会在选字的几秒里把时长走完。
+        public bool Held => _heldAt >= 0f;
+
+        public void SetHeld(bool held)
+        {
+            if (held == Held) return;
+            if (held) _heldAt = Time.unscaledTime;
+            else
+            {
+                _heldFor += Time.unscaledTime - _heldAt;
+                _heldAt = -1f;
+            }
+        }
+
+        public float Now
+        {
+            get
+            {
+                if (_born < 0f) return 0f;
+                float frozen = _heldFor + (Held ? Time.unscaledTime - _heldAt : 0f);
+                return Time.unscaledTime - _born - frozen + _skip;
+            }
+        }
 
         public static UiAnim On(Component host)
         {
