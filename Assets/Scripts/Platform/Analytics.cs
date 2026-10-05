@@ -63,12 +63,12 @@ namespace InkLine
             if (!string.IsNullOrEmpty(userId) && string.IsNullOrEmpty(_userId))
             {
                 _userId = userId;
-                Track("login", Param.Bool("from_anonymous", true));
+                Track("login", new Param().Bool("from_anonymous", true));
                 Flush();
             }
             if (_sessionStarted) return;
             _sessionStarted = true;
-            Track("session_start", Param.Str("entry", "main").Bool("with_user_id", !string.IsNullOrEmpty(_userId)));
+            Track("session_start", new Param().Str("entry", "main").Bool("with_user_id", !string.IsNullOrEmpty(_userId)));
             Flush();
         }
 
@@ -82,7 +82,7 @@ namespace InkLine
             }
             _lastEndAt = Time.realtimeSinceStartup;
             if (_sessionStarted)
-                Track("session_end", Param.Str("reason", reason));
+                Track("session_end", new Param().Str("reason", reason));
             Flush();
         }
 
@@ -127,7 +127,7 @@ namespace InkLine
         static void Ad(string name, string scene, string unit, bool? ended, string err)
         {
             Ensure();
-            Param p = Param.Str("ad_unit_id", unit ?? "")
+            Param p = new Param().Str("ad_unit_id", unit ?? "")
                 .Str("ad_type", "reward")
                 .Str("scene", string.IsNullOrEmpty(scene) ? "unknown" : scene);
             if (_levelOpen) p.Num("level_id", _levelId);
@@ -139,7 +139,7 @@ namespace InkLine
         static Param LevelParams(string reason, int progressPct)
         {
             int duration = Mathf.Max(0, Mathf.RoundToInt((Time.realtimeSinceStartup - _levelAt) * 1000f));
-            Param p = Param.Num("level_id", _levelId).Str("level_name", _levelName).Str("mode", "stage");
+            Param p = new Param().Num("level_id", _levelId).Str("level_name", _levelName).Str("mode", "stage");
             if (reason != null) p.Num("duration_ms", duration).Str("reason", reason).Num("progress_pct", progressPct);
             else if (!_levelOpen) p.Num("duration_ms", duration);
             return p;
@@ -319,11 +319,8 @@ namespace InkLine
             readonly StringBuilder _sb = new StringBuilder("{");
             bool _first = true;
 
-            public static Param Str(string k, string v) => new Param().Str(k, v);
-            public static Param Num(string k, int v) => new Param().Num(k, v);
-            public static Param Bool(string k, bool v) => new Param().Bool(k, v);
 
-            public Param Str(string key, string v) { Add(key); _sb.Append(Json(v)); return this; }
+            public Param Str(string key, string v) { Add(key); _sb.Append(Analytics.Json(v)); return this; }
             public Param Num(string key, int v) { Add(key); _sb.Append(v.ToString(CultureInfo.InvariantCulture)); return this; }
             public Param Bool(string key, bool v) { Add(key); _sb.Append(v ? "true" : "false"); return this; }
 
@@ -331,7 +328,7 @@ namespace InkLine
             {
                 if (!_first) _sb.Append(',');
                 _first = false;
-                _sb.Append(Json(key)).Append(':');
+                _sb.Append(Analytics.Json(key)).Append(':');
             }
 
             public string Json()

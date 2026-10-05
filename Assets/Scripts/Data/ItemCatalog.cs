@@ -347,7 +347,7 @@ namespace InkLine
         public static Color RankDeep(SkinRarity r) =>
             ItemCatalog.QualityDeep(QualityOf(r));
 
-        static ItemQuality QualityOf(SkinRarity r) =>
+        public static ItemQuality QualityOf(SkinRarity r) =>
             r == SkinRarity.Rare ? ItemQuality.Purple
             : r == SkinRarity.Advanced ? ItemQuality.Blue
             : ItemQuality.Green;

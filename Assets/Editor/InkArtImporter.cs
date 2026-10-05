@@ -46,7 +46,8 @@ public sealed class InkArtImporter : AssetPostprocessor
         // 图鉴底板铺满整屏、星级条拉到 570 宽，256 会糊。
         bool codexBig = path.EndsWith("/codex_board.png") || path.Contains("/codex_row");
         // 图鉴卡按原比例整张贴，不走九宫格；格子 190 宽、详情 196 宽，留两倍超采样。
-        bool codexCard = path.Contains("/codex_face") || path.EndsWith("/codex_back.png");
+        bool codexCard = path.Contains("/codex_face") || path.EndsWith("/codex_back.png")
+                         || path.Contains("/Ui/loot_");
         importer.maxTextureSize = stage ? 2048 : (panel || codexBig ? 1024 : codexCard ? 512 : 256);
         if (panel) importer.spritePixelsPerUnit = 100;
         // 面板要给 Sprite.Create 做九宫格兜底，得留 CPU 副本。
@@ -80,6 +81,8 @@ public sealed class InkArtImporter : AssetPostprocessor
             importer.spriteBorder = new Vector4(80f, 80f, 80f, 80f);
         else if (path.Contains("/codex_row"))
             importer.spriteBorder = new Vector4(110f, 100f, 110f, 100f);
+        else if (path.EndsWith("/loot_fill.png"))
+            importer.spriteBorder = new Vector4(16f, 0f, 16f, 0f);
         else if (path.EndsWith("/codex_box.png"))
             importer.spriteBorder = new Vector4(48f, 48f, 48f, 48f);
     }
