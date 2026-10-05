@@ -62,6 +62,7 @@ namespace InkLine
 
         void Start()
         {
+            Analytics.Ensure();
             WxBridge.InitSdk(() => CloudSync.Startup(Begin));
             CloudSync.Imported += OnCloudImported;
         }
@@ -255,6 +256,8 @@ namespace InkLine
                 AudioBus.Tap();
                 _askingRetreat = false;
                 if (dim != null) Destroy(dim.gameObject);
+                int pct = _world == null ? 0 : Mathf.Clamp(Mathf.RoundToInt(_world.Progress * 100f), 0, 99);
+                Analytics.LevelFail("give_up", pct);
                 bool fromEvent = _eventTier >= 0;
                 ShowHome();
                 if (fromEvent) _home?.OpenEvent();
@@ -670,6 +673,11 @@ namespace InkLine
             else _view.SetBackdrop(_world.Stage.Chapter);
             _view.EmitterSkin = _meta.Skin;
             _view.EmitterTint = _meta.SkinTint;
+            if (!BattleWorld.PreviewFill)
+            {
+                int levelId = stage.Event ? -(stage.EventTier + 1) : stage.Index + 1;
+                Analytics.LevelStart(levelId, stage.Name ?? "");
+            }
             BuildBattleHud();
             if (stage.Event) _hud.InkChip.gameObject.SetActive(false);
             _autoWait = 0f;
@@ -1141,6 +1149,7 @@ namespace InkLine
             if (win)
             {
                 AudioBus.Win();
+                Analytics.LevelClear(_world.StarsEarned);
                 _result = _meta.ApplyResult(_pickStage, _world.Ink, _world.StarsEarned,
                     _world.BaseHp, _world.MaxBaseHp, _world.RevivesUsed > 0);
                 RankService.Submit(_meta.ClearedCount());
@@ -1248,6 +1257,8 @@ namespace InkLine
             if (_eventTier >= 0)
             {
                 int purse = _world != null ? Mathf.Max(0, _world.Gold) : 0;
+                int pct = _world == null ? 0 : Mathf.Clamp(Mathf.RoundToInt(_world.Progress * 100f), 0, 99);
+                Analytics.LevelFail("hp_zero", pct);
                 ShowEventResult(false, 0, "", purse);
             }
             else ShowDefeat(_pickStage, _world != null ? _world.Progress : 0f);
@@ -1263,6 +1274,7 @@ namespace InkLine
                 return;
             }
             AudioBus.Win();
+            Analytics.LevelClear(_world.StarsEarned);
             bool fresh = _meta.MarkEventTier(_eventTier);
             string unlocked = fresh && _eventTier + 1 < EventCatalog.TierCount
                 ? EventCatalog.Tier(_eventTier + 1).Name + "开了"
@@ -1329,6 +1341,8 @@ namespace InkLine
 
         void ShowDefeat(int stage, float progress, bool preview = false)
         {
+            if (!preview)
+                Analytics.LevelFail("hp_zero", Mathf.Clamp(Mathf.RoundToInt(progress * 100f), 0, 99));
             DropOverlay();
             _overlay = DefeatPanel.Show(_layer, new DefeatArgs
             {
