@@ -436,7 +436,7 @@ namespace InkLine
                     Hp = HpOf(ch, slot, finale),
                     Finale = finale,
                     Mini = slot == 4 && ch > 0,
-                    StaminaCost = finale ? GameConstants.StaminaFinale : GameConstants.StaminaPerStage
+                    StaminaCost = GameConstants.StaminaPerStage
                 };
                 s[i].Bodies = RampCounts(s[i].Waves, ch);
                 Price(s[i]);
