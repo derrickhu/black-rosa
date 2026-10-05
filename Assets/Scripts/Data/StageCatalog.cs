@@ -57,6 +57,9 @@ namespace InkLine
         public bool Finale;
         public bool Mini;
         public int StaminaCost = GameConstants.StaminaPerStage;
+        // 活动关的档位，主线关是 -1。活动关不掉墨、不出墨箱，每波按钱袋给利息。
+        public int EventTier = -1;
+        public bool Event => EventTier >= 0;
 
         // 这一关的钱袋，全部在 Build 里按波次表算好。
         // KillGold 是击杀赏金总和；GoldPurse 再加上黄箱的期望值，改装定价按它走。
@@ -457,7 +460,7 @@ namespace InkLine
         // 掉落跟着怪走，这里只是把整关加一遍当统计用：校验脚本、抽牌定价和结算页读它。
         // 算法和 BattleWorld.Spawn + Make 必须一致 —— 只数用 RampCounts 摊过的 Bodies，
         // 每只掉满自己那份，章节系数保底 1。
-        static void Price(StageDef s)
+        static void Price(StageDef s, float share = DraftBudgetShare)
         {
             float drop = EnemyCatalog.DropMul(s.Hp);
             float inkMul = drop * InkOf(s.Chapter);
@@ -490,7 +493,7 @@ namespace InkLine
             if (s.Chapter == 0) n = Mathf.Max(3, Mathf.RoundToInt(open * FirstChapterPicksPerCell));
             else if (s.Chapter == 1) n = Mathf.Max(2, Mathf.RoundToInt(open * SecondChapterPicksPerCell));
             else n = Mathf.Clamp(Mathf.RoundToInt(open * DraftPicksPerCell), open + 2, open * 3);
-            float budget = (s.GoldPurse + ForgeStats.Default.StartGold) * DraftBudgetShare;
+            float budget = (s.GoldPurse + ForgeStats.Default.StartGold) * share;
             // 起价定成平均价的一半，步长再反推，费用就从便宜缓缓爬到贵，
             // 而整条曲线累计下来刚好吃满预算。
             s.DraftFirst = Mathf.Max(GameConstants.FirstDraftCost, Mathf.RoundToInt(budget / n * 0.5f));

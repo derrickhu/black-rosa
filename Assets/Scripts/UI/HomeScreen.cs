@@ -381,9 +381,12 @@ namespace InkLine
 
         void WatchStaminaAd()
         {
+            Transform fromBtn = _view != null && _view.AdButton != null ? _view.AdButton.transform : WalletChip("stamina");
             AdStub.Reward("stamina", () =>
             {
                 _meta.GrantAdStamina();
+                RewardFly.Play(_layer, RewardFly.Local(_layer, fromBtn),
+                    new[] { RewardFly.Stamina(_layer, GameConstants.AdStaminaGain) });
                 Rebuild(_tab);
             });
         }
@@ -937,6 +940,7 @@ namespace InkLine
                 else if (i == SideCheckIn) btn.onClick.AddListener(() => CheckInPanel.Show(_layer, _meta, AfterReward));
                 else if (i == SideCodex) btn.onClick.AddListener(() => CodexPanel.Show(_layer, _meta, AfterReward));
                 else if (i == SideRank) btn.onClick.AddListener(() => RankPanel.Show(_layer, _meta));
+                else if (i == SideEvent) btn.onClick.AddListener(OpenEvent);
             }
             if (_view.SideActs.Length != SortiePageBuilder.SideCount) return;
             Button gift = _view.SideActs[SideGift];
@@ -945,6 +949,18 @@ namespace InkLine
             RedDot(_view.SideActs[SideClub], !_meta.ClubClaimedToday);
             RedDot(_view.SideActs[SideCheckIn], !_meta.CheckedToday);
             RedDot(_view.SideActs[SideCodex], _meta.CodexHasNew);
+            Button ev = _view.SideActs[SideEvent];
+            if (ev != null) ev.gameObject.SetActive(_meta.EventOpen);
+            RedDot(ev, _meta.EventOpen && (_meta.EventHasClaim() || (!_meta.EventDone && _meta.EventPlaysLeft > 0)));
+        }
+
+        // GameFlow 接上开打活动关；结算页「回活动」也从这里重开活动面板。
+        public Action<int> StartEvent;
+
+        public void OpenEvent()
+        {
+            if (!_meta.EventOpen) return;
+            EventPanel.Show(_layer, _meta, tier => StartEvent?.Invoke(tier), AfterReward);
         }
 
         // 领了礼包 / 游戏圈奖励：顶栏数值、礼包贴纸、皮肤页都要跟着变。
@@ -1015,6 +1031,7 @@ namespace InkLine
         const int SideCheckIn = 2;
         const int SideCodex = 3;
         const int SideRank = 4;
+        const int SideEvent = 5;
 
         void BindSeal(HomeSealCell slot, int index)
         {

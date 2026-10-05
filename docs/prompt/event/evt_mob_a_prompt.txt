@@ -1,0 +1,24 @@
+A 2 by 2 grid of 4 full-body game enemy characters on a pure solid magenta background (#FF00FF).
+
+The attached reference image shows the drawing style of this game's enemies. Use it only for the drawing style and copy that style precisely:
+- Body is a chunky rounded blob-person made of dark charcoal grey ink (about #3F423C), with a slightly lighter grey sheen along the top of the head, shoulders and limbs.
+- Very thick solid black outline around the whole silhouette and around every limb.
+- Every head is a bare rounded charcoal ball showing only two eyes. The two eyes are pure bright white (#FFFFFF) simple soft rounded ovals.
+- Mitten hands and simple rounded feet.
+- One or two stitched cross-shaped patch marks on the bare charcoal skin.
+- A few small solid black ink droplets and specks floating close around the character.
+- Cartoonish, cute-but-menacing, full body.
+
+Theme: these are greedy little ink thieves at a Chinese New Year temple fair, each one clutching a piece of treasure. The body stays dark charcoal ink everywhere. Colour appears only on the one treasure item each character carries, and that item is bright, rich and saturated so it reads clearly when the character is tiny on screen. Each item sits on the outer edge of the silhouette.
+
+Top-left, "Ingot Thief": a plain slim blob-person walking forward at an ordinary pace, both mitten hands hugging one shiny gold ingot (a Chinese yuanbao, boat-shaped with a rounded hump in the middle) against his chest. The ingot is the warm yellow of a brand-new gold coin, with a bright highlight on the hump and a darker amber outline.
+
+Top-right, "Coin Roller": the whole character is one big round charcoal ink ball, a near-perfect sphere, with two white eyes on the front of the ball and four tiny stubby mitten limbs poking out of it. A small round copper coin with a square hole is stuck to the side of the ball like a badge, the coin the warm reddish brown of a new copper penny. The coin face is smooth plain copper showing only the square hole and a raised rim.
+
+Bottom-left, "Purse Fatty": a short, very fat, heavy blob-person with a big round belly, standing wide and slow. He hugs a large plump cloth money pouch against his belly with both arms. The pouch is smooth plain cloth the bright red of a Chinese red envelope, its neck tied tight with a gold cord the yellow of a new gold coin.
+
+Bottom-right, "Knot Bighead": a blob-person standing upright on two short legs. His round head is huge, about twice as wide as his small narrow body, so the head makes up most of his height. A Chinese lucky knot hangs from a red cord around his neck onto his small chest: a diamond-shaped woven knot the bright red of a red envelope, with a long red tassel below it and one small gold bead the yellow of a new gold coin on top.
+
+Every treasure item has a smooth plain surface decorated only with simple shapes and highlights.
+
+Layout: exactly 2 columns and 2 rows, 4 characters. Each character sits centred in its own quadrant, fully inside it, with a wide band of plain magenta all around it. The whole background is one perfectly flat, uniform solid magenta. The image contains only these four characters and their treasure items on the magenta background.

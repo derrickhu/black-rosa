@@ -48,7 +48,7 @@ namespace InkLine
             if (PreviewFill || Stage == null) return;
             if (!e.IsBoss && Random.value >= StageCatalog.ChestChance) return;
             if (Chests.Count >= ChestCap) return;
-            bool gold = Random.value < StageCatalog.ChestGoldShare;
+            bool gold = Stage.Event || Random.value < StageCatalog.ChestGoldShare;
             int col = FieldLayout.ColumnAtX(e.Pos.x);
             float low = FieldLayout.GridTop + 0.9f;
             float high = GameConstants.SpawnY - 1.6f;

@@ -16,36 +16,52 @@ namespace InkLine
             return Load("cannon_" + SkinCatalog.Get(skin).Key) ?? Load("cannon_plain") ?? Cannon();
         }
 
+        // 战斗里的换皮前缀。活动关设成 EventTheme，敌人先找 evt_walker 这种，没有再退回原图。
+        // 离开战斗要清掉，图鉴里的敌人一直用原图。
+        public const string EventTheme = "evt_";
+        public static string EnemyTheme;
+
         public static Sprite Person(EnemyId id)
+        {
+            string key = PersonKey(id);
+            if (!string.IsNullOrEmpty(EnemyTheme))
+            {
+                Sprite themed = Load(EnemyTheme + key);
+                if (themed != null) return themed;
+            }
+            return Load(key);
+        }
+
+        static string PersonKey(EnemyId id)
         {
             switch (id)
             {
-                case EnemyId.Runner: return Load("runner");
-                case EnemyId.Shield: return Load("shield");
-                case EnemyId.Swarm: return Load("swarm");
-                case EnemyId.Strafer: return Load("strafer");
-                case EnemyId.Chubby: return Load("chubby");
-                case EnemyId.Tall: return Load("tall");
-                case EnemyId.Ball: return Load("ball");
-                case EnemyId.BigHead: return Load("bighead");
-                case EnemyId.Belt: return Load("belt");
-                case EnemyId.Crawler: return Load("crawler");
-                case EnemyId.Splitter: return Load("splitter");
-                case EnemyId.Sprinter: return Load("sprinter");
-                case EnemyId.Mender: return Load("mender");
-                case EnemyId.Bulwark: return Load("bulwark");
-                case EnemyId.Elite: return Load("elite");
-                case EnemyId.Warden: return Load("warden");
+                case EnemyId.Runner: return "runner";
+                case EnemyId.Shield: return "shield";
+                case EnemyId.Swarm: return "swarm";
+                case EnemyId.Strafer: return "strafer";
+                case EnemyId.Chubby: return "chubby";
+                case EnemyId.Tall: return "tall";
+                case EnemyId.Ball: return "ball";
+                case EnemyId.BigHead: return "bighead";
+                case EnemyId.Belt: return "belt";
+                case EnemyId.Crawler: return "crawler";
+                case EnemyId.Splitter: return "splitter";
+                case EnemyId.Sprinter: return "sprinter";
+                case EnemyId.Mender: return "mender";
+                case EnemyId.Bulwark: return "bulwark";
+                case EnemyId.Elite: return "elite";
+                case EnemyId.Warden: return "warden";
                 // 关底一关一张图。文件名和 EnemyId 一一对应，加 boss 时两边一起加。
-                case EnemyId.BossDrum: return Load("boss_drum");
-                case EnemyId.BossInkbag: return Load("boss_inkbag");
-                case EnemyId.BossIron: return Load("boss_iron");
-                case EnemyId.BossTwin: return Load("boss_twin");
-                case EnemyId.BossWarden: return Load("boss_warden");
-                case EnemyId.BossThunder: return Load("boss_thunder");
-                case EnemyId.BossMedic: return Load("boss_medic");
-                case EnemyId.BossKing: return Load("boss_king");
-                default: return Load("walker");
+                case EnemyId.BossDrum: return "boss_drum";
+                case EnemyId.BossInkbag: return "boss_inkbag";
+                case EnemyId.BossIron: return "boss_iron";
+                case EnemyId.BossTwin: return "boss_twin";
+                case EnemyId.BossWarden: return "boss_warden";
+                case EnemyId.BossThunder: return "boss_thunder";
+                case EnemyId.BossMedic: return "boss_medic";
+                case EnemyId.BossKing: return "boss_king";
+                default: return "walker";
             }
         }
 
@@ -121,7 +137,7 @@ namespace InkLine
 
         public static Sprite Flash(EnemyId id)
         {
-            string key = "flash:" + id;
+            string key = "flash:" + EnemyTheme + id;
             if (Cache.TryGetValue(key, out Sprite cached) && cached != null) return cached;
             Sprite src = Person(id);
             if (src == null || src.texture == null) return src;

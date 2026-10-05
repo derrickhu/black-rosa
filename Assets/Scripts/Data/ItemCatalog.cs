@@ -24,47 +24,49 @@ namespace InkLine
         public const int Count = 9;
         public const int MaxLevel = 5;
 
+        // 1 级冷却按品质分档，升一级大约短 6%（见 CooldownAt）。
+        // 档与档之间留了空：满级的普通仍短于 1 级高级，满级的高级仍短于 1 级稀有。
         static readonly ItemDef[] All =
         {
             new ItemDef
             {
                 Id = ItemId.Burst, Name = "鞭炮", Desc = "最前排炸开一圈",
-                When = "最前排有 2 个敌人", Quality = ItemQuality.Green, Cooldown = 13f, Tint = InkTheme.Explode
+                When = "最前排有 2 个敌人", Quality = ItemQuality.Green, Cooldown = 14f, Tint = InkTheme.Explode
             },
             new ItemDef
             {
                 Id = ItemId.Halt, Name = "闹钟", Desc = "全场敌人定住",
-                When = "敌人逼近或场上 5 个以上", Quality = ItemQuality.Blue, Cooldown = 20f, Tint = InkTheme.Word
+                When = "敌人逼近或场上 5 个以上", Quality = ItemQuality.Blue, Cooldown = 28f, Tint = InkTheme.Word
             },
             new ItemDef
             {
                 Id = ItemId.Rage, Name = "能量饮料", Desc = "一阵子炮弹伤害翻倍",
-                When = "场上 3 个以上或首领在场", Quality = ItemQuality.Blue, Cooldown = 22f, Tint = InkTheme.Fire
+                When = "场上 3 个以上或首领在场", Quality = ItemQuality.Blue, Cooldown = 32f, Tint = InkTheme.Fire
             },
             new ItemDef
             {
                 Id = ItemId.Sweep, Name = "大扫把", Desc = "全屏伤害并击退",
-                When = "场上 6 个以上或敌人逼近", Quality = ItemQuality.Purple, Cooldown = 30f, Tint = InkTheme.Ink
+                When = "场上 6 个以上或敌人逼近", Quality = ItemQuality.Purple, Cooldown = 52f, Tint = InkTheme.Ink
             },
             new ItemDef
             {
                 Id = ItemId.Splash, Name = "辣椒酱", Desc = "敌人最多那一列灼烧",
-                When = "同一列有 3 个敌人", Quality = ItemQuality.Purple, Cooldown = 26f, Tint = InkTheme.Poison
+                When = "同一列有 3 个敌人", Quality = ItemQuality.Purple, Cooldown = 46f, Tint = InkTheme.Poison
             },
             new ItemDef
             {
                 Id = ItemId.Mend, Name = "急救包", Desc = "基地回血",
-                When = "基地掉血后", Quality = ItemQuality.Purple, Cooldown = 35f, Tint = InkTheme.Heart
+                When = "基地掉血后", Quality = ItemQuality.Purple, Cooldown = 60f, Tint = InkTheme.Heart
             },
             new ItemDef
             {
                 Id = ItemId.Frost, Name = "冰块", Desc = "全场冰伤并减速",
-                When = "场上 4 个以上", Quality = ItemQuality.Blue, Cooldown = 18f, Tint = InkTheme.Ice
+                When = "场上 4 个以上", Quality = ItemQuality.Blue, Cooldown = 24f, Tint = InkTheme.Ice
             },
             new ItemDef
             {
                 Id = ItemId.Slow, Name = "胶水", Desc = "全场减速一阵",
-                When = "有敌人过了半场", Quality = ItemQuality.Green, Cooldown = 14f, Tint = InkTheme.Water
+                When = "有敌人过了半场", Quality = ItemQuality.Green, Cooldown = 16f, Tint = InkTheme.Water
             },
             new ItemDef
             {
@@ -76,12 +78,13 @@ namespace InkLine
         public static ItemDef Get(int i) => All[Mathf.Clamp(i, 0, Count - 1)];
         public static ItemDef Get(ItemId id) => All[(int)id];
 
-        // 下标是当前等级：[0] 是解锁要的卡，[1] 是 1→2 级，以此类推。紫卡稀有，要得少。
+        // 下标是当前等级：[0] 是解锁要的卡，[1] 是 1→2 级，以此类推。
+        // 紫卡要 5 张才解锁。金箱随时可能掉一张，凑满一件仍得多开几箱。
         static readonly int[][] CardNeed =
         {
             new[] { 6, 10, 18, 30, 50 },
             new[] { 4, 6, 10, 16, 26 },
-            new[] { 2, 3, 5, 8, 12 }
+            new[] { 5, 8, 12, 18, 26 }
         };
 
         static readonly float[] InkMul = { 1f, 1.6f, 2.6f };
@@ -109,8 +112,18 @@ namespace InkLine
         public static float CooldownAt(ItemDef d, int level)
         {
             int lv = Mathf.Clamp(level, 1, MaxLevel);
-            return d.Cooldown * (1f - 0.06f * (lv - 1));
+            float raw = d.Cooldown * (1f - 0.06f * (lv - 1));
+            return Mathf.Max(1, Mathf.RoundToInt(raw));
         }
+
+        // 持续时间一律整秒。文案、结算和演出都读这里。
+        // 闹钟定住要看得出停了一拍；饮料盖过十几发炮弹；冰块、辣椒酱要比胶水那阵减速更久。
+        public static int HaltTime(int lv) => 3 + lv;
+        public static int RageTime(int lv) => 9 + lv;
+        public static int SplashTime(int lv) => 7 + lv;
+        public static int FrostTime(int lv) => 5 + lv;
+        // 胶水要够长，脚底下的减速标记才看得出来。冷却 12 到 16 秒，始终盖过这阵减速。
+        public static int SlowTime(int lv) => 4 + lv;
 
         public static string QualityName(ItemQuality q) =>
             q == ItemQuality.Purple ? "稀有" : q == ItemQuality.Blue ? "高级" : "普通";
@@ -127,11 +140,13 @@ namespace InkLine
 
         // 伤害类道具一律写成「基础弹伤的几倍」。倍数就放在这里，
         // BattleItems 算伤害和道具页写文案读的是同一份，不会各写一遍再走岔。
-        public static float BurstMul(int lv) => 2.2f + 1.1f * lv;
+        // 按默认弹伤 1.8：鞭炮 3/4/5/6/7，每下都低于同级蓝色冰块（4/5/6/7/8）。
+        // 范围小，触发时通常能炸到两个，总伤仍比单发弹弓高一截。
+        public static float BurstMul(int lv) => (2f + lv) / ShotMods.DefaultBase;
         public static float SweepMul(int lv) => 1.7f + 1.1f * lv;
         public static float FrostMul(int lv) => 1.7f + 0.55f * lv;
-        // 按默认弹伤：1 级 12 点，之后每级 +4（16/20/24/28）。绿卡、前期就给，单目标也不要太肥。
-        public static float SnipeMul(int lv) => (8f + 4f * lv) / ShotMods.DefaultBase;
+        // 按默认弹伤：1 级 4 点，之后每级 +2（6/8/10/12）。单目标，满级仍低于紫色大扫把的 13。
+        public static float SnipeMul(int lv) => (2f + 2f * lv) / ShotMods.DefaultBase;
         public static float SplashMul(int lv) => 1.1f + 0.55f * lv;   // 每秒
 
         public static int MendCap(int lv) => lv >= MaxLevel ? 2 : 1;
@@ -147,27 +162,25 @@ namespace InkLine
                 case ItemId.Burst:
                     return "最前排炸开一圈，" + Pts(b * BurstMul(lv)) + " 点伤害";
                 case ItemId.Halt:
-                    return "全场敌人定住 " + Sec(1.2f + 0.4f * lv) + " 秒";
+                    return "全场敌人定住 " + HaltTime(lv) + " 秒";
                 case ItemId.Rage:
-                    return (4 + lv) + " 秒内炮弹伤害 " + (2 + (lv - 1) / 2) + " 倍";
+                    return RageTime(lv) + " 秒内炮弹伤害 " + (2 + (lv - 1) / 2) + " 倍";
                 case ItemId.Sweep:
                     return "全屏 " + Pts(b * SweepMul(lv)) + " 点伤害并击退";
                 case ItemId.Splash:
-                    return "那一列灼烧 " + Sec(2.2f + 0.6f * lv) + " 秒，每秒 " + Pts(b * SplashMul(lv)) + " 点";
+                    return "那一列灼烧 " + SplashTime(lv) + " 秒，每秒 " + Pts(b * SplashMul(lv)) + " 点";
                 case ItemId.Mend:
                     return "基地回 " + (1 + (lv - 1) / 2) + " 血" + (lv >= MaxLevel ? "，每局两次" : "，每局一次");
                 case ItemId.Frost:
-                    return "全场 " + Pts(b * FrostMul(lv)) + " 点冰伤，并减速";
+                    return "全场 " + Pts(b * FrostMul(lv)) + " 点冰伤，并减速 " + FrostTime(lv) + " 秒";
                 case ItemId.Slow:
-                    return "全场减速 " + Sec(2.4f + 0.45f * lv) + " 秒";
+                    return "全场减速 " + SlowTime(lv) + " 秒";
                 case ItemId.Snipe:
                     return "最前一个 " + Pts(b * SnipeMul(lv)) + " 点";
                 default:
                     return d.Desc;
             }
         }
-
-        static string Sec(float t) => t.ToString("0.0");
 
         static string Pts(float v) => Mathf.Max(1, Mathf.RoundToInt(v)).ToString();
     }

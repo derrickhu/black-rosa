@@ -316,6 +316,15 @@ namespace InkLine
             _dots[k].gameObject.SetActive(ad || (!owned && _meta.Skin != k && _meta.CanBuySkin(k, out _)));
         }
 
+        void FlySkin(int i)
+        {
+            if (_root == null) return;
+            RectTransform layer = RewardFly.LayerOf(_root);
+            Vector2 from = RewardFly.Local(layer, _act != null ? _act.transform : _root);
+            RectTransform gun = _gun != null ? _gun.rectTransform : null;
+            RewardFly.Play(layer, from, new[] { RewardFly.Skin(layer, i, gun) });
+        }
+
         void OnAct()
         {
             int i = _focus;
@@ -330,11 +339,16 @@ namespace InkLine
                 AdStub.Reward("skin", () =>
                 {
                     if (!_meta.GrantSkin(i)) return;
+                    FlySkin(i);
                     if (_root != null) _changed?.Invoke();
                 });
                 return;
             }
-            if (_meta.BuySkin(i)) _changed?.Invoke();
+            if (_meta.BuySkin(i))
+            {
+                FlySkin(i);
+                _changed?.Invoke();
+            }
         }
     }
 

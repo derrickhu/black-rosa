@@ -353,9 +353,11 @@ namespace InkLine
         }
 
         // 没有新字就不预告下一关。有新字才留一张字卡。
+        // 重打已经通关的关时，下一关早就解锁过了，不再预告。
         bool BuildTeaser(RectTransform parent, VictoryArgs a, float at, out float end)
         {
             end = at;
+            if (!a.Info.FirstClear) return false;
             int next = a.Stage + 1;
             if (next >= GameConstants.StageCount) return false;
             List<CardId> fresh = StageCatalog.NewCards(next);

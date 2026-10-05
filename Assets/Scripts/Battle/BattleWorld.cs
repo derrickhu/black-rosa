@@ -253,6 +253,8 @@ namespace InkLine
         int[,] _charge;
         float _critChance;
         float _goldGain = 1f;
+        // GM 调局内捡金币的倍数，只在模拟器里能改，不落盘。
+        public static int GmGoldMul = 1;
         float _goldFrac;
         WordId[] _word;
         int[] _wordStar;
@@ -484,7 +486,22 @@ namespace InkLine
                 WaveIndex++;
                 WaveTime = 0f;
                 _leechGiven = 0f;
+                if (Stage.Event) PayInterest();
             }
+        }
+
+        // 活动关：每波收尾按钱袋余额给利息。钱压着不花才有，这是「存」的那一半。
+        public int Interest;
+
+        void PayInterest()
+        {
+            int n = EventCatalog.Interest(Gold, EventCatalog.InterestCap);
+            if (n <= 0) return;
+            Gold += n;
+            Interest += n;
+            GoldPop = 1f;
+            AudioBus.Pickup();
+            ShowFloat(GoldChip + new Vector2(0f, -0.7f), "利息 +" + n, InkTheme.CoinDeep, 1.1f);
         }
 
         void Spawn(SpawnSpec spec, int spawnIndex)
@@ -601,7 +618,7 @@ namespace InkLine
                 Speed = speed,
                 Radius = def.Radius,
                 Gold = def.Gold,
-                Ink = def.Ink * StageCatalog.InkOf(Stage.Chapter),
+                Ink = Stage.Event ? 0f : def.Ink * StageCatalog.InkOf(Stage.Chapter),
                 Shield = def.HasShield,
                 Strafe = def.Strafe,
                 PreferEmpty = def.PreferEmpty,
@@ -1640,7 +1657,7 @@ namespace InkLine
                 _goldFrac += amount * (_goldGain - 1f);
                 int extra = Mathf.FloorToInt(_goldFrac);
                 _goldFrac -= extra;
-                Gold += amount + extra;
+                Gold += (amount + extra) * Mathf.Max(1, GmGoldMul);
                 GoldPop = 1f;
             }
             else

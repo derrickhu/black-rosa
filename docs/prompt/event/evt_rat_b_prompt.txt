@@ -1,0 +1,15 @@
+A 2 by 2 grid of 4 full-body cartoon enemy characters for a cute casual mobile tower-defense game, on a pure solid magenta background (#FF00FF).
+
+Style: bright cheerful flat cartoon like a cute casual phone game. Very thick solid black outline around the whole silhouette and around every limb. Simple rounded chunky shapes, flat even colours with gentle two-tone cel shading, big round shiny black eyes with one white highlight dot each. Cute-but-mischievous expressions. Full body, seen from the front at a slight three-quarter angle.
+
+Theme: a gang of little thief mice sneaking into a Chinese New Year temple fair to steal rice and treasure. Every mouse has round ears with pink insides the colour of a peach, a pink nose, thin pink tail, and soft fur the warm grey of a pigeon's feathers, with a cream belly the colour of rice pudding. Their stolen treasure is drawn bright and saturated so it reads clearly when the character is tiny on screen.
+
+Top-left, "Red Envelope Runner": a slim light mouse sprinting on his hind legs, body leaning far forward, one leg stretched out in a long stride, tail streaming behind. One paw holds a Chinese red envelope high above his head, the envelope the bright red of a real hongbao with a small gold circle in its middle, the gold the yellow of a new gold coin. He wears a small black eye-mask like a cartoon bandit.
+
+Top-right, "Baby Mice": a cluster of three tiny baby mice standing close together, each about a third the size of a normal character, each one holding up a small round gold coin with a square hole in its centre, the coins the yellow of a new gold coin. The three stand slightly apart so all three are clearly visible.
+
+Bottom-left, "Wok Lid Guard": a sturdy mouse braced forward in a pushing stance, holding a big round wok lid up in front of his body like a shield, the lid the dark steel grey of a cast-iron pan with a shiny rim and a round wooden knob the brown of a walnut in its centre. His head and ears peek out above the lid.
+
+Bottom-right, "Rat Boss": a bigger, broad-shouldered, proud rat with a long tail, striding sideways with his chest puffed out and a smug grin. Fur the darker grey of wet slate with a cream belly. He wears a short sleeveless silk vest the bright red of a red envelope with a gold trim the yellow of a new gold coin, and a chunky gold coin necklace. He carries a wooden abacus on one shoulder, its frame the brown of polished walnut and its beads the green of a jade bracelet.
+
+Layout: exactly 2 columns and 2 rows, 4 characters. Each character or group sits centred in its own quadrant, fully inside it, with a wide band of plain magenta all around it. The whole background is one perfectly flat, uniform solid magenta. The image contains only these characters and their items on the magenta background; every item has a smooth plain surface decorated only with simple shapes and highlights.

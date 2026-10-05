@@ -76,6 +76,12 @@ namespace InkLine
             _gemNote.text = $"今日还剩 {gemLeft} 次";
         }
 
+        void FlyStamina(Transform from, int n)
+        {
+            var layer = transform.parent as RectTransform;
+            RewardFly.Play(layer, RewardFly.Local(layer, from), new[] { RewardFly.Stamina(layer, n) });
+        }
+
         void OnAd()
         {
             AudioBus.Tap();
@@ -88,6 +94,7 @@ namespace InkLine
             {
                 if (this == null) return;
                 _meta.GrantAdStamina();
+                FlyStamina(_ad != null ? _ad.transform : transform, GameConstants.AdStaminaGain);
                 Refresh();
                 _changed?.Invoke();
             });
@@ -105,6 +112,7 @@ namespace InkLine
                 return;
             }
             AudioBus.CountTick();
+            FlyStamina(_gem != null ? _gem.transform : transform, GameConstants.DiamondStaminaGain);
             Refresh();
             _changed?.Invoke();
         }

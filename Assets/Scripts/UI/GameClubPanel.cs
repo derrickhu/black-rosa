@@ -167,7 +167,13 @@ namespace InkLine
             string msg = slot >= 0
                 ? $"已领取 墨×{GameConstants.ClubInk}，木宝箱已放进宝箱位"
                 : $"已领取 墨×{GameConstants.ClubInk}，宝箱位满了，木宝箱折成墨";
+            Vector2 from = RewardFly.Local(_layer, _claim != null ? _claim.transform : transform);
+            int ink = GameConstants.ClubInk;
+            if (slot < 0) ink += ChestCatalog.InkAvg(ChestTier.Wood);
+            var pieces = new System.Collections.Generic.List<RewardFly.Piece>(2) { RewardFly.Ink(_layer, ink) };
+            if (slot >= 0) pieces.Add(RewardFly.Chest(_layer, ChestTier.Wood, slot));
             InkToast.Show(_layer, msg);
+            RewardFly.Play(_layer, from, pieces.ToArray());
             _changed?.Invoke();
             Refresh();
         }

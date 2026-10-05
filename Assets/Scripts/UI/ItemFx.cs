@@ -281,7 +281,7 @@ namespace InkLine
             for (int i = 0; i < waves; i++)
                 Shock(s, mid, InkTheme.Word, 160f, s.Half.y * 2.6f, 0.24f + i * 0.13f, 0.55f);
 
-            float stop = 1.2f + 0.4f * s.Lv;
+            float stop = ItemCatalog.HaltTime(s.Lv);
             s.A.At(T, () =>
             {
                 Flash(s, Color.white, T, 0.45f, 0.35f);
@@ -329,7 +329,7 @@ namespace InkLine
                     can.enabled = k < 1f;
                 });
 
-            float dur = 4f + s.Lv;
+            float dur = ItemCatalog.RageTime(s.Lv);
             int mul = 2 + (s.Lv - 1) / 2;
             s.A.At(T + 0.22f, () =>
             {
@@ -404,12 +404,12 @@ namespace InkLine
                 Vector2 from = new Vector2(x, s.Half.y + 80f);
                 Vector2 to = new Vector2(x, s.Half.y - 52f + UnityEngine.Random.Range(-14f, 8f));
                 float t0 = T - 0.12f + Mathf.Abs(i - cols * 0.5f) * 0.018f;
-                float hold = 1.6f + 0.3f * s.Lv;
+                float hold = ItemCatalog.FrostTime(s.Lv);
                 s.A.Move(ice.rectTransform, from, to, t0, 0.22f, Ease.OutBounce)
                     .Fade(ice, t0 + hold, 0.4f, 1f, 0f);
             }
 
-            float slow = 1.6f + 0.3f * s.Lv;
+            float slow = ItemCatalog.FrostTime(s.Lv);
             s.A.At(T, () =>
             {
                 Flash(s, InkTheme.IceHi, T, 0.5f, 0.35f);
@@ -521,7 +521,7 @@ namespace InkLine
                 stream.enabled = thin > 0.02f && grow > 0f;
             });
 
-            float burn = 2.2f + 0.6f * s.Lv;
+            float burn = ItemCatalog.SplashTime(s.Lv);
             s.A.At(T, () =>
             {
                 AudioBus.HitFire();

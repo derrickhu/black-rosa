@@ -368,7 +368,10 @@ namespace InkLine
             int hp = Mathf.Clamp(world.BaseHp, 0, Hearts.Length);
             for (int i = 0; i < Hearts.Length; i++)
                 Hearts[i].color = i < hp ? Color.white : new Color(1f, 1f, 1f, 0.28f);
-            Wave.text = world.BossSpawned ? "关底" : $"波 {world.WaveIndex + 1}/{world.Stage.Waves.Length}";
+            // 最后一波计时走完，下标会拨到总波数外面，用来等场上的怪清完再结算。
+            // 显示停在最后一波，清场时才不会看成 3/2、6/5。
+            int wave = Mathf.Min(world.WaveIndex + 1, world.Stage.Waves.Length);
+            Wave.text = world.BossSpawned ? "关底" : $"波 {wave}/{world.Stage.Waves.Length}";
             Ink.text = world.Ink.ToString();
             if (world.ToastTime > 0f) Toast.text = world.Toast;
             else if (!string.IsNullOrEmpty(tip)) Toast.text = tip;

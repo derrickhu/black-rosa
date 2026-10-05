@@ -8,6 +8,7 @@ namespace InkLine
 {
     // 点道具卡弹出的详情：大图、品质、等级、冷却、什么时候自己丢、这一级和下一级效果，
     // 底下「装备 / 卸下」和「解锁 / 升级」。栏满了点装备，交给道具页进入换栏。
+    // 只开了一格时没有得挑，直接换上那一格。
     public sealed class ItemPanel : MonoBehaviour
     {
         const float BoardW = 620f;
@@ -83,7 +84,7 @@ namespace InkLine
                     (RectTransform)lv.transform.parent, q);
 
             float y = 346f;
-            Line(board, Tag("冷却", Mid) + $"{ItemCatalog.CooldownAt(d, Mathf.Max(1, rank)):0.#} 秒", ref y);
+            Line(board, Tag("冷却", Mid) + $"{ItemCatalog.CooldownAt(d, Mathf.Max(1, rank)):0} 秒", ref y);
             Line(board, Tag("触发", Mid) + d.When, ref y);
             string cur = ItemCatalog.Blurb(d, Mathf.Max(1, rank), _meta.ShotBase);
             Line(board, Tag(owned ? "当前" : "解锁后", owned ? Mid : Green) + cur, ref y);
@@ -185,7 +186,7 @@ namespace InkLine
                 Done();
                 return;
             }
-            if (_meta.Equip(_item))
+            if (_meta.Equip(_item) || EquipOnlySlot(layer))
             {
                 int item = _item;
                 Done();
@@ -195,6 +196,21 @@ namespace InkLine
             Destroy(gameObject);
             if (_swap != null) _swap(_item);
             else InkToast.Show(layer, "道具栏满了，先卸下一个");
+        }
+
+        // 只开着一格、里面又有东西：点装备就是换掉它，不用再点格子。
+        bool EquipOnlySlot(RectTransform layer)
+        {
+            if (_meta.ItemSlotsOpen != 1) return false;
+            for (int s = 0; s < GameConstants.ItemSlots; s++)
+            {
+                if (!_meta.ItemSlotOpen(s)) continue;
+                bool occupied = _meta.Equipped[s] >= 0;
+                if (!_meta.EquipAt(_item, s)) return false;
+                if (occupied) InkToast.Show(layer, "换上 " + ItemCatalog.Get(_item).Name);
+                return true;
+            }
+            return false;
         }
 
         void OnUpgrade()

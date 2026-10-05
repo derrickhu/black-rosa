@@ -19,6 +19,8 @@ namespace InkLine
         RectTransform _layer;
         Screen _screen = Screen.Lobby;
         int _pickStage;
+        // 正在打的活动档位，主线关是 -1。
+        int _eventTier = -1;
         ResultInfo _result;
         bool _inkDoubled;
         CardId[] _offer = new CardId[3];
@@ -94,6 +96,7 @@ namespace InkLine
                 BattleWorld.PreviewFill = true;
             WxBridge.OnHide(NoteLeft);
             WxBridge.OnShow(NoteBack);
+            WxBridge.InstallShare();
             ItemPanel.Opened += OnItemPanel;
             ItemPanel.UnlockShown += _ => CloseMask();
             ItemPanel.UnlockDone += OnItemUnlocked;
@@ -239,13 +242,16 @@ namespace InkLine
                 AudioBus.Tap();
                 _askingRetreat = false;
                 if (dim != null) Destroy(dim.gameObject);
+                bool fromEvent = _eventTier >= 0;
                 ShowHome();
+                if (fromEvent) _home?.OpenEvent();
             }
             var board = PanelKit.Board(dim, "设置", Vector2.zero, new Vector2(520f, 440f), Pin.Center, Stay);
 
             UiKit.Btn(board, "stay", "继续游戏", new Vector2(0f, 108f), new Vector2(400f, 92f), Stay, true, Pin.Top);
             UiKit.Btn(board, "leave", "撤退", new Vector2(0f, 214f), new Vector2(400f, 80f), Leave, false, Pin.Top);
-            var note = UiKit.Label(board, "note", "撤退后没有奖励，体力也不退还", 22, new Vector2(0f, 316f),
+            string leaveNote = _eventTier >= 0 ? "撤退不存金币，次数也不退还" : "撤退后没有奖励，体力也不退还";
+            var note = UiKit.Label(board, "note", leaveNote, 22, new Vector2(0f, 316f),
                 new Vector2(440f, 32f), TextAnchor.MiddleCenter, Pin.Top);
             note.color = InkTheme.TextMid;
 
@@ -296,7 +302,10 @@ namespace InkLine
             BattleHud.ReleaseCamera();
             _guide = false;
             _teach = 0;
+            _eventTier = -1;
+            InkSprites.EnemyTheme = null;
             _home = HomeScreen.Build(_layer, _meta, StartStage, ReloadSave, tab);
+            _home.StartEvent = StartEvent;
             AudioBus.Music("bgm_home");
             AudioBus.Warm("bgm_battle");
             _home.TabPicked += OnHomeTab;
@@ -320,7 +329,23 @@ namespace InkLine
             else if (step == MetaProgress.GuideItem) GuideItem();
             else if (step == MetaProgress.GuideSortie) GuideSortie();
             else if (!_meta.ItemGuideDone && _meta.FirstUnlockable >= 0) GuideItem();
-            else CloseMask();
+            else
+            {
+                CloseMask();
+                MaybeCheckIn();
+            }
+        }
+
+        // 每天第一次停在出征页时弹出签到。关不关、签不签，当天都只弹这一次。
+        // 新手指引还占着首页时不弹，等指引走完再进出征才算。
+        void MaybeCheckIn()
+        {
+            if (BattleWorld.PreviewFill || _home == null || _layer == null) return;
+            if (_home.Tab != HomeScreen.TabSortie || !_meta.CheckPopDue) return;
+            if (_layer.Find("check_in") != null) return;
+            _meta.MarkCheckPop();
+            AudioBus.Tap();
+            CheckInPanel.Show(_layer, _meta, () => { if (_home != null) _home.RefreshWallet(); });
         }
 
         // 升完伤害教开箱：点宝箱 → 免费加速 → 打开 → 看完开箱演出接新手奖励。
@@ -509,6 +534,7 @@ namespace InkLine
             {
                 _meta.SetGuide(MetaProgress.GuideDone);
                 CloseMask();
+                MaybeCheckIn();
                 return;
             }
             PointAt(go, "开始第二关");
@@ -533,6 +559,8 @@ namespace InkLine
             if (step == MetaProgress.GuideForge || step == MetaProgress.GuideChest || step == MetaProgress.GuideItem
                 || step == MetaProgress.GuideSortie || _itemTeach >= 0)
                 GuideHome();
+            else
+                MaybeCheckIn();
         }
 
         // 升级的庆祝先演完，再收遮罩去教开箱。
@@ -563,25 +591,48 @@ namespace InkLine
             if (_meta.GuideStep == MetaProgress.GuideSortie) _meta.SetGuide(MetaProgress.GuideDone);
             _guide = guide;
             _teach = guide ? 1 : 0;
-            _home = null;
             _pickStage = index;
+            _eventTier = -1;
+            _teachAim = index == 0 && !guide;
+            BeginBattle(StageCatalog.Get(index));
+        }
+
+        // 招财进宝：扣当天的活动次数，不扣体力。
+        void StartEvent(int tier)
+        {
+            if (!_meta.EventOpen || !_meta.EventTierOpen(tier)) return;
+            _meta.StorePending();
+            if (!_meta.SpendEventPlay()) return;
+            _guide = false;
+            _teach = 0;
+            _eventTier = tier;
+            _teachAim = false;
+            BeginBattle(StageCatalog.EventStage(tier, _meta.EventPool()));
+            if (_meta.EventDone) _world.ShowToast("奖励已全部领取，本局不会获得任何奖励", 2.4f);
+        }
+
+        void BeginBattle(StageDef stage)
+        {
+            _home = null;
             _taughtStar = false;
             _taughtUp = false;
-            _teachAim = index == 0 && !guide;
             _tip = "";
+            InkSprites.EnemyTheme = stage.Event ? InkSprites.EventTheme : null;
             _world = new BattleWorld();
             _world.ItemRanks = _meta.ItemLevel;
-            _world.Begin(StageCatalog.Get(index), _meta.Forged, _meta.Equipped);
+            _world.Begin(stage, _meta.Forged, _meta.Equipped);
             _world.ApplySkin(_meta.Skin);
             _world.CodexHit = OnCodex;
             _codexToasts.Clear();
             _discoveries.Clear();
             if (_view != null) _view.Dispose();
             _view = new BattleView(null);
-            _view.SetBackdrop(_world.Stage.Chapter);
+            if (stage.Event) _view.SetBackdrop(StageCatalog.EventBackdrop);
+            else _view.SetBackdrop(_world.Stage.Chapter);
             _view.EmitterSkin = _meta.Skin;
             _view.EmitterTint = _meta.SkinTint;
             BuildBattleHud();
+            if (stage.Event) _hud.InkChip.gameObject.SetActive(false);
             _autoWait = 0f;
             _autoMute = 0f;
             _dragging = false;
@@ -620,6 +671,8 @@ namespace InkLine
 
         void OnCodex(CodexKind kind, int index)
         {
+            // 活动怪换了皮，长得和墨谱里的不一样，不拿它们开新页。
+            if (kind == CodexKind.Enemy && _eventTier >= 0) return;
             if (_world == null || !_meta.CodexLearn(kind, index)) return;
             if (kind == CodexKind.Enemy)
             {
@@ -1030,6 +1083,11 @@ namespace InkLine
             _screen = Screen.Result;
             _world.Paused = true;
             _inkDoubled = false;
+            if (_eventTier >= 0)
+            {
+                FinishEvent(win);
+                return;
+            }
             if (win)
             {
                 AudioBus.Win();
@@ -1125,7 +1183,68 @@ namespace InkLine
                     DropOverlay();
                     _screen = Screen.Battle;
                 });
-            }, () => ShowDefeat(_pickStage, _world != null ? _world.Progress : 0f)).Root;
+            }, ShowLoss).Root;
+        }
+
+        void ShowLoss()
+        {
+            if (_eventTier >= 0) ShowEventResult(false, 0);
+            else ShowDefeat(_pickStage, _world != null ? _world.Progress : 0f);
+        }
+
+        // 活动关不进主线结算：不记星、不发墨、不上排行。赢了把钱袋余额存进聚宝盆。
+        void FinishEvent(bool win)
+        {
+            if (!win)
+            {
+                if (_world.RevivesUsed < GameConstants.MaxRevives) ShowRevive();
+                else ShowLoss();
+                return;
+            }
+            AudioBus.Win();
+            int banked = _meta.EventDone ? 0 : Mathf.Max(0, _world.Gold);
+            _meta.BankEvent(banked);
+            ShowEventResult(true, banked);
+        }
+
+        void ShowEventResult(bool win, int banked)
+        {
+            DropOverlay();
+            int tier = _eventTier;
+            EventResultPanel panel = null;
+            panel = EventResultPanel.Show(_layer, _meta, new EventResultArgs
+            {
+                Win = win,
+                Done = _meta.EventDone,
+                Banked = banked,
+                Interest = _world != null ? _world.Interest : 0,
+                CanDouble = _meta.CanDoubleEvent,
+                Double = () =>
+                {
+                    if (_inkDoubled) return;
+                    AdStub.Reward("event_double", () =>
+                    {
+                        if (_inkDoubled || !_meta.DoubleEvent(banked)) return;
+                        _inkDoubled = true;
+                        if (panel != null) panel.Doubled();
+                    });
+                },
+                Again = () =>
+                {
+                    if (_meta.EventPlaysLeft <= 0 || !_meta.EventOpen)
+                    {
+                        AudioBus.Deny();
+                        return;
+                    }
+                    StartEvent(tier);
+                },
+                Back = () =>
+                {
+                    ShowHome();
+                    _home?.OpenEvent();
+                }
+            });
+            _overlay = panel.Root;
         }
 
         void ShowDefeat(int stage, float progress, bool preview = false)

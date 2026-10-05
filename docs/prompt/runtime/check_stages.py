@@ -208,11 +208,16 @@ check(min(waves[2:]) >= 3, f"第三关起每关至少 3 波（最少 {min(waves[
 print("\n美术")
 enum_body = re.search(r"enum EnemyId\s*\{(.*?)\}", ids_src, re.S).group(1)
 all_ids = [x for x in re.findall(r"^\s*(\w+),?\s*$", enum_body, re.M)]
-mapped = set(re.findall(r"case EnemyId\.(\w+): return Load\(", sprite_src))
+mapped = set(re.findall(r"case EnemyId\.(\w+): return \"", sprite_src))
 missing = [e for e in all_ids if e not in mapped and e != "Walker"]
 check(not missing, f"{len(all_ids)} 个 EnemyId 都接了图" + ("" if not missing else ": 缺 " + str(missing)))
 
-files = dict(re.findall(r'case EnemyId\.(\w+): return Load\("([^"]+)"\)', sprite_src))
+files = dict(re.findall(r'case EnemyId\.(\w+): return "([^"]+)"', sprite_src))
+# 活动换皮：EventCast 每只都要有 evt_ 前缀的图。
+evt_src = read("Data", "StageEvent.cs")
+cast = re.search(r"EventCast = \{([^}]*)\}", evt_src).group(1).replace(" ", "").split(",")
+evt_miss = [c for c in cast if not os.path.exists(os.path.join(ART, "evt_" + (files.get(c) or "walker") + ".png"))]
+check(not evt_miss, f"活动 {len(cast)} 只换皮都有图" + ("" if not evt_miss else ": 缺 " + str(evt_miss)))
 files["Walker"] = "walker"
 nopng = [f"{e}->{f}.png" for e, f in files.items() if not os.path.exists(os.path.join(ART, f + ".png"))]
 check(not nopng, f"{len(files)} 张贴图都在盘上" + ("" if not nopng else ": 缺 " + str(nopng)))

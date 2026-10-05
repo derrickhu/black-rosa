@@ -46,6 +46,8 @@ namespace InkLine
         public int CheckDay;
         public int CheckRun;
         public int CheckAdDay;
+        // 签到页自动弹出记在哪一天。跟签没签无关，当天弹过就不再弹。
+        public int CheckPopDay;
         public bool CheckSkinDone;
         public int CheckLoops;
         // 图鉴：位掩码。字按 CardId、词按 WordId、秘卷按 SignaturePairs 下标。
@@ -71,6 +73,15 @@ namespace InkLine
         public int SkinNew;
         // 活动货币，留给皮肤专属词条。ForgeCoin.Token 从这里扣。
         public int Token;
+        // 招财进宝：期号、聚宝盆累计、里程碑领取位、当天打了几局、当天广告加次数和翻倍用过没。
+        // 期号和 EventCatalog.Id 对不上就整份清零。
+        public int EventId;
+        public int EventBank;
+        public int EventClaims;
+        public int EventDay;
+        public int EventPlays;
+        public bool EventAdDone;
+        public bool EventDoubleDone;
         // 新手指引走到哪一步。跟着整份存档上云，清缓存、换机都不重走。
         public int GuideStep;
         public const int GuideBattle = 0;
@@ -420,6 +431,7 @@ namespace InkLine
         public void Refresh()
         {
             bool dirty = RollDay();
+            if (RollEvent()) dirty = true;
             if (RegenStamina()) dirty = true;
             if (TickChests()) dirty = true;
             if (dirty) Save();
@@ -445,6 +457,154 @@ namespace InkLine
             DiamondStamCount = 0;
             DailyWinDone = false;
             return true;
+        }
+
+        bool RollEvent()
+        {
+            bool dirty = false;
+            if (EventId != EventCatalog.Id)
+            {
+                EventId = EventCatalog.Id;
+                EventBank = 0;
+                EventClaims = 0;
+                EventDay = 0;
+                dirty = true;
+            }
+            int today = Today;
+            if (EventDay != today)
+            {
+                EventDay = today;
+                EventPlays = 0;
+                EventAdDone = false;
+                EventDoubleDone = false;
+                dirty = true;
+            }
+            return dirty;
+        }
+
+        // 招财进宝：常驻，通完第一章才露入口。
+        public bool EventOpen => ChapterCleared(0);
+
+        // 里程碑全领完了：还能打，但不再存钱，也没有翻倍。
+        public bool EventDone
+        {
+            get
+            {
+                for (int i = 0; i < EventCatalog.Milestones.Length; i++) if (!EventClaimed(i)) return false;
+                return true;
+            }
+        }
+
+        public bool EventTierOpen(int t) => ChapterCleared(EventCatalog.Tier(t).GateChapter);
+
+        public int EventPlaysLeft
+        {
+            get
+            {
+                RollEvent();
+                int cap = EventCatalog.PlaysPerDay + (EventAdDone ? EventCatalog.AdPlays : 0);
+                return Mathf.Max(0, cap - EventPlays);
+            }
+        }
+
+        public bool SpendEventPlay()
+        {
+            if (EventPlaysLeft <= 0) return false;
+            EventPlays++;
+            Save();
+            return true;
+        }
+
+        public bool GrantEventAdPlays()
+        {
+            RollEvent();
+            if (EventAdDone) return false;
+            EventAdDone = true;
+            Save();
+            return true;
+        }
+
+        public void BankEvent(int gold)
+        {
+            if (gold <= 0 || EventDone) return;
+            RollEvent();
+            EventBank += gold;
+            Save();
+        }
+
+        public bool CanDoubleEvent
+        {
+            get { RollEvent(); return !EventDoubleDone && !EventDone; }
+        }
+
+        public bool DoubleEvent(int gold)
+        {
+            if (gold <= 0 || !CanDoubleEvent) return false;
+            EventDoubleDone = true;
+            EventBank += gold;
+            Save();
+            return true;
+        }
+
+        public bool EventReached(int i) => EventBank >= EventCatalog.Milestones[i].Need;
+        public bool EventClaimed(int i) => (EventClaims & (1 << i)) != 0;
+        public bool EventClaimable(int i) => EventReached(i) && !EventClaimed(i);
+
+        public bool EventHasClaim()
+        {
+            for (int i = 0; i < EventCatalog.Milestones.Length; i++) if (EventClaimable(i)) return true;
+            return false;
+        }
+
+        // 已有福袋时 6000 那档折成活动币，refunded 告诉界面换说法。
+        // chest 是宝箱进了哪个位：-2 这场不是宝箱，-1 位满了已折成墨。
+        public bool ClaimEvent(int i, out bool refunded, out int chest)
+        {
+            refunded = false;
+            chest = -2;
+            if (i < 0 || i >= EventCatalog.Milestones.Length || !EventClaimable(i)) return false;
+            EventMilestone m = EventCatalog.Milestones[i];
+            EventClaims |= 1 << i;
+            switch (m.Prize)
+            {
+                case EventPrize.Ink: Ink += m.Amount; break;
+                case EventPrize.Token: Token += m.Amount; break;
+                case EventPrize.Chest: chest = GrantChest((ChestTier)m.Amount); break;
+                default:
+                    if (!GrantSkin(m.Amount))
+                    {
+                        Token += EventCatalog.SkinTokenRefund;
+                        refunded = true;
+                    }
+                    break;
+            }
+            Save();
+            return true;
+        }
+
+        public void GmEventBank(int gold)
+        {
+            RollEvent();
+            EventBank += gold;
+            Save();
+        }
+
+        // 进度、领取、当天次数全清，期号不动。
+        public void GmEventReset()
+        {
+            EventBank = 0;
+            EventClaims = 0;
+            EventDay = 0;
+            RollEvent();
+            Save();
+        }
+
+        // 活动关的字池：打到哪关，就用那关的字池。
+        public CardId[] EventPool()
+        {
+            int top = 0;
+            for (int i = 0; i < Stars.Length && i < GameConstants.StageCount; i++) if (Stars[i] > 0) top = i;
+            return StageCatalog.Get(top).Pool;
         }
 
         static long RegenTicks => TimeSpan.TicksPerMinute * GameConstants.StaminaRegenMinutes;
@@ -634,6 +794,16 @@ namespace InkLine
 
         public bool CheckedToday => CheckDay == Today;
 
+        // 新手指引走完，并且今天还没自动弹过签到页。
+        public bool CheckPopDue => !Guiding && CheckPopDay != Today;
+
+        public void MarkCheckPop()
+        {
+            if (CheckPopDay == Today) return;
+            CheckPopDay = Today;
+            Save();
+        }
+
         public bool CheckAdDoneToday => CheckAdDay == Today;
 
         // 这一轮已签几天（0~7）。昨天没签、或者上一轮已满 7 天，从 0 算起。
@@ -703,6 +873,7 @@ namespace InkLine
         {
             CheckDay = ShiftDay(CheckDay, -1);
             CheckAdDay = ShiftDay(CheckAdDay, -1);
+            CheckPopDay = ShiftDay(CheckPopDay, -1);
             Save();
         }
 

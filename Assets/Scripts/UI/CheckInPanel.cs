@@ -194,7 +194,20 @@ namespace InkLine
                 : $"签到成功 墨×{GameConstants.CheckInk * k} 钻石×{MetaProgress.CheckDiamondOf(day) * k}";
             if (chest >= 0) msg += "  金宝箱已放进宝箱位";
             else if (chest == -1) msg += "  宝箱位满了，金宝箱折成墨";
+            Transform card = _body != null ? _body.Find(day == GameConstants.CheckDays ? "day7" : "day" + day) : null;
+            Vector2 from = RewardFly.Local(_layer, card);
+            int ink = GameConstants.CheckInk * k;
+            if (chest == -1) ink += ChestCatalog.InkAvg(ChestTier.Gold);
+            var pieces = new System.Collections.Generic.List<RewardFly.Piece>(5)
+            {
+                RewardFly.Stamina(_layer, GameConstants.CheckStamina * k),
+                RewardFly.Ink(_layer, ink),
+                RewardFly.Diamond(_layer, MetaProgress.CheckDiamondOf(day) * k)
+            };
+            if (chest >= 0) pieces.Add(RewardFly.Chest(_layer, ChestTier.Gold, chest));
+            if (skin) pieces.Add(RewardFly.Skin(_layer, GameConstants.CheckSkin));
             InkToast.Show(_layer, msg);
+            RewardFly.Play(_layer, from, pieces.ToArray());
             _changed?.Invoke();
             Refresh();
         }
@@ -206,7 +219,15 @@ namespace InkLine
             {
                 if (this == null || !_meta.CheckAdBonus()) return;
                 string msg = $"额外领取 墨×{GameConstants.CheckInk} 钻石×{MetaProgress.CheckDiamondOf(_meta.CheckRun)}";
+                Transform btn = _body != null ? _body.Find("bonus") : null;
+                Vector2 from = RewardFly.Local(_layer, btn);
                 InkToast.Show(_layer, msg);
+                RewardFly.Play(_layer, from, new[]
+                {
+                    RewardFly.Stamina(_layer, GameConstants.CheckStamina),
+                    RewardFly.Ink(_layer, GameConstants.CheckInk),
+                    RewardFly.Diamond(_layer, MetaProgress.CheckDiamondOf(_meta.CheckRun))
+                });
                 _changed?.Invoke();
                 Refresh();
             });

@@ -14,8 +14,9 @@ namespace InkLine
         const string Reroll = "adunit-11415a8a0688700b";
         const string Stamina = "adunit-9d8f7809fe38e610";
         const string CheckIn = "adunit-501d0517137c5114";
+        const string Event = "adunit-b9540a99a3ceffcb";
 
-        // 签到当天补领一份和当场翻倍是同一个广告位。
+        // 签到当天补领一份和当场翻倍是同一个广告位；招财进宝加次数和存钱翻倍也共用一个。
         // 结算「墨翻倍 + 开宝箱」(double) 和复活 (revive) 还没给广告位，真机上不发奖。
         static string UnitOf(string slot)
         {
@@ -29,6 +30,8 @@ namespace InkLine
                 case "stamina": return Stamina;
                 case "checkin_double":
                 case "checkin_bonus": return CheckIn;
+                case "event_plays":
+                case "event_double": return Event;
                 default: return null;
             }
         }
@@ -57,7 +60,7 @@ namespace InkLine
         {
 #if UNITY_MINIGAME || WEIXINMINIGAME || UNITY_WEIXINMINIGAME || MINIGAME_SUBPLATFORM_WEIXIN
             if (Application.isEditor) return;
-            foreach (string unit in new[] { ChestSpeed, StarterGift, Emitter, Skin, Reroll, Stamina, CheckIn })
+            foreach (string unit in new[] { ChestSpeed, StarterGift, Emitter, Skin, Reroll, Stamina, CheckIn, Event })
                 HolderOf(unit);
 #endif
         }

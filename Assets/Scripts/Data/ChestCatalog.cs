@@ -102,7 +102,7 @@ namespace InkLine
             seconds >= 60 ? (seconds / 60) + " 分钟" : seconds + " 秒";
 
         // 一个箱子里分几叠、每叠什么品质。数字是每叠的张数，合计等于 Cards。
-        // 单叠停在解锁线下面：绿要 6 张、蓝要 4 张、紫要 2 张。一箱只推进一步。
+        // 单叠停在解锁线下面：绿要 6 张、蓝要 4 张、紫要 5 张。一箱只推进一步。
         static void Plan(ChestTier t, List<(ItemQuality q, int n)> into)
         {
             ChestDef d = Get(t);
