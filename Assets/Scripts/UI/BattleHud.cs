@@ -79,7 +79,7 @@ namespace InkLine
             toast.color = InkTheme.TextDark;
             toast.gameObject.SetActive(false);
 
-            // 左上角是设置。底栏只留改装和技能。
+            // 左上角是设置。底栏左边是看广告加炮，右边是改装，技能在格子右侧。
             var draftBtn = UiKit.Btn(layer, "draft", "改装", Vector2.zero, new Vector2(280, 84), draft, true, Pin.Bottom);
             var draftLabel = draftBtn.GetComponentInChildren<Text>();
             var settingsBtn = GearButton(layer, retreat);
@@ -427,18 +427,24 @@ namespace InkLine
             PlaceAdGun(world, inBattle);
         }
 
-        // 广告炮位：不再套白框。原地摆一门和真炮一样大的淡色炮，角上压一枚广告章，
-        // 一眼读成「这里还能再来一门，看个广告就是你的」。整块透明区域都能点。
+        // 看广告加炮：改装左边的一颗按钮。左边放炮台图和播放章，右边写「加一门炮」。
+        // 和改装合成一组居中，不再单独贴在屏幕边上。
         void BuildAdGun(System.Action addEmitter)
         {
-            _adGun = UiKit.Panel(_layer, "adgun", Vector2.zero, new Vector2(88f, 88f), Color.clear);
-            var btn = _adGun.gameObject.AddComponent<Button>();
-            btn.targetGraphic = _adGun.GetComponent<Image>();
-            btn.transition = Selectable.Transition.None;
-            btn.onClick.AddListener(() => addEmitter?.Invoke());
-            _adGhost = UiKit.Icon(_adGun, InkSprites.CannonSkin(GunSkin), Vector2.zero, 88f);
-            _adMark = UiKit.Icon(_adGun, ResultKit.AdBadge(), Vector2.zero, 40f);
+            var btn = UiKit.Btn(_layer, "adgun", "加一门炮", Vector2.zero, new Vector2(AdW, RowH),
+                addEmitter, true, Pin.Bottom);
+            _adGun = btn.transform as RectTransform;
+            var face = _adGun.Find("face");
+            var label = face.Find("t") as RectTransform;
+            label.pivot = new Vector2(0f, 0.5f);
+            label.sizeDelta = new Vector2(140f, RowH);
+            label.anchoredPosition = new Vector2(-AdW * 0.5f + 88f, 0f);
+            label.GetComponent<Text>().alignment = TextAnchor.MiddleLeft;
+            _adGhost = UiKit.Icon(face, InkSprites.CannonSkin(GunSkin), new Vector2(-AdW * 0.5f + 42f, 2f), 64f);
+            _adMark = UiKit.Icon(face, ResultKit.AdBadge(), new Vector2(-AdW * 0.5f + 64f, -16f), 30f);
             _adGun.gameObject.SetActive(false);
+            var sh = _layer.Find("adgun_sh");
+            if (sh != null) sh.gameObject.SetActive(false);
         }
 
         // 新手第一关：不给设置（里面有撤退）和看广告加炮，只留打仗要用的。
@@ -453,49 +459,38 @@ namespace InkLine
         }
         bool _guided;
 
-        // 和 BattleView 里的炮同一张图、同一个缩放，淡色版本才对得上真炮的大小。
         public int GunSkin;
         int _ghostSkin = -1;
-        const float GunScale = 0.60f;
+        const float AdW = 232f;
+        const float PairGap = 16f;
 
         void PlaceAdGun(BattleWorld world, bool inBattle)
         {
             if (_adGun == null) return;
             bool show = inBattle && !Guided && world.EmitterCount < GameConstants.AdEmitterCap;
             _adGun.gameObject.SetActive(show);
+            var sh = _adGun.parent != null ? _adGun.parent.Find("adgun_sh") : null;
+            if (sh != null) sh.gameObject.SetActive(show);
             if (!show) return;
             if (_ghostSkin != GunSkin && _adGhost != null)
             {
                 _ghostSkin = GunSkin;
                 _adGhost.sprite = InkSprites.CannonSkin(GunSkin);
+                _adGhost.color = Color.white;
             }
-            Vector3 at = new Vector3(world.AdSlotPos.x, world.AdSlotPos.y, 0f);
-            Vector2 c = WorldToCanvas(_layer, at);
-            Vector2 c2 = WorldToCanvas(_layer, at + new Vector3(GameConstants.CellWidth, 0f, 0f));
-            float perWorld = Mathf.Abs(c2.x - c.x) / GameConstants.CellWidth;
-            float hit = Mathf.Clamp(perWorld * GameConstants.CellWidth * 0.92f, 52f, 140f);
-            _adGun.anchorMin = _adGun.anchorMax = _adGun.pivot = new Vector2(0.5f, 0.5f);
-            _adGun.sizeDelta = new Vector2(hit, hit);
-            _adGun.anchoredPosition = c;
-
-            float t = Time.unscaledTime;
-            if (_adGhost != null)
+            float bot = ScreenFit.BottomPad + 16f;
+            float canvasW = Mathf.Max(720f, _layer.rect.width);
+            float room = canvasW - 36f * 2f - PairGap;
+            float draftW = Mathf.Clamp(room - AdW, 200f, 400f);
+            float group = AdW + PairGap + draftW;
+            float left = -group * 0.5f;
+            PinBottom(_adGun, new Vector2(left + AdW * 0.5f, bot), new Vector2(AdW, RowH), 8f, Pin.Bottom);
+            PinBottom(Draft.transform as RectTransform, new Vector2(left + AdW + PairGap + draftW * 0.5f, bot),
+                new Vector2(draftW, RowH), 8f, Pin.Bottom);
+            if (DraftLabel != null)
             {
-                Sprite spr = _adGhost.sprite;
-                float gun = spr != null ? Mathf.Max(spr.bounds.size.x, spr.bounds.size.y) * GunScale * perWorld : hit;
-                _adGhost.rectTransform.sizeDelta = new Vector2(gun, gun);
-                // 淡，但会轻轻呼吸，像在等人来领。
-                float a = 0.42f + 0.10f * Mathf.Sin(t * 3.2f);
-                _adGhost.color = new Color(1f, 1f, 1f, a);
-            }
-            if (_adMark != null)
-            {
-                float m = hit * 0.40f;
-                float bob = 1f + 0.08f * Mathf.Sin(t * 5.5f);
-                var mr = _adMark.rectTransform;
-                mr.sizeDelta = new Vector2(m, m);
-                mr.anchoredPosition = new Vector2(hit * 0.30f, -hit * 0.24f);
-                mr.localScale = new Vector3(bob, bob, 1f);
+                var box = DraftLabel.GetComponent<RectTransform>();
+                if (box != null) box.sizeDelta = new Vector2(draftW, RowH);
             }
         }
 
