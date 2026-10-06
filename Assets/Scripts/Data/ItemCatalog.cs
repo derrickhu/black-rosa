@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace InkLine
 {
-    public enum ItemId { Burst, Halt, Rage, Sweep, Splash, Mend, Frost, Slow, Snipe }
+    public enum ItemId { Burst, Halt, Rage, Sweep, Splash, Mend, Frost, Slow, Snipe, Dart }
 
     public enum ItemQuality { Green, Blue, Purple }
 
@@ -21,7 +21,7 @@ namespace InkLine
 
     public static class ItemCatalog
     {
-        public const int Count = 9;
+        public const int Count = 10;
         public const int MaxLevel = 5;
 
         // 1 级冷却按品质分档，升一级大约短 6%（见 CooldownAt）。
@@ -72,6 +72,11 @@ namespace InkLine
             {
                 Id = ItemId.Snipe, Name = "弹弓", Desc = "最前一个吃一记重击",
                 When = "场上有敌人", Quality = ItemQuality.Green, Cooldown = 18f, Tint = InkTheme.Thunder
+            },
+            new ItemDef
+            {
+                Id = ItemId.Dart, Name = "回旋镖", Desc = "一颗光球满场乱飞",
+                When = "场上有敌人", Quality = ItemQuality.Purple, Cooldown = 75f, Tint = InkTheme.Hex("FF3EC8")
             }
         };
 
@@ -124,6 +129,8 @@ namespace InkLine
         public static int FrostTime(int lv) => 5 + lv;
         // 胶水要够长，脚底下的减速标记才看得出来。冷却 18 到 24 秒，始终盖过这阵减速。
         public static int SlowTime(int lv) => 4 + lv;
+        // 光球穿过敌人，总伤靠多飞几个来回。冷却 75 秒起，满级 12 秒仍盖得过。
+        public static int DartTime(int lv) => 7 + lv;
 
         public static string QualityName(ItemQuality q) =>
             q == ItemQuality.Purple ? "稀有" : q == ItemQuality.Blue ? "高级" : "普通";
@@ -148,6 +155,8 @@ namespace InkLine
         // 按默认弹伤：1 级 4 点，之后每级 +2（6/8/10/12）。单目标，满级仍低于紫色大扫把的 13。
         public static float SnipeMul(int lv) => (2f + 2f * lv) / ShotMods.DefaultBase;
         public static float SplashMul(int lv) => 1.1f + 0.55f * lv;   // 每秒
+        // 单次擦过。按默认弹伤：1 级 3 点，之后每级 +1。一路能撞好几下，总伤靠来回飞出来。
+        public static float DartMul(int lv) => (2f + lv) / ShotMods.DefaultBase;
 
         public static int MendCap(int lv) => lv >= MaxLevel ? 2 : 1;
 
@@ -177,6 +186,8 @@ namespace InkLine
                     return "全场减速 " + SlowTime(lv) + " 秒";
                 case ItemId.Snipe:
                     return "最前一个 " + Pts(b * SnipeMul(lv)) + " 点";
+                case ItemId.Dart:
+                    return "光球飞 " + DartTime(lv) + " 秒，碰到的敌人 " + Pts(b * DartMul(lv)) + " 点";
                 default:
                     return d.Desc;
             }

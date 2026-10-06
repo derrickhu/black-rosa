@@ -71,11 +71,13 @@ namespace InkLine
             // 金币、墨、波次都不铺白底，图标加描边字直接写在地图上。
             var gold = Readout(layer, "gold", InkSprites.Ui("gold"), "0", false, Pin.TopLeft, out RectTransform goldChip);
             var ink = Readout(layer, "ink", InkSprites.Ui("ink"), "0", true, Pin.TopRight, out RectTransform inkChip);
-            var wave = ReadoutText(layer, "wave", "", 36, new Vector2(200f, ReadH), Pin.Top);
+            var wave = ReadoutText(layer, "wave", "", 36, new Vector2(220f, Gear), Pin.Top);
 
+            // 波次下面不放提示。这条留着是为了不改预制和刷新入口，字永远是空的。
             var toast = UiKit.Label(layer, "toast", "", 24, new Vector2(0, top + 62f), new Vector2(640, 44),
                 TextAnchor.MiddleCenter, Pin.Top);
             toast.color = InkTheme.TextDark;
+            toast.gameObject.SetActive(false);
 
             // 左上角是设置。底栏只留改装和技能。
             var draftBtn = UiKit.Btn(layer, "draft", "改装", Vector2.zero, new Vector2(280, 84), draft, true, Pin.Bottom);
@@ -225,15 +227,9 @@ namespace InkLine
             PinTop(Settings.transform as RectTransform, new Vector2(Side, top),
                 new Vector2(Gear, Gear), 6f, Pin.TopLeft);
             PinTop(GoldChip, new Vector2(Side, row), new Vector2(ReadW, ReadH), 0f, Pin.TopLeft);
-            PinTop(_wavePlate, new Vector2(0f, row), new Vector2(200f, ReadH), 0f, Pin.Top);
+            // 波次和设置同一行，垂直居中在齿轮高度里。金币和墨仍在下一行。
+            PinTop(_wavePlate, new Vector2(0f, top), new Vector2(220f, Gear), 0f, Pin.Top);
             PinTop(InkChip, new Vector2(Side, row), new Vector2(ReadW, ReadH), 0f, Pin.TopRight);
-            if (Toast != null)
-            {
-                var toastRt = Toast.rectTransform;
-                toastRt.anchorMin = toastRt.anchorMax = new Vector2(0.5f, 1f);
-                toastRt.pivot = new Vector2(0.5f, 1f);
-                toastRt.anchoredPosition = new Vector2(0f, -(row + ReadH + 4f));
-            }
             PinBottom(Draft.transform as RectTransform, new Vector2(draftX, bot),
                 new Vector2(draftW, RowH), 8f, Pin.Bottom);
             if (DraftLabel != null)
@@ -416,10 +412,8 @@ namespace InkLine
             int wave = Mathf.Min(world.WaveIndex + 1, world.Stage.Waves.Length);
             Wave.text = world.BossSpawned ? "关底" : $"波 {wave}/{world.Stage.Waves.Length}";
             Ink.text = world.Ink.ToString();
-            if (world.ToastTime > 0f) Toast.text = world.Toast;
-            else if (!string.IsNullOrEmpty(tip)) Toast.text = tip;
-            else if (world.RevealTime > 0f) Toast.text = $"显形 · {world.LastReveal}";
-            else Toast.text = "";
+            // 波次下面不写字：成词、升星、操作提示、显形都不落到这一行。
+            if (Toast != null) Toast.text = "";
             RefreshKeys(world, inBattle);
             if (_fx != null) _fx.Hold(world.Paused);
             bool can = world.CanDraft && inBattle;

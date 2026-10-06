@@ -29,6 +29,7 @@ namespace InkLine
         int _skinPainted = -1;
         readonly Dictionary<int, SpriteRenderer> _enemies = new Dictionary<int, SpriteRenderer>();
         readonly Dictionary<int, SpriteRenderer> _bullets = new Dictionary<int, SpriteRenderer>();
+        readonly Dictionary<int, SpriteRenderer> _darts = new Dictionary<int, SpriteRenderer>();
         readonly SpriteRenderer _leak;
         readonly HashSet<int> _seen = new HashSet<int>();
         readonly Color[] _colWash = new Color[GameConstants.Columns];
@@ -243,6 +244,14 @@ namespace InkLine
                 else if (e.PoisonTime > 0f) tint = Color.Lerp(Color.white, InkTheme.Poison, 0.18f);
                 Sprite body = InkArt.Person(e.Type, Color.clear);
                 float baseScale = e.Radius * 2.6f;
+                // 墨粒半径最小，三只小粒和活动关的老鼠按贴图高度缩完只有旁边兵的一半，脸看不清。
+                // 只放大绘制，碰撞还按原来的半径。
+                if (e.Type == EnemyId.Swarm && body != null)
+                {
+                    float worldH = body.rect.height / Mathf.Max(1f, body.pixelsPerUnit) * baseScale;
+                    const float readable = 1.05f;
+                    if (worldH < readable) baseScale *= readable / worldH;
+                }
                 float wave = Time.unscaledTime * (e.Held ? 3.2f : 5.4f) + e.Id * 1.7f;
                 float breath = 1f + 0.075f * Mathf.Sin(wave);
                 float sx = baseScale * breath;
@@ -304,7 +313,25 @@ namespace InkLine
             _seen.Clear();
             for (int n = 0; n < w.Bullets.Count; n++) if (!w.Bullets[n].Dead) _seen.Add(w.Bullets[n].Id);
             Purge(_bullets);
+
+            _seen.Clear();
+            for (int n = 0; n < w.Darts.Count; n++)
+            {
+                BattleWorld.DartActor dart = w.Darts[n];
+                if (dart.Dead) continue;
+                SpriteRenderer head = Bind(_darts, dart.Id, DartOrb.Shell, dart.Pos, DartScale, 13, Color.white);
+                var orb = head.GetComponent<DartOrb>();
+                if (orb == null) orb = head.gameObject.AddComponent<DartOrb>();
+                orb.Sync(dart);
+                _seen.Add(dart.Id);
+            }
+            Purge(_darts);
+            DartFx.Bind(_root);
+            for (int n = 0; n < w.DartPops.Count; n++) DartFx.Pop(w.DartPops[n]);
+            w.DartPops.Clear();
         }
+
+        public const float DartScale = 0.64f;
 
         // 命中白闪。原来是整只换成纯白剪影，射速快的时候敌人大半时间都是一团白，
         // 既看不出是什么怪，也看不出血条打到哪了 —— 白闪反而把最该看的东西盖了。

@@ -23,6 +23,7 @@ namespace InkLine
             {
                 host._view = page.GetComponentInChildren<HomeItemView>(true);
                 if (host._view == null) host._view = ItemPageBuilder.Build(page);
+                ItemPageBuilder.Grow(host._view);
                 for (int i = 0; i < page.childCount; i++)
                 {
                     Transform c = page.GetChild(i);

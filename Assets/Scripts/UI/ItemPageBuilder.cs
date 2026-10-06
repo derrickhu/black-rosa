@@ -123,6 +123,17 @@ namespace InkLine
             return view;
         }
 
+        // 预制里烘的是当时的张数。图鉴变多时把缺的卡补进同一条列表，格子布局会自己排开。
+        public static void Grow(HomeItemView view)
+        {
+            if (view == null || view.List == null || view.Cards == null) return;
+            if (view.Cards.Length >= ItemCatalog.Count) return;
+            var next = new HomeItemCard[ItemCatalog.Count];
+            for (int i = 0; i < view.Cards.Length; i++) next[i] = view.Cards[i];
+            for (int i = view.Cards.Length; i < next.Length; i++) next[i] = Card(view.List, i);
+            view.Cards = next;
+        }
+
         static HomeItemSlot Slot(RectTransform shelf, int s, Vector2 pos)
         {
             var box = Box(shelf, "slot" + s, pos, new Vector2(SlotSize, SlotSize), Pin.Center);

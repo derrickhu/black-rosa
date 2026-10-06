@@ -35,6 +35,10 @@ namespace InkLine
         public float PoisonDps;
         public float PoisonTime;
         public int PoisonStacks;
+        // 灼烧 / 中毒每帧只掉零点几，攒够整数再飘，DotClock 控制多久飘一次。
+        public float BurnShown;
+        public float PoisonShown;
+        public float DotClock;
         public float Slow = 1f;
         public float SlowTime;
         // 硬控同时只生效一个，输的那个降级成等时长的缓。
@@ -82,6 +86,8 @@ namespace InkLine
         // 同一只怪身上的连续伤害并进同一个数往上滚。一炮打十下就飘十个 1，
         // 是这套战斗最吵也最看不懂的地方 —— 累加之后玩家读到的是「这一轮打掉多少」。
         public int OwnerId;
+        // 同一只怪身上，炮弹伤害、灼烧、中毒各滚各的数，Tag 不同不合并。
+        public int Tag;
         public PopKind Kind;
         public Vector2 Pos;
         public Vector2 Vel;
@@ -202,8 +208,11 @@ namespace InkLine
         public float WaveTime;
 
         // 同一组多于一只时，不要在同一帧倒出来。先出一只，剩下的隔开再进。
-        // 活动关已经拆成一只一个时间点，这里 count 为 1，不会再隔一次。
+        // 活动关不走这条：一列在同一帧出完，只沿这一列前后错开。
         const float DripGap = 1.1f;
+        float _eventFileTime = -1f;
+        int _eventFileCol = -2;
+        int _eventFile;
         struct Drip
         {
             public EnemyId Id;
@@ -500,6 +509,7 @@ namespace InkLine
             {
                 WaveIndex++;
                 WaveTime = 0f;
+                _eventFileTime = -1f;
                 _leechGiven = 0f;
                 if (Stage.Event) PayInterest();
             }
@@ -540,11 +550,29 @@ namespace InkLine
         void Spawn(SpawnSpec spec, int spawnIndex)
         {
             int count = BodyCount(spawnIndex, spec);
-            // 只数在关卡表里已经按「开局疏、收尾密」摊过。这里只负责进场。
+            // 只数在关卡表里已经按每波密度（最后一波最密）摊过。这里只负责进场。
             // 血和掉落都不摊 —— 每只吃满表血、掉满自己那份。
             // 关底成对进场仍是同一下。杂兵多于一只就隔开出，不在出生点叠成一串。
             bool boss = EnemyIds.IsBoss(spec.Id);
             if (count <= 0) return;
+            // 活动关的一列在同一帧出完，只在这一列里前后错开，不往旁边的列铺。
+            // 前几波因此是一列小队，最后两波才由出场表同时开两列。
+            if (Stage.Event && !boss)
+            {
+                int col = spec.Column >= 0 ? spec.Column : PickColumn();
+                col = Mathf.Clamp(col, 0, GameConstants.Columns - 1);
+                if (spec.Time != _eventFileTime || col != _eventFileCol)
+                {
+                    _eventFileTime = spec.Time;
+                    _eventFileCol = col;
+                    _eventFile = 0;
+                }
+                float x = FieldLayout.ColumnX(col);
+                for (int i = 0; i < count; i++)
+                    Enemies.Add(Make(spec.Id, new Vector2(x, GameConstants.SpawnY + (_eventFile + i) * 0.46f)));
+                _eventFile += count;
+                return;
+            }
             if (count == 1 || boss)
             {
                 for (int i = 0; i < count; i++)
@@ -1736,12 +1764,42 @@ namespace InkLine
                 if ((e.Pos - pos).sqrMagnitude > 0.25f) continue;
                 e.Hp -= dmg;
                 e.HitFlash = 0.14f;
+                ShowDamage(e, dmg, InkTheme.Fire, 1f, false, TagBurn);
                 if (e.Hp <= 0f) Kill(e, null);
             }
             Bursts.Add(new FxBurst
             {
                 Pos = pos, Kind = HitFx.Fire, Tint = InkTheme.FireHi, Scale = 1.35f
             });
+        }
+
+        // 持续伤害的飘字。间隔要短于 ShowDamage 的合并窗口（0.5 秒），一整段灼烧才会滚成一个数。
+        const float DotPopGap = 0.4f;
+        const int TagBurn = 1;
+        const int TagPoison = 2;
+
+        void TickDotPop(EnemyActor e, float dt)
+        {
+            e.DotClock -= dt;
+            if (e.DotClock > 0f) return;
+            e.DotClock = DotPopGap;
+            PopDot(e, ref e.BurnShown, InkTheme.Fire, TagBurn, 1f);
+            PopDot(e, ref e.PoisonShown, InkTheme.Poison, TagPoison, 1f);
+        }
+
+        // 被烧死、毒死的那一下，零头也飘出来，不然最后那口伤害看不见。
+        void FlushDot(EnemyActor e)
+        {
+            PopDot(e, ref e.BurnShown, InkTheme.Fire, TagBurn, 0.3f);
+            PopDot(e, ref e.PoisonShown, InkTheme.Poison, TagPoison, 0.3f);
+        }
+
+        void PopDot(EnemyActor e, ref float shown, Color color, int tag, float least)
+        {
+            if (shown < least) return;
+            int n = Mathf.Max(1, Mathf.FloorToInt(shown));
+            shown = Mathf.Max(0f, shown - n);
+            ShowDamage(e, n, color, 0.9f, false, tag);
         }
 
         // 奶光环：每秒给范围内的**其他**敌人回血。不回自己 —— 这样「先杀奶妈」
@@ -1774,19 +1832,23 @@ namespace InkLine
                 if (e.BurnTime > 0f)
                 {
                     e.BurnTime -= dt;
-                    e.Hp -= e.BurnDps * dt;
-                    if (e.Hp <= 0f) { Kill(e, null); continue; }
+                    float burn = e.BurnDps * dt;
+                    e.Hp -= burn;
+                    e.BurnShown += burn;
+                    if (e.Hp <= 0f) { FlushDot(e); Kill(e, null); continue; }
                 }
                 if (e.PoisonTime > 0f)
                 {
                     e.PoisonTime -= dt;
                     float tick = e.PoisonDps * e.PoisonStacks * dt;
                     e.Hp -= tick;
+                    e.PoisonShown += tick;
                     // 蚀生：毒造成的伤害全额进吸血池
                     if (e.PoisonLeech > 0f) PourLeech(tick, e.PoisonLeech);
                     if (e.PoisonTime <= 0f) { e.PoisonStacks = 0; e.PoisonLeech = 0f; }
-                    if (e.Hp <= 0f) { Kill(e, null); continue; }
+                    if (e.Hp <= 0f) { FlushDot(e); Kill(e, null); continue; }
                 }
+                TickDotPop(e, dt);
                 if (e.HardTime > 0f)
                 {
                     bool wasStun = e.Hard == StatusKind.Stun;
@@ -1934,7 +1996,8 @@ namespace InkLine
             // 前两关是教学关，没有关底。原来这里硬要求 BossKilled，
             // 无 boss 的关会永远停在最后一波打不完。
             bool bossDone = !Stage.HasBoss || BossKilled;
-            bool clear = bossDone && AliveEnemies == 0 && WaveIndex >= Stage.Waves.Length;
+            // 地上还躺着宝箱就先不收：玩家看着它掉出来，得让他打完或等它过期。
+            bool clear = bossDone && AliveEnemies == 0 && WaveIndex >= Stage.Waves.Length && Chests.Count == 0;
             if (!clear)
             {
                 _clearHold = 0f;
@@ -2195,14 +2258,14 @@ namespace InkLine
         // 伤害数字。同一只怪在半秒内挨的所有伤害并成一个数往上滚 ——
         // 分裂弹一轮能打七八下，逐下飘出来就是一屏「1 1 1 1」，
         // 既读不出打了多少，也把真正的大数字盖住了。
-        public void ShowDamage(EnemyActor e, float dmg, Color color, float scale, bool crit)
+        public void ShowDamage(EnemyActor e, float dmg, Color color, float scale, bool crit, int tag = 0)
         {
             int n = Mathf.Max(1, Mathf.RoundToInt(dmg));
             PopKind kind = crit ? PopKind.Crit : PopKind.Damage;
             for (int i = 0; i < Floats.Count; i++)
             {
                 FloatText f = Floats[i];
-                if (f.OwnerId != e.Id) continue;
+                if (f.OwnerId != e.Id || f.Tag != tag) continue;
                 if (f.Kind != PopKind.Damage && f.Kind != PopKind.Crit) continue;
                 if (f.Life < f.MaxLife - 0.5f) continue;
                 f.Value += n;
@@ -2220,6 +2283,7 @@ namespace InkLine
             }
             FloatText pop = Push(kind, e.Id, e.Pos + Vector2.up * 0.24f, n.ToString(), color, PopScale(scale, n), 0.78f);
             pop.Value = n;
+            pop.Tag = tag;
         }
 
         // 数字越大字略大，对数长，大约 40 以上几乎不再长。

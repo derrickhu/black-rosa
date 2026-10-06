@@ -1,0 +1,17 @@
+A sprite sheet of glowing magic effect layers for a cartoon mobile game. Three columns and two rows, six equal square cells. The background of every cell and every gap is pure black #000000. Each cell holds one separate element, centered, filling about 70 percent of the cell, with its glow fading smoothly into the black.
+
+The attached screenshot shows the target look: the stacked glowing pink orbs flying above the board. Match their glow, their colours and their layered build.
+
+Cell 1, top left: the orb shell. A round glossy ball of light. Its outer edge is a thick soft glow in the hot pink of a dragon fruit skin. The body is a translucent violet-pink, like a grape soda held up to the light, and gets darker toward the middle, so the middle of the ball is a deep plum colour. Along the lower edge sits a bright crescent of turquoise light, the colour of a swimming pool under the sun. On the upper left, a curved white gloss highlight like the shine on a soap bubble.
+
+Cell 2, top middle: the orb core. A four-blade swirling pinwheel seen from the front, each blade curved like a comma, all four turning the same way. The blades are glowing tangerine orange with egg-yolk yellow edges. The hub in the centre is a small bright ball in the pink of a strawberry milkshake with a white-hot centre.
+
+Cell 3, top right: a sparkle. A sharp four-pointed star flare, long thin rays up, down, left and right, with a white-hot centre and hot pink outer rays.
+
+Cell 4, bottom left: an impact flash. A round burst of light with eight sharp spikes radiating outward, white in the centre, hot pink in the middle band, and a few turquoise shards flying outward at the tips.
+
+Cell 5, bottom middle: a shockwave ring. One thin round ring of hot pink light with a turquoise inner edge, the inside of the ring is empty black.
+
+Cell 6, bottom right: a comet tail. A horizontal streak of light, round and bright on the right end, tapering to a thin point on the left end, white-pink at the bright end fading to violet along the tail.
+
+Clean cartoon game-effect style, smooth gradients, bright saturated glow. NO TEXT, no numbers, no letters, no watermark.

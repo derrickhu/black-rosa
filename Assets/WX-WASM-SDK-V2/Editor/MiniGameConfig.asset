@@ -17,7 +17,7 @@ MonoBehaviour:
     Appid: wxad27f529c95e582c
     CDN: 
     assetLoadType: 1
-    compressDataPackage: 0
+    compressDataPackage: 1
     VideoUrl: https://726f-rosa-env-d7grf78r5dbd37323-1414200063.tcb.qcloud.la/black-rosa/loading/loading3.mp4
     relativeDST: wechat-minigame
     DST: /Users/rosa/rosa_games/black-rosa/wechat-minigame

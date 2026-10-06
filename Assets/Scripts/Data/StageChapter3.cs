@@ -4,7 +4,7 @@ using static InkLine.CardId;
 
 namespace InkLine
 {
-    // 第三章 · 石院：两排慢慢铺满，第三排还不开。晕和第一组成词「击退」进池，
+    // 第三章 · 石院：第二排开到三到五格，第三排还不开。晕和第一组成词「击退」进池，
     // 盾、裂墨、狂奔登场 —— 这一章开始，光靠一种字打不动了。
     public static partial class StageCatalog
     {
@@ -40,7 +40,7 @@ namespace InkLine
                 W(S(0.3f, Splitter, 2), S(1f, Splitter, 3), S(4.5f, BigHead, -1, 3), S(9f, Runner, -1, 3))
             ).Give(Strike, Back));
 
-            s.Add(P("裂墨", G("XXXXXX", "XXX.XX"),
+            s.Add(P("裂墨", G("XXXXXX", "X.X.X."),
                 W(S(0.3f, Shield, -1, 2), S(3f, Strafer, -1, 2), S(7f, Runner, -1, 2)),
                 W(S(0.3f, Splitter, 2), S(3.5f, Splitter, 3)),
                 W(S(0.3f, Splitter, 0), S(1.8f, Splitter, 5), S(5f, Crawler, -1, 2), S(9f, Strafer, 3)),
@@ -49,7 +49,7 @@ namespace InkLine
                 W(S(0.3f, Strafer, 1), S(2f, Strafer, 4), S(5.5f, Splitter, 3), S(10f, Shield, -1, 2))
             ));
 
-            s.Add(P("囊中", G("XXXXXX", "XXXXX."),
+            s.Add(P("囊中", G("XXXXX.", "XXXX.."),
                 W(S(0.3f, Shield, -1, 2), S(3f, Splitter, -1, 2), S(7f, Runner, -1, 2)),
                 W(S(0.3f, Strafer, -1, 2), S(3f, Belt, -1, 2), S(7.5f, Swarm, 3, 4)),
                 W(S(0.3f, Crawler, 1), S(1.5f, Crawler, 4), S(5f, Splitter, 3), S(9f, Chubby, -1, 2)),
@@ -58,7 +58,7 @@ namespace InkLine
                 Boss(BossInkbag, S(4f, Shield, 0), S(6f, Shield, 5), S(10f, Splitter, -1, 2), S(15f, Runner, -1, 3))
             ));
 
-            s.Add(P("狂奔", G("XX.XXX", "XXXXXX"),
+            s.Add(P("狂奔", G("XX.XXX", ".XXXX."),
                 W(S(0.3f, Splitter, -1, 2), S(3f, Shield, 3), S(6.5f, Runner, -1, 3)),
                 W(S(0.3f, Sprinter, 2), S(3f, Sprinter, 3)),
                 W(S(0.3f, Sprinter, 0), S(1.6f, Sprinter, 5), S(5f, Splitter, -1, 2), S(9.5f, Chubby, 3)),
@@ -77,7 +77,7 @@ namespace InkLine
             ));
 
             // 一排盾墙接一排盾墙，晕和击退轮流开路。
-            s.Add(P("盾墙", G("XXXXXX", "XXXXXX"),
+            s.Add(P("盾墙", G("XXXXXX", "XXXX.."),
                 W(S(0.3f, Shield, 1), S(0.3f, Shield, 2), S(0.3f, Shield, 3), S(0.3f, Shield, 4)),
                 W(S(0.3f, Sprinter, -1, 2), S(3f, Splitter, -1, 2), S(7f, Runner, -1, 3)),
                 W(S(0.3f, Shield, 0, 2), S(1.5f, Shield, 5, 2), S(5f, Crawler, -1, 3), S(9f, Swarm, 3, 4)),
@@ -85,7 +85,7 @@ namespace InkLine
                 W(S(0.3f, Shield, -1, 3), S(3.5f, Sprinter, -1, 2), S(8f, Splitter, -1, 3))
             ));
 
-            s.Add(P("铁桶", G("XXXXXX", "XXXXXX"),
+            s.Add(P("铁桶", G("XXXXXX", "XXXXX."),
                 W(S(0.3f, Shield, -1, 2), S(3f, Sprinter, -1, 2), S(7f, Crawler, -1, 2)),
                 W(S(0.3f, Splitter, -1, 3), S(4f, Strafer, -1, 2), S(8.5f, Swarm, 2, 5)),
                 W(S(0.3f, Crawler, 0), S(1.2f, Crawler, 5), S(4.5f, Shield, 2), S(5.1f, Shield, 3), S(9f, Runner, -1, 3)),

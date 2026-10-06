@@ -72,6 +72,7 @@ namespace InkLine
                 case ItemId.Sweep: end = Sweep(s, d, c, w, key); break;
                 case ItemId.Splash: end = Splash(s, d, c, w, key); break;
                 case ItemId.Mend: end = Mend(s, d, c, w, key, hearts); break;
+                case ItemId.Dart: end = Dart(s, d, c, w, key); break;
                 default: end = 1f; break;
             }
             s.A.At(end, () => { if (g != null) Destroy(g.gameObject); });
@@ -425,7 +426,36 @@ namespace InkLine
             return T + slow + 0.9f;
         }
 
-        // ---------- 稀有：大扫把、辣椒酱、急救包 ----------
+        // 亮相到点，图标炸成一团紫光，同一刻光球从炮口弹出去，场上的光球自己接着弹。
+        float Dart(Stage s, ItemDef d, BattleWorld.ItemCast c, BattleWorld w, Vector2 key)
+        {
+            float go = c.Impact > 0.05f ? c.Impact : 0.48f;
+            Image hero = Showcase(s, d, key, go);
+            if (w == null) return go;
+            Color q = ItemCatalog.QualityColor(d.Quality);
+            Color pink = InkTheme.Hex("FF3EC8");
+            Color cyan = InkTheme.Hex("5FF2FF");
+            s.A.Tween(go, 0.2f, k =>
+            {
+                hero.rectTransform.localScale = Vector3.one * Mathf.Lerp(1f, 1.9f, Ease.OutCubic(k));
+                hero.color = new Color(1f, 1f, 1f, 1f - k);
+            });
+            Vector2 gun = BattleHud.WorldToCanvas(_layer, new Vector3(0f, GameConstants.EmitterY, 0f));
+            Flash(s, q, go, 0.32f, 0.3f);
+            Shock(s, key, pink, 120f, 760f, go, 0.4f);
+            Shock(s, key, cyan, 80f, 520f, go + 0.06f, 0.34f);
+            Shock(s, gun, pink, 80f, 460f, go + 0.04f, 0.36f);
+            Vignette(s, q, go - 0.05f, 0.7f, 0.45f);
+            s.A.At(go, () =>
+            {
+                UiConfetti.Sparks(s.G, key, pink, 16 + s.Lv * 3, 760f);
+                UiConfetti.Sparks(s.G, key, cyan, 10 + s.Lv * 2, 560f);
+                UiConfetti.Sparks(s.G, gun, q, 10 + s.Lv * 2, 520f);
+            });
+            return go + 0.3f;
+        }
+
+        // ---------- 稀有：大扫把、辣椒酱、急救包、回旋镖 ----------
 
         // 亮相完，扫把从左下抡一个大弧扫到右上，一路墨浪翻滚，整屏速度线。
         float Sweep(Stage s, ItemDef d, BattleWorld.ItemCast c, BattleWorld w, Vector2 key)

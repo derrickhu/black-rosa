@@ -100,6 +100,36 @@ namespace InkLine
             if (Clip(name) != null) Cue(name, 1f, 0.2f, 0f, 1f);
             else ItemFire(1f);
         }
+        // 回旋镖光球：一路弹一路响，连着撞上的几下按五声音阶往上爬，像弹珠台。
+        const float DartChain = 0.9f;
+        static int _dartChain;
+        static float _lastDartHit = -10f;
+
+        public static void PrimeDart()
+        {
+            Clip("dart_hit");
+            Clip("dart_bounce");
+            Clip("dart_end");
+        }
+
+        public static void DartHit()
+        {
+            float now = Time.unscaledTime;
+            _dartChain = now - _lastDartHit < DartChain ? Mathf.Min(_dartChain + 1, StreakSteps.Length - 1) : 0;
+            _lastDartHit = now;
+            float pitch = Mathf.Pow(2f, StreakSteps[_dartChain] / 12f);
+            CueOr("dart_hit", "hit_zap", 0.92f, 0.05f, pitch);
+            Cue("hit_thud", 0.55f, 0.06f, 0.05f, 1.15f);
+        }
+
+        public static void DartBounce() => CueOr("dart_bounce", "ui_tap", 0.45f, 0.12f, 1f);
+
+        public static void DartEnd()
+        {
+            CueOr("dart_end", "chime", 1f, 0.2f, 1f);
+            Cue("hit_thud", 0.8f, 0.2f, 0f, 0.8f);
+        }
+
         public static void ItemReady() => CueOr("item_ready", "chime", 0.55f, 0.3f, 1f);
         public static void ChestLand() => CueOr("chest_land", "stamp", 0.9f, 0.2f, 1f);
         public static void ChestUnlock() => CueOr("chest_unlock", "chime", 0.85f, 0.2f, 1f);

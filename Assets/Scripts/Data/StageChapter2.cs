@@ -11,7 +11,7 @@ namespace InkLine
         static void Chapter2(List<Plan> s)
         {
             // 墨粒一团一团来，炸一发清一片。
-            s.Add(P("墨群", G("XXXXXX", "..XX.."),
+            s.Add(P("墨群", G("XXXXXX", "...X.."),
                 W(S(0.3f, Walker, -1, 3), S(3f, BigHead, 2), S(6.5f, Ball, -1, 2)),
                 W(S(0.3f, Swarm, 2, 2), S(4f, Swarm, 3, 2)),
                 W(S(0.3f, Chubby, 1), S(2.5f, Swarm, 4, 2), S(6f, Tall, -1, 2)),
@@ -73,7 +73,7 @@ namespace InkLine
             ));
 
             // 一堵爬子墙压过来，左边三列叠得厚，右边只有一排。
-            s.Add(P("推墙", G("XXXXXX", "XXX..."),
+            s.Add(P("推墙", G("XXXXXX", "XX...."),
                 W(S(0.3f, Chubby, -1, 2), S(2.5f, Tall, -1, 2), S(5.5f, Runner, -1, 2)),
                 W(S(0.3f, Crawler, 1), S(0.3f, Crawler, 2), S(0.3f, Crawler, 3), S(0.3f, Crawler, 4)),
                 W(S(0.3f, BigHead, -1, 2), S(3f, Chubby, 2), S(3.5f, Chubby, 3), S(7f, Belt, -1, 2)),

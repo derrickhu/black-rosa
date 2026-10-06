@@ -701,6 +701,8 @@ namespace InkLine
         {
             if (_askingRetreat || _world == null || BattleWorld.PreviewFill || _world.Victory || _world.Defeat) return;
             if (_screen != Screen.Battle || _teach >= 3) return;
+            // 活动关的钱要攒着存进聚宝盆，买不买改装让玩家自己点。
+            if (_world.Stage.Event) return;
             float dt = Time.unscaledDeltaTime;
             if (_autoMute > 0f) _autoMute -= dt;
             if (!_world.CanDraft || _autoMute > 0f)

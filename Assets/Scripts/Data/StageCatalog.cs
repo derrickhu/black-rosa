@@ -46,7 +46,7 @@ namespace InkLine
 
         public CardId[] Pool;
         public WaveDef[] Waves;
-        // 和 Waves 一一对应的实际出怪只数：已经乘过密度和章节折扣，并按开局疏、收尾密摊过。
+        // 和 Waves 一一对应的实际出怪只数：已经乘过密度和章节折扣，并按每波的密度（最后一波最密）摊过。
         // 战斗刷怪和 Price 都读它，避免两处各算一遍。
         public int[][] Bodies;
         public bool TeachDraft;
@@ -124,8 +124,8 @@ namespace InkLine
         }
 
         // 章底数。章内每关再加 5%，章底额外 ×1.15。
-        // 格子到第八章才开满，前几章盘面小，血量跟着压低；后面靠星级、词条和道具补上差距。
-        static readonly float[] ChapterHp = { 0.85f, 1.15f, 1.4f, 1.65f, 1.85f, 2.2f, 2.5f, 2.8f };
+        // 格子逐章慢开、第三排留给以后的章节，前几章盘面小，血量跟着压低；后面靠星级、词条和道具补上差距。
+        static readonly float[] ChapterHp = { 1.15f, 1.3f, 1.4f, 1.65f, 1.85f, 2.2f, 2.5f, 2.8f };
         const float SlotHpStep = 0.05f;
         const float FinaleHp = 1.15f;
 
@@ -141,8 +141,9 @@ namespace InkLine
         public static float SpeedOf(int chapter) =>
             ChapterSpeed[Mathf.Clamp(chapter, 0, ChapterSpeed.Length - 1)];
 
-        // 每只怪掉墨的章节系数。前期盘小、怪少、血薄，按怪算墨会少到升不了一级，这里补回来。
-        static readonly float[] ChapterInk = { 4.4f, 1.55f, 1.45f, 1.5f, 1.35f, 1.4f, 1.22f, 1.2f };
+        // 每只怪掉墨的章节系数，把每章首通的墨收入钉在锻造和道具定价对应的那条线上。
+        // 前两章一局的怪多、局也长，系数反而要压低；改波次或只数之后跑 check_stages 重新对一遍。
+        static readonly float[] ChapterInk = { 1.55f, 0.82f, 1.3f, 1.51f, 1.41f, 1.39f, 1.28f, 1.23f };
 
         public static float InkOf(int chapter) =>
             ChapterInk[Mathf.Clamp(chapter, 0, ChapterInk.Length - 1)];
@@ -231,10 +232,9 @@ namespace InkLine
             return new WaveDef(Mathf.Max(20f, last + 10f), list.ToArray());
         }
 
-        // 每章非关底波的目标时长。前两章短快，第三章格子开满之后拉长 ——
-        // 一局要够走完「铺满棋盘 → 升星」这条弧，否则棋盘永远是半空的，
-        // 玩家一局里根本体会不到变强。以后加章只往这张表后面加一个数。
-        static readonly float[] ChapterWaveSpan = { 12f, 14f, 18f, 19f, 23f, 22f, 23f, 23f };
+        // 每章非关底波的目标时长。一局要够走完「铺满棋盘 → 升星 → 顶住最后一波」这条弧，
+        // 前两章也不能太短，否则格子还空着关就过了。以后加章只往这张表后面加一个数。
+        static readonly float[] ChapterWaveSpan = { 16f, 18f, 19f, 20f, 22f, 22f, 23f, 23f };
 
         // 把作者写的出场表按它自己的跨度平铺到目标时长。72 关手工加波次不现实，
         // 也不利于扩章；平铺出来的后半段和前半段是同一套编队，节奏不会走样。
@@ -271,253 +271,161 @@ namespace InkLine
             return new WaveDef(Mathf.Max(span, end + 5.5f), list.ToArray());
         }
 
-        // 开局权重、收尾权重、时间的次方。次方大于 1，前半段爬得慢，后半段才密起来。
-        // 校验脚本按这三个名字读，改曲线只改这里。
-        const float RampOpen = 0.14f;
-        const float RampLate = 1.9f;
-        const float RampPow = 1.7f;
+        // 每秒出怪的相对密度。前面几波从 RampOpen 平缓爬到 RampLate：开局就有成群的怪可打、有钱可抽，
+        // 最后一波之前格子能铺满、还能顶上几颗星。最后一波固定抬到 RampPeak，
+        // 压迫感每关一样，不再随出场表忽多忽少。关底波 boss 本人就是压力，护送只给 RampBossWave。
+        // 校验脚本按这几个名字读，改曲线只改这里。
+        const float RampOpen = 0.75f;
+        const float RampLate = 1.15f;
+        const float RampPeak = 2f;
+        const float RampBossWave = 0.9f;
 
-        // 每章杂兵只数的折扣。格子是逐章慢慢开的，盘面越小怪越要少；第七章起按表出。
-        // 钱跟着怪少一截，抽牌价由钱袋反推，会一起降下来。
-        static readonly float[] ChapterBodies = { 0.7f, 0.85f, 0.9f, 0.92f, 0.95f, 0.97f, 1f, 1f };
+        // 每章杂兵只数的折扣。钱跟着怪走，抽牌价由钱袋反推，会一起降下来。
+        static readonly float[] ChapterBodies = { 1f, 1f, 0.95f, 0.95f, 0.97f, 0.98f, 1f, 1f };
+        // 第一章头三关：新手引导、刚学升星、刚学冰火，怪再少一截。
+        static readonly float[] FirstChapterEase = { 0.6f, 0.75f, 0.9f };
 
-        // 整关出怪按时间从疏排到密，再归一回原来的总只数。
-        // 总血量、总掉落不变，变的是它们挤在开局还是挤在后段。
-        // 关底本人不参与：双首还是两只，墨王还是一只。护送和小兵一起爬。
-        // 前两章头两波按这个权重会被压到两三只。每波再补 OpeningPad 只，
-        // 补到 OpeningThick 就停，已经成群压上来的波不再加。
-        // 多出来的只数优先从收尾、其次从中段扣回，开局窗和中后段窗里的怪不动。
-        // 只有两波的关扣不回来，那几只是实打实多出来的。
-        const int OpeningPad = 2;
-        static readonly int[] OpeningThick = { 8, 16 };
-
-        static int[][] RampCounts(WaveDef[] waves, int chapter)
+        // 整关杂兵总血（出场表 × 密度 × 章节折扣）先按「波长 × 该波密度」分到每一波，
+        // 再按这一波兵种的平均血换成只数，波内按出场表的只数比例分到每一拨。
+        // 按血分而不是按只数分：最后一波全是墨粒和全是胖墨，压力才一样大。
+        // 关底本人不参与：双首还是两只，墨王还是一只。
+        // crowd、rampOpen 只给活动关用。crowd 按档位抬或压整关怪量；
+        // rampOpen 把第一波的密度从主线的 0.75 再压低，后面才爬上来。
+        static int[][] RampCounts(WaveDef[] waves, int chapter, int slot, float crowd = 1f, float rampOpen = -1f,
+            int easeWaves = 0, float ease = 1f)
         {
             int nW = waves.Length;
-            float bodyMul = ChapterBodies[Mathf.Clamp(chapter, 0, ChapterBodies.Length - 1)];
-            float total = 0f;
-            int n = 0;
+            float bodyMul = ChapterBodies[Mathf.Clamp(chapter, 0, ChapterBodies.Length - 1)] * crowd;
+            if (chapter == 0 && slot < FirstChapterEase.Length) bodyMul *= FirstChapterEase[slot];
+            var raw = new float[nW][];
+            var floor = new int[nW][];
+            var bossAt = new bool[nW][];
+            var waveRaw = new float[nW];
+            var waveHp = new float[nW];
+            var waveFloor = new int[nW];
+            var bossWave = new bool[nW];
+            float hpSum = 0f;
             for (int w = 0; w < nW; w++)
             {
-                total += Mathf.Max(0.01f, waves[w].Duration);
-                n += waves[w].Spawns.Length;
-            }
-
-            var raw = new int[n];
-            var weight = new float[n];
-            var boss = new bool[n];
-            var waveOf = new int[n];
-            var idxOf = new int[n];
-            int p = 0;
-            float cursor = 0f;
-            int rawSum = 0;
-            float wSum = 0f;
-            for (int w = 0; w < nW; w++)
-            {
-                WaveDef wave = waves[w];
-                float dur = Mathf.Max(0.01f, wave.Duration);
-                SpawnSpec[] list = wave.Spawns;
+                SpawnSpec[] list = waves[w].Spawns;
+                raw[w] = new float[list.Length];
+                floor[w] = new int[list.Length];
+                bossAt[w] = new bool[list.Length];
                 for (int k = 0; k < list.Length; k++)
                 {
-                    SpawnSpec sp = list[k];
-                    bool isBoss = EnemyIds.IsBoss(sp.Id);
-                    int count = sp.Count * EnemyCatalog.Density(sp.Id);
-                    float u = total > 0.01f
-                        ? Mathf.Clamp01((cursor + Mathf.Clamp(sp.Time, 0f, dur)) / total)
-                        : 1f;
-                    float shaped = Mathf.Pow(u, RampPow);
-                    raw[p] = count;
-                    boss[p] = isBoss;
-                    weight[p] = RampOpen + (RampLate - RampOpen) * shaped;
-                    waveOf[p] = w;
-                    idxOf[p] = k;
-                    if (!isBoss)
+                    int count = list[k].Count * EnemyCatalog.Density(list[k].Id);
+                    if (EnemyIds.IsBoss(list[k].Id))
                     {
-                        rawSum += count;
-                        wSum += count * weight[p];
+                        bossAt[w][k] = true;
+                        bossWave[w] = true;
+                        continue;
                     }
-                    p++;
+                    raw[w][k] = count;
+                    floor[w][k] = count >= 1 ? 1 : 0;
+                    float hp = count * EnemyCatalog.Base(list[k].Id).Hp;
+                    waveRaw[w] += count;
+                    waveHp[w] += hp;
+                    waveFloor[w] += floor[w][k];
+                    hpSum += hp;
                 }
+            }
+
+            int last = nW - 1;
+            float pre = 0f;
+            for (int w = 0; w < last; w++) pre += Mathf.Max(0.01f, waves[w].Duration);
+            var weight = new float[nW];
+            float wSum = 0f;
+            float cursor = 0f;
+            for (int w = 0; w < nW; w++)
+            {
+                float dur = Mathf.Max(0.01f, waves[w].Duration);
+                float lvl;
+                if (w == last && nW > 1) lvl = bossWave[w] ? RampBossWave : RampPeak;
+                else
+                {
+                    float u = pre > 0.01f ? Mathf.Clamp01((cursor + dur * 0.5f) / pre) : 0.5f;
+                    float open = rampOpen >= 0f ? rampOpen : RampOpen;
+                    lvl = open + (RampLate - open) * u;
+                    if (w < easeWaves) lvl *= ease;
+                }
+                weight[w] = waveRaw[w] > 0f ? dur * lvl : 0f;
+                wSum += weight[w];
                 cursor += dur;
             }
 
-            // 折扣打在整关总数上：单拨只有一两只，逐拨乘完再取整等于没打。
-            rawSum = Mathf.Max(1, Mathf.RoundToInt(rawSum * bodyMul));
-            float scale = wSum > 0.01f ? rawSum / wSum : 1f;
-            var final = new int[n];
-            var frac = new float[n];
+            // 每波的目标血 ÷ 这一波每只的平均血 = 这一波该刷几只。
+            float hpGoal = hpSum * bodyMul;
+            var bodies = new float[nW];
+            float bodySum = 0f;
+            for (int w = 0; w < nW; w++)
+            {
+                if (weight[w] <= 0f || wSum <= 0f) continue;
+                bodies[w] = hpGoal * weight[w] / wSum / (waveHp[w] / waveRaw[w]);
+                bodySum += bodies[w];
+            }
+            int total = Mathf.Max(1, Mathf.RoundToInt(bodySum));
+            int[] perWave = Share(total, bodies, waveFloor);
+            var grid = new int[nW][];
+            for (int w = 0; w < nW; w++)
+            {
+                grid[w] = Share(perWave[w], raw[w], floor[w]);
+                SpawnSpec[] list = waves[w].Spawns;
+                for (int k = 0; k < list.Length; k++)
+                    if (bossAt[w][k]) grid[w][k] = list[k].Count * EnemyCatalog.Density(list[k].Id);
+            }
+            return grid;
+        }
+
+        // 按权重把 total 摊成整数，每份不低于 floor；权重为 0 的那份恒为 0。
+        // 先按比例取整，零头按小数部分从大到小补；保底撑爆了总数时，从超出比例最多的那份往回扣。
+        static int[] Share(int total, float[] weight, int[] floor)
+        {
+            int n = weight.Length;
+            var outp = new int[n];
+            var exact = new float[n];
+            float wSum = 0f;
+            for (int i = 0; i < n; i++) wSum += Mathf.Max(0f, weight[i]);
+            if (wSum <= 0f) return outp;
             int got = 0;
             for (int i = 0; i < n; i++)
             {
-                if (boss[i])
-                {
-                    final[i] = raw[i];
-                    frac[i] = -1f;
-                    continue;
-                }
-                float exact = raw[i] * weight[i] * scale;
-                int baseN = Mathf.FloorToInt(exact);
-                if (raw[i] >= 1 && baseN < 1) baseN = 1;
-                final[i] = baseN;
-                frac[i] = exact - Mathf.FloorToInt(exact);
-                got += baseN;
+                if (weight[i] <= 0f) continue;
+                exact[i] = total * weight[i] / wSum;
+                outp[i] = Mathf.Max(floor[i], Mathf.FloorToInt(exact[i]));
+                got += outp[i];
             }
-
-            int diff = rawSum - got;
-            var order = new int[n];
-            for (int i = 0; i < n; i++) order[i] = i;
-            System.Array.Sort(order, (a, b) =>
-            {
-                int c = frac[b].CompareTo(frac[a]);
-                return c != 0 ? c : b.CompareTo(a);
-            });
-            for (int k = 0; k < n && diff > 0; k++)
-            {
-                int i = order[k];
-                if (boss[i]) continue;
-                final[i]++;
-                diff--;
-            }
+            int diff = total - got;
             if (diff > 0)
             {
-                for (int i = n - 1; i >= 0 && diff > 0; i--)
+                var order = new List<int>();
+                for (int i = 0; i < n; i++)
+                    if (weight[i] > 0f) order.Add(i);
+                order.Sort((a, b) =>
                 {
-                    if (boss[i]) continue;
-                    final[i] += diff;
-                    diff = 0;
+                    int c = (exact[b] - outp[b]).CompareTo(exact[a] - outp[a]);
+                    return c != 0 ? c : b.CompareTo(a);
+                });
+                for (int k = 0; diff > 0; k = (k + 1) % order.Count)
+                {
+                    outp[order[k]]++;
+                    diff--;
                 }
             }
             while (diff < 0)
             {
                 int best = -1;
-                for (int i = n - 1; i >= 0; i--)
+                float over = float.MinValue;
+                for (int i = 0; i < n; i++)
                 {
-                    if (!boss[i] && final[i] > 1) { best = i; break; }
+                    if (weight[i] <= 0f || outp[i] <= floor[i]) continue;
+                    float o = outp[i] - exact[i];
+                    if (o > over) { over = o; best = i; }
                 }
                 if (best < 0) break;
-                final[best]--;
+                outp[best]--;
                 diff++;
             }
-
-            var grid = new int[nW][];
-            for (int w = 0; w < nW; w++) grid[w] = new int[waves[w].Spawns.Length];
-            for (int i = 0; i < n; i++) grid[waveOf[i]][idxOf[i]] = final[i];
-            PadOpening(grid, waves, chapter);
-            return grid;
-        }
-
-        static void PadOpening(int[][] grid, WaveDef[] waves, int chapter)
-        {
-            if (chapter > 1) return;
-            int thick = OpeningThick[Mathf.Min(chapter, OpeningThick.Length - 1)];
-            int nW = waves.Length;
-            var abs = new float[nW][];
-            float cursor = 0f;
-            float total = 0f;
-            for (int w = 0; w < nW; w++)
-            {
-                float dur = Mathf.Max(0.01f, waves[w].Duration);
-                total += dur;
-                SpawnSpec[] list = waves[w].Spawns;
-                abs[w] = new float[list.Length];
-                for (int k = 0; k < list.Length; k++) abs[w][k] = cursor + list[k].Time;
-                cursor += dur;
-            }
-            float earlyCut = total * 0.25f;
-            float lateLo = total * 0.55f;
-            float lateHi = total * 0.85f;
-
-            int added = 0;
-            int limit = Mathf.Min(2, nW);
-            for (int w = 0; w < limit; w++)
-            {
-                SpawnSpec[] list = waves[w].Spawns;
-                int sum = 0;
-                var order = new List<int>();
-                for (int k = 0; k < list.Length; k++)
-                {
-                    if (EnemyIds.IsBoss(list[k].Id)) continue;
-                    sum += grid[w][k];
-                    order.Add(k);
-                }
-                if (order.Count == 0) continue;
-                int add = Mathf.Min(OpeningPad, Mathf.Max(0, thick - sum));
-                order.Sort((a, b) =>
-                {
-                    int ae = abs[w][a] <= earlyCut ? 1 : 0;
-                    int be = abs[w][b] <= earlyCut ? 1 : 0;
-                    if (ae != be) return ae.CompareTo(be);
-                    return abs[w][b].CompareTo(abs[w][a]);
-                });
-                for (int step = 0; step < add; step++)
-                    grid[w][order[step % order.Count]]++;
-                added += add;
-            }
-
-            while (added > 0 && TakeOpening(grid, waves, abs, true, earlyCut, lateLo, lateHi))
-                added--;
-            while (added > 0 && TakeOpening(grid, waves, abs, false, earlyCut, lateLo, lateHi))
-                added--;
-
-            int guard = 0;
-            while (guard++ < 30
-                   && BandCount(grid, waves, abs, earlyCut, earlyCut, true)
-                      >= BandCount(grid, waves, abs, lateLo, lateHi, false))
-            {
-                int lw = -1, lk = -1;
-                for (int w = 0; w < nW && lw < 0; w++)
-                for (int k = 0; k < grid[w].Length; k++)
-                {
-                    if (EnemyIds.IsBoss(waves[w].Spawns[k].Id)) continue;
-                    if (abs[w][k] < lateLo || abs[w][k] > lateHi) continue;
-                    lw = w;
-                    lk = k;
-                    break;
-                }
-                if (lw < 0) break;
-                grid[lw][lk]++;
-                bool funded = false;
-                for (int w = nW - 1; w >= 0 && !funded; w--)
-                for (int k = 0; k < grid[w].Length && !funded; k++)
-                {
-                    if (EnemyIds.IsBoss(waves[w].Spawns[k].Id)) continue;
-                    if (grid[w][k] <= 1 || abs[w][k] <= lateHi) continue;
-                    grid[w][k]--;
-                    funded = true;
-                }
-            }
-        }
-
-        // tail 为真时从 85% 之后扣，否则从开局窗和中后段窗之间的中段扣。只扣第 3 波起、且该拨多于 1 只的。
-        static bool TakeOpening(int[][] grid, WaveDef[] waves, float[][] abs, bool tail,
-            float earlyCut, float lateLo, float lateHi)
-        {
-            for (int w = grid.Length - 1; w >= 2; w--)
-            for (int k = 0; k < grid[w].Length; k++)
-            {
-                if (EnemyIds.IsBoss(waves[w].Spawns[k].Id)) continue;
-                if (grid[w][k] <= 1) continue;
-                float t = abs[w][k];
-                bool ok = tail ? t > lateHi : t > earlyCut && t < lateLo;
-                if (!ok) continue;
-                grid[w][k]--;
-                return true;
-            }
-            return false;
-        }
-
-        static int BandCount(int[][] grid, WaveDef[] waves, float[][] abs, float lo, float hi, bool early)
-        {
-            int n = 0;
-            for (int w = 0; w < grid.Length; w++)
-            for (int k = 0; k < grid[w].Length; k++)
-            {
-                if (EnemyIds.IsBoss(waves[w].Spawns[k].Id)) continue;
-                float t = abs[w][k];
-                bool hit = early ? t <= lo : t >= lo && t <= hi;
-                if (hit) n += grid[w][k];
-            }
-            return n;
+            return outp;
         }
 
         static StageDef[] Build()
@@ -560,7 +468,7 @@ namespace InkLine
                     Mini = slot == 4 && ch > 0,
                     StaminaCost = GameConstants.StaminaPerStage
                 };
-                s[i].Bodies = RampCounts(s[i].Waves, ch);
+                s[i].Bodies = RampCounts(s[i].Waves, ch, slot);
                 Price(s[i]);
             }
             return s;
@@ -571,11 +479,11 @@ namespace InkLine
         public const float ChestGoldShare = 0.7f;
         // 一局的目标抽牌数：先把开放格子铺满，再把大半格子顶到二三星。
         // 抽牌费用由它反推，所以以后加章、改棋盘大小都自动对得上，不用手调。
-        const float DraftPicksPerCell = 1.8f;
-        // 前两章一局短、钱少，按 1.8 算会五六秒弹一次三选一。
-        // 这两章不要求铺满，同样的钱摊到更少的次数上，每张就贵一些，大约十秒一张。
-        const float FirstChapterPicksPerCell = 0.8f;
-        const float SecondChapterPicksPerCell = 1.1f;
+        // 格子收紧之后每格多给几抽，一局的总抽牌数和以前差不多，火力从铺宽换成了叠星。
+        const float DraftPicksPerCell = 2f;
+        // 前两章一局短，按 2 算会五六秒弹一次三选一；铺满之外只多给一两抽，教升星够用。
+        const float FirstChapterPicksPerCell = 1.8f;
+        const float SecondChapterPicksPerCell = 1.8f;
         // 道具不花金币，钱几乎全给抽牌；留一成半给抽到中意那张之前的试错，不把定价压到刚好买满。
         const float DraftBudgetShare = 0.85f;
 
@@ -612,8 +520,8 @@ namespace InkLine
 
             int open = Mathf.Max(1, s.OpenCount);
             int n;
-            if (s.Chapter == 0) n = Mathf.Max(3, Mathf.RoundToInt(open * FirstChapterPicksPerCell));
-            else if (s.Chapter == 1) n = Mathf.Max(2, Mathf.RoundToInt(open * SecondChapterPicksPerCell));
+            if (s.Chapter == 0) n = Mathf.Max(open + 1, Mathf.RoundToInt(open * FirstChapterPicksPerCell));
+            else if (s.Chapter == 1) n = Mathf.Max(open + 2, Mathf.RoundToInt(open * SecondChapterPicksPerCell));
             else n = Mathf.Clamp(Mathf.RoundToInt(open * DraftPicksPerCell), open + 2, open * 3);
             float budget = (s.GoldPurse + ForgeStats.Default.StartGold) * share;
             // 起价定成平均价的一半，步长再反推，费用就从便宜缓缓爬到贵，

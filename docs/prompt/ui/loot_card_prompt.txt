@@ -4,13 +4,20 @@
 # 68%–80% 名字条（空）；84%–92% 一条深色凹槽（程序填进度）。
 
 === loot_back ===
-The attached image shows the drawing treatment of this mobile game: flat printed sticker art, solid colour fills, one thick even outline the colour of soy sauce (#3A2A20), hard crisp edges like cut paper. Match that drawing treatment and draw a new object.
+The attached picture is this game's current reward-card back. Keep that exact layout and those exact shapes: a vertical playing card with gently rounded corners, a thick outer frame, a thin inner border, four small round studs in the four corners, a diamond lattice filling the whole panel, and one round medallion in the centre ringed by four small cloud swirls.
 
-Draw the back of one single vertical game reward card, seen perfectly straight-on and flat, centred on a pure solid magenta background the colour of a highlighter pen (#FF00FF), with a wide empty magenta margin all round. The card is 3 units wide and 4 units tall with gently rounded corners like a playing card.
+Repaint that same card in the bright flat colours of a casual mobile game, the same sticker treatment as the card faces: solid colour fills, one thick even outline the colour of soy sauce (#3A2A20), hard crisp edges like cut paper.
 
-Frame: a band of polished walnut wood the colour of a walnut shell, about one twelfth of the card width, wrapped in the thick soy-sauce outline, with a thin line the yellow of a new gold coin just inside it and four small gold-coin studs in the corners.
+Colours:
+- Outer frame: a band the warm brown of milk tea, about one twelfth of the card width, wrapped in the thick soy-sauce outline.
+- Thin inner line and the four corner studs: the yellow of a new gold coin.
+- Panel: one flat panel the cream of a steamed bun.
+- Lattice: the same diamond lattice, thin and even, the yellow of a new gold coin.
+- Medallion: a round disc the yellow of a new gold coin with a soy-sauce outline and four small gold-coin cloud swirls. In the centre of the disc sits one large five-pointed star, the bright orange of a ripe mandarin, flat and even, with a small lighter speck the colour of orange peel on the upper point.
 
-Back panel: one flat panel the deep blue-black of fresh calligraphy ink fills the inside. A thin gold-coin yellow diamond lattice pattern covers the panel like a woven seal. In the centre sits one large round emblem: a gold coin disc with a soy-sauce outline, holding a single fat black ink droplet with a small white shine, ringed by four small gold cloud swirls.
+The card is seen perfectly straight-on and flat, centred on a pure solid magenta background the colour of a highlighter pen (#FF00FF), with a modest magenta margin all round. The card is two and a half units wide and three and a half units tall and fills most of the picture.
+
+Shapes and colours only. NO TEXT.
 
 === loot_green ===
 The attached image shows the drawing treatment of this mobile game: flat printed sticker art, solid colour fills, one thick even outline the colour of soy sauce (#3A2A20), hard crisp edges like cut paper. Match that drawing treatment and draw a new object.

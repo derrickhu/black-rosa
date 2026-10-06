@@ -307,7 +307,7 @@ namespace InkLine
             switch (id)
             {
                 case CardId.Fire:
-                    return $"灼烧 {F(g.Power.At(s))}/秒，烧 {F(g.Time.At(s))} 秒"
+                    return $"灼烧 {D(g.Power.At(s))}/秒，烧 {F(g.Time.At(s))} 秒"
                            + (GlyphTable.BurnPop(s) ? "；烧死时炸出火花" : "");
                 case CardId.Ice:
                     return $"移速降到 {P(g.Power.At(s))}，{F(g.Time.At(s))} 秒"
@@ -315,15 +315,15 @@ namespace InkLine
                 case CardId.Water:
                     return $"半径 {F(g.Radius.At(s))} 内移速降到 {P(g.Power.At(s))}，{F(g.Time.At(s))} 秒";
                 case CardId.Poison:
-                    return $"每层 {F(g.Power.At(s))}/秒，毒 {F(g.Time.At(s))} 秒，最多 {g.Stacks.IntAt(s)} 层";
+                    return $"每层 {D(g.Power.At(s))}/秒，毒 {F(g.Time.At(s))} 秒，最多 {g.Stacks.IntAt(s)} 层";
                 case CardId.Thunder:
                     return $"晕 {F(g.Time.At(s))} 秒，半径 {F(g.Radius.At(s))}，连带 {g.Count.IntAt(s)} 个";
                 case CardId.Stun:
                     return $"晕 {F(g.Time.At(s))} 秒";
                 case CardId.Confuse:
-                    return $"迷惑 {F(g.Time.At(s))} 秒，每口咬同伴 {F(GlyphTable.ConfuseBite(s))}；头目改为减速 {P(g.Power.At(s))}";
+                    return $"迷惑 {F(g.Time.At(s))} 秒，每口咬同伴 {D(GlyphTable.ConfuseBite(s))}；头目改为减速 {P(g.Power.At(s))}";
                 case CardId.Gold:
-                    return $"伤害 +{F(g.AddDamage.At(s))}（基础 1.8）";
+                    return $"伤害 +{D(g.AddDamage.At(s))}（基础 {D(ShotMods.DefaultBase)}）";
                 case CardId.Heavy:
                     return $"每 {CardCatalog.ChargeNeed(id, s)} 发一次，伤害 ×{F(g.MulDamage.At(s))}";
                 case CardId.Wood:
@@ -368,7 +368,7 @@ namespace InkLine
             switch (word)
             {
                 case WordId.InstantKill: return $"普通敌人血量低于 {P(w.ExecuteHp.At(s))} 即斩；头目 {P(w.ExecuteBoss.At(s))}";
-                case WordId.ArrowRain: return $"{w.Count.IntAt(s)} 支箭，每支 {F(w.Damage.At(s))} 伤害";
+                case WordId.ArrowRain: return $"{w.Count.IntAt(s)} 支箭，每支 {D(ShotMods.DefaultBase * w.Damage.At(s))} 伤害";
                 case WordId.Knockback: return $"击退 {F(w.Move.At(s))} 格";
                 case WordId.Cleave: return $"连斩 {w.Count.IntAt(s)} 次，每跳伤害 ×{F(w.Decay.At(s))}";
                 default: return "";
@@ -377,5 +377,7 @@ namespace InkLine
 
         static string F(float v) => v.ToString(Mathf.Abs(v - Mathf.Round(v)) < 0.005f ? "0" : "0.##");
         static string P(float v) => Mathf.RoundToInt(v * 100f) + "%";
+        // 伤害一律只到个位。
+        static string D(float v) => Mathf.Max(1, Mathf.RoundToInt(v)).ToString();
     }
 }

@@ -64,6 +64,7 @@ namespace InkLine
                 case ItemId.Sweep: return 0.95f;
                 case ItemId.Splash: return 0.95f;
                 case ItemId.Mend: return 0.95f;
+                case ItemId.Dart: return 0.48f;
                 default: return 0.3f;
             }
         }
@@ -109,6 +110,8 @@ namespace InkLine
             MendCasts = 0;
             ItemCasts.Clear();
             _pending.Clear();
+            Darts.Clear();
+            DartPops.Clear();
             for (int i = 0; i < _slots.Length; i++)
             {
                 int id = equipped != null && i < equipped.Length ? equipped[i] : -1;
@@ -132,6 +135,7 @@ namespace InkLine
                 _pending.RemoveAt(i);
                 Land(p);
             }
+            TickDarts(dt);
             for (int i = 0; i < _slots.Length; i++)
             {
                 int id = _slots[i];
@@ -180,6 +184,7 @@ namespace InkLine
                 case ItemId.Sweep: return alive >= 6 || near > 0;
                 case ItemId.Splash: return BusiestColumn(out int n) >= 0 && n >= 3;
                 case ItemId.Mend: return BaseHp < MaxBaseHp;
+                case ItemId.Dart: return alive > 0;
                 default: return alive > 0;
             }
         }
@@ -246,6 +251,7 @@ namespace InkLine
                 case ItemId.Frost: CastFrost(); break;
                 case ItemId.Slow: CastSlow(); break;
                 case ItemId.Snipe: CastSnipe(p.Target); break;
+                case ItemId.Dart: CastDart(); break;
             }
         }
 
@@ -422,6 +428,157 @@ namespace InkLine
             Bursts.Add(new FxBurst { Pos = head.Pos, Kind = HitFx.Heavy, Tint = InkTheme.ThunderHi, Scale = 1.6f });
             PulseHitStop(0.08f);
             AddShake(0.32f);
+        }
+
+        // 回旋镖：一颗光球飞满全场，穿过敌人，只在左右和上下边弹回来。
+        // 同一只怪隔一小段才能再吃到一下，避免贴着蹭。
+        public const float DartRadius = 0.42f;
+        const float DartSpeed = 7.6f;
+        const float DartHitGap = 0.36f;
+        const int DartTrailN = 8;
+
+        public sealed class DartActor
+        {
+            public int Id;
+            public Vector2 Pos;
+            public Vector2 Vel;
+            public float Left;
+            public float Dmg;
+            public float Age;
+            public bool Dead;
+            public float TrailT;
+            public int TrailN;
+            public readonly Vector2[] Trail = new Vector2[DartTrailN];
+            public readonly System.Collections.Generic.Dictionary<int, float> HitUntil =
+                new System.Collections.Generic.Dictionary<int, float>();
+        }
+
+        public readonly System.Collections.Generic.List<DartActor> Darts =
+            new System.Collections.Generic.List<DartActor>();
+
+        // 光球的爆点，给表现层一帧一清。
+        public struct DartPop
+        {
+            public const int Hit = 0, Wall = 1, End = 2, Launch = 3;
+            public Vector2 Pos;
+            public int Kind;
+        }
+
+        public readonly System.Collections.Generic.List<DartPop> DartPops =
+            new System.Collections.Generic.List<DartPop>();
+        int _dartSeq;
+
+        void CastDart()
+        {
+            int lv = RankOf((int)ItemId.Dart);
+            float x = EmitterCount <= 1
+                ? RailX
+                : RailX + (EmitterCount - 1) * GameConstants.CellWidth * 0.5f;
+            var from = new Vector2(x, GameConstants.EmitterY + 0.45f);
+            EnemyActor head = FrontMost();
+            Vector2 dir = Vector2.up;
+            if (head != null)
+            {
+                dir = head.Pos - from;
+                if (dir.sqrMagnitude < 0.04f) dir = Vector2.up;
+            }
+            float ang = UnityEngine.Random.Range(-14f, 14f) * Mathf.Deg2Rad;
+            float c = Mathf.Cos(ang);
+            float s = Mathf.Sin(ang);
+            dir = new Vector2(dir.x * c - dir.y * s, dir.x * s + dir.y * c);
+            var dart = new DartActor
+            {
+                Id = ++_dartSeq,
+                Pos = from,
+                Vel = dir.normalized * DartSpeed,
+                Left = ItemCatalog.DartTime(lv),
+                Dmg = ShotBase * ItemCatalog.DartMul(lv)
+            };
+            RememberDart(dart);
+            Darts.Add(dart);
+            DartPops.Add(new DartPop { Pos = from, Kind = DartPop.Launch });
+            AudioBus.PrimeDart();
+            AddShake(0.1f);
+        }
+
+        void TickDarts(float dt)
+        {
+            if (dt <= 0f) return;
+            for (int i = Darts.Count - 1; i >= 0; i--)
+            {
+                DartActor d = Darts[i];
+                if (d.Dead) { Darts.RemoveAt(i); continue; }
+                d.Age += dt;
+                d.Left -= dt;
+                if (d.Left <= 0f)
+                {
+                    DartPops.Add(new DartPop { Pos = d.Pos, Kind = DartPop.End });
+                    AudioBus.DartEnd();
+                    AddShake(0.14f);
+                    Darts.RemoveAt(i);
+                    continue;
+                }
+                float dist = DartSpeed * dt;
+                int steps = Mathf.Max(1, Mathf.CeilToInt(dist / 0.22f));
+                float h = dt / steps;
+                for (int s = 0; s < steps; s++)
+                {
+                    d.Pos += d.Vel.normalized * DartSpeed * h;
+                    if (BounceDartWall(d))
+                    {
+                        DartPops.Add(new DartPop { Pos = d.Pos, Kind = DartPop.Wall });
+                        AudioBus.DartBounce();
+                    }
+                    PierceDart(d);
+                }
+                d.TrailT += dt;
+                if (d.TrailT >= 0.08f)
+                {
+                    d.TrailT = 0f;
+                    RememberDart(d);
+                }
+            }
+        }
+
+        static void RememberDart(DartActor d)
+        {
+            for (int i = d.Trail.Length - 1; i > 0; i--) d.Trail[i] = d.Trail[i - 1];
+            d.Trail[0] = d.Pos;
+            if (d.TrailN < d.Trail.Length) d.TrailN++;
+        }
+
+        static bool BounceDartWall(DartActor d)
+        {
+            Vector2 was = d.Vel;
+            float left = -FieldLayout.FieldWidth * 0.5f + DartRadius;
+            float right = FieldLayout.FieldWidth * 0.5f - DartRadius;
+            float top = GameConstants.SpawnY - 0.15f;
+            float bot = GameConstants.EmitterY + 0.55f;
+            if (d.Pos.x < left) { d.Pos.x = left; d.Vel.x = Mathf.Abs(d.Vel.x); }
+            else if (d.Pos.x > right) { d.Pos.x = right; d.Vel.x = -Mathf.Abs(d.Vel.x); }
+            if (d.Pos.y > top) { d.Pos.y = top; d.Vel.y = -Mathf.Abs(d.Vel.y); }
+            else if (d.Pos.y < bot) { d.Pos.y = bot; d.Vel.y = Mathf.Abs(d.Vel.y); }
+            if (d.Vel.sqrMagnitude < 0.01f) d.Vel = Vector2.up;
+            d.Vel = d.Vel.normalized * DartSpeed;
+            return Vector2.Dot(was.normalized, d.Vel.normalized) < 0.999f;
+        }
+
+        void PierceDart(DartActor d)
+        {
+            for (int i = 0; i < Enemies.Count; i++)
+            {
+                EnemyActor e = Enemies[i];
+                if (e.Dead) continue;
+                if (d.HitUntil.TryGetValue(e.Id, out float until) && d.Age < until) continue;
+                float reach = e.Radius + DartRadius;
+                if ((d.Pos - e.Pos).sqrMagnitude > reach * reach) continue;
+                d.HitUntil[e.Id] = d.Age + DartHitGap;
+                SpellHit(e, d.Dmg, InkTheme.Hex("FF3EC8"));
+                DartPops.Add(new DartPop { Pos = Vector2.Lerp(d.Pos, e.Pos, 0.35f), Kind = DartPop.Hit });
+                AudioBus.DartHit();
+                AddShake(0.06f);
+                PulseHitStop(0.025f);
+            }
         }
     }
 }

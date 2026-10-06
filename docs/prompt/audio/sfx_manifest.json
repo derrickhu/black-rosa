@@ -364,6 +364,34 @@
       "duration": 2.0,
       "output": "../../../Assets/Resources/Audio/item_mend.mp3",
       "notes": "急救包（稀有）"
+    },
+    {
+      "name": "item_dart",
+      "text": "a deep rising magical swell, then a bright crystalline whoosh of a glowing energy orb launching and spinning away fast, with sparkling chimes trailing behind it, large room, no music, no voice",
+      "duration": 1.6,
+      "output": "../../../Assets/Resources/Audio/item_dart.mp3",
+      "notes": "回旋镖（稀有）：放出"
+    },
+    {
+      "name": "dart_hit",
+      "text": "a punchy magical energy impact: a bright glassy zap crack with a deep round thump underneath and a short sparkle, sharp attack, quick decay, dry, no music, no voice",
+      "duration": 0.4,
+      "output": "../../../Assets/Resources/Audio/dart_hit.mp3",
+      "notes": "回旋镖光球撞到怪，连撞时音高逐级往上走"
+    },
+    {
+      "name": "dart_bounce",
+      "text": "a light springy energy ping, a small rubber ball bouncing off glass with a tiny sparkle, very short, dry, no music, no voice",
+      "duration": 0.3,
+      "output": "../../../Assets/Resources/Audio/dart_bounce.mp3",
+      "notes": "回旋镖光球撞到场地边"
+    },
+    {
+      "name": "dart_end",
+      "text": "a glowing magic orb bursting apart: a bright sparkling pop with a soft deep whump, followed by a long glittering shimmer of tiny bells that keeps ringing for most of a second, small room, no music, no voice",
+      "duration": 0.9,
+      "output": "../../../Assets/Resources/Audio/dart_end.mp3",
+      "notes": "回旋镖光球时间到消散"
     }
   ]
 }
