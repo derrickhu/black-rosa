@@ -39,9 +39,9 @@ namespace InkLine
 
         public static readonly EventTierDef[] Tiers =
         {
-            new EventTierDef { Name = "小集", Chapter = 1, Slot = 4, Brief = "六波，怪少钱少" },
-            new EventTierDef { Name = "庙会", Chapter = 2, Slot = 4, Brief = "八波，钱袋翻倍" },
-            new EventTierDef { Name = "大集", Chapter = 4, Slot = 4, Brief = "十波，怪硬钱多" }
+            new EventTierDef { Name = "小集", Chapter = 3, Slot = 4, Brief = "六波，怪少钱少" },
+            new EventTierDef { Name = "庙会", Chapter = 5, Slot = 4, Brief = "八波，钱袋翻倍" },
+            new EventTierDef { Name = "大集", Chapter = 6, Slot = 8, Brief = "十波，怪硬钱多" }
         };
 
         public static readonly EventMilestone[] Milestones =

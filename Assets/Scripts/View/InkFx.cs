@@ -678,11 +678,12 @@ namespace InkLine
                     _spin = true;
                     break;
                 case HitFx.Arrow:
-                    _hi = Color.Lerp(InkTheme.Word, Color.white, 0.45f);
-                    _mid = InkTheme.Word;
+                    _hi = Color.white;
+                    _mid = InkTheme.GoldHi;
                     _ringC = InkTheme.FireHi;
-                    _life = 0.16f;
-                    _slashN = 2;
+                    _life = 0.34f;
+                    _scale *= 1.25f;
+                    _slashN = 3;
                     break;
                 default:
                     // 普通墨弹：金芯火花 + 一圈实墨点。染成墨色的放射图在宣纸上只是一团灰刺。

@@ -675,7 +675,7 @@ evt_cases = re.split(r"case \d+:|default:", re.search(r"EventWaves\(int tier\)\s
 evt_cases = [c for c in evt_cases if "W(" in c]
 evt_want = [6, 8, 10]
 check(len(evt_cases) == 3 and len(evt_tiers) == 3 and len(evt_crowd) == 3, "活动三档的出场表、借关、怪量倍率都在")
-check(evt_open_batch == 4 and evt_batch == 5 and 4.2 <= evt_beat <= 5.2
+check(evt_open_batch == 4 and evt_batch == 5 and 3.6 <= evt_beat <= 4.6
       and evt_open_waves == 2 and evt_late_waves == 2 and evt_late_lanes == 2 and evt_finale_lanes == 3,
       f"活动前 {evt_open_waves} 拍 {evt_open_batch} 只，之后每拍 {evt_batch} 只 / {evt_beat:.1f}s，"
       f"倒数第二波每拍 {evt_batch * evt_late_lanes} 只，最后一波每拍 {evt_batch * evt_finale_lanes} 只，散到各列")
@@ -747,7 +747,7 @@ for i, body in enumerate(evt_cases[:3]):
     rate = hp_all / dur / main_rate
     last_rate = (hp_last / ramp[-1]["dur"]) / main_rate
     check(len(ramp) == evt_want[i], f"活动第 {i + 1} 档 {len(ramp)} 波（要 {evt_want[i]}）")
-    check(90 <= dur <= 260, f"活动第 {i + 1} 档一局 {dur:.0f} 秒（要 90~260）")
+    check(90 <= dur <= 360, f"活动第 {i + 1} 档一局 {dur:.0f} 秒（要 90~360）")
     check(early_min >= 3, f"活动第 {i + 1} 档前期一拍最少 {early_min} 只（要 ≥3）")
     check(1.5 <= peak <= 4.2, f"活动第 {i + 1} 档最后一波每秒血是前面的 {peak:.2f} 倍（要 1.5~4.2）")
     check(0.65 <= rate <= 1.6, f"活动第 {i + 1} 档整局每秒血是第 {ch + 1} 章主线的 {rate:.2f} 倍（要 0.65~1.6）")

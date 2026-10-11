@@ -173,6 +173,18 @@ namespace InkLine
         public float Scale;
     }
 
+    // 万箭蓄满后的一支落箭。同一波共用 Claimed，每只敌人只挨一箭。
+    public sealed class RainArrow
+    {
+        public int Id;
+        public Vector2 Pos;
+        public float Speed;
+        public float Dmg;
+        public ShotMods Mods;
+        public BulletActor Src;
+        public List<int> Claimed;
+    }
+
     public sealed partial class BattleWorld
     {
         public bool Paused;
@@ -247,6 +259,8 @@ namespace InkLine
         public readonly List<BulletActor> Bullets = new List<BulletActor>();
         public readonly List<FloatText> Floats = new List<FloatText>();
         public readonly List<FxBurst> Bursts = new List<FxBurst>();
+        public readonly List<RainArrow> Rain = new List<RainArrow>();
+        int _rainSeq;
         public readonly List<DropItem> Drops = new List<DropItem>();
         public readonly List<DeathFx> Deaths = new List<DeathFx>();
         public readonly List<ArcFx> Arcs = new List<ArcFx>();
@@ -305,6 +319,8 @@ namespace InkLine
         float _goldFrac;
         WordId[] _word;
         int[] _wordStar;
+        // 万箭冷却用两个字里较低的星。只升一张不算减冷却。
+        int[] _wordGate;
         int[] _pierceStar;
         int[] _explodeStar;
         int[] _heavyStar;
@@ -336,6 +352,7 @@ namespace InkLine
             _charge = new int[GameConstants.Columns, ChCount];
             _word = new WordId[GameConstants.Columns];
             _wordStar = new int[GameConstants.Columns];
+            _wordGate = new int[GameConstants.Columns];
             _pierceStar = new int[GameConstants.Columns];
             _explodeStar = new int[GameConstants.Columns];
             _heavyStar = new int[GameConstants.Columns];
@@ -359,6 +376,7 @@ namespace InkLine
             Deaths.Clear();
             Arcs.Clear();
             Pulses.Clear();
+            Rain.Clear();
             ResetChests();
             if (PreviewFill)
             {
@@ -491,6 +509,8 @@ namespace InkLine
         public void Tick(float dt)
         {
             if (Paused || Victory || Defeat) return;
+            // 箭雨自己打出的命中会顿帧。落箭继续走，不然一整屏箭会一截一截地停。
+            TickRain(dt);
             if (HitStop > 0f)
             {
                 HitStop -= dt;
@@ -912,7 +932,10 @@ namespace InkLine
                     Time = GlyphTable.Get(CardId.Stun).Time.At(_stunStar[col])
                 });
             }
-            if (_word[col] != WordId.None && PullCharge(col, ChWord, CardCatalog.WordChargeNeed(_word[col])))
+            int wordNeed = _word[col] == WordId.ArrowRain
+                ? CardCatalog.WordChargeNeed(_word[col], _wordGate[col])
+                : CardCatalog.WordChargeNeed(_word[col]);
+            if (_word[col] != WordId.None && PullCharge(col, ChWord, wordNeed))
             {
                 WordId id = _word[col];
                 WordDef w = GlyphTable.Word(id);
@@ -993,24 +1016,89 @@ namespace InkLine
 
         public void DenyCell(int col, int row) => Beat(CellBeat.Deny, col, row);
 
+        // 单支 = 这一发普通炮弹（暴击和甲之前）× 星级份额。
+        // 蓄满发生在进列的时候，上面几格的常驻字还没走到，这里补进同一发里，
+        // 这样落箭和这发炮弹打到顶上时的伤害是同一条公式。
+        float RainDamage(BulletActor src, int col, int star)
+        {
+            var m = new ShotMods();
+            m.CopyFrom(src.Mods);
+            for (int row = src.NextRow; row < OpenRows; row++)
+            {
+                CardId? id = Grid[col, row];
+                if (!id.HasValue) continue;
+                if (CardCatalog.Get(id.Value).Wake != CardWake.Always) continue;
+                int s = Stars[col, row];
+                GlyphDef g = GlyphTable.Get(id.Value);
+                m.Mark(id.Value, s);
+                if (g.Family != GlyphFamily.Hurt) continue;
+                m.AddDamage += g.AddDamage.At(s);
+                if (g.MulDamage.Any) m.MulDamage *= g.MulDamage.At(s);
+            }
+            SignaturePairs.Tune(m);
+            float share = GlyphTable.Word(WordId.ArrowRain).Damage.At(star);
+            float dmg = m.BaseDamage * m.Decay;
+            dmg = m.GoldRidesMul ? (dmg + m.AddDamage) * m.MulDamage : dmg * m.MulDamage + m.AddDamage;
+            dmg *= m.FinalMul;
+            return dmg * share;
+        }
+
         void RainArrows(int col, int star, BulletActor src)
         {
-            WordDef w = GlyphTable.Word(WordId.ArrowRain);
-            // 表里存的是倍数。这里只乘皮肤那部分，锻造伤害线由 ResolveHit 的
-            // FinalMul 统一乘，不然会乘两遍。
-            float dmg = (ShotMods.DefaultBase + _skinDamage) * w.Damage.At(star);
-            int cap = w.Count.IntAt(star);
-            int n = 0;
-            float x = FieldLayout.ColumnX(col);
-            for (int i = 0; i < Enemies.Count && n < cap; i++)
+            // 箭从画面顶上铺满六列往下落。密度跟星走，伤害在箭尖经过敌人时才结算，
+            // 同一波里每只敌人只吃一箭。
+            float dmg = RainDamage(src, col, star);
+            int n = 8 + star * 4;
+            float left = FieldLayout.ColumnX(0);
+            float right = FieldLayout.ColumnX(GameConstants.Columns - 1);
+            var claimed = new List<int>();
+            for (int i = 0; i < n; i++)
+            {
+                float u = n == 1 ? 0.5f : i / (n - 1f);
+                float x = Mathf.Lerp(left, right, u) + UnityEngine.Random.Range(-0.06f, 0.06f);
+                Rain.Add(new RainArrow
+                {
+                    Id = ++_rainSeq,
+                    Pos = new Vector2(x, GameConstants.WorldHalfHeight + UnityEngine.Random.Range(0.15f, 2.2f)),
+                    Speed = UnityEngine.Random.Range(4.6f, 5.8f),
+                    Dmg = dmg,
+                    Mods = src.Mods,
+                    Src = src,
+                    Claimed = claimed
+                });
+            }
+            ShowFloat(new Vector2(FieldLayout.ColumnX(col), 2.4f), "万箭", InkTheme.Word, 1.25f);
+            AudioBus.Spell(1.08f);
+            AddShake(0.14f);
+        }
+
+        void TickRain(float dt)
+        {
+            for (int i = Rain.Count - 1; i >= 0; i--)
+            {
+                RainArrow a = Rain[i];
+                float y0 = a.Pos.y;
+                a.Pos.y -= a.Speed * dt;
+                if (a.Pos.y < GameConstants.LeakY - 1.4f) Rain.RemoveAt(i);
+                else StrikeRain(a, y0);
+            }
+        }
+
+        void StrikeRain(RainArrow a, float y0)
+        {
+            if (a.Claimed == null || a.Mods == null) return;
+            float band = GameConstants.CellWidth * 0.62f;
+            for (int i = 0; i < Enemies.Count; i++)
             {
                 EnemyActor e = Enemies[i];
-                if (e.Dead) continue;
-                if (Mathf.Abs(e.Pos.x - x) > GameConstants.CellWidth * 0.55f) continue;
-                n++;
-                ResolveHit(e, src.Mods, src, HitSource.Arrow, dmg);
+                if (e.Dead || a.Claimed.Contains(e.Id)) continue;
+                if (Mathf.Abs(e.Pos.x - a.Pos.x) > band) continue;
+                // 这一帧箭尖扫过的那段。怪身和这段重叠才算打中，避免从怪身上穿过去没结算。
+                if (e.Pos.y > y0 + e.Radius) continue;
+                if (e.Pos.y + e.Radius < a.Pos.y) continue;
+                a.Claimed.Add(e.Id);
+                ResolveHit(e, a.Mods, a.Src, HitSource.Arrow, a.Dmg);
             }
-            if (n > 0) ShowFloat(new Vector2(x, 2.2f), "箭", InkTheme.Fire, 1.1f);
         }
 
         // 常驻字过格时生效。全部按族查表，加字不用改这里。
@@ -1243,18 +1331,29 @@ namespace InkLine
                 }
             }
 
-            // 2 基础弹伤 × 道族衰减
-            float dmg = flat >= 0f ? flat : m.BaseDamage * m.Decay;
-            if (from == HitSource.Cleave) dmg *= m.CleaveDecay;
-            else if (from == HitSource.Area) dmg *= m.ExplodeShare;
-            // 3 加算池先全部求和，4 乘算池最后连乘。
-            // 加算默认不吃乘算 —— 否则「镇金」那条招牌就没意义了。
-            if (m.GoldRidesMul) dmg = (dmg + m.AddDamage) * m.MulDamage;
-            else dmg = dmg * m.MulDamage + m.AddDamage;
-            // 霰雷：打在已冻结的目标上算碎冰
-            if (m.Shatter && e.Frozen) dmg *= 1.4f;
-            // 4.2 局外成长的终乘。排在盘面加算之后，炮台伤害线才真的在放大整发伤害。
-            dmg *= m.FinalMul;
+            // 落箭的 flat 已经是「这一发普通炮弹 × 星级份额」，这里不再乘第二遍。
+            bool arrowPriced = from == HitSource.Arrow && flat >= 0f;
+            float dmg;
+            if (arrowPriced)
+            {
+                dmg = flat;
+                if (m.Shatter && e.Frozen) dmg *= 1.4f;
+            }
+            else
+            {
+                // 2 基础弹伤 × 道族衰减
+                dmg = flat >= 0f ? flat : m.BaseDamage * m.Decay;
+                if (from == HitSource.Cleave) dmg *= m.CleaveDecay;
+                else if (from == HitSource.Area) dmg *= m.ExplodeShare;
+                // 3 加算池先全部求和，4 乘算池最后连乘。
+                // 加算默认不吃乘算 —— 否则「镇金」那条招牌就没意义了。
+                if (m.GoldRidesMul) dmg = (dmg + m.AddDamage) * m.MulDamage;
+                else dmg = dmg * m.MulDamage + m.AddDamage;
+                // 霰雷：打在已冻结的目标上算碎冰
+                if (m.Shatter && e.Frozen) dmg *= 1.4f;
+                // 4.2 局外成长的终乘。排在盘面加算之后，炮台伤害线才真的在放大整发伤害。
+                dmg *= m.FinalMul;
+            }
             // 4.3 暴击词条，同样乘整发
             bool crit = _critChance > 0f && UnityEngine.Random.value < _critChance;
             if (crit) dmg *= ForgeCatalog.CritMul;
@@ -1286,9 +1385,24 @@ namespace InkLine
             // 8 位族
             ApplyPush(e, m);
 
-            Bursts.Add(BuildBurst(e.Pos, m, execute));
-            PlayHit(m, execute);
-            PulseHitStop(HitStopOf(m, execute));
+            if (from == HitSource.Arrow)
+            {
+                var hit = BuildBurst(e.Pos, m, false);
+                hit.Kind = HitFx.Arrow;
+                hit.Tint = InkTheme.GoldHi;
+                hit.Scale = 1.75f;
+                Bursts.Add(hit);
+                e.HitFlash = 0.28f;
+                Recoil(e, Vector2.down, 0.38f);
+                AudioBus.Hit();
+                AddShake(0.1f);
+            }
+            else
+            {
+                Bursts.Add(BuildBurst(e.Pos, m, execute));
+                PlayHit(m, execute);
+                PulseHitStop(HitStopOf(m, execute));
+            }
             // 挨打往炮弹来的方向顿一下。本体命中才推，域伤害不推 ——
             // 一圈爆炸把周围的怪全推歪，看着像是被吹散而不是被炸到。
             if (from == HitSource.Direct && src != null)
@@ -1297,7 +1411,10 @@ namespace InkLine
             // 真正该有分量的那几下反而分不出来了。
             AddShake(execute ? 0.34f : heavy ? 0.18f : 0f);
             Color ink = m.Color.r + m.Color.g + m.Color.b < 0.12f ? InkTheme.Ink : m.Color;
-            ShowDamage(e, dmg, execute || crit ? InkTheme.Heart : ink, heavy || crit ? 1.42f : 1f, heavy || execute || crit);
+            if (from == HitSource.Arrow)
+                ShowDamage(e, dmg, InkTheme.CoinFace, 1.5f, false, 77);
+            else
+                ShowDamage(e, dmg, execute || crit ? InkTheme.Heart : ink, heavy || crit ? 1.42f : 1f, heavy || execute || crit);
             if (e.Hp <= 0f) Kill(e, m);
         }
 
@@ -2209,6 +2326,7 @@ namespace InkLine
             if (_word == null) return;
             _word[col] = WordId.None;
             _wordStar[col] = 0;
+            _wordGate[col] = 0;
             _pierceStar[col] = 0;
             _explodeStar[col] = 0;
             _heavyStar[col] = 0;
@@ -2234,7 +2352,12 @@ namespace InkLine
                 if (id == CardId.Slash) { slash = true; slashS = star; }
             }
             if (sec && kill) { _word[col] = WordId.InstantKill; _wordStar[col] = Mathf.Max(secS, killS); }
-            else if (myriad && arrow) { _word[col] = WordId.ArrowRain; _wordStar[col] = Mathf.Max(myriadS, arrowS); }
+            else if (myriad && arrow)
+            {
+                _word[col] = WordId.ArrowRain;
+                _wordStar[col] = Mathf.Max(myriadS, arrowS);
+                _wordGate[col] = Mathf.Min(myriadS, arrowS);
+            }
             else if (strike && back) { _word[col] = WordId.Knockback; _wordStar[col] = Mathf.Max(strikeS, backS); }
             else if (link && slash) { _word[col] = WordId.Cleave; _wordStar[col] = Mathf.Max(linkS, slashS); }
         }
@@ -2266,7 +2389,9 @@ namespace InkLine
             }
             else if (def.Wake == CardWake.WordPart && _word[col] == def.Word)
             {
-                need = CardCatalog.WordChargeNeed(def.Word);
+                need = def.Word == WordId.ArrowRain
+                    ? CardCatalog.WordChargeNeed(def.Word, _wordGate[col])
+                    : CardCatalog.WordChargeNeed(def.Word);
                 now = _charge[col, ChWord];
             }
         }

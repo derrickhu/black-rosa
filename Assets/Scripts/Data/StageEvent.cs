@@ -4,7 +4,10 @@ using static InkLine.EnemyId;
 
 namespace InkLine
 {
-    // 「招财进宝」的三档活动关。两排全开，血量和速度借主线某一关。
+    // 「招财进宝」的三档活动关。两排全开。血量借偏后的主线关，移速仍借原来那一关：
+    // 小集血是第 4 章、速度是第 2 章；庙会血是第 6 章、速度是第 3 章；
+    // 大集血是第 7 章最后一关（不含关底加成）、速度是第 5 章。
+    // 难度加在只数上，不加快怪。
     // 波数写死成 6 / 8 / 10。只数按 RampCounts 从疏到密，最后一波再用 EventPeak 抬一档。
     // 同一拍的怪散开到各列，不再排成一列小队。前两波一拍四只，之后一拍五只，
     // 倒数第二波一拍十只，最后一波一拍十五只。波和波之间不留空档。
@@ -17,16 +20,19 @@ namespace InkLine
         // 庙会青石街，三档共用一张。
         public const string EventBackdrop = "Bg/battle_bg_event";
 
-        // 每档的怪量倍率，和开局密度。主线开局是 0.75。改这里要同步 check_stages。
-        static readonly float[] EventCrowd = { 1.85f, 2.05f, 2.2f };
-        const float EventRampOpen = 0.55f;
-        const int EventEaseWaves = 2;
-        const float EventEase = 0.92f;
+        // 每档的怪量倍率，和开局密度。主线开局是 0.75，活动开局贴着它，不再另打折。
+        // 改这里要同步 check_stages。
+        static readonly float[] EventCrowd = { 2.8f, 3.0f, 3.2f };
+        // 移速借这几章，不跟上面的血量走。
+        static readonly int[] EventPace = { 1, 2, 4 };
+        const float EventRampOpen = 0.72f;
+        const int EventEaseWaves = 0;
+        const float EventEase = 1f;
         // 一拍出几只。倒数第二波、最后一波用列数当倍数，出场时再散到六列。
         const int EventOpenWaves = 2;
         const int EventOpenBatch = 4;
         const int EventBatch = 5;
-        const float EventBeat = 4.6f;
+        const float EventBeat = 4.0f;
         const int EventLateWaves = 2;
         const int EventLateLanes = 2;
         const int EventFinaleLanes = 3;
@@ -39,7 +45,7 @@ namespace InkLine
             var s = new StageDef
             {
                 Index = -1,
-                Chapter = t.Chapter,
+                Chapter = EventPace[Mathf.Clamp(tier, 0, EventPace.Length - 1)],
                 Slot = t.Slot,
                 Title = t.Name,
                 Name = EventCatalog.Title + " · " + t.Name,

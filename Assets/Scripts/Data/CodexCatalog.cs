@@ -274,7 +274,12 @@ namespace InkLine
                 : "炮弹每次经过都生效";
         }
 
-        public static string WakeNote(WordId word) => $"每 {CardCatalog.WordChargeNeed(word)} 发经过才生效一次";
+        public static string WakeNote(WordId word)
+        {
+            if (word == WordId.ArrowRain)
+                return "1 星每 4 发蓄满一次。两个字都升到 2 星后每 3 发，都到 3 星后每 2 发";
+            return $"每 {CardCatalog.WordChargeNeed(word)} 发经过才生效一次";
+        }
 
         public static string Lore(CardId id)
         {
@@ -354,7 +359,7 @@ namespace InkLine
             switch (word)
             {
                 case WordId.InstantKill: return pair + $"每 {need} 发蓄满一次，那一发命中时，血量低于斩杀线的敌人直接倒下。";
-                case WordId.ArrowRain: return pair + $"每 {need} 发蓄满一次，在这一列落下一阵箭雨。";
+                case WordId.ArrowRain: return pair + "蓄满的那一发化成满屏落下的发光箭雨，场上每只敌人挨一箭。单支从这一发普通炮弹的一半起，星级升高后逐步提到一整发。1 星每 4 发；两个字都升到 2 星后冷却减 1，都到 3 星再减 1。";
                 case WordId.Knockback: return pair + $"每 {need} 发蓄满一次，那一发把敌人远远击退。";
                 case WordId.Cleave: return pair + $"每 {need} 发蓄满一次，那一发命中后接连斩向身边的敌人。";
                 default: return pair;
@@ -367,7 +372,7 @@ namespace InkLine
             switch (word)
             {
                 case WordId.InstantKill: return $"普通敌人血量低于 {P(w.ExecuteHp.At(s))} 即斩；头目 {P(w.ExecuteBoss.At(s))}";
-                case WordId.ArrowRain: return $"{w.Count.IntAt(s)} 支箭，每支 {D(ShotMods.DefaultBase * w.Damage.At(s))} 伤害";
+                case WordId.ArrowRain: return $"满屏箭雨，每支是这一发普通炮弹的 {P(w.Damage.At(s))}";
                 case WordId.Knockback: return $"击退 {F(w.Move.At(s))} 格";
                 case WordId.Cleave: return $"连斩 {w.Count.IntAt(s)} 次，每跳伤害 ×{F(w.Decay.At(s))}";
                 default: return "";

@@ -32,6 +32,9 @@ namespace InkLine
         public Color MoteA;
         public Color MoteB;
         public int Motes;
+
+        // 万箭蓄满后，炮筒那发改由满屏落箭顶上，弹体本身留空。
+        public bool Hidden;
     }
 
     public static class ShotLook
@@ -98,6 +101,7 @@ namespace InkLine
                 };
 
             Motes(m, ref v, pairA, pairB);
+            if (word == WordId.ArrowRain) v.Hidden = true;
             return v;
         }
 

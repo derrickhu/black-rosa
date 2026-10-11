@@ -302,8 +302,9 @@ namespace InkLine
             {
                 Id = WordId.ArrowRain, Charge = 4,
                 Count = new Tri(3f, 4f, 6f),
-                // 基础弹伤的倍数，不是点数 —— 写死点数的话新章节一定失效。
-                Damage = new Tri(1.4f, 2f, 2.7f),
+                // 这一发普通炮弹（加算、乘算、终乘都算完）的份额。
+                // 满屏箭多，1 星一半，2 星四分之三，3 星一整发。
+                Damage = new Tri(0.5f, 0.75f, 1f),
                 Form = ShotFx.FormArrow, Hit = HitFx.Arrow
             },
             new WordDef

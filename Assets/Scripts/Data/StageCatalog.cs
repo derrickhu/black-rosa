@@ -125,7 +125,7 @@ namespace InkLine
 
         // 章底数。章内每关再加 5%，章底额外 ×1.15。
         // 格子逐章慢开、第三排留给以后的章节，前几章盘面小，血量跟着压低；后面靠星级、词条和道具补上差距。
-        static readonly float[] ChapterHp = { 1.15f, 1.3f, 1.4f, 1.65f, 1.85f, 2.2f, 2.5f, 2.8f };
+        static readonly float[] ChapterHp = { 1.15f, 1.3f, 1.52f, 1.76f, 1.85f, 2.2f, 2.5f, 2.8f };
         const float SlotHpStep = 0.05f;
         const float FinaleHp = 1.15f;
 
@@ -143,7 +143,7 @@ namespace InkLine
 
         // 每只怪掉墨的章节系数，把每章首通的墨收入钉在锻造和道具定价对应的那条线上。
         // 前两章一局的怪多、局也长，系数反而要压低；改波次或只数之后跑 check_stages 重新对一遍。
-        static readonly float[] ChapterInk = { 1.55f, 0.82f, 1.3f, 1.51f, 1.41f, 1.39f, 1.28f, 1.23f };
+        static readonly float[] ChapterInk = { 1.55f, 0.82f, 1.08f, 1.26f, 1.41f, 1.39f, 1.28f, 1.23f };
 
         public static float InkOf(int chapter) =>
             ChapterInk[Mathf.Clamp(chapter, 0, ChapterInk.Length - 1)];
@@ -281,7 +281,8 @@ namespace InkLine
         const float RampBossWave = 0.9f;
 
         // 每章杂兵只数的折扣。钱跟着怪走，抽牌价由钱袋反推，会一起降下来。
-        static readonly float[] ChapterBodies = { 1f, 1f, 0.95f, 0.95f, 0.97f, 0.98f, 1f, 1f };
+        // 第三、四章原来压在 0.95，盘面已经铺开但怪还是偏少，提到 1.08。
+        static readonly float[] ChapterBodies = { 1f, 1f, 1.08f, 1.08f, 0.97f, 0.98f, 1f, 1f };
         // 第一章头三关：新手引导、刚学升星、刚学冰火，怪再少一截。
         static readonly float[] FirstChapterEase = { 0.6f, 0.75f, 0.9f };
 

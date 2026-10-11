@@ -1,0 +1,13 @@
+A 2 by 2 sprite sheet on a plain white background, four equal square cells. Each cell contains one single arrow, drawn as flat cel-shaded game art with solid color layers and a thick burnt-toast brown outline.
+
+The arrow points straight down. A wide triangular arrowhead sits at the bottom, a long straight shaft rises from the arrowhead, and three feathers sit at the top of the shaft: one feather to the left, one to the right, one short feather in the middle. Left-right symmetric. The whole arrow is chunky and readable at a small size, filling about seventy percent of the cell height.
+
+Colors from the inside outward: a milk-white stripe down the center of the shaft and through the arrowhead, a coin-gold layer around that stripe, tangerine orange on the outer edge of the arrowhead and on the feathers, then the thick burnt-toast brown outline around the entire silhouette.
+
+The arrowhead tip sits at the same spot in every cell, just above the bottom padding, and every arrow is the same length, so the four frames share one tip position and one size.
+
+Reading order is top-left, top-right, bottom-left, bottom-right. The four cells are the same arrow with a small energy pulse:
+Top-left: feathers held close to the shaft, milk-white stripe narrow.
+Top-right: milk-white stripe wider, feathers opened a little.
+Bottom-left: milk-white stripe at its brightest, two small coin-gold diamond sparks beside the arrowhead.
+Bottom-right: feathers swept slightly back, milk-white stripe narrowing again toward the first cell.

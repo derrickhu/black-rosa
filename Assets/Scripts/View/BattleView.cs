@@ -353,6 +353,8 @@ namespace InkLine
             DartFx.Bind(_root);
             for (int n = 0; n < w.DartPops.Count; n++) DartFx.Pop(w.DartPops[n]);
             w.DartPops.Clear();
+            ArrowRainView.Bind(_root);
+            ArrowRainView.Sync(w.Rain);
         }
 
         public const float DartScale = 0.64f;

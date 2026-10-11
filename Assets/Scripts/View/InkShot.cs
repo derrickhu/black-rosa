@@ -35,6 +35,11 @@ namespace InkLine
 
             ShotMods m = b.Mods;
             ShotView v = ShotLook.Resolve(m);
+            if (v.Hidden)
+            {
+                Blank();
+                return;
+            }
 
             float ang = Mathf.Atan2(b.Vel.y, b.Vel.x) * Mathf.Rad2Deg - 90f;
             transform.SetPositionAndRotation(new Vector3(b.Pos.x, b.Pos.y, 0f), Quaternion.Euler(0f, 0f, ang));
@@ -578,6 +583,29 @@ namespace InkLine
             tr.emitting = true;
             if (!was) tr.Clear();
             was = true;
+        }
+
+        // 万箭那发弹体留空：落箭已经顶上了，炮筒里不要再飞出一支箭。
+        void Blank()
+        {
+            if (_core != null) _core.enabled = false;
+            if (_pellet != null) _pellet.enabled = false;
+            if (_glow != null) _glow.enabled = false;
+            if (_hot != null) _hot.enabled = false;
+            if (_form != null) _form.enabled = false;
+            if (_halo != null) _halo.enabled = false;
+            if (_orbitA != null) _orbitA.enabled = false;
+            if (_orbitB != null) _orbitB.enabled = false;
+            if (_moteA != null) _moteA.enabled = false;
+            if (_moteB != null) _moteB.enabled = false;
+            if (_flare != null) _flare.enabled = false;
+            if (_glint != null) _glint.enabled = false;
+            if (_skinArt != null) _skinArt.enabled = false;
+            for (int i = 0; i < _ornSr.Count; i++)
+                if (_ornSr[i] != null) _ornSr[i].enabled = false;
+            Ribbon(ref _body, ref _bodyOn, "body", false, default, default, 0f, 0f);
+            Ribbon(ref _trail, ref _trailOn, "trail", false, default, default, 0f, 0f);
+            _sparks.Reset();
         }
 
         static void Quiet(ref TrailRenderer tr, ref bool was)
