@@ -6,8 +6,8 @@ namespace InkLine
 {
     // 「招财进宝」的三档活动关。两排全开，血量和速度借主线某一关。
     // 波数写死成 6 / 8 / 10。只数按 RampCounts 从疏到密，最后一波再用 EventPeak 抬一档。
-    // 同一拍的怪散开到各列，不再排成一列小队。前两波一拍四只，之后一拍五只，
-    // 倒数第二波一拍十只，最后一波一拍十五只。波和波之间不留空档。
+    // 同一拍的怪散开到各列。前两波一拍大约十二只，中段一拍八只，六列都有人，有的列两只，
+    // 不再一列一次出一只。倒数第二波一拍十二只，最后一波一拍十八只。波和波之间不留空档。
     // 不进 72 关的表，也不进 check_stages 的主线曲线。
     public static partial class StageCatalog
     {
@@ -18,20 +18,21 @@ namespace InkLine
         public const string EventBackdrop = "Bg/battle_bg_event";
 
         // 每档的怪量倍率，和开局密度。主线开局是 0.75。改这里要同步 check_stages。
-        static readonly float[] EventCrowd = { 1.85f, 2.05f, 2.2f };
-        const float EventRampOpen = 0.55f;
+        // 开局不再压薄：前两波再乘 EventEase，让一开始就是一群，而不是零星几只。
+        static readonly float[] EventCrowd = { 3.05f, 3.3f, 3.45f };
+        const float EventRampOpen = 1.0f;
         const int EventEaseWaves = 2;
-        const float EventEase = 0.92f;
-        // 一拍出几只。倒数第二波、最后一波用列数当倍数，出场时再散到六列。
+        const float EventEase = 1.2f;
+        // 一拍出几只，出场时按列散开。前两波和中段都要铺满六列，有的列叠第二只。
         const int EventOpenWaves = 2;
-        const int EventOpenBatch = 4;
-        const int EventBatch = 5;
+        const int EventOpenBatch = 12;
+        const int EventBatch = 8;
         const float EventBeat = 4.6f;
         const int EventLateWaves = 2;
-        const int EventLateLanes = 2;
-        const int EventFinaleLanes = 3;
-        // 最后一波的密度。主线关底是 2，活动没有 boss，靠这一档把终盘堆满。
-        const float EventPeak = 3.2f;
+        const int EventLateBatch = 12;
+        const int EventFinaleBatch = 18;
+        // 最后一波的密度。主线关底是 2。前几波加厚之后，靠这一档把终盘仍堆满。
+        const float EventPeak = 3.8f;
 
         public static StageDef EventStage(int tier, CardId[] pool)
         {
@@ -72,16 +73,15 @@ namespace InkLine
             var grid = new int[nW][];
             for (int w = 0; w < nW; w++)
             {
-                int lanes = w == nW - 1 ? EventFinaleLanes
-                    : w >= nW - EventLateWaves ? EventLateLanes : 1;
-                int batch = w < EventOpenWaves ? EventOpenBatch : EventBatch;
+                int cap = w == nW - 1 ? EventFinaleBatch
+                    : w >= nW - EventLateWaves ? EventLateBatch
+                    : w < EventOpenWaves ? EventOpenBatch : EventBatch;
                 EnemyId[] ids = Spread(s.Waves[w].Spawns, s.Bodies[w]);
                 var specs = new List<SpawnSpec>();
                 var counts = new List<int>();
-                int cap = batch * lanes;
                 int beats = Mathf.Max(1, Mathf.CeilToInt(ids.Length / (float)Mathf.Max(1, cap)));
-                // 尾巴不够再占一拍时并回去，避免单独一拍只剩一只。
-                if (beats > 1 && ids.Length - (beats - 1) * cap < lanes)
+                // 一拍少于八只就会摊成一列一只，并回上一拍。
+                while (beats > 1 && ids.Length / beats < 8)
                     beats--;
                 int baseN = ids.Length / beats;
                 int extra = ids.Length % beats;
