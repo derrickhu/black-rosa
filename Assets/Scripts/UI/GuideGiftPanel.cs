@@ -60,7 +60,7 @@ namespace InkLine
                     new Vector2((i - 1.5f) * 150f, 124f), cardSize);
 
             _btn = UiKit.Btn(board, "claim", "领取", new Vector2(0f, 52f), new Vector2(430f, 104f), OnTap, true, Pin.Bottom);
-            UiAnim.On(board).Pop(board, 0f, 0.32f, 0.5f).Breathe(_btn.transform, 0.5f, 0.045f, 1.3f);
+            UiAnim.On(board).Breathe(_btn.transform, 0.5f, 0.045f, 1.3f);
         }
 
         void OnTap()

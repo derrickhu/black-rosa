@@ -370,7 +370,7 @@ def share(total, weight, floor):
     return out
 
 
-def ramp_bodies(waves, body_mul=1.0, open_lvl=None, ease_waves=0, ease=1.0):
+def ramp_bodies(waves, body_mul=1.0, open_lvl=None, ease_waves=0, ease=1.0, peak=None):
     """复刻 StageCatalog.RampCounts：整关杂兵总血按「波长 × 该波密度」分到每波，
     再按该波平均血换成只数，波内按出场表比例分。关底本人不动。"""
     n_w = len(waves)
@@ -406,7 +406,7 @@ def ramp_bodies(waves, body_mul=1.0, open_lvl=None, ease_waves=0, ease=1.0):
     for w in range(n_w):
         dur = max(0.01, waves[w]["dur"])
         if w == last and n_w > 1:
-            lvl = ramp_boss if boss_wave[w] else ramp_peak
+            lvl = ramp_boss if boss_wave[w] else (ramp_peak if peak is None else peak)
         else:
             u = min(1.0, max(0.0, (cursor + dur * 0.5) / pre)) if pre > 0.01 else 0.5
             opened = ramp_open if open_lvl is None else open_lvl
@@ -655,7 +655,7 @@ for ch in range(chapters):
           + f"  墨 {round(sum(e['ink'] for e, _ in part))}")
 
 # ---------- 活动关 ----------
-# 只数走 RampCounts。上场是小队：前几波一拍一列，最后两波一拍两列，拍与拍连着。
+# 只数走 RampCounts，最后一波另乘 EventPeak。同一拍散到各列，不排成一列小队。
 print("\n活动关")
 evt_tiers = [(int(c), int(s)) for c, s in re.findall(
     r"Chapter = (\d+), Slot = (\d+)", read("Data", "EventCatalog.cs"))]
@@ -669,20 +669,23 @@ evt_batch = int(re.search(r"EventBatch = (\d+)", evt_src).group(1))
 evt_beat = float(re.search(r"EventBeat = ([\d.]+)f", evt_src).group(1))
 evt_late_waves = int(re.search(r"EventLateWaves = (\d+)", evt_src).group(1))
 evt_late_lanes = int(re.search(r"EventLateLanes = (\d+)", evt_src).group(1))
+evt_finale_lanes = int(re.search(r"EventFinaleLanes = (\d+)", evt_src).group(1))
+evt_peak = float(re.search(r"EventPeak = ([\d.]+)f", evt_src).group(1))
 evt_cases = re.split(r"case \d+:|default:", re.search(r"EventWaves\(int tier\)\s*\{(.*)\n        \}", evt_src, re.S).group(1))
 evt_cases = [c for c in evt_cases if "W(" in c]
 evt_want = [6, 8, 10]
 check(len(evt_cases) == 3 and len(evt_tiers) == 3 and len(evt_crowd) == 3, "活动三档的出场表、借关、怪量倍率都在")
-check(evt_open_batch == 3 and evt_batch == 4 and 2.6 <= evt_beat <= 4.0
-      and evt_open_waves == 2 and evt_late_waves == 2 and evt_late_lanes == 2,
-      f"活动前 {evt_open_waves} 波一列 {evt_open_batch} 只，之后 {evt_batch} 只 / {evt_beat:.1f}s，最后 {evt_late_waves} 波 {evt_late_lanes} 列")
+check(evt_open_batch == 4 and evt_batch == 5 and 4.2 <= evt_beat <= 5.2
+      and evt_open_waves == 2 and evt_late_waves == 2 and evt_late_lanes == 2 and evt_finale_lanes == 3,
+      f"活动前 {evt_open_waves} 拍 {evt_open_batch} 只，之后每拍 {evt_batch} 只 / {evt_beat:.1f}s，"
+      f"倒数第二波每拍 {evt_batch * evt_late_lanes} 只，最后一波每拍 {evt_batch * evt_finale_lanes} 只，散到各列")
 
 
 def event_pack(n, lanes, batch):
     """复刻 EventStream 的摊拍：返回 (拍数, 每拍每列只数)。尾巴不够一拍就并回去。"""
     cap = batch * lanes
     beats = max(1, -(-n // cap))
-    if beats > 1 and n - (beats - 1) * cap < lanes * 3:
+    if beats > 1 and n - (beats - 1) * cap < lanes:
         beats -= 1
     base, extra = divmod(n, beats)
     lanes_out = []
@@ -702,12 +705,13 @@ for i, body in enumerate(evt_cases[:3]):
         last = max(t for t, _, _ in specs)
         waves.append(dict(boss=False, dur=max(8.0, last + 5.5), specs=specs))
     ramp = ramp_bodies(waves, chapter_bodies[min(ch, len(chapter_bodies) - 1)] * evt_crowd[i], evt_open,
-                       evt_ease_waves, evt_ease)
+                       evt_ease_waves, evt_ease, evt_peak)
     early_cols = late_cols = 0
     early_min = 99
     for w, wave in enumerate(ramp):
         n = sum(count for _, _, count, _ in wave["specs"])
-        lanes = evt_late_lanes if w >= len(ramp) - evt_late_waves else 1
+        lanes = evt_finale_lanes if w == len(ramp) - 1 else (
+            evt_late_lanes if w >= len(ramp) - evt_late_waves else 1)
         batch = evt_open_batch if w < evt_open_waves else evt_batch
         beats, packed = event_pack(n, lanes, batch)
         wave["dur"] = max(evt_beat, beats * evt_beat)
@@ -743,11 +747,11 @@ for i, body in enumerate(evt_cases[:3]):
     rate = hp_all / dur / main_rate
     last_rate = (hp_last / ramp[-1]["dur"]) / main_rate
     check(len(ramp) == evt_want[i], f"活动第 {i + 1} 档 {len(ramp)} 波（要 {evt_want[i]}）")
-    check(55 <= dur <= 200, f"活动第 {i + 1} 档一局 {dur:.0f} 秒（要 55~200）")
-    check(early_min >= 3, f"活动第 {i + 1} 档前期一拍最少 {early_min} 只（要 ≥3，不要一两只）")
-    check(1.15 <= peak <= 2.8, f"活动第 {i + 1} 档最后一波每秒血是前面的 {peak:.2f} 倍（要 1.15~2.8）")
-    check(0.8 <= rate <= 1.35, f"活动第 {i + 1} 档整局每秒血是第 {ch + 1} 章主线的 {rate:.2f} 倍（要 0.8~1.35）")
-    check(1.05 <= last_rate <= 2.4, f"活动第 {i + 1} 档最后一波每秒血是第 {ch + 1} 章主线的 {last_rate:.2f} 倍（要 1.05~2.4）")
+    check(90 <= dur <= 260, f"活动第 {i + 1} 档一局 {dur:.0f} 秒（要 90~260）")
+    check(early_min >= 3, f"活动第 {i + 1} 档前期一拍最少 {early_min} 只（要 ≥3）")
+    check(1.5 <= peak <= 4.2, f"活动第 {i + 1} 档最后一波每秒血是前面的 {peak:.2f} 倍（要 1.5~4.2）")
+    check(0.65 <= rate <= 1.6, f"活动第 {i + 1} 档整局每秒血是第 {ch + 1} 章主线的 {rate:.2f} 倍（要 0.65~1.6）")
+    check(1.5 <= last_rate <= 3.4, f"活动第 {i + 1} 档最后一波每秒血是第 {ch + 1} 章主线的 {last_rate:.2f} 倍（要 1.5~3.4）")
     sizes = " ".join(",".join(str(x) for x in w["sizes"]) for w in ramp)
     print(f"  第 {i + 1} 档  每波 {per_wave}  节拍 {evt_beat:.1f}s  共 {kills} 只  {dur:.0f}s  钱袋 {purse}")
     print(f"    每拍 {sizes}")

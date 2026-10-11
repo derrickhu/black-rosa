@@ -7,14 +7,14 @@ namespace InkLine
         static readonly CardDef[] All =
         {
             new CardDef(CardId.Fire, "火", "过格灼烧", InkShape.Flame),
-            new CardDef(CardId.Ice, "冰", "过格减速", InkShape.Diamond),
+            new CardDef(CardId.Ice, "冰", "过格冻住", InkShape.Diamond),
             new CardDef(CardId.Split, "分", "穿过后裂成多发", InkShape.Triangle),
             new CardDef(CardId.Track, "瞄", "拐弯并拖紫尾", InkShape.Arc),
             new CardDef(CardId.Accel, "速", "穿过后飞得更快", InkShape.Arrow),
             new CardDef(CardId.Pierce, "穿", "蓄满的那发能穿透", InkShape.Bar, CardWake.Charge, WordId.None, 2),
             new CardDef(CardId.Explode, "炸", "蓄满的那发命中爆炸", InkShape.Burst, CardWake.Charge, WordId.None, 2),
             new CardDef(CardId.Heavy, "重", "蓄满的那发变粗必暴", InkShape.Square, CardWake.Charge, WordId.None, 2),
-            new CardDef(CardId.Stun, "晕", "蓄满的那发命中短晕", InkShape.Ring, CardWake.Charge, WordId.None, 2),
+            new CardDef(CardId.Stun, "晕", "蓄满的那发把敌人定住", InkShape.Ring, CardWake.Charge, WordId.None, 2),
             new CardDef(CardId.Sec, "秒", "和「杀」同列才醒", InkShape.Star, CardWake.WordPart, WordId.InstantKill, 3),
             new CardDef(CardId.Kill, "杀", "和「秒」同列才醒", InkShape.Star, CardWake.WordPart, WordId.InstantKill, 3),
             new CardDef(CardId.Myriad, "万", "和「箭」同列才醒", InkShape.Burst, CardWake.WordPart, WordId.ArrowRain, 4),
@@ -86,14 +86,13 @@ namespace InkLine
 
         public static int SplitCount(int star) => GlyphTable.Get(CardId.Split).Count.IntAt(star);
         public static float BurnDps(int star) => GlyphTable.Get(CardId.Fire).Power.At(star);
-        public static float SlowFactor(int star) => GlyphTable.Get(CardId.Ice).Power.At(star);
+        public static float SlowFactor(int star) => GlyphTable.Get(CardId.Water).Power.At(star);
         public static float Homing(int star) => GlyphTable.Get(CardId.Track).Ballistic.At(star);
         public static int Pierce(int star) => GlyphTable.Get(CardId.Pierce).Count.IntAt(star);
         public static float ExplodeRadius(int star) => GlyphTable.Get(CardId.Explode).Radius.At(star);
         public static float AccelMul(int star) => GlyphTable.Get(CardId.Accel).Ballistic.At(star);
         public static float SizeMul(int star) => GlyphTable.Get(CardId.Heavy).Size.At(star);
         public static float HeavyMul(int star) => GlyphTable.Get(CardId.Heavy).MulDamage.At(star);
-        public static bool FreezeOnHit(int star) => GlyphTable.FreezeOnHit(star);
         public static bool BurnPop(int star) => GlyphTable.BurnPop(star);
         public static float StunTime(int star) => GlyphTable.Get(CardId.Stun).Time.At(star);
         public static float ExecuteBoss(int star) => GlyphTable.Word(WordId.InstantKill).ExecuteBoss.At(star);

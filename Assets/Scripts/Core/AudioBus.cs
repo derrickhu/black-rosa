@@ -34,16 +34,11 @@ namespace InkLine
         public static void CellSwap() => CueOr("cell_swap", "stamp", 0.95f, 0.06f, 1f);
         public static void WordForm() => CueOr("word_form", "chime", 1f, 0.3f, 1f);
         public static void WordBreak() => CueOr("word_break", "ui_deny", 0.8f, 0.15f, 1f);
-        // 蓄满一发就响一下，射速快的时候很密，压低音量、拉开间隔。
-        public static void ChargeFire(bool word) => Cue("charge_fire", word ? 0.7f : 0.42f, word ? 0.12f : 0.09f, 0.04f, word ? 0.86f : 1.08f);
         // 发弹是全场最密的声音，必须比命中轻一截，否则命中被它淹掉。
         public static void Shot(float pitch) => Cue("shot", 0.3f, 0.07f, 0.05f, pitch);
-        // 命中两层：上面是墨点的瞬态，下面垫一声低频的闷响，才有「砸进去」的身体。
-        public static void Hit()
-        {
-            Cue("hit", 0.95f, 0.04f, 0.08f);
-            Cue("hit_thud", 0.8f, 0.05f, 0.06f);
-        }
+        // 普通命中是全场最密的声音，只留一声短脆的「哒」，不垫低频：
+        // 垫了闷响，一秒十几下就压得人烦。音高随机散开，连打听着像一串而不是同一下复读。
+        public static void Hit() => Cue("hit", 0.62f, 0.045f, 0.12f);
 
         public static void HitFire()
         {
@@ -91,6 +86,8 @@ namespace InkLine
         }
         public static void Leak() => Cue("leak", 0.86f, 0.2f, 0f);
         public static void Pickup() => Cue("pickup", 0.58f, 0.07f, 0.05f);
+        // 金币入账。短促的硬币碰撞，音量留在能连着听的程度。
+        public static void Coin() => Cue("coin", 0.68f, 0.05f, 0.04f);
         public static void Spell(float pitch) => Cue("spell", 0.86f, 0.18f, 0f, pitch);
         public static void ItemFire(float pitch) => CueOr("item_fire", "spell", 0.8f, 0.12f, pitch);
         // 每个道具一段专属音，从起手一路响到生效。没入库时退回通用的丢出声。

@@ -24,7 +24,36 @@ namespace InkLine
             UiKit.Bold(t);
 
             CloseButton(board, close);
+            Open(board);
             return board;
+        }
+
+        // 点开小图标、或自动弹出（签到这类）时，卡面从中间展开，遮罩一起淡入。
+        // 锚点不在中心的（排行榜贴顶）也绕视觉中心涨，避免从顶边往下拉。
+        public static void Open(RectTransform board)
+        {
+            if (board == null) return;
+            var anim = UiAnim.On(board);
+            Grow(anim, board);
+            var shadow = board.parent != null ? board.parent.Find(board.name + "_sh") as RectTransform : null;
+            if (shadow != null) Grow(anim, shadow);
+            var scrim = board.parent != null ? board.parent.GetComponent<Image>() : null;
+            if (scrim != null)
+                anim.Fade(scrim, 0f, 0.2f, 0f, scrim.color.a);
+        }
+
+        static void Grow(UiAnim anim, RectTransform rt)
+        {
+            Vector2 home = rt.anchoredPosition;
+            Vector2 size = rt.sizeDelta;
+            Vector2 off = new Vector2(0.5f - rt.pivot.x, 0.5f - rt.pivot.y);
+            anim.Tween(0f, 0.32f, k =>
+            {
+                if (rt == null) return;
+                float s = Mathf.LerpUnclamped(0.72f, 1f, Ease.OutBack(k));
+                rt.localScale = new Vector3(s, s, 1f);
+                rt.anchoredPosition = home + off * size * (1f - s);
+            });
         }
 
         public static void CloseButton(RectTransform board, Action close)

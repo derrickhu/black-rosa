@@ -16,6 +16,26 @@ namespace InkLine
             return Load("cannon_" + SkinCatalog.Get(skin).Key) ?? Load("cannon_plain") ?? Cannon();
         }
 
+        // 炮口朝上的开炮帧，CannonFire/<皮肤>_0 是静止，后面是一发的动作。没出图的皮肤返回 null。
+        public static Sprite[] CannonFire(int skin)
+        {
+            string key = "fire:" + skin;
+            if (FireCache.TryGetValue(key, out Sprite[] cached)) return cached;
+            string name = "CannonFire/" + SkinCatalog.Get(skin).Key + "_";
+            var list = new List<Sprite>();
+            for (int i = 0; ; i++)
+            {
+                Sprite s = Load(name + i);
+                if (s == null) break;
+                list.Add(s);
+            }
+            cached = list.Count > 1 ? list.ToArray() : null;
+            FireCache[key] = cached;
+            return cached;
+        }
+
+        static readonly Dictionary<string, Sprite[]> FireCache = new Dictionary<string, Sprite[]>();
+
         // 战斗里的换皮前缀。活动关设成 EventTheme，敌人先找 evt_walker 这种，没有再退回原图。
         // 离开战斗要清掉，图鉴里的敌人一直用原图。
         public const string EventTheme = "evt_";

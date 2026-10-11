@@ -42,9 +42,9 @@ namespace InkLine
         public int PushLateral;        // 风，横向列数
 
         public float ExplodeR;
-        public float ExplodeShare = 0.6f;
+        public float ExplodeShare = 0.68f;
         public int CleaveLeft;
-        public float CleaveDecay = 0.75f;
+        public float CleaveDecay = 0.84f;
 
         public bool InstantKill;
         public float ExecuteHp;        // 非头目直接死的血线

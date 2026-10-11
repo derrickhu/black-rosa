@@ -392,6 +392,8 @@ namespace InkLine
             return new Vector2(p.x, p.y);
         }
 
+        public bool ItemShow => _fx != null && _fx.Playing;
+
         public void Refresh(BattleWorld world, bool inBattle, string tip)
         {
             if (world == null || Gold == null) return;

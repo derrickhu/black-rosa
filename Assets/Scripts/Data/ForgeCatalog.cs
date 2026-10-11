@@ -69,11 +69,11 @@ namespace InkLine
         // 多一门炮、加一滴血比加伤害贵，这两条单独上浮。
         static readonly ForgeDef[] Lines =
         {
-            // 伤害线 12 级，每级 +16%，满级 +192%，门槛铺到第 69 关。
-            // 百分比乘在整发炮弹上，后几章每一级都还能把伤害抬上去一截。
+            // 伤害线 12 级，每级 +25%，满级 +300%，门槛铺到第 69 关。
+            // 第二章前期最多三级，+75% 才压得住最后一波；百分比乘在整发炮弹上。
             new ForgeDef
             {
-                Line = ForgeLine.Damage, Name = "伤害", Stat = "炮弹伤害", Amount = 16f,
+                Line = ForgeLine.Damage, Name = "伤害", Stat = "炮弹伤害", Amount = 25f,
                 Icon = "damage", Reveal = 1, Brief = "所有炮弹的伤害一起涨",
                 Cost = new[] { 110, 140, 170, 200, 240, 300, 380, 470, 580, 700, 840, 1000 },
                 Gate = new[] { 1, 2, 6, 12, 20, 28, 36, 44, 52, 58, 64, 69 }

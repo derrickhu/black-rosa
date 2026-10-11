@@ -55,17 +55,17 @@
     },
     {
       "name": "hit",
-      "text": "loud bubble pop, one fat soap bubble bursting close to the microphone, round low body, dry, no music, no voice",
-      "duration": 0.5,
+      "text": "one satisfying clacky mechanical keyboard key press, crisp tactile snap, light and bright, very short, dry, close, no reverb, no music, no voice",
+      "duration": 0.2,
       "output": "../../../Assets/Resources/Audio/hit.mp3",
-      "notes": "默认命中，解压的核心音"
+      "notes": "默认命中，全场最密。入库版裁掉峰值前空段截到 0.12s（game_assets/black-rosa/audio/v2/make_tick.py）。泡泡声太软；沙袋重击 + 低频垫底又太闷太吵，连打很烦"
     },
     {
       "name": "hit_thud",
       "text": "punchy low thump of a fist hitting a firm cushion, short tight body with a quick click on the attack, close microphone, dry, no reverb, no music, no voice",
       "duration": 0.5,
       "output": "../../../Assets/Resources/Audio/hit_thud.mp3",
-      "notes": "垫在每一下命中底下的低频身体"
+      "notes": "垫在火 / 冰命中、重击、关底底下的低频身体。普通命中不再垫它"
     },
     {
       "name": "kill_pop",
@@ -121,7 +121,14 @@
       "text": "loud woodblock hit, one bright strike, close microphone, short and clear, dry, no music, no voice",
       "duration": 0.22,
       "output": "../../../Assets/Resources/Audio/pickup.mp3",
-      "notes": "金币或墨飞进顶栏"
+      "notes": "墨飞进顶栏。金币入账走 coin，不再用这条木鱼声"
+    },
+    {
+      "name": "coin",
+      "text": "one gold coin spinning and landing flat on a wooden table, a bright metallic ping then a tiny rattle, short and clean, dry, close, no reverb, no music, no voice",
+      "duration": 0.4,
+      "output": "../../../Assets/Resources/Audio/coin.mp3",
+      "notes": "金币入账。入库版截到 0.28 秒并收掉 8kHz 以上的尖声，母版在 game_assets/black-rosa/audio/coin/"
     },
     {
       "name": "spell",

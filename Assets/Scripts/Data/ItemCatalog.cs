@@ -65,7 +65,7 @@ namespace InkLine
             },
             new ItemDef
             {
-                Id = ItemId.Slow, Name = "胶水", Desc = "全场减速一阵",
+                Id = ItemId.Slow, Name = "胶水", Desc = "全场大幅减速",
                 When = "有敌人过了半场", Quality = ItemQuality.Green, Cooldown = 24f, Tint = InkTheme.Water
             },
             new ItemDef
@@ -122,15 +122,18 @@ namespace InkLine
         }
 
         // 持续时间一律整秒。文案、结算和演出都读这里。
-        // 闹钟定住要看得出停了一拍；饮料盖过十几发炮弹；冰块、辣椒酱要比胶水那阵减速更久。
-        public static int HaltTime(int lv) => 3 + lv;
-        public static int RageTime(int lv) => 9 + lv;
-        public static int SplashTime(int lv) => 7 + lv;
+        // 闹钟要盖住一整波往前涌；胶水减速比冰块狠，时间也更长。
+        public static int HaltTime(int lv) => 6 + lv;
+        public static int RageTime(int lv) => 10 + lv;
+        public static int SplashTime(int lv) => 8 + lv;
         public static int FrostTime(int lv) => 5 + lv;
-        // 胶水要够长，脚底下的减速标记才看得出来。冷却 18 到 24 秒，始终盖过这阵减速。
-        public static int SlowTime(int lv) => 4 + lv;
-        // 光球穿过敌人，总伤靠多飞几个来回。冷却 75 秒起，满级 12 秒仍盖得过。
-        public static int DartTime(int lv) => 7 + lv;
+        // 胶水要够长，脚底下的水纹才看得出来。冷却 24 秒起，始终盖过这阵减速。
+        public static int SlowTime(int lv) => 7 + lv;
+        // 光球穿过敌人，总伤靠多飞几个来回。冷却 75 秒起，满级 13 秒仍盖得过。
+        public static int DartTime(int lv) => 8 + lv;
+        // 1 级仍是两倍，之后每两级进一档，比原来提前一级翻上去。
+        public static int RageMul(int lv) => 2 + lv / 2;
+        public static int MendHeal(int lv) => 1 + lv / 2;
 
         public static string QualityName(ItemQuality q) =>
             q == ItemQuality.Purple ? "稀有" : q == ItemQuality.Blue ? "高级" : "普通";
@@ -147,18 +150,25 @@ namespace InkLine
 
         // 伤害类道具一律写成「基础弹伤的几倍」。倍数就放在这里，
         // BattleItems 算伤害和道具页写文案读的是同一份，不会各写一遍再走岔。
-        // 按默认弹伤 1.8：鞭炮 3/4/5/6/7，每下都低于同级蓝色冰块（4/5/6/7/8）。
+        // Effect 把十件道具的伤害一起抬 25%。按默认弹伤 1.8：
+        // 鞭炮 4/5/6/8/9，每下都不高于同级蓝色冰块（5/6/7/8/9）。
         // 范围小，触发时通常能炸到两个，总伤仍比单发弹弓高一截。
-        public static float BurstMul(int lv) => (2f + lv) / ShotMods.DefaultBase;
-        public static float SweepMul(int lv) => 1.7f + 1.1f * lv;
-        public static float FrostMul(int lv) => 1.7f + 0.55f * lv;
-        // 按默认弹伤：1 级 4 点，之后每级 +2（6/8/10/12）。单目标，满级仍低于紫色大扫把的 13。
-        public static float SnipeMul(int lv) => (2f + 2f * lv) / ShotMods.DefaultBase;
-        public static float SplashMul(int lv) => 1.1f + 0.55f * lv;   // 每秒
-        // 单次擦过。按默认弹伤：1 级 3 点，之后每级 +1。一路能撞好几下，总伤靠来回飞出来。
-        public static float DartMul(int lv) => (2f + lv) / ShotMods.DefaultBase;
+        const float Effect = 1.25f;
+        public static float BurstMul(int lv) => (2f + lv) * Effect / ShotMods.DefaultBase;
+        public static float SweepMul(int lv) => (1.7f + 1.1f * lv) * Effect;
+        public static float FrostMul(int lv) => (1.55f + 0.5f * lv) * Effect;
+        // 冰块只是变慢，胶水才几乎走不动。1 级 72%，满级 56%。
+        public static float FrostFactor(int lv) => Mathf.Max(0.56f, 0.72f - 0.04f * (lv - 1));
+        // 胶水：1 级降到 35%，满级 19%。比冰块那阵轻减速狠一截，仍走得动。
+        public static float SlowFactor(int lv) => Mathf.Max(0.18f, 0.35f - 0.04f * (lv - 1));
+        // 按默认弹伤：1 级 5 点，之后约每级 +2.5（8/10/13/15）。单目标，满级仍低于紫色大扫把的 16。
+        public static float SnipeMul(int lv) => (2f + 2f * lv) * Effect / ShotMods.DefaultBase;
+        public static float SplashMul(int lv) => (1.1f + 0.55f * lv) * Effect;   // 每秒
+        // 单次擦过。按默认弹伤：1 级 4 点。一路能撞好几下，总伤靠来回飞出来。
+        public static float DartMul(int lv) => (2f + lv) * Effect / ShotMods.DefaultBase;
 
-        public static int MendCap(int lv) => lv >= MaxLevel ? 2 : 1;
+        // 4 级起每局能回两次，满级不用干等到最后一档。
+        public static int MendCap(int lv) => lv >= MaxLevel - 1 ? 2 : 1;
 
         // shotBase 传玩家当前的基础弹伤（MetaProgress.ShotBase），
         // 文案上仍然显示点数 —— 「7.7 倍弹伤」玩家换算不过来。
@@ -173,17 +183,18 @@ namespace InkLine
                 case ItemId.Halt:
                     return "全场敌人定住 " + HaltTime(lv) + " 秒";
                 case ItemId.Rage:
-                    return RageTime(lv) + " 秒内炮弹伤害 " + (2 + (lv - 1) / 2) + " 倍";
+                    return RageTime(lv) + " 秒内炮弹伤害 " + RageMul(lv) + " 倍";
                 case ItemId.Sweep:
                     return "全屏 " + Pts(b * SweepMul(lv)) + " 点伤害并击退";
                 case ItemId.Splash:
                     return "那一列灼烧 " + SplashTime(lv) + " 秒，每秒 " + Pts(b * SplashMul(lv)) + " 点";
                 case ItemId.Mend:
-                    return "基地回 " + (1 + (lv - 1) / 2) + " 血" + (lv >= MaxLevel ? "，每局两次" : "，每局一次");
+                    return "基地回 " + MendHeal(lv) + " 血" + (MendCap(lv) > 1 ? "，每局两次" : "，每局一次");
                 case ItemId.Frost:
-                    return "全场 " + Pts(b * FrostMul(lv)) + " 点冰伤，并减速 " + FrostTime(lv) + " 秒";
+                    return "全场 " + Pts(b * FrostMul(lv)) + " 点冰伤，移速降到 " + Pct(FrostFactor(lv))
+                           + "，持续 " + FrostTime(lv) + " 秒";
                 case ItemId.Slow:
-                    return "全场减速 " + SlowTime(lv) + " 秒";
+                    return "全场移速降到 " + Pct(SlowFactor(lv)) + "，持续 " + SlowTime(lv) + " 秒";
                 case ItemId.Snipe:
                     return "最前一个 " + Pts(b * SnipeMul(lv)) + " 点";
                 case ItemId.Dart:
@@ -194,6 +205,7 @@ namespace InkLine
         }
 
         static string Pts(float v) => Mathf.Max(1, Mathf.RoundToInt(v)).ToString();
+        static string Pct(float factor) => Mathf.RoundToInt(factor * 100f) + "%";
     }
 
     public struct SkinDef

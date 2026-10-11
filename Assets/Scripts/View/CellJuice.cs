@@ -59,7 +59,7 @@ namespace InkLine
 
         public void Consume(BattleWorld w)
         {
-            bool drop = false, swap = false, word = false, unword = false, deny = false, fire = false, wordFire = false;
+            bool drop = false, swap = false, word = false, unword = false, deny = false;
             int upStar = 0;
             for (int n = 0; n < w.Pulses.Count; n++)
             {
@@ -114,7 +114,6 @@ namespace InkLine
                         Start(i, CellBeat.Fire, 0f, Color.Lerp(c, Color.white, 0.35f));
                         Ring(at, c, 0.45f, isWord ? 1.6f : 1.3f, 0.3f, 0f);
                         if (isWord) Sparks(at, 5, InkTheme.GoldHi, 0f);
-                        if (isWord) wordFire = true; else fire = true;
                         break;
                     }
                     case CellBeat.Pass:
@@ -140,8 +139,6 @@ namespace InkLine
                 _later.Add(new Later { At = now + WordLag, Beat = CellBeat.Word });
                 w.AddShake(0.12f);
             }
-            if (wordFire) AudioBus.ChargeFire(true);
-            else if (fire) AudioBus.ChargeFire(false);
             if (deny) AudioBus.Deny();
         }
 

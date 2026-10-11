@@ -155,7 +155,7 @@ namespace InkLine
             new GlyphDef
             {
                 Id = CardId.Gold, Family = GlyphFamily.Hurt,
-                AddDamage = new Tri(1.2f, 2.2f, 3.6f),
+                AddDamage = new Tri(1.5f, 2.6f, 4.5f),
                 Halo = ShotFx.HaloGold, Bloom = ShotFx.BloomGold, Hit = HitFx.Gold
             },
             new GlyphDef
@@ -179,21 +179,21 @@ namespace InkLine
             new GlyphDef
             {
                 Id = CardId.Fire, Family = GlyphFamily.Status, Status = StatusKind.Burn,
-                Power = new Tri(1.6f, 2.8f, 4.4f), Time = new Tri(3f),
+                Power = new Tri(1.8f, 3.15f, 5f), Time = new Tri(3f),
                 Form = ShotFx.FormFire, Hit = HitFx.Fire
             },
             new GlyphDef
             {
                 Id = CardId.Poison, Family = GlyphFamily.Status, Status = StatusKind.Poison,
-                Power = new Tri(1.0f, 1.7f, 2.6f), Time = new Tri(6f),
+                Power = new Tri(1.15f, 1.9f, 2.9f), Time = new Tri(6f),
                 Stacks = new Tri(2f, 3f, 4f),
                 Form = ShotFx.FormPoison, Hit = HitFx.Poison
             },
-            // 冰单体强控（★3 可升冻结），水范围弱控。
+            // 冰单体直接冻住，水才是范围减速。冻的时间盖过一发间隔，打中就停在原地。
             new GlyphDef
             {
-                Id = CardId.Ice, Family = GlyphFamily.Status, Status = StatusKind.Slow,
-                Power = new Tri(0.72f, 0.55f, 0.38f), Time = new Tri(2f),
+                Id = CardId.Ice, Family = GlyphFamily.Status, Status = StatusKind.Freeze,
+                Time = new Tri(1.0f, 1.35f, 1.7f),
                 Form = ShotFx.FormIce, Hit = HitFx.Ice
             },
             new GlyphDef
@@ -217,7 +217,8 @@ namespace InkLine
             new GlyphDef
             {
                 Id = CardId.Stun, Family = GlyphFamily.Status, Status = StatusKind.Stun,
-                Time = new Tri(0.5f, 0.75f, 1.0f),
+                // 蓄力单体，要比雷那下短晕长得能看见人停住。雷仍是 0.5 / 0.75 / 1 秒。
+                Time = new Tri(2f, 2.5f, 3.2f),
                 Halo = ShotFx.HaloStun, Hit = HitFx.Stun
             },
             new GlyphDef
@@ -247,7 +248,7 @@ namespace InkLine
             new GlyphDef
             {
                 Id = CardId.Split, Family = GlyphFamily.Ballistic,
-                Count = new Tri(2f, 3f, 4f), Decay = new Tri(0.6f)
+                Count = new Tri(2f, 3f, 4f), Decay = new Tri(0.68f)
             },
             new GlyphDef
             {
@@ -264,7 +265,7 @@ namespace InkLine
             new GlyphDef
             {
                 Id = CardId.Pierce, Family = GlyphFamily.Ballistic,
-                Count = new Tri(1f, 2f, 3f), Decay = new Tri(0.85f),
+                Count = new Tri(1f, 2f, 3f), Decay = new Tri(0.92f),
                 Form = ShotFx.FormPierce
             },
 
@@ -273,7 +274,7 @@ namespace InkLine
             {
                 Id = CardId.Explode, Family = GlyphFamily.Area,
                 // ★1 炸到同列和贴边的邻列，★2 盖住左右各一列，★3 再大一圈。
-                Radius = new Tri(0.85f, 1.15f, 1.45f), Decay = new Tri(0.6f),
+                Radius = new Tri(0.85f, 1.15f, 1.45f), Decay = new Tri(0.68f),
                 Form = ShotFx.FormExplode, Hit = HitFx.Explode
             },
 
@@ -302,7 +303,7 @@ namespace InkLine
                 Id = WordId.ArrowRain, Charge = 4,
                 Count = new Tri(3f, 4f, 6f),
                 // 基础弹伤的倍数，不是点数 —— 写死点数的话新章节一定失效。
-                Damage = new Tri(1.2f, 1.75f, 2.4f),
+                Damage = new Tri(1.4f, 2f, 2.7f),
                 Form = ShotFx.FormArrow, Hit = HitFx.Arrow
             },
             new WordDef
@@ -315,7 +316,7 @@ namespace InkLine
             {
                 Id = WordId.Cleave, Charge = 3,
                 Count = new Tri(1f, 2f, 3f),
-                Decay = new Tri(0.75f),
+                Decay = new Tri(0.84f),
                 Form = ShotFx.FormCleave, Hit = HitFx.Cleave
             }
         };
@@ -351,17 +352,12 @@ namespace InkLine
 
         public static bool IsHard(StatusKind kind) => HardRank(kind) > 0;
 
-        // 冰 ★3 有几率把「缓」升级成「冻」。
-        public const float IceFreezeChance = 0.35f;
-        public const float IceFreezeTime = 0.45f;
-
         // 惑：被迷住的那只每口咬同伴多少，固定值不跟谁的血量走 ——
         // 按血量比例的话杂兵咬一口才 1 点，玩家根本看不出它在打人。
-        static readonly float[] ConfuseBites = { 4f, 6f, 9f };
+        static readonly float[] ConfuseBites = { 5f, 7f, 10f };
         public const float ConfuseBiteCd = 0.6f;
         public static float ConfuseBite(int star) => ConfuseBites[Mathf.Clamp(star, 1, 3) - 1];
 
-        public static bool FreezeOnHit(int star) => star >= 3;
         public static bool BurnPop(int star) => star >= 2;
     }
 }

@@ -53,6 +53,7 @@ namespace InkLine
             panel._board.sizeDelta = new Vector2(CodexLayout.BoardW, h);
             panel.Wire();
             panel.Refresh();
+            PanelKit.Open(panel._board);
         }
 
         void Wire()

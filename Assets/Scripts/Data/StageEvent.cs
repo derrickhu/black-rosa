@@ -5,8 +5,9 @@ using static InkLine.EnemyId;
 namespace InkLine
 {
     // 「招财进宝」的三档活动关。两排全开，血量和速度借主线某一关。
-    // 波数写死成 6 / 8 / 10。只数按 RampCounts 从疏到密。上场是一列一列的小队：
-    // 前两波一次一列三只，之后一次一列四只，最后两波才两列同时上。波和波之间不留空档。
+    // 波数写死成 6 / 8 / 10。只数按 RampCounts 从疏到密，最后一波再用 EventPeak 抬一档。
+    // 同一拍的怪散开到各列，不再排成一列小队。前两波一拍四只，之后一拍五只，
+    // 倒数第二波一拍十只，最后一波一拍十五只。波和波之间不留空档。
     // 不进 72 关的表，也不进 check_stages 的主线曲线。
     public static partial class StageCatalog
     {
@@ -17,17 +18,20 @@ namespace InkLine
         public const string EventBackdrop = "Bg/battle_bg_event";
 
         // 每档的怪量倍率，和开局密度。主线开局是 0.75。改这里要同步 check_stages。
-        static readonly float[] EventCrowd = { 1.25f, 1.3f, 1.4f };
-        const float EventRampOpen = 0.42f;
+        static readonly float[] EventCrowd = { 1.85f, 2.05f, 2.2f };
+        const float EventRampOpen = 0.55f;
         const int EventEaseWaves = 2;
-        const float EventEase = 0.85f;
-        // 前两波一列三只，之后一列四只，隔一个节拍再出下一列。最后几波才同时开两列。
+        const float EventEase = 0.92f;
+        // 一拍出几只。倒数第二波、最后一波用列数当倍数，出场时再散到六列。
         const int EventOpenWaves = 2;
-        const int EventOpenBatch = 3;
-        const int EventBatch = 4;
-        const float EventBeat = 3.2f;
+        const int EventOpenBatch = 4;
+        const int EventBatch = 5;
+        const float EventBeat = 4.6f;
         const int EventLateWaves = 2;
         const int EventLateLanes = 2;
+        const int EventFinaleLanes = 3;
+        // 最后一波的密度。主线关底是 2，活动没有 boss，靠这一档把终盘堆满。
+        const float EventPeak = 3.2f;
 
         public static StageDef EventStage(int tier, CardId[] pool)
         {
@@ -49,7 +53,7 @@ namespace InkLine
             };
             s.Bodies = RampCounts(s.Waves, t.Chapter, t.Slot,
                 EventCrowd[Mathf.Clamp(tier, 0, EventCrowd.Length - 1)], EventRampOpen,
-                EventEaseWaves, EventEase);
+                EventEaseWaves, EventEase, EventPeak);
             EventStream(s);
             Price(s, EventDraftShare);
             return s;
@@ -58,24 +62,26 @@ namespace InkLine
         // 活动怪只用 EventCast 这八种，全都换了「招财」的皮（evt_*.png）。
         public static readonly EnemyId[] EventCast = { Walker, Ball, Chubby, BigHead, Runner, Swarm, Shield, Elite };
 
-        // 摊完只数之后排成小队。出场表里的时间不再算数，只留兵种的先后。
-        // 前几波一个节拍只开一列；最后 EventLateWaves 波一个节拍开两列。
+        // 摊完只数之后按拍上场。出场表里的时间不再算数，只留兵种的先后。
+        // 同一拍先铺满六列，再在已有的列后面排第二只。
         static void EventStream(StageDef s)
         {
             int nW = s.Waves.Length;
+            int cols = GameConstants.Columns;
             var waves = new WaveDef[nW];
             var grid = new int[nW][];
             for (int w = 0; w < nW; w++)
             {
-                int lanes = w >= nW - EventLateWaves ? EventLateLanes : 1;
+                int lanes = w == nW - 1 ? EventFinaleLanes
+                    : w >= nW - EventLateWaves ? EventLateLanes : 1;
                 int batch = w < EventOpenWaves ? EventOpenBatch : EventBatch;
                 EnemyId[] ids = Spread(s.Waves[w].Spawns, s.Bodies[w]);
                 var specs = new List<SpawnSpec>();
                 var counts = new List<int>();
                 int cap = batch * lanes;
                 int beats = Mathf.Max(1, Mathf.CeilToInt(ids.Length / (float)Mathf.Max(1, cap)));
-                // 尾巴不够再开一拍时并回上一拍，避免一拍只剩一两只。
-                if (beats > 1 && ids.Length - (beats - 1) * cap < lanes * 3)
+                // 尾巴不够再占一拍时并回去，避免单独一拍只剩一只。
+                if (beats > 1 && ids.Length - (beats - 1) * cap < lanes)
                     beats--;
                 int baseN = ids.Length / beats;
                 int extra = ids.Length % beats;
@@ -84,16 +90,18 @@ namespace InkLine
                 {
                     int need = baseN + (beat < extra ? 1 : 0);
                     float t = 0.2f + beat * EventBeat;
-                    int origin = (w + beat) % GameConstants.Columns;
-                    int laneBase = need / lanes;
-                    int laneExtra = need % lanes;
-                    for (int lane = 0; lane < lanes; lane++)
+                    int origin = (w + beat) % cols;
+                    var bucket = new List<EnemyId>[cols];
+                    for (int c = 0; c < cols; c++) bucket[c] = new List<EnemyId>();
+                    for (int i = 0; i < need && cursor < ids.Length; i++, cursor++)
                     {
-                        int take = laneBase + (lane < laneExtra ? 1 : 0);
-                        if (take <= 0 || cursor >= ids.Length) continue;
-                        int col = (origin + lane * 3) % GameConstants.Columns;
-                        AddSquad(specs, counts, ids, cursor, take, t, col);
-                        cursor += take;
+                        int col = (origin + SpreadOff(i % cols)) % cols;
+                        bucket[col].Add(ids[cursor]);
+                    }
+                    for (int c = 0; c < cols; c++)
+                    {
+                        if (bucket[c].Count == 0) continue;
+                        AddSquad(specs, counts, bucket[c].ToArray(), 0, bucket[c].Count, t, c);
                     }
                 }
                 int beatCount = beats;
@@ -105,7 +113,14 @@ namespace InkLine
             s.Bodies = grid;
         }
 
-        // 这一列里相同的兵种并成一条，一次出完。不同兵种仍是同一时刻、同一列。
+        // 隔列铺开：0、3、1、4、2、5。同一拍先占不同列，满了再回到这些列的后面。
+        static int SpreadOff(int k)
+        {
+            int half = GameConstants.Columns / 2;
+            return k % 2 == 0 ? k / 2 : half + k / 2;
+        }
+
+        // 这一列里相同的兵种并成一条。不同兵种仍是同一时刻。
         static void AddSquad(List<SpawnSpec> specs, List<int> counts, EnemyId[] ids, int from, int take, float time, int col)
         {
             int end = from + take;

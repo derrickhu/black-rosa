@@ -281,7 +281,7 @@ namespace InkLine
             switch (id)
             {
                 case CardId.Fire: return "炮弹穿过这一格就带上火，命中让敌人灼烧。火伤高、烧得短，不叠层。";
-                case CardId.Ice: return "命中让敌人减速，只冻住被打中的那一个，控得比水狠。";
+                case CardId.Ice: return "命中把敌人冻在原地，只冻被打中的那一个。水才是减速。";
                 case CardId.Water: return "命中处溅开一圈水，圈里的敌人一起减速。比冰弱，但能打一片。";
                 case CardId.Poison: return "命中上毒。毒伤低、持续久，同一个敌人可以叠好几层。";
                 case CardId.Thunder: return "命中处炸开一圈电，把主目标和身边几个敌人一起晕住。";
@@ -310,8 +310,7 @@ namespace InkLine
                     return $"灼烧 {D(g.Power.At(s))}/秒，烧 {F(g.Time.At(s))} 秒"
                            + (GlyphTable.BurnPop(s) ? "；烧死时炸出火花" : "");
                 case CardId.Ice:
-                    return $"移速降到 {P(g.Power.At(s))}，{F(g.Time.At(s))} 秒"
-                           + (GlyphTable.FreezeOnHit(s) ? $"；{P(GlyphTable.IceFreezeChance)} 几率冻住" : "");
+                    return $"冻住 {F(g.Time.At(s))} 秒";
                 case CardId.Water:
                     return $"半径 {F(g.Radius.At(s))} 内移速降到 {P(g.Power.At(s))}，{F(g.Time.At(s))} 秒";
                 case CardId.Poison:

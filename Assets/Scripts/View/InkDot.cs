@@ -79,7 +79,6 @@ namespace InkLine
         const float SideX = 0.30f;    // 身体两侧：毒泡的横向偏移
         const float BurnH = 0.62f;    // 火焰高度：从脚底到胸口，不盖过头
         const float CrustH = 0.58f;   // 冰锥高度：从头顶往下到腰，不盖住脚
-        const float FrostW = 0.86f;   // 冰面世界宽：比身子略窄，读成「脚下结冰」而不是站台
 
         Transform _rig;
         SpriteRenderer _burn;
@@ -87,7 +86,7 @@ namespace InkLine
         SpriteRenderer _hard;
         SpriteRenderer[] _poison;
 
-        public void Sync(EnemyActor e, int order)
+        public void Sync(EnemyActor e, int order, bool halted = false)
         {
             Ensure(order);
             // 敌人本体每帧在做呼吸缩放，记号要反着缩回去才不跟着变形
@@ -128,20 +127,28 @@ namespace InkLine
                     0f, bubble != null);
             }
 
-            // 缓：脚下地面一圈水纹。这一层永远在地面，不跟身上任何一层抢位置，
-            // 所以冻的时候也不必让位了。
+            // 缓：脚下地面一圈水纹。冰的冻住走头顶冰壳，不要再用冰面表示减速。
             bool slow = e.SlowTime > 0f && e.Slow < 0.999f;
-            // 一块描边冰面 + 后沿几根冰晶，和冰命中同一套画法；冰面中心压在脚底，冰晶露在身后
-            Sprite frost = Loop("dot_frost", t * 4f + e.Id * 1.3f);
-            float fs = frost != null ? FrostW / Mathf.Max(0.01f, frost.bounds.size.x) : 1f;
-            Mark(_slow, slow, frost,
-                new Vector3(0f, Foot + (frost != null ? 0.1f * frost.bounds.size.y * fs : 0f), 0f), fs,
+            Sprite frost = Loop("hitv_water", t * 8f + e.Id * 1.3f);
+            float fs = frost != null ? 0.7f / Mathf.Max(0.01f, frost.bounds.size.x) : 1f;
+            Mark(_slow, slow, frost, new Vector3(0f, Foot, 0f), fs,
                 Fade(Color.white, 0.95f), 0f, true);
 
             // 硬控三个互斥，所以可以共用上半区：
             // 冻是从头肩往下长的冰锥（和火正好反方向），晕和惑在头顶之上转。
+            // 闹钟是全场停住，优先画头顶的圈，免得被冰壳盖掉。
             bool hard = e.HardTime > 0f;
-            if (hard && e.Hard == StatusKind.Freeze)
+            if (halted || (hard && e.Hard == StatusKind.Stun))
+            {
+                Sprite ring = InkSprites.Load("Vfx/dot_stun");
+                float bob = Mathf.Sin(t * 6f) * 0.04f;
+                float pulse = 1f + 0.08f * Mathf.Sin(t * 8f);
+                Mark(_hard, true, ring ?? InkFx.SoftRing(), new Vector3(0f, Halo + bob, 0f),
+                    (ring != null ? 0.64f : 0.42f) * pulse,
+                    ring != null ? Fade(Color.white, 0.95f) : Fade(InkTheme.Word, 0.80f),
+                    t * 160f, ring != null);
+            }
+            else if (hard && e.Hard == StatusKind.Freeze)
             {
                 Sprite crust = Loop("ice_crust", t * 6f + e.Id);
                 if (crust != null)
@@ -151,14 +158,6 @@ namespace InkLine
                 else
                     Mark(_hard, true, InkFx.SoftRing(), Vector3.zero, 0.92f,
                         Fade(InkTheme.IceHi, 0.62f), 0f);
-            }
-            else if (hard && e.Hard == StatusKind.Stun)
-            {
-                Sprite ring = InkSprites.Load("Vfx/dot_stun");
-                Mark(_hard, true, ring ?? InkFx.SoftRing(), new Vector3(0f, Halo, 0f),
-                    ring != null ? 0.46f : 0.34f,
-                    ring != null ? Fade(Color.white, 0.95f) : Fade(InkTheme.Word, 0.80f),
-                    ring != null ? 0f : t * 260f, ring != null);
             }
             else if (hard && e.Hard == StatusKind.Confuse)
             {

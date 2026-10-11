@@ -120,6 +120,25 @@ namespace InkLine
 
         SpriteRenderer _backdrop;
         SpriteRenderer _slab;
+        Sprite[] _fireFrames;
+
+        // 一发的动作要在最快射速的间隔内播完，再快就从头重播。
+        const float FireDur = 0.26f;
+        // 帧图宽度对应的世界宽度。所有皮肤共用一个裁切框，钢珠炮身约占框宽 84%，落在一格里还留缝。
+        const float FireBoxW = 1.07f;
+        // 车轮压的位置，和横炮的底边对齐，底下 HUD 按这条线排。
+        const float FireFoot = GameConstants.EmitterY - 0.46f;
+
+        Vector3 PaintFire(SpriteRenderer gun, Vector3 at, float age)
+        {
+            int moves = _fireFrames.Length - 1;
+            int f = age < FireDur ? 1 + Mathf.Min(moves - 1, (int)(age / FireDur * moves)) : 0;
+            gun.sprite = _fireFrames[f];
+            Vector2 size = _fireFrames[0].bounds.size;
+            float k = FireBoxW / Mathf.Max(0.01f, size.x);
+            gun.transform.localScale = new Vector3(k, k, 1f);
+            return new Vector3(at.x, FireFoot + size.y * k * 0.5f, 0f);
+        }
 
         // 每章一张地面，铺满镜头（cover）。图没导进来就留原来的纯色底和中间那块提亮。
         // 包里是缩略图，高清版由 CdnAssets 换上，尺寸变了 Sync 里每帧的 FitBackdrop 会重新铺。
@@ -206,11 +225,15 @@ namespace InkLine
             if (_skinPainted != EmitterSkin)
             {
                 _skinPainted = EmitterSkin;
+                _fireFrames = InkSprites.CannonFire(EmitterSkin);
                 Sprite body = InkSprites.CannonSkin(EmitterSkin);
                 for (int e = 0; e < _emitters.Count; e++)
                 {
                     _emitters[e].sprite = body;
                     _emitters[e].color = Color.white;
+                    _emitters[e].transform.localScale = new Vector3(0.60f, 0.60f, 1f);
+                    // 竖炮压在子弹上面，子弹看起来是从炮口出来的
+                    _emitters[e].sortingOrder = _fireFrames != null ? 7 : 5;
                 }
             }
             for (int e = 0; e < _emitters.Count; e++)
@@ -221,6 +244,7 @@ namespace InkLine
                 if (_muzzles.Count > e) _muzzles[e].enabled = false;
                 if (!on) continue;
                 var at = new Vector3(w.RailX + e * GameConstants.CellWidth, GameConstants.EmitterY, 0f);
+                if (_fireFrames != null) at = PaintFire(_emitters[e], at, w.ShotAge[e]);
                 _emitters[e].transform.position = at;
             }
 
@@ -273,7 +297,7 @@ namespace InkLine
                 InkVfx.StopAura(sr);
                 var dots = sr.GetComponent<InkDot>();
                 if (dots == null) dots = sr.gameObject.AddComponent<InkDot>();
-                dots.Sync(e, 5);
+                dots.Sync(e, 5, w.HaltAura > 0f);
                 PaintHitFlash(sr, e);
                 var bar = sr.GetComponent<InkBar>();
                 if (bar == null) bar = sr.gameObject.AddComponent<InkBar>();

@@ -26,6 +26,8 @@ namespace InkLine
         CardId[] _offer = new CardId[3];
         CardId _held;
         bool _rerolled;
+        // 关掉改装没选，这组牌留着。再开还是这三张，只有看广告重刷才换。
+        bool _offerKept;
         int _draftPaid;
         bool _taughtStar;
         bool _dragging;
@@ -682,6 +684,8 @@ namespace InkLine
             if (stage.Event) _hud.InkChip.gameObject.SetActive(false);
             _autoWait = 0f;
             _autoMute = 0f;
+            _offerKept = false;
+            _rerolled = false;
             _dragging = false;
             AudioBus.Music("bgm_battle");
             if (BattleWorld.PreviewFill)
@@ -705,7 +709,9 @@ namespace InkLine
             if (_world.Stage.Event) return;
             float dt = Time.unscaledDeltaTime;
             if (_autoMute > 0f) _autoMute -= dt;
-            if (!_world.CanDraft || _autoMute > 0f)
+            // 道具从丢出到演出结束，面板盖上去会把效果挡住。格子满了只剩升星，等玩家自己点。
+            if (!_world.CanDraft || _autoMute > 0f || _world.BoardFull || _world.ItemResolving
+                || (_hud != null && _hud.ItemShow))
             {
                 _autoWait = 0f;
                 return;
@@ -846,8 +852,12 @@ namespace InkLine
             _world.Gold -= _draftPaid;
             _world.DraftCount++;
             _world.Paused = true;
-            _rerolled = false;
-            RollOffer();
+            if (!_offerKept)
+            {
+                _rerolled = false;
+                RollOffer();
+                _offerKept = true;
+            }
             _screen = Screen.Draft;
             ShowDraftPanel();
             AudioBus.Draft();
@@ -1003,6 +1013,7 @@ namespace InkLine
 
         void Pick(CardId id)
         {
+            _offerKept = false;
             _held = id;
             if (_world.Stage.TeachStar && !_taughtStar && HasSameOnBoard(id))
             {

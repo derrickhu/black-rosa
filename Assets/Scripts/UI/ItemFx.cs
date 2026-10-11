@@ -81,6 +81,16 @@ namespace InkLine
         }
 
         // 字牌、确认、设置把世界停住时，道具演出停在这一帧，回来再接着播。
+        public bool Playing
+        {
+            get
+            {
+                for (int i = _casts.Count - 1; i >= 0; i--)
+                    if (_casts[i] == null) _casts.RemoveAt(i);
+                return _casts.Count > 0;
+            }
+        }
+
         public void Hold(bool hold)
         {
             for (int i = _casts.Count - 1; i >= 0; i--)
@@ -242,7 +252,7 @@ namespace InkLine
                     drop.rectTransform.anchoredPosition = p;
                     drop.enabled = k > 0f && k < 1f;
                 });
-                // 落点只溅一下；之后脚下的减速冰面由 InkDot 按状态画，这里不再另摊一滩
+                // 落点只溅一下；之后脚下的水纹由 InkDot 按减速状态画，这里不再另摊一滩
                 s.A.At(T, () => Boom(s, "Vfx/hitv_water_", 4, at(), 120f * s.Pow, Color.white, 0f, 0.3f));
             }
             s.A.At(T, () =>
@@ -297,10 +307,17 @@ namespace InkLine
                 var list = Alive(w, 12);
                 for (int i = 0; i < list.Count; i++)
                 {
-                    Func<Vector2> at = Track(w, list[i]);
+                    EnemyActor who = list[i];
+                    Func<Vector2> at = Track(w, who);
                     var stars = Pic(s.G, InkSprites.Load("Vfx/dot_stun"), at(), 80f, Color.white);
                     s.A.Tween(Rel(s, T), stop, k =>
                     {
+                        if (who == null || who.Dead)
+                        {
+                            stars.enabled = false;
+                            return;
+                        }
+                        stars.enabled = true;
                         stars.rectTransform.anchoredPosition = at() + new Vector2(0f, 46f);
                         stars.rectTransform.localRotation = Quaternion.Euler(0f, 0f, Mathf.Sin(k * 20f) * 10f);
                         stars.color = Alpha(Color.white, k > 0.85f ? (1f - k) / 0.15f : Mathf.Clamp01(k * 10f));

@@ -11,6 +11,11 @@ namespace InkLine
         public int Ink;
         public float RageTime;
         public float RageMul = 2f;
+        // 闹钟：这一段里场上所有人停住，包括这段时间才走出来的。不被冻或晕顶掉。
+        public float HaltAura;
+        // 冰块：这一段里全场减速，包括这段时间才走出来的。
+        public float FrostLeft;
+        public float FrostSlow = 1f;
         public int MendCasts;
         public int[] ItemRanks;
         // 长度跟着常量走。内容一律由 BeginItems 写满，别依赖默认值。
@@ -38,6 +43,9 @@ namespace InkLine
 
         public readonly System.Collections.Generic.List<ItemCast> ItemCasts =
             new System.Collections.Generic.List<ItemCast>();
+
+        // 丢出去到落地结算之前。演出还在播由界面层另外看。
+        public bool ItemResolving => _pending.Count > 0 || ItemCasts.Count > 0;
 
         // 演出要先飞过去、先亮个相，伤害等它落地那一刻再结算。
         struct PendingCast
@@ -107,6 +115,9 @@ namespace InkLine
             Ink = 0;
             RageTime = 0f;
             RageMul = 2f;
+            HaltAura = 0f;
+            FrostLeft = 0f;
+            FrostSlow = 1f;
             MendCasts = 0;
             ItemCasts.Clear();
             _pending.Clear();
@@ -301,13 +312,7 @@ namespace InkLine
         void CastHalt()
         {
             int lv = RankOf((int)ItemId.Halt);
-            float time = ItemCatalog.HaltTime(lv);
-            for (int i = 0; i < Enemies.Count; i++)
-            {
-                EnemyActor e = Enemies[i];
-                if (e.Dead) continue;
-                ApplyHard(e, StatusKind.Stun, time, 0f);
-            }
+            HaltAura = ItemCatalog.HaltTime(lv);
             Bursts.Add(new FxBurst
             {
                 Pos = new Vector2(0f, GameConstants.GridCenterY),
@@ -321,14 +326,14 @@ namespace InkLine
         {
             int lv = RankOf((int)ItemId.Rage);
             RageTime = ItemCatalog.RageTime(lv);
-            RageMul = 2f + (lv - 1) / 2;
+            RageMul = ItemCatalog.RageMul(lv);
         }
 
         void CastSweep()
         {
             int lv = RankOf((int)ItemId.Sweep);
             float dmg = ShotBase * ItemCatalog.SweepMul(lv);
-            float knock = 0.7f + 0.2f * lv;
+            float knock = 0.9f + 0.22f * lv;
             for (int i = 0; i < Enemies.Count; i++)
             {
                 EnemyActor e = Enemies[i];
@@ -370,7 +375,7 @@ namespace InkLine
 
         void CastMend()
         {
-            int heal = 1 + (RankOf((int)ItemId.Mend) - 1) / 2;
+            int heal = ItemCatalog.MendHeal(RankOf((int)ItemId.Mend));
             if (BaseHp >= MaxBaseHp) return;
             BaseHp = Mathf.Min(MaxBaseHp, BaseHp + heal);
             Push(PopKind.Heal, 0, new Vector2(0f, GameConstants.EmitterY + 0.7f), "+" + heal, InkTheme.Heart, 1.3f, 1f);
@@ -380,8 +385,10 @@ namespace InkLine
         {
             int lv = RankOf((int)ItemId.Frost);
             float dmg = ShotBase * ItemCatalog.FrostMul(lv);
-            float factor = Mathf.Max(0.4f, 0.58f - 0.04f * (lv - 1));
+            float factor = ItemCatalog.FrostFactor(lv);
             float time = ItemCatalog.FrostTime(lv);
+            FrostLeft = time;
+            FrostSlow = factor;
             for (int i = 0; i < Enemies.Count; i++)
             {
                 EnemyActor e = Enemies[i];
@@ -403,7 +410,7 @@ namespace InkLine
         void CastSlow()
         {
             int lv = RankOf((int)ItemId.Slow);
-            float factor = Mathf.Max(0.35f, 0.62f - 0.05f * (lv - 1));
+            float factor = ItemCatalog.SlowFactor(lv);
             float time = ItemCatalog.SlowTime(lv);
             for (int i = 0; i < Enemies.Count; i++)
             {

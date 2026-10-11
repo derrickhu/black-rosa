@@ -292,7 +292,7 @@ namespace InkLine
         // crowd、rampOpen 只给活动关用。crowd 按档位抬或压整关怪量；
         // rampOpen 把第一波的密度从主线的 0.75 再压低，后面才爬上来。
         static int[][] RampCounts(WaveDef[] waves, int chapter, int slot, float crowd = 1f, float rampOpen = -1f,
-            int easeWaves = 0, float ease = 1f)
+            int easeWaves = 0, float ease = 1f, float peak = -1f)
         {
             int nW = waves.Length;
             float bodyMul = ChapterBodies[Mathf.Clamp(chapter, 0, ChapterBodies.Length - 1)] * crowd;
@@ -340,7 +340,7 @@ namespace InkLine
             {
                 float dur = Mathf.Max(0.01f, waves[w].Duration);
                 float lvl;
-                if (w == last && nW > 1) lvl = bossWave[w] ? RampBossWave : RampPeak;
+                if (w == last && nW > 1) lvl = bossWave[w] ? RampBossWave : (peak >= 0f ? peak : RampPeak);
                 else
                 {
                     float u = pre > 0.01f ? Mathf.Clamp01((cursor + dur * 0.5f) / pre) : 0.5f;

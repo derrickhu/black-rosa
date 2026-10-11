@@ -193,6 +193,22 @@ namespace InkLine
             col >= 0 && col < GameConstants.Columns &&
             row >= 0 && row < GameConstants.Rows && Open[col, row];
 
+        // 能放字的格子都有字了。还能点同字升星，但不再自动弹改装。
+        public bool BoardFull
+        {
+            get
+            {
+                if (Grid == null) return false;
+                for (int c = 0; c < GameConstants.Columns; c++)
+                for (int r = 0; r < GameConstants.Rows; r++)
+                {
+                    if (!IsOpen(c, r)) continue;
+                    if (!Grid[c, r].HasValue) return false;
+                }
+                return true;
+            }
+        }
+
         public int EmitterCount = 2;
         public float RailX;
         public bool Victory;
@@ -263,6 +279,15 @@ namespace InkLine
         float _intervalMul = 1f;
 
         readonly float[] _fireCd = new float[GameConstants.AdEmitterCap];
+        // 每门炮离上一发过了多久，表现层按它播开炮帧。
+        public readonly float[] ShotAge = InitShotAge();
+
+        static float[] InitShotAge()
+        {
+            var a = new float[GameConstants.AdEmitterCap];
+            for (int i = 0; i < a.Length; i++) a[i] = 99f;
+            return a;
+        }
         readonly List<int> _deadBullets = new List<int>();
         float _leechPool;
         float _leechGiven;
@@ -478,6 +503,8 @@ namespace InkLine
 
             BattleTime += dt;
             if (RageTime > 0f) RageTime -= dt;
+            if (HaltAura > 0f) HaltAura -= dt;
+            if (FrostLeft > 0f) FrostLeft -= dt;
             if (PreviewFill) TickPreview(dt);
             TickWaves(dt);
             TickEmitters(dt);
@@ -543,7 +570,7 @@ namespace InkLine
             Gold += n;
             Interest += n;
             GoldPop = 1f;
-            AudioBus.Pickup();
+            AudioBus.Coin();
             ShowFloat(GoldChip + new Vector2(0f, -0.7f), "利息 +" + n, InkTheme.CoinDeep, 1.1f);
         }
 
@@ -555,8 +582,7 @@ namespace InkLine
             // 关底成对进场仍是同一下。杂兵多于一只就隔开出，不在出生点叠成一串。
             bool boss = EnemyIds.IsBoss(spec.Id);
             if (count <= 0) return;
-            // 活动关的一列在同一帧出完，只在这一列里前后错开，不往旁边的列铺。
-            // 前几波因此是一列小队，最后两波才由出场表同时开两列。
+            // 活动关同一拍已经按列分好。一列里多于一只时只在这一列前后错开。
             if (Stage.Event && !boss)
             {
                 int col = spec.Column >= 0 ? spec.Column : PickColumn();
@@ -759,9 +785,11 @@ namespace InkLine
             {
                 int col = FieldLayout.ColumnAtX(RailX + i * GameConstants.CellWidth);
                 float interval = GameConstants.BaseFireInterval * _intervalMul;
+                ShotAge[i] += dt;
                 _fireCd[i] -= dt;
                 if (_fireCd[i] > 0f) continue;
                 _fireCd[i] = interval;
+                ShotAge[i] = 0f;
                 float x = RailX + i * GameConstants.CellWidth;
                 FireBullet(new Vector2(x, GameConstants.EmitterY + 0.24f), Vector2.up);
                 AudioBus.Shot(ShotPitch(_skinId));
@@ -1325,14 +1353,6 @@ namespace InkLine
         {
             StatusKind kind = s.Kind;
             float time = s.Time;
-            // 冰 ★3 有几率把「缓」升级成「冻」
-            if (kind == StatusKind.Slow
-                && GlyphTable.FreezeOnHit(m.Star(CardId.Ice))
-                && UnityEngine.Random.value < GlyphTable.IceFreezeChance)
-            {
-                kind = StatusKind.Freeze;
-                time = GlyphTable.IceFreezeTime;
-            }
             if (GlyphTable.IsHard(kind))
             {
                 ApplyHard(e, kind, time, s.Power);
@@ -1571,6 +1591,11 @@ namespace InkLine
         void Kill(EnemyActor e, ShotMods m)
         {
             e.Dead = true;
+            e.Hard = StatusKind.None;
+            e.HardTime = 0f;
+            e.SlowTime = 0f;
+            e.BurnTime = 0f;
+            e.PoisonTime = 0f;
             if (e.IsBoss) AudioBus.Boss();
             else AudioBus.Kill();
             Deaths.Add(new DeathFx { Pos = e.Pos, Type = e.Type, Radius = e.Radius, Boss = e.IsBoss });
@@ -1728,7 +1753,7 @@ namespace InkLine
 
         void Collect(DropKind kind, int amount, bool sound = false)
         {
-            if (sound) AudioBus.Pickup();
+            if (sound) { if (kind == DropKind.Gold) AudioBus.Coin(); else AudioBus.Pickup(); }
             if (kind == DropKind.Gold)
             {
                 // 单枚掉落只有一两块，按枚取整会把加成全吞掉，零头攒着凑整。
@@ -1823,6 +1848,11 @@ namespace InkLine
             {
                 EnemyActor e = Enemies[i];
                 if (e.Dead) continue;
+                if (FrostLeft > 0f)
+                {
+                    e.Slow = Mathf.Min(e.Slow, FrostSlow);
+                    e.SlowTime = Mathf.Max(e.SlowTime, FrostLeft);
+                }
                 if (e.HitFlash > 0f) e.HitFlash -= dt;
                 if (e.Recoil.sqrMagnitude > 0.0001f)
                     e.Recoil = Vector2.Lerp(e.Recoil, Vector2.zero, 1f - Mathf.Exp(-16f * dt));
@@ -1866,6 +1896,12 @@ namespace InkLine
                             if (e.Hp <= 0f) { Kill(e, null); continue; }
                         }
                     }
+                }
+                if (HaltAura > 0f)
+                {
+                    if (e.SlowTime > 0f) e.SlowTime -= dt;
+                    else e.Slow = 1f;
+                    continue;
                 }
                 if (e.Held) continue;
                 if (e.HoldTime > 0f) { e.HoldTime -= dt; continue; }
