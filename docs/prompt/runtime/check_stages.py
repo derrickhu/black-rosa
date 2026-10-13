@@ -245,7 +245,10 @@ hp_base.setdefault("Walker", 4.5)
 drop_pow = float(re.search(r"DropMul\(float t\) => Mathf\.Pow\(.+,\s*([\d.]+)f\)", enemy_src).group(1))
 wave_span = [float(x) for x in re.findall(
     r"[\d.]+", re.search(r"ChapterWaveSpan\s*=\s*\{([^}]*)\}", core_src).group(1))]
+wave_pad = [float(x) for x in re.findall(
+    r"[\d.]+", re.search(r"ChapterWavePad\s*=\s*\{([^}]*)\}", core_src).group(1))]
 last_hold = float(re.search(r"LastWaveHold\s*=\s*([\d.]+)f", core_src).group(1))
+late_hold = float(re.search(r"LateChapterHold\s*=\s*([\d.]+)f", core_src).group(1))
 final_hold = float(re.search(r"FinalChapterHold\s*=\s*([\d.]+)f", core_src).group(1))
 chapter_mid = [float(x) for x in re.findall(
     r"[\d.]+", re.search(r"ChapterMidBodies\s*=\s*\{([^}]*)\}", core_src).group(1))]
@@ -339,8 +342,14 @@ def waves_of(r):
         end = last + (rounds - 1) * step_t
         tiled = [(t + r * step_t, e, n) for r in range(rounds) for t, e, n in specs]
         out.append(dict(boss=False, dur=max(span, end + 5.5), specs=tiled))
+    if r["ch"] >= 2 and out:
+        pad = wave_pad[min(r["ch"], len(wave_pad) - 1)]
+        for w in out:
+            w["dur"] += pad
     if r["ch"] >= 1 and out:
         out[-1]["dur"] += last_hold
+        if r["ch"] >= 6:
+            out[-1]["dur"] += late_hold
         if r["ch"] >= 7:
             out[-1]["dur"] += final_hold
     body_mul = chapter_bodies[min(r["ch"], len(chapter_bodies) - 1)]

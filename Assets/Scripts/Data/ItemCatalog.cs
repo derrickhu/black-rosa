@@ -31,7 +31,7 @@ namespace InkLine
             new ItemDef
             {
                 Id = ItemId.Burst, Name = "鞭炮", Desc = "最前排炸开一圈",
-                When = "最前排有 2 个敌人", Quality = ItemQuality.Green, Cooldown = 21f, Tint = InkTheme.Explode
+                When = "最前排有 2 个敌人", Quality = ItemQuality.Green, Cooldown = 25f, Tint = InkTheme.Explode
             },
             new ItemDef
             {
@@ -61,7 +61,7 @@ namespace InkLine
             new ItemDef
             {
                 Id = ItemId.Frost, Name = "冰块", Desc = "全场冰伤并减速",
-                When = "场上 4 个以上", Quality = ItemQuality.Blue, Cooldown = 36f, Tint = InkTheme.Ice
+                When = "场上 4 个以上", Quality = ItemQuality.Blue, Cooldown = 42f, Tint = InkTheme.Ice
             },
             new ItemDef
             {
@@ -151,12 +151,12 @@ namespace InkLine
         // 伤害类道具一律写成「基础弹伤的几倍」。倍数就放在这里，
         // BattleItems 算伤害和道具页写文案读的是同一份，不会各写一遍再走岔。
         // Effect 把十件道具的伤害一起抬 25%。按默认弹伤 1.8：
-        // 鞭炮 4/5/6/8/9，每下都不高于同级蓝色冰块（5/6/7/8/9）。
-        // 范围小，触发时通常能炸到两个，总伤仍比单发弹弓高一截。
+        // 鞭炮 4/5/6/8/9。冰块削过一截后同级也是 4/5/6/8/9，打平；
+        // 冰块打的是全场，再靠减速补。范围小的鞭炮通常能炸到两个，总伤仍比单发弹弓高一截。
         const float Effect = 1.25f;
         public static float BurstMul(int lv) => (2f + lv) * Effect / ShotMods.DefaultBase;
         public static float SweepMul(int lv) => (1.7f + 1.1f * lv) * Effect;
-        public static float FrostMul(int lv) => (1.55f + 0.5f * lv) * Effect;
+        public static float FrostMul(int lv) => (1.46f + 0.47f * lv) * Effect;
         // 冰块只是变慢，胶水才几乎走不动。1 级 72%，满级 56%。
         public static float FrostFactor(int lv) => Mathf.Max(0.56f, 0.72f - 0.04f * (lv - 1));
         // 胶水：1 级降到 35%，满级 19%。比冰块那阵轻减速狠一截，仍走得动。

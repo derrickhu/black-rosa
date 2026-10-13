@@ -235,9 +235,14 @@ namespace InkLine
         // 每章非关底波的目标时长。一局要够走完「铺满棋盘 → 升星 → 顶住最后一波」这条弧，
         // 前两章也不能太短，否则格子还空着关就过了。以后加章只往这张表后面加一个数。
         static readonly float[] ChapterWaveSpan = { 16f, 18f, 19f, 20f, 22f, 22f, 23f, 23f };
+        // 第三章起每波再留的秒数。平铺经常已经比目标时长更长，只抬目标时长补不上，
+        // 所以直接加在每波收尾上。格子从这里铺开，一波要打得更久。
+        static readonly float[] ChapterWavePad = { 0f, 0f, 4f, 4f, 5f, 5f, 6f, 6f };
         // 最后一波多留的几秒。改装变贵后，铺满棋盘的那一抽常常落在最后一波里，
         // 多留一段，钱到了关卡还没被判结束。
         const float LastWaveHold = 28f;
+        // 第七章起最后一波再多留。铺满常常落在这一波里，多出来的时间不加在前面，钱的节奏不动。
+        const float LateChapterHold = 4f;
         // 第八章格子最大，铺满那一抽会顶到关底。再留几秒，不改前面几章的节奏。
         const float FinalChapterHold = 8f;
 
@@ -250,9 +255,15 @@ namespace InkLine
             for (int i = 0; i < waves.Length; i++)
             {
                 WaveDef tiled = Tile(waves[i], span);
+                if (chapter >= 2)
+                {
+                    float pad = ChapterWavePad[Mathf.Clamp(chapter, 0, ChapterWavePad.Length - 1)];
+                    if (pad > 0f) tiled = new WaveDef(tiled.Duration + pad, tiled.Spawns);
+                }
                 if (chapter >= 1 && i == waves.Length - 1)
                 {
-                    float extra = chapter >= 7 ? FinalChapterHold : 0f;
+                    float extra = chapter >= 6 ? LateChapterHold : 0f;
+                    if (chapter >= 7) extra += FinalChapterHold;
                     tiled = new WaveDef(tiled.Duration + LastWaveHold + extra, tiled.Spawns);
                 }
                 outp[i] = tiled;
@@ -294,9 +305,9 @@ namespace InkLine
         const float RampPeak = 2f;
         const float RampBossWave = 0.9f;
 
-        // 每章杂兵只数的折扣。钱跟着怪走，抽牌价由钱袋反推，会一起降下来。
-        // 第三、四章原来压在 0.95，盘面已经铺开但怪还是偏少，提到 1.08。
-        static readonly float[] ChapterBodies = { 1f, 1f, 1.08f, 1.08f, 0.97f, 0.98f, 1f, 1f };
+        // 每章杂兵只数。钱跟着怪走，抽牌价由钱袋反推。
+        // 第三章起和波长一起抬：第五、六章原来还打着折，这里补回到和其他章差不多。
+        static readonly float[] ChapterBodies = { 1f, 1f, 1.22f, 1.18f, 1.10f, 1.08f, 1.12f, 1.06f };
         // 第三章起，最后一波的密度不动。第一波少刷一点，中间几波加厚。
         // 格子变多的关靠中段的怪把变贵的改装买满，开局那一波凑不满。
         static readonly float[] ChapterMidBodies = { 1f, 1f, 1.15f, 1.18f, 1.22f, 1.12f, 1.22f, 1.30f };
