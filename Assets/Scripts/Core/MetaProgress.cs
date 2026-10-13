@@ -17,6 +17,7 @@ namespace InkLine
         public long StaminaTick;
         public int AdStaminaToday;
         // 1：体力上限从 12 提到 20。当时是满的，补到新上限。
+        // 2：上限从 20 降到 10。顶在旧上限上的削到 10；超过 20 的是买来或领来的，留着。
         public int StaminaRulesVer;
         public int LastDay;
         public bool DailyWinDone;
@@ -235,9 +236,16 @@ namespace InkLine
             }
             if (StaminaRulesVer < 1)
             {
+                // 已经升过的档当时把满体力补到了 20。这里只补版本号，数量交给下面的新上限。
                 StaminaRulesVer = 1;
                 rulesChanged = true;
-                if (Stamina >= 12) Stamina = GameConstants.StaminaMax;
+            }
+            if (StaminaRulesVer < 2)
+            {
+                StaminaRulesVer = 2;
+                rulesChanged = true;
+                if (Stamina > GameConstants.StaminaMax && Stamina <= 20)
+                    Stamina = GameConstants.StaminaMax;
             }
             for (int i = 0; i < ItemLevel.Length; i++)
             {

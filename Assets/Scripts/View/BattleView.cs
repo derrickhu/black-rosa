@@ -236,10 +236,15 @@ namespace InkLine
                     _emitters[e].sortingOrder = _fireFrames != null ? 7 : 5;
                 }
             }
+            // 清波狂暴期间炮身一闪一闪烧成金色，和射速翻倍对上。
+            Color gun = w.RushTime > 0f
+                ? Color.Lerp(Color.white, InkTheme.CoinFace, 0.35f + 0.25f * Mathf.Sin(Time.time * 18f))
+                : Color.white;
             for (int e = 0; e < _emitters.Count; e++)
             {
                 bool on = e < w.EmitterCount;
                 _emitters[e].enabled = on;
+                _emitters[e].color = gun;
                 if (_skins.Count > e) _skins[e].enabled = false;
                 if (_muzzles.Count > e) _muzzles[e].enabled = false;
                 if (!on) continue;

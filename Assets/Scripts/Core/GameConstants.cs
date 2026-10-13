@@ -21,7 +21,7 @@ namespace InkLine
 
         // 局外：体力。每关进关都收 2 点，章末关也一样，失败不退。见 MetaProgress.StageCost。
         // 上限只管自动回复：到了就不再回。奖励和购买来的体力不受它限制。
-        public const int StaminaMax = 20;
+        public const int StaminaMax = 10;
         public const int StaminaPerStage = 2;
         public const int StaminaRegenMinutes = 15;
         public const int AdStaminaGain = 10;
@@ -49,13 +49,13 @@ namespace InkLine
         // 游戏圈：每天发一条帖子领一次，墨加一个木宝箱。
         public const int ClubInk = 50;
 
-        // 首通给钻石。重复通关不给。
-        public const int DiamondStage = 2;
-        public const int DiamondBoss = 5;
-        public const int DiamondFinale = 15;
-        // 钻石补体力：10 钻换 10 体力，每天限次。
+        // 首通给钻石，重复通关不给。普通关、最后一波有头目、章底。
+        public const int DiamondStage = 1;
+        public const int DiamondBoss = 4;
+        public const int DiamondFinale = 12;
+        // 钻石补体力：20 钻换 10 体力，每天限次。
         public const int DiamondStaminaGain = 10;
-        public const int DiamondStaminaPrice = 10;
+        public const int DiamondStaminaPrice = 20;
         public const int DiamondStaminaPerDay = 3;
 
         // 局内墨是这一局拾到的墨，通关时整笔入账。每只怪掉多少写在 EnemyCatalog 里，

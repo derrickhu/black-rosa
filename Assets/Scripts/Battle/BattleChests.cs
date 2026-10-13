@@ -45,7 +45,7 @@ namespace InkLine
 
         void RollChest(EnemyActor e)
         {
-            if (PreviewFill || Stage == null) return;
+            if (PreviewFill || Stage == null || e.NoChest) return;
             if (!e.IsBoss && Random.value >= StageCatalog.ChestChance) return;
             if (Chests.Count >= ChestCap) return;
             bool gold = Stage.Event || Random.value < StageCatalog.ChestGoldShare;

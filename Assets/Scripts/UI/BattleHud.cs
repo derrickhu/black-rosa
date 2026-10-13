@@ -516,6 +516,12 @@ namespace InkLine
 
         void PlayCasts(BattleWorld world)
         {
+            if (world.Shouts.Count > 0)
+            {
+                if (_fx != null && !BattleWorld.PreviewFill)
+                    for (int i = 0; i < world.Shouts.Count; i++) _fx.Shout(world.Shouts[i], world);
+                world.Shouts.Clear();
+            }
             if (world.ItemCasts.Count == 0) return;
             for (int i = 0; i < world.ItemCasts.Count; i++)
             {

@@ -30,6 +30,10 @@ namespace InkLine
         // 成群刷出来时分到的血量份额。裂出来的墨粒照这个份额继承 ——
         // 不继承的话，一只被拆成两只的双生就会裂出双份满血的墨粒。
         public float HpShare = 1f;
+        // 第几波刷出来的，裂出来的跟着母体。整波死光时给炮台一阵狂暴。
+        public int Wave = -1;
+        // 墨潮里拆成两半的那一只不再掷宝箱，一对合起来才是表里那一只。
+        public bool NoChest;
         public float BurnDps;
         public float BurnTime;
         public float PoisonDps;
@@ -280,6 +284,44 @@ namespace InkLine
         public float RevealTime;
         public string Toast;
         public float ToastTime;
+
+        // 清波、连杀、墨潮的大字。和道具演出一样，HUD 每帧取走清空。
+        public enum ShoutKind { Rush, Combo, Horde }
+        public struct Shout
+        {
+            public ShoutKind Kind;
+            public string Text;
+            public string Sub;
+            public int Tier;
+        }
+        public readonly List<Shout> Shouts = new List<Shout>();
+
+        // 一波的怪全部打死（不是计时走完）就给炮台一阵狂暴：射速翻倍几秒。
+        // 最后一波不给，清完就是通关。
+        public float RushTime;
+        const float RushSecs = 3.5f;
+        const float RushInterval = 0.5f;
+        int[] _waveLeft;
+        bool[] _waveSeen;
+        bool[] _waveRushed;
+
+        // 连杀：两次击杀隔不到 ComboGap 秒就算连着。到档喊一次，一档比一档字大、音高。
+        public int Combo;
+        float _comboGap;
+        int _comboTier;
+        const float ComboGap = 1.6f;
+        static readonly int[] ComboAt = { 8, 15, 25, 40, 60 };
+        static readonly string[] ComboWord = { "漂亮", "横扫", "势如破竹", "一扫而空", "所向披靡" };
+        const int ComboPastTop = 30;
+
+        // 主线最后一波是墨潮：没护盾、不裂、不奶、没甲的杂兵一只拆成两只半血的。
+        // 总血量和掉落不变，只数翻倍 —— 收尾这一波打起来是成片融化，不是一只只磨。
+        // 头两关是教学，不拆。
+        const int HordeFrom = 2;
+        const float HordeShare = 0.5f;
+        bool HordeWave => Stage != null && !Stage.Event && Stage.Index >= HordeFrom
+                          && Stage.Waves.Length > 1 && WaveIndex == Stage.Waves.Length - 1;
+
         // 图鉴：炮弹第一次真的带上某个字 / 词 / 招牌两两时报一次，一局内同一条只报一回。
         public System.Action<CodexKind, int> CodexHit;
         readonly bool[] _codexGlyph = new bool[CardCatalog.IdCount];
@@ -377,6 +419,15 @@ namespace InkLine
             Arcs.Clear();
             Pulses.Clear();
             Rain.Clear();
+            Shouts.Clear();
+            int waves = stage.Waves != null ? stage.Waves.Length : 0;
+            _waveLeft = new int[waves];
+            _waveSeen = new bool[waves];
+            _waveRushed = new bool[waves];
+            RushTime = 0f;
+            Combo = 0;
+            _comboGap = 0f;
+            _comboTier = 0;
             ResetChests();
             if (PreviewFill)
             {
@@ -523,6 +574,8 @@ namespace InkLine
 
             BattleTime += dt;
             if (RageTime > 0f) RageTime -= dt;
+            if (RushTime > 0f) RushTime -= dt;
+            if (_comboGap > 0f) _comboGap -= dt;
             if (HaltAura > 0f) HaltAura -= dt;
             if (FrostLeft > 0f) FrostLeft -= dt;
             if (PreviewFill) TickPreview(dt);
@@ -559,7 +612,50 @@ namespace InkLine
                 _eventFileTime = -1f;
                 _leechGiven = 0f;
                 if (Stage.Event) PayInterest();
+                // 上一波在计时走完之前就被打光了，切波这一刻补发狂暴。
+                WaveDone(WaveIndex - 1);
+                if (HordeWave)
+                {
+                    Shouts.Add(new Shout { Kind = ShoutKind.Horde, Text = "墨潮来了", Sub = "最后一波" });
+                    AudioBus.Horde();
+                    AddShake(0.16f);
+                }
             }
+        }
+
+        void WaveDone(int w)
+        {
+            if (PreviewFill || _waveLeft == null || w < 0 || w >= _waveLeft.Length - 1) return;
+            if (w >= WaveIndex || _waveRushed[w] || !_waveSeen[w] || _waveLeft[w] > 0) return;
+            _waveRushed[w] = true;
+            RushTime = RushSecs;
+            // 冷却也一起砍到底，喊完字的下一瞬间炮就开始连发，不用等上一发的间隔走完。
+            for (int i = 0; i < EmitterCount && i < _fireCd.Length; i++)
+                _fireCd[i] = Mathf.Min(_fireCd[i], 0.06f);
+            Shouts.Add(new Shout { Kind = ShoutKind.Rush, Text = "清波！", Sub = "射速 ×2" });
+            AudioBus.Rush();
+            AddShake(0.12f);
+        }
+
+        void Chain()
+        {
+            if (PreviewFill) return;
+            if (_comboGap <= 0f)
+            {
+                Combo = 0;
+                _comboTier = 0;
+            }
+            Combo++;
+            _comboGap = ComboGap;
+            int top = ComboAt.Length - 1;
+            int need = _comboTier <= top
+                ? ComboAt[_comboTier]
+                : ComboAt[top] + ComboPastTop * (_comboTier - top);
+            if (Combo < need) return;
+            int k = Mathf.Min(_comboTier, top);
+            _comboTier++;
+            Shouts.Add(new Shout { Kind = ShoutKind.Combo, Text = ComboWord[k], Sub = Combo + " 连杀", Tier = k });
+            AudioBus.Combo(k);
         }
 
         void TickDrip(float dt)
@@ -647,7 +743,30 @@ namespace InkLine
             float y = GameConstants.SpawnY + UnityEngine.Random.Range(0f, 0.12f);
             if (stack) y += ordinal / 3 * 0.62f;
             var at = new Vector2(FieldLayout.ColumnX(col) + UnityEngine.Random.Range(-0.1f, 0.1f), y);
-            Enemies.Add(Make(id, at));
+            if (boss || !HordeWave || !Splittable(id))
+            {
+                Enemies.Add(Make(id, at));
+                return;
+            }
+            // 金币按整数拆，两只加起来正好是原来那一只；墨是小数，各一半。
+            EnemyActor a = Make(id, at, HordeShare);
+            float side = UnityEngine.Random.value < 0.5f ? -1f : 1f;
+            float x = Mathf.Clamp(at.x + side * 0.24f,
+                FieldLayout.ColumnX(0), FieldLayout.ColumnX(GameConstants.Columns - 1));
+            EnemyActor b = Make(id, new Vector2(x, at.y + 0.44f), HordeShare);
+            b.Gold = a.Gold / 2;
+            a.Gold -= b.Gold;
+            a.Ink *= 0.5f;
+            b.Ink *= 0.5f;
+            b.NoChest = true;
+            Enemies.Add(a);
+            Enemies.Add(b);
+        }
+
+        bool Splittable(EnemyId id)
+        {
+            EnemyDef d = EnemyCatalog.Get(id, Stage.Hp);
+            return !d.IsBoss && !d.HasShield && d.SplitCount == 0 && d.HealAura <= 0f && d.Armor <= 0f;
         }
 
         // Bodies 是这一拨摊过密度、章节折扣和开局曲线之后的只数。表没铺上时退回旧算法。
@@ -726,8 +845,14 @@ namespace InkLine
 
         // 特性拷贝只写这一遍。裂出来的墨粒也走这里 —— 否则哪天加了新特性，
         // 很容易只在 Spawn 里拷了，分裂出来的那批悄悄少一个字段。
-        EnemyActor Make(EnemyId id, Vector2 at, float hpShare = 1f)
+        EnemyActor Make(EnemyId id, Vector2 at, float hpShare = 1f, int wave = -1)
         {
+            if (wave < 0) wave = WaveIndex;
+            if (_waveLeft != null && wave < _waveLeft.Length)
+            {
+                _waveLeft[wave]++;
+                _waveSeen[wave] = true;
+            }
             EnemyDef def = EnemyCatalog.Get(id, Stage.Hp);
             float hp = Mathf.Max(1f, def.Hp * hpShare);
             float speed = def.Speed * StageCatalog.SpeedOf(Stage.Chapter);
@@ -753,7 +878,8 @@ namespace InkLine
                 StunImmune = def.StunImmune,
                 NoKnock = def.NoKnock,
                 HealAura = def.HealAura,
-                SplitCount = def.SplitCount
+                SplitCount = def.SplitCount,
+                Wave = wave
             };
             if (e.IsBoss) BossSpawned = true;
             return e;
@@ -769,7 +895,7 @@ namespace InkLine
             {
                 float ox = (i - (count - 1) * 0.5f) * 0.34f;
                 Enemies.Add(Make(EnemyId.Swarm,
-                    new Vector2(Mathf.Clamp(from.Pos.x + ox, min, max), from.Pos.y), from.HpShare));
+                    new Vector2(Mathf.Clamp(from.Pos.x + ox, min, max), from.Pos.y), from.HpShare, from.Wave));
             }
             ShowFloat(from.Pos + Vector2.up * 0.3f, "裂", InkTheme.Explode, 1.15f);
         }
@@ -805,6 +931,7 @@ namespace InkLine
             {
                 int col = FieldLayout.ColumnAtX(RailX + i * GameConstants.CellWidth);
                 float interval = GameConstants.BaseFireInterval * _intervalMul;
+                if (RushTime > 0f) interval *= RushInterval;
                 ShotAge[i] += dt;
                 _fireCd[i] -= dt;
                 if (_fireCd[i] > 0f) continue;
@@ -1724,6 +1851,13 @@ namespace InkLine
             if (e.SplitCount > 0) SpawnSplit(e, e.SplitCount);
             if (m != null && m.BurnPop) BurnPop(e.Pos, m);
             if (CodexHit != null && !PreviewFill) CodexHit(CodexKind.Enemy, (int)e.Type);
+            Chain();
+            // 放在裂之后：裂出来的墨粒算同一波，先记上再减母体，这一波才不会提前判清。
+            if (_waveLeft != null && e.Wave >= 0 && e.Wave < _waveLeft.Length)
+            {
+                _waveLeft[e.Wave]--;
+                WaveDone(e.Wave);
+            }
         }
 
         public void AddShake(float amount)

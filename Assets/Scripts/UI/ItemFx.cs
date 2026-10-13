@@ -101,7 +101,122 @@ namespace InkLine
             }
         }
 
-        void Update() => Hold(_watch != null && _watch.Paused);
+        void Update()
+        {
+            bool held = _watch != null && _watch.Paused;
+            Hold(held);
+            for (int i = _shouts.Count - 1; i >= 0; i--)
+            {
+                if (_shouts[i] == null) { _shouts.RemoveAt(i); continue; }
+                _shouts[i].SetHeld(held);
+            }
+        }
+
+        // ---------- 喊话：清波、连杀、墨潮 ----------
+        // 不进 _casts：结算要等道具演出播完，喊话不该把通关页往后拖。
+        readonly List<UiAnim> _shouts = new List<UiAnim>();
+        readonly Dictionary<BattleWorld.ShoutKind, RectTransform> _shoutOf =
+            new Dictionary<BattleWorld.ShoutKind, RectTransform>();
+
+        // 连杀一档一个色：纸白 → 金币黄 → 橘子皮 → 辣椒红 → 红包红。
+        static readonly string[] ComboFace = { "FFF3C8", "FFE25C", "FFB347", "FF7A3C", "FF4A3A" };
+
+        public void Shout(BattleWorld.Shout sh, BattleWorld w)
+        {
+            if (w == null) return;
+            _watch = w;
+            // 同一类只留最新一条，连杀一路往上喊时不会叠成一摞。
+            if (_shoutOf.TryGetValue(sh.Kind, out RectTransform old) && old != null) Destroy(old.gameObject);
+            var g = ResultKit.Group(_root, "shout_" + sh.Kind, Vector2.zero, Vector2.zero);
+            Stretch(g);
+            _shoutOf[sh.Kind] = g;
+            var a = UiAnim.On(g);
+            _shouts.Add(a);
+            Vector2 size = _root.rect.size;
+            if (size.x < 10f) size = new Vector2(ScreenFit.DesignW, ScreenFit.DesignH);
+            float end;
+            switch (sh.Kind)
+            {
+                case BattleWorld.ShoutKind.Rush: end = RushShout(g, a, sh, w); break;
+                case BattleWorld.ShoutKind.Horde: end = HordeShout(g, a, sh, size); break;
+                default: end = ComboShout(g, a, sh, size); break;
+            }
+            a.At(end, () => { if (g != null) Destroy(g.gameObject); });
+            a.SetHeld(w.Paused);
+        }
+
+        // 战场正中砸下「清波！」，四边亮一圈金边，跟着真实的狂暴时间走。
+        float RushShout(RectTransform g, UiAnim a, BattleWorld.Shout sh, BattleWorld w)
+        {
+            Color face = InkTheme.Hex("FFE25C");
+            Color edgeC = InkTheme.Hex("A8300E");
+            var glow = Pic(g, Vig(), Vector2.zero, 10f, Alpha(InkTheme.CoinFace, 0f));
+            Stretch(glow.rectTransform);
+            glow.preserveAspect = false;
+            glow.transform.SetAsFirstSibling();
+            Vector2 at = new Vector2(0f, 60f);
+            var big = ResultKit.Headline(g, "t", sh.Text, 76, at, face, edgeC, 4f);
+            var sub = ResultKit.Headline(g, "s", sh.Sub, 40, at + new Vector2(0f, -78f), InkTheme.CardFace, edgeC, 3f);
+            a.Pop(big.transform, 0f, 0.32f, 2.2f)
+                .Punch(big.transform, 0.32f, 0.16f, 0.3f)
+                .Pop(sub.transform, 0.12f, 0.3f)
+                .Move(big.rectTransform, at, at + new Vector2(0f, 60f), 0.85f, 0.45f)
+                .Fade(big, 0.9f, 0.4f, 1f, 0f)
+                .Move(sub.rectTransform, at + new Vector2(0f, -78f), at + new Vector2(0f, -18f), 0.85f, 0.45f)
+                .Fade(sub, 0.9f, 0.4f, 1f, 0f);
+            const float hold = 4.4f;
+            a.Tween(0f, hold, k =>
+            {
+                float t = k * hold;
+                float on = w != null && w.RushTime > 0f ? Mathf.Clamp01(t * 5f) : 0f;
+                glow.color = Alpha(InkTheme.CoinFace, on * (0.36f + 0.14f * Mathf.Sin(t * 12f)));
+            });
+            return hold;
+        }
+
+        // 场地上半截斜着弹出来，档越高字越大、颜色越烫。
+        float ComboShout(RectTransform g, UiAnim a, BattleWorld.Shout sh, Vector2 size)
+        {
+            int k = Mathf.Clamp(sh.Tier, 0, ComboFace.Length - 1);
+            Color face = InkTheme.Hex(ComboFace[k]);
+            Color edgeC = InkTheme.Hex(k >= 3 ? "5A0E08" : "23201E");
+            int px = 56 + k * 10;
+            float tilt = -6f - k;
+            Vector2 at = new Vector2(-size.x * 0.12f, size.y * 0.2f);
+            var big = ResultKit.Headline(g, "t", sh.Text, px, at, face, edgeC, 4f);
+            var sub = ResultKit.Headline(g, "s", sh.Sub, 34 + k * 2, at + new Vector2(30f, -px * 0.95f),
+                InkTheme.CardFace, edgeC, 3f);
+            big.transform.localRotation = Quaternion.Euler(0f, 0f, tilt);
+            sub.transform.localRotation = Quaternion.Euler(0f, 0f, tilt);
+            a.Pop(big.transform, 0f, 0.28f, 1.8f + 0.2f * k)
+                .Punch(big.transform, 0.28f, 0.12f + 0.03f * k, 0.28f)
+                .Pop(sub.transform, 0.08f, 0.26f)
+                .Fade(big, 0.85f, 0.35f, 1f, 0f)
+                .Fade(sub, 0.85f, 0.35f, 1f, 0f);
+            if (k >= 2) a.Shake(g, 0f, 6f + 4f * k, 0.22f);
+            return 1.25f;
+        }
+
+        // 最后一波压暗一下再亮出大字，读起来是「要来了」。
+        float HordeShout(RectTransform g, UiAnim a, BattleWorld.Shout sh, Vector2 size)
+        {
+            Color ink = InkTheme.Hex("23201E");
+            var dim = Fill(g, Alpha(ink, 0f));
+            Vector2 at = new Vector2(0f, size.y * 0.1f);
+            var big = ResultKit.Headline(g, "t", sh.Text, 84, at, InkTheme.Hex("EDE8DF"), ink, 5f);
+            var sub = ResultKit.Headline(g, "s", sh.Sub, 38, at + new Vector2(0f, 84f), InkTheme.Hex("FFE25C"), ink, 3f);
+            a.Tween(0f, 1.6f, k =>
+            {
+                float v = k < 0.15f ? k / 0.15f : 1f - (k - 0.15f) / 0.85f;
+                dim.color = Alpha(ink, 0.32f * v);
+            })
+                .Pop(big.transform, 0.05f, 0.4f, 1.6f)
+                .Shake(big.rectTransform, 0.4f, 10f, 0.3f)
+                .Pop(sub.transform, 0f, 0.3f)
+                .Fade(big, 1.25f, 0.4f, 1f, 0f)
+                .Fade(sub, 1.25f, 0.4f, 1f, 0f);
+            return 1.7f;
+        }
 
         // ---------- 普通：弹弓、鞭炮、胶水 ----------
 

@@ -90,6 +90,10 @@ namespace InkLine
         public static void Coin() => Cue("coin", 0.68f, 0.05f, 0.04f);
         public static void Spell(float pitch) => Cue("spell", 0.86f, 0.18f, 0f, pitch);
         public static void ItemFire(float pitch) => CueOr("item_fire", "spell", 0.8f, 0.12f, pitch);
+        // 连杀一档比一档高半个全音左右，听得出「还在往上走」。
+        public static void Combo(int tier) => CueOr("combo", "res_star", 0.95f, 0.1f, 1f + 0.12f * Mathf.Clamp(tier, 0, 6));
+        public static void Rush() => CueOr("rush", "item_rage", 0.95f, 0.3f, 1.15f);
+        public static void Horde() => CueOr("horde", "battle_start", 1f, 0.5f, 0.85f);
         // 每个道具一段专属音，从起手一路响到生效。没入库时退回通用的丢出声。
         public static void Item(ItemId id)
         {
