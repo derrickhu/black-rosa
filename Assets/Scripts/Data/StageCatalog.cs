@@ -235,6 +235,11 @@ namespace InkLine
         // 每章非关底波的目标时长。一局要够走完「铺满棋盘 → 升星 → 顶住最后一波」这条弧，
         // 前两章也不能太短，否则格子还空着关就过了。以后加章只往这张表后面加一个数。
         static readonly float[] ChapterWaveSpan = { 16f, 18f, 19f, 20f, 22f, 22f, 23f, 23f };
+        // 最后一波多留的几秒。改装变贵后，铺满棋盘的那一抽常常落在最后一波里，
+        // 多留一段，钱到了关卡还没被判结束。
+        const float LastWaveHold = 28f;
+        // 第八章格子最大，铺满那一抽会顶到关底。再留几秒，不改前面几章的节奏。
+        const float FinalChapterHold = 8f;
 
         // 把作者写的出场表按它自己的跨度平铺到目标时长。72 关手工加波次不现实，
         // 也不利于扩章；平铺出来的后半段和前半段是同一套编队，节奏不会走样。
@@ -242,7 +247,16 @@ namespace InkLine
         {
             float span = ChapterWaveSpan[Mathf.Clamp(chapter, 0, ChapterWaveSpan.Length - 1)];
             var outp = new WaveDef[waves.Length];
-            for (int i = 0; i < waves.Length; i++) outp[i] = Tile(waves[i], span);
+            for (int i = 0; i < waves.Length; i++)
+            {
+                WaveDef tiled = Tile(waves[i], span);
+                if (chapter >= 1 && i == waves.Length - 1)
+                {
+                    float extra = chapter >= 7 ? FinalChapterHold : 0f;
+                    tiled = new WaveDef(tiled.Duration + LastWaveHold + extra, tiled.Spawns);
+                }
+                outp[i] = tiled;
+            }
             return outp;
         }
 
@@ -283,6 +297,11 @@ namespace InkLine
         // 每章杂兵只数的折扣。钱跟着怪走，抽牌价由钱袋反推，会一起降下来。
         // 第三、四章原来压在 0.95，盘面已经铺开但怪还是偏少，提到 1.08。
         static readonly float[] ChapterBodies = { 1f, 1f, 1.08f, 1.08f, 0.97f, 0.98f, 1f, 1f };
+        // 第三章起，最后一波的密度不动。第一波少刷一点，中间几波加厚。
+        // 格子变多的关靠中段的怪把变贵的改装买满，开局那一波凑不满。
+        static readonly float[] ChapterMidBodies = { 1f, 1f, 1.15f, 1.18f, 1.22f, 1.12f, 1.22f, 1.30f };
+        // 第一波少刷一点。开局金币来得慢，改装不会进关就弹；少掉的怪补在中间几波。
+        static readonly float[] ChapterOpenBodies = { 1f, 1f, 0.72f, 0.70f, 0.68f, 0.72f, 0.68f, 0.65f };
         // 第一章头三关：新手引导、刚学升星、刚学冰火，怪再少一截。
         static readonly float[] FirstChapterEase = { 0.6f, 0.75f, 0.9f };
 
@@ -373,6 +392,22 @@ namespace InkLine
                 SpawnSpec[] list = waves[w].Spawns;
                 for (int k = 0; k < list.Length; k++)
                     if (bossAt[w][k]) grid[w][k] = list[k].Count * EnemyCatalog.Density(list[k].Id);
+            }
+            // 活动关自己有密度，不在这里加。主线从第三章起，中间几波多给怪：
+            // 钱多出来的部分落在开局之后，起价可以抬高，开局那一波却不会马上凑够。
+            if (rampOpen < 0f && chapter >= 2 && nW >= 4)
+            {
+                float mid = ChapterMidBodies[Mathf.Clamp(chapter, 0, ChapterMidBodies.Length - 1)];
+                float openCut = ChapterOpenBodies[Mathf.Clamp(chapter, 0, ChapterOpenBodies.Length - 1)];
+                if (openCut < 0.99f)
+                    for (int k = 0; k < grid[0].Length; k++)
+                        if (!bossAt[0][k] && grid[0][k] > 0)
+                            grid[0][k] = Mathf.Max(1, Mathf.RoundToInt(grid[0][k] * openCut));
+                if (mid > 1.01f)
+                    for (int w = 1; w < nW - 1; w++)
+                        for (int k = 0; k < grid[w].Length; k++)
+                            if (!bossAt[w][k] && grid[w][k] > 0)
+                                grid[w][k] = Mathf.Max(grid[w][k], Mathf.RoundToInt(grid[w][k] * mid));
             }
             return grid;
         }
@@ -487,6 +522,12 @@ namespace InkLine
         const float SecondChapterPicksPerCell = 1.8f;
         // 道具不花金币，钱几乎全给抽牌；留一成半给抽到中意那张之前的试错，不把定价压到刚好买满。
         const float DraftBudgetShare = 0.85f;
+        // 起价占平均价的比例。再低的话，开局那一波就够付第一次改装。
+        // 步长按剩下的钱拟合后再抬一截，所以每一次都比上一次贵，后面抬得更明显。
+        const float DraftFirstShare = 0.68f;
+        const float DraftStepLift = 1.18f;
+        // 同一章里有的关特别容易出钱、有的关起价会被平均价压得很低。按章设一个地板，避免那种关打几下就弹改装。
+        const int DraftFirstChapterStep = 3;
 
         // 掉落跟着怪走，这里只是把整关加一遍当统计用：校验脚本、抽牌定价和结算页读它。
         // 算法和 BattleWorld.Spawn + Make 必须一致 —— 只数用 RampCounts 摊过的 Bodies，
@@ -525,12 +566,12 @@ namespace InkLine
             else if (s.Chapter == 1) n = Mathf.Max(open + 2, Mathf.RoundToInt(open * SecondChapterPicksPerCell));
             else n = Mathf.Clamp(Mathf.RoundToInt(open * DraftPicksPerCell), open + 2, open * 3);
             float budget = (s.GoldPurse + ForgeStats.Default.StartGold) * share;
-            // 起价定成平均价的一半，步长再反推，费用就从便宜缓缓爬到贵，
-            // 而整条曲线累计下来刚好吃满预算。
-            s.DraftFirst = Mathf.Max(GameConstants.FirstDraftCost, Mathf.RoundToInt(budget / n * 0.5f));
-            s.DraftStep = n > 1
-                ? Mathf.Max(0f, 2f * (budget - n * s.DraftFirst) / (n * (n - 1f)))
-                : 0f;
+            // 起价高于开局金币，打过一阵才买得起第一次。步长至少 1，每次都比上次贵。
+            float avg = budget / Mathf.Max(1, n);
+            int floor = GameConstants.FirstDraftCost + s.Chapter * DraftFirstChapterStep;
+            s.DraftFirst = Mathf.Max(floor, Mathf.RoundToInt(avg * DraftFirstShare));
+            float fitted = n > 1 ? 2f * (budget - n * s.DraftFirst) / (n * (n - 1f)) : 0f;
+            s.DraftStep = Mathf.Max(1f, fitted > 0f ? fitted * DraftStepLift : 1f);
         }
     }
 }

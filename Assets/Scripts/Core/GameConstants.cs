@@ -10,7 +10,8 @@ namespace InkLine
         public const int AdEmitterCap = 6;
         public const int BaseHp = 3;
         public const int MaxRevives = 2;
-        public const int FirstDraftCost = 4;
+        // 改装起价的下限。开局有 6 金币，低于这个数按钮一进关就亮。
+        public const int FirstDraftCost = 10;
         public const int DraftCostStep = 2;
         // 八章，每章九关，第九关是章底。
         // MetaProgress.Normalize 里的 Fit() 会把旧存档的星数组补齐到新长度，

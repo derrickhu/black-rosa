@@ -245,6 +245,12 @@ hp_base.setdefault("Walker", 4.5)
 drop_pow = float(re.search(r"DropMul\(float t\) => Mathf\.Pow\(.+,\s*([\d.]+)f\)", enemy_src).group(1))
 wave_span = [float(x) for x in re.findall(
     r"[\d.]+", re.search(r"ChapterWaveSpan\s*=\s*\{([^}]*)\}", core_src).group(1))]
+last_hold = float(re.search(r"LastWaveHold\s*=\s*([\d.]+)f", core_src).group(1))
+final_hold = float(re.search(r"FinalChapterHold\s*=\s*([\d.]+)f", core_src).group(1))
+chapter_mid = [float(x) for x in re.findall(
+    r"[\d.]+", re.search(r"ChapterMidBodies\s*=\s*\{([^}]*)\}", core_src).group(1))]
+chapter_open = [float(x) for x in re.findall(
+    r"[\d.]+", re.search(r"ChapterOpenBodies\s*=\s*\{([^}]*)\}", core_src).group(1))]
 ramp_open = float(re.search(r"RampOpen\s*=\s*([\d.]+)f", core_src).group(1))
 ramp_late = float(re.search(r"RampLate\s*=\s*([\d.]+)f", core_src).group(1))
 ramp_peak = float(re.search(r"RampPeak\s*=\s*([\d.]+)f", core_src).group(1))
@@ -259,6 +265,9 @@ picks_per_cell = float(re.search(r" DraftPicksPerCell\s*=\s*([\d.]+)f", core_src
 first_picks_per_cell = float(re.search(r"FirstChapterPicksPerCell\s*=\s*([\d.]+)f", core_src).group(1))
 second_picks_per_cell = float(re.search(r"SecondChapterPicksPerCell\s*=\s*([\d.]+)f", core_src).group(1))
 budget_share = float(re.search(r"DraftBudgetShare\s*=\s*([\d.]+)f", core_src).group(1))
+first_share = float(re.search(r"DraftFirstShare\s*=\s*([\d.]+)f", core_src).group(1))
+step_lift = float(re.search(r"DraftStepLift\s*=\s*([\d.]+)f", core_src).group(1))
+first_chapter_step = int(re.search(r"DraftFirstChapterStep\s*=\s*(\d+)", core_src).group(1))
 
 
 def drop(v, mul):
@@ -330,10 +339,15 @@ def waves_of(r):
         end = last + (rounds - 1) * step_t
         tiled = [(t + r * step_t, e, n) for r in range(rounds) for t, e, n in specs]
         out.append(dict(boss=False, dur=max(span, end + 5.5), specs=tiled))
+    if r["ch"] >= 1 and out:
+        out[-1]["dur"] += last_hold
+        if r["ch"] >= 7:
+            out[-1]["dur"] += final_hold
     body_mul = chapter_bodies[min(r["ch"], len(chapter_bodies) - 1)]
     if r["ch"] == 0 and r["slot"] < len(first_ease):
         body_mul *= first_ease[r["slot"]]
-    return ramp_bodies(out, body_mul)
+    waves = ramp_bodies(out, body_mul)
+    return thicken_middle(waves, r["ch"])
 
 
 def share(total, weight, floor):
@@ -368,6 +382,26 @@ def share(total, weight, floor):
         out[best] -= 1
         diff += 1
     return out
+
+
+def thicken_middle(waves, chapter):
+    """复刻 RampCounts 末尾：第一波按 ChapterOpenBodies 收一截，中间几波按 ChapterMidBodies 加厚。"""
+    if chapter < 2 or len(waves) < 4:
+        return waves
+    mid = chapter_mid[min(chapter, len(chapter_mid) - 1)]
+    open_cut = chapter_open[min(chapter, len(chapter_open) - 1)]
+    if open_cut < 0.99:
+        waves[0]["specs"] = [
+            (t, e, n if boss else max(1, round(n * open_cut)), boss)
+            for t, e, n, boss in waves[0]["specs"]
+        ]
+    if mid > 1.01:
+        for w in waves[1:-1]:
+            w["specs"] = [
+                (t, e, n if boss else max(n, round(n * mid)), boss)
+                for t, e, n, boss in w["specs"]
+            ]
+    return waves
 
 
 def ramp_bodies(waves, body_mul=1.0, open_lvl=None, ease_waves=0, ease=1.0, peak=None):
@@ -468,8 +502,10 @@ def econ(r):
     else:
         n_want = min(max(round(open_n * picks_per_cell), open_n + 2), open_n * 3)
     budget = (purse_all + start_gold) * budget_share
-    first_d = max(first_cost, round(budget / n_want * 0.5))
-    step = max(0.0, 2 * (budget - n_want * first_d) / (n_want * (n_want - 1))) if n_want > 1 else 0.0
+    floor = first_cost + r["ch"] * first_chapter_step
+    first_d = max(floor, round(budget / n_want * first_share))
+    fitted = 2 * (budget - n_want * first_d) / (n_want * (n_want - 1)) if n_want > 1 else 0.0
+    step = max(1.0, fitted * step_lift if fitted > 0 else 1.0)
     # 数一数这局的钱实际买得起几次抽牌。
     n_d, spent = 0, 0.0
     while spent + round(first_d + n_d * step) <= budget:
