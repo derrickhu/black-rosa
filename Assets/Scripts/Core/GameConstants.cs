@@ -82,5 +82,8 @@ namespace InkLine
         // 往后变快只走局外「射速」线，不在局里叠。
         public const float BaseFireInterval = 0.62f;
         public const float RailSnapSpeed = 14f;
+        // 六门炮铺满六列时，炮口卡死在列心，两门中间的怪炮弹够不着。
+        // 整排允许左右挪这一点，不到半格，字还是落在原来那一列上。
+        public const float FullRailNudge = 0.42f;
     }
 }

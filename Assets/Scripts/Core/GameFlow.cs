@@ -1254,7 +1254,8 @@ namespace InkLine
         {
             DropOverlay();
             int left = GameConstants.MaxRevives - _world.RevivesUsed;
-            _overlay = RevivePanel.Show(_layer, _world.Progress, left, () =>
+            bool gun = _world.EmitterCount < GameConstants.AdEmitterCap;
+            _overlay = RevivePanel.Show(_layer, _world.Progress, left, gun, () =>
             {
                 AdStub.Reward("revive", () =>
                 {
@@ -1390,7 +1391,7 @@ namespace InkLine
             else if (kind == 1)
             {
                 DropOverlay();
-                _overlay = RevivePanel.Show(_layer, 0.83f, GameConstants.MaxRevives,
+                _overlay = RevivePanel.Show(_layer, 0.83f, GameConstants.MaxRevives, true,
                     DropOverlay, () => ShowDefeat(stage, 0.83f, true)).Root;
             }
             else ShowDefeat(stage, 0.64f, true);

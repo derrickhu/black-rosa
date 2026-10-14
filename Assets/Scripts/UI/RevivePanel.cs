@@ -19,7 +19,8 @@ namespace InkLine
 
         public RectTransform Root => _root;
 
-        public static RevivePanel Show(RectTransform layer, float progress, int revivesLeft, Action revive, Action giveUp)
+        public static RevivePanel Show(RectTransform layer, float progress, int revivesLeft, bool grantGun,
+            Action revive, Action giveUp)
         {
             var dim = UiKit.Dimmer(layer);
             dim.GetComponent<Image>().color = new Color(0.18f, 0.04f, 0.03f, 0.80f);
@@ -27,12 +28,12 @@ namespace InkLine
             p._root = dim;
             p._anim = UiAnim.On(p);
             p._giveUp = giveUp;
-            p.Build(Mathf.Clamp01(progress), revivesLeft, revive);
+            p.Build(Mathf.Clamp01(progress), revivesLeft, grantGun, revive);
             AudioBus.Sweep(dim);
             return p;
         }
 
-        void Build(float progress, int revivesLeft, Action revive)
+        void Build(float progress, int revivesLeft, bool grantGun, Action revive)
         {
             _heart = ResultKit.Group(_root, "heart", new Vector2(0f, 420f), new Vector2(120f, 120f));
             UiKit.Icon(_heart, InkArt.Icon(InkShape.Heart, 128), Vector2.zero, 120f);
@@ -80,9 +81,13 @@ namespace InkLine
             ResultKit.AdMark(btn, 52f);
             _anim.Pop(rg, 0.5f, 0.36f).Breathe(rg, 0.9f, 0.05f, 1.4f);
 
-            var perk = UiKit.Label(_root, "perk", "防线回满 · 清掉逼近的敌人", 26, new Vector2(0f, -290f), new Vector2(560f, 36f));
+            string offer = grantGun
+                ? "回一半血 · 清掉防线上的敌人 · 多一门炮"
+                : "回一半血 · 清掉防线上的敌人";
+            var perk = UiKit.Label(_root, "perk", offer, 26, new Vector2(0f, -290f), new Vector2(680f, 40f));
+            UiKit.Bold(perk);
             perk.color = InkTheme.Hex("FFE7B8");
-            var left = UiKit.Label(_root, "left", $"本局还能续 {revivesLeft} 次", 22, new Vector2(0f, -328f), new Vector2(400f, 30f));
+            var left = UiKit.Label(_root, "left", $"本局还能续 {revivesLeft} 次", 22, new Vector2(0f, -332f), new Vector2(400f, 30f));
             left.color = InkTheme.Hex("D8B8A8");
             _anim.Fade(perk, 0.7f, 0.3f, 0f, 1f).Fade(left, 0.8f, 0.3f, 0f, 1f);
 

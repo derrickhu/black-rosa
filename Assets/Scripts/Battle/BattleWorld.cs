@@ -906,21 +906,36 @@ namespace InkLine
         public Vector2 AdSlotPos => new Vector2(
             RailX + EmitterCount * GameConstants.CellWidth, GameConstants.EmitterY);
 
-        void ClampRail()
+        void RailBounds(out float min, out float max)
         {
-            float maxLeft = FieldLayout.ColumnX(0);
-            float maxRight = FieldLayout.ColumnX(Mathf.Max(0, GameConstants.Columns - RailSpan));
-            RailX = Mathf.Clamp(RailX, maxLeft, maxRight);
+            float lo = FieldLayout.ColumnX(0);
+            float hi = FieldLayout.ColumnX(Mathf.Max(0, GameConstants.Columns - RailSpan));
+            if (hi - lo < 0.01f)
+            {
+                min = lo - GameConstants.FullRailNudge;
+                max = hi + GameConstants.FullRailNudge;
+            }
+            else
+            {
+                min = lo;
+                max = hi;
+            }
         }
 
-        public bool AddEmitter()
+        void ClampRail()
+        {
+            RailBounds(out float min, out float max);
+            RailX = Mathf.Clamp(RailX, min, max);
+        }
+
+        public bool AddEmitter(bool toast = true)
         {
             if (EmitterCount >= GameConstants.AdEmitterCap) return false;
             int i = EmitterCount;
             EmitterCount++;
             if (i >= 0 && i < _fireCd.Length) _fireCd[i] = 0.15f;
             ClampRail();
-            ShowToast("多一门炮");
+            if (toast) ShowToast("多一门炮");
             return true;
         }
 
@@ -2310,19 +2325,34 @@ namespace InkLine
             if (RevivesUsed >= GameConstants.MaxRevives || (!Defeat && BaseHp > 0)) return false;
             RevivesUsed++;
             Defeat = false;
+            // 只回一半，奇数往上进。三格血回两格，四格回两格。
+            // 压进格子里的杂兵清掉。裂出来的还站在线上，同一轮循环会接着清。
+            // 关底不白送，还在线上的送回入口。
+            BaseHp = Mathf.Max(1, (MaxBaseHp + 1) / 2);
+            SweepLine();
+            bool gun = AddEmitter(false);
             Paused = false;
-            // 看了广告就给满血：只补 1 格的续命，玩家下一只漏怪又死，广告等于白看。
-            // 下半场的怪留着送回入口。原先直接删掉，波次又已经走完时，
-            // 下一帧场上没人，续命会立刻变成胜利。
-            BaseHp = MaxBaseHp;
+            ShowToast(gun ? "半血续上 · 多一门炮" : "半血续上", 1.6f);
+            return true;
+        }
+
+        // 已经走进格子的杂兵算站在防线上，清掉并照常掉东西。
+        // 关底留着：看一次广告不该直接打过章底。
+        void SweepLine()
+        {
+            float line = FieldLayout.GridTop;
             for (int i = 0; i < Enemies.Count; i++)
             {
                 EnemyActor e = Enemies[i];
-                if (e.Dead) continue;
-                if (e.Pos.y < GameConstants.GridCenterY) SendBack(e);
+                if (e.Dead || e.IsBoss || e.Pos.y >= line) continue;
+                Kill(e, null);
             }
-            ShowToast("防线重整");
-            return true;
+            for (int i = 0; i < Enemies.Count; i++)
+            {
+                EnemyActor e = Enemies[i];
+                if (e.Dead || e.Pos.y >= line) continue;
+                SendBack(e);
+            }
         }
 
         // 通关评星见 StarRules：剩七成血且没续命是三星，剩三成半是两星，续过命最多两星。
@@ -2612,10 +2642,12 @@ namespace InkLine
         public void SetRailFromWorldX(float x, bool snap)
         {
             float left = x - (EmitterCount - 1) * GameConstants.CellWidth * 0.5f;
-            float maxLeft = FieldLayout.ColumnX(0);
-            float maxRight = FieldLayout.ColumnX(Mathf.Max(0, GameConstants.Columns - RailSpan));
-            left = Mathf.Clamp(left, maxLeft, maxRight);
-            if (snap)
+            RailBounds(out float min, out float max);
+            left = Mathf.Clamp(left, min, max);
+            // 铺满之后没有整列可挪，松手就停在手指松开的位置，别吸回列心。
+            float columnRoom = FieldLayout.ColumnX(Mathf.Max(0, GameConstants.Columns - RailSpan))
+                - FieldLayout.ColumnX(0);
+            if (snap && columnRoom > 0.01f)
             {
                 int col = FieldLayout.ColumnAtX(left);
                 col = Mathf.Clamp(col, 0, Mathf.Max(0, GameConstants.Columns - RailSpan));
