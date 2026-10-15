@@ -145,7 +145,9 @@ namespace InkLine
                 : chest == -3 ? $"宝箱位满了，换成 {ChestCatalog.InkAvg((ChestTier)m.Amount)} 墨"
                 : $"领到 {EventCatalog.PrizeName(m)} {EventCatalog.PrizeCount(m)}";
             InkToast.Show(layer, got);
-            RewardFly.Play(layer, from, PrizePieces(layer, m, refunded, chest));
+            // 活动币已经记进钱包。飞到底栏炮台会像金币掉下去，数字却不在那儿涨。
+            if (m.Prize != EventPrize.Token && !refunded)
+                RewardFly.Play(layer, from, PrizePieces(layer, m, refunded, chest));
             _changed?.Invoke();
             Refresh();
             if (chest == -1) ChestOverflowView.Show(layer, _meta, _changed);
@@ -234,7 +236,9 @@ namespace InkLine
             AudioBus.Tap();
             if (_meta.EventPlaysLeft <= 0)
             {
-                InkToast.Show(transform.parent, _meta.EventAdDone ? "今天的次数用完了，明天再来" : "今天的次数用完了，看广告再开 2 局");
+                InkToast.Show(transform.parent, _meta.EventAdDone
+                    ? "今天的次数用完了，明天再来"
+                    : $"今天的次数用完了，看广告再开 {EventCatalog.AdPlays} 局");
                 return;
             }
             if (_meta.EventDone)

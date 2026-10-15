@@ -27,7 +27,7 @@ namespace InkLine
         public const int Id = 1;
         public const string Title = "招财进宝";
 
-        public const int PlaysPerDay = 5;
+        public const int PlaysPerDay = 3;
         public const int AdPlays = 2;
         // 每波结束按钱袋余额给利息：每 InterestStep 金给 1 金，单波最多 InterestCap。
         public const int InterestStep = 10;
