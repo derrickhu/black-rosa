@@ -21,6 +21,7 @@ namespace InkLine
             public float Delay;
             public bool On;
             public Color Tint;
+            public int Star;
         }
 
         struct Bit
@@ -44,6 +45,7 @@ namespace InkLine
         readonly Transform _root;
         readonly Anim[] _anim = new Anim[N];
         readonly float[] _badge = new float[N];
+        readonly int[] _badgeStar = new int[N];
         readonly float[] _nudge = new float[N];
         readonly List<Bit> _bits = new List<Bit>();
         readonly Stack<SpriteRenderer> _pool = new Stack<SpriteRenderer>();
@@ -80,10 +82,18 @@ namespace InkLine
                         swap = true;
                         break;
                     case CellBeat.Upgrade:
-                        Start(i, CellBeat.Upgrade, 0f, InkTheme.GoldHi);
+                        Start(i, CellBeat.Upgrade, 0f, InkTheme.GoldHi, p.Star);
                         _badge[i] = 1f;
-                        Ring(at, InkTheme.Word, 0.5f, 1.55f, 0.42f, 0f);
-                        Sparks(at, 6 + p.Star * 2, InkTheme.GoldHi, 0f);
+                        _badgeStar[i] = p.Star;
+                        Ring(at, p.Star >= 3 ? InkTheme.GoldHi : InkTheme.Gold, 0.42f, p.Star >= 3 ? 2.15f : 1.7f, 0.52f, 0f);
+                        if (p.Star >= 3)
+                        {
+                            Ring(at, InkTheme.Gold, 0.28f, 1.35f, 0.40f, 0.05f);
+                            w.AddShake(0.07f);
+                        }
+                        Sparks(at, 4 + p.Star * 5, InkTheme.GoldHi, 0f);
+                        w.ShowFloat(at + new Vector2(0f, Cw * 0.62f), p.Star >= 3 ? "三星" : "二星",
+                            InkTheme.GoldHi, p.Star >= 3 ? 1.45f : 1.12f);
                         upStar = Mathf.Max(upStar, p.Star);
                         break;
                     case CellBeat.Word:
@@ -161,7 +171,7 @@ namespace InkLine
                     else
                     {
                         _anim[i].Age += dt;
-                        if (_anim[i].Age >= Length(_anim[i].Beat)) _anim[i].On = false;
+                        if (_anim[i].Age >= Length(_anim[i].Beat, _anim[i].Star)) _anim[i].On = false;
                     }
                 }
                 if (_badge[i] > 0f) _badge[i] = Mathf.Max(0f, _badge[i] - dt / 0.38f);
@@ -187,7 +197,7 @@ namespace InkLine
                 return;
             }
             float t = a.Age;
-            float len = Length(a.Beat);
+            float len = Length(a.Beat, a.Star);
             float u = Mathf.Clamp01(t / len);
             switch (a.Beat)
             {
@@ -215,10 +225,13 @@ namespace InkLine
                 }
                 case CellBeat.Upgrade:
                 {
-                    float s = 1f + 0.34f * Spring(u, 2.4f);
+                    // 升到二星鼓一下，升到三星再猛一截，和牌面变大对得上。
+                    float amp = a.Star >= 3 ? 0.62f : 0.44f;
+                    float s = 1f + amp * Spring(u, a.Star >= 3 ? 3.1f : 2.4f);
                     scale = new Vector2(s, s);
-                    offset = new Vector2(0f, 0.10f * Mathf.Sin(Mathf.Clamp01(u * 2f) * Mathf.PI));
-                    glint = Fade(a.Tint, 0.75f * (1f - u));
+                    float hop = a.Star >= 3 ? 0.18f : 0.10f;
+                    offset = new Vector2(0f, hop * Mathf.Sin(Mathf.Clamp01(u * 2f) * Mathf.PI));
+                    glint = Fade(a.Tint, (a.Star >= 3 ? 0.95f : 0.75f) * (1f - u));
                     break;
                 }
                 case CellBeat.Word:
@@ -256,35 +269,36 @@ namespace InkLine
             tint = Color.white;
             Anim a = _anim[Index(col, row)];
             if (!a.On || a.Beat != CellBeat.Deny) return;
-            float u = Mathf.Clamp01(a.Age / Length(a.Beat));
+            float u = Mathf.Clamp01(a.Age / Length(a.Beat, a.Star));
             offset = new Vector2(Mathf.Sin(a.Age * 58f) * 0.08f * (1f - u), 0f);
             tint = Color.Lerp(Color.white, new Color(1f, 0.62f, 0.58f, 1f), 1f - u);
         }
 
-        // 星标那一下：升星时放大两倍再落回去。
+        // 星标那一下：二星放大一圈，三星再猛一些，然后落回这个星级自己的大小。
         public float Badge(int col, int row)
         {
             float b = _badge[Index(col, row)];
             if (b <= 0f) return 1f;
             float u = 1f - b;
-            return 1f + 1.1f * Spring(u, 2f);
+            float amp = _badgeStar[Index(col, row)] >= 3 ? 1.7f : 1.15f;
+            return 1f + amp * Spring(u, 2f);
         }
 
-        void Start(int i, CellBeat beat, float delay, Color tint)
+        void Start(int i, CellBeat beat, float delay, Color tint, int star = 0)
         {
             // 成词压在落字之上：同一格先落后亮，落地那一下不能被成词顶掉。
             if (beat == CellBeat.Word && _anim[i].On && (_anim[i].Beat == CellBeat.Drop || _anim[i].Beat == CellBeat.Replace))
-                delay = Mathf.Max(delay, Length(_anim[i].Beat) - _anim[i].Age + _anim[i].Delay - 0.12f);
-            _anim[i] = new Anim { Beat = beat, Age = 0f, Delay = delay, On = true, Tint = tint };
+                delay = Mathf.Max(delay, Length(_anim[i].Beat, _anim[i].Star) - _anim[i].Age + _anim[i].Delay - 0.12f);
+            _anim[i] = new Anim { Beat = beat, Age = 0f, Delay = delay, On = true, Tint = tint, Star = star };
         }
 
-        static float Length(CellBeat beat)
+        static float Length(CellBeat beat, int star = 0)
         {
             switch (beat)
             {
                 case CellBeat.Drop:
                 case CellBeat.Replace: return 0.42f;
-                case CellBeat.Upgrade: return 0.46f;
+                case CellBeat.Upgrade: return star >= 3 ? 0.64f : 0.50f;
                 case CellBeat.Word: return 0.62f;
                 case CellBeat.Unword: return 0.34f;
                 case CellBeat.Fire: return 0.24f;

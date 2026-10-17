@@ -5,7 +5,8 @@ using UnityEngine.UI;
 namespace InkLine
 {
     // 续命页。核心是「差一点」：大字百分比 + 快满的进度条。
-    // 不倒计时，页面停着等玩家自己点「续命再战」或「放弃」。
+    // 当天还没转发复活过时，主按钮是转发，字下写当日 0/1；用过之后才是看广告。
+    // 不倒计时，页面停着等玩家自己点或放弃。
     public sealed class RevivePanel : MonoBehaviour
     {
         const float Beat = 0.9f;
@@ -20,7 +21,7 @@ namespace InkLine
         public RectTransform Root => _root;
 
         public static RevivePanel Show(RectTransform layer, float progress, int revivesLeft, bool grantGun,
-            Action revive, Action giveUp)
+            bool shareRevive, Action revive, Action giveUp)
         {
             var dim = UiKit.Dimmer(layer);
             dim.GetComponent<Image>().color = new Color(0.18f, 0.04f, 0.03f, 0.80f);
@@ -28,12 +29,12 @@ namespace InkLine
             p._root = dim;
             p._anim = UiAnim.On(p);
             p._giveUp = giveUp;
-            p.Build(Mathf.Clamp01(progress), revivesLeft, grantGun, revive);
+            p.Build(Mathf.Clamp01(progress), revivesLeft, grantGun, shareRevive, revive);
             AudioBus.Sweep(dim);
             return p;
         }
 
-        void Build(float progress, int revivesLeft, bool grantGun, Action revive)
+        void Build(float progress, int revivesLeft, bool grantGun, bool shareRevive, Action revive)
         {
             _heart = ResultKit.Group(_root, "heart", new Vector2(0f, 420f), new Vector2(120f, 120f));
             UiKit.Icon(_heart, InkArt.Icon(InkShape.Heart, 128), Vector2.zero, 120f);
@@ -69,7 +70,7 @@ namespace InkLine
             _anim.Fade(near, 1.2f, 0.3f, 0f, 1f);
 
             var rg = ResultKit.Group(_root, "revive", new Vector2(0f, -200f), new Vector2(460f, 116f));
-            var btn = UiKit.Btn(rg, "b", "续命再战", Vector2.zero, new Vector2(460f, 116f), () =>
+            var btn = UiKit.Btn(rg, "b", shareRevive ? "转发复活" : "续命再战", Vector2.zero, new Vector2(460f, 116f), () =>
             {
                 if (_busy) return;
                 _busy = true;
@@ -77,8 +78,20 @@ namespace InkLine
                 _busy = false;
             });
             var label = btn.transform.Find("face/t")?.GetComponent<Text>();
-            if (label != null) label.fontSize = 38;
-            ResultKit.AdMark(btn, 52f);
+            if (label != null)
+            {
+                label.fontSize = 38;
+                if (shareRevive) label.rectTransform.anchoredPosition += new Vector2(0f, 16f);
+            }
+            if (shareRevive)
+            {
+                var sub = UiKit.Label(btn.transform.Find("face"), "sub", "当日0/1", 22,
+                    new Vector2(0f, -22f), new Vector2(240f, 30f));
+                sub.color = new Color(1f, 0.95f, 0.86f, 0.92f);
+                ResultKit.ShareMark(btn, 48f);
+                if (sub != null) sub.rectTransform.anchoredPosition += new Vector2(48f * 0.45f, 0f);
+            }
+            else ResultKit.AdMark(btn, 52f);
             _anim.Pop(rg, 0.5f, 0.36f).Breathe(rg, 0.9f, 0.05f, 1.4f);
 
             string offer = grantGun
@@ -87,11 +100,9 @@ namespace InkLine
             var perk = UiKit.Label(_root, "perk", offer, 26, new Vector2(0f, -290f), new Vector2(680f, 40f));
             UiKit.Bold(perk);
             perk.color = InkTheme.Hex("FFE7B8");
-            var left = UiKit.Label(_root, "left", $"本局还能续 {revivesLeft} 次", 22, new Vector2(0f, -332f), new Vector2(400f, 30f));
-            left.color = InkTheme.Hex("D8B8A8");
-            _anim.Fade(perk, 0.7f, 0.3f, 0f, 1f).Fade(left, 0.8f, 0.3f, 0f, 1f);
+            _anim.Fade(perk, 0.7f, 0.3f, 0f, 1f);
 
-            var gg = ResultKit.Group(_root, "giveup", new Vector2(0f, -420f), new Vector2(200f, 66f));
+            var gg = ResultKit.Group(_root, "giveup", new Vector2(0f, -380f), new Vector2(200f, 66f));
             UiKit.Btn(gg, "b", "放弃", Vector2.zero, new Vector2(200f, 66f), GiveUp, false);
             _anim.Pop(gg, 0.7f, 0.3f);
         }

@@ -56,6 +56,8 @@ namespace InkLine
         public int GiftAds;
         public bool GiftClaimed;
         public int ClubDay;
+        // 当天用转发复活过的日期。和今天不同就能再用一次。
+        public int ShareReviveDay;
         public int CheckDay;
         public int CheckRun;
         public int CheckAdDay;
@@ -910,6 +912,15 @@ namespace InkLine
         {
             AddInk(GameConstants.GiftInk);
             AddDiamond(GameConstants.GiftDiamond);
+        }
+
+        public bool ShareReviveReady => ShareReviveDay != Today;
+
+        public void TakeShareRevive()
+        {
+            if (!ShareReviveReady) return;
+            ShareReviveDay = Today;
+            Save();
         }
 
         public bool ClubClaimedToday => ClubDay == Today;

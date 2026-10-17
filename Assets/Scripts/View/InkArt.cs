@@ -38,13 +38,14 @@ namespace InkLine
 
         public static Sprite Heap(CardId id, int star, int size)
         {
-            Sprite art = InkSprites.Heap(id, star);
-            if (art != null) return NeedsCard(id) ? OnCard(art, size, GlyphPad(id)) : art;
-            string key = "heap:" + id + ":" + star + ":" + size;
+            int rank = Mathf.Clamp(star, 1, GameConstants.MaxStar);
+            Sprite art = InkSprites.Heap(id, rank);
+            if (art != null) return NeedsCard(id) ? OnCard(art, size, GlyphPad(id, rank), rank) : art;
+            string key = "heap:" + id + ":" + rank + ":" + size;
             if (Cache.TryGetValue(key, out Sprite s)) return s;
             s = Bake(size, (px, n) => DrawHeap(px, n, id));
             Cache[key] = s;
-            return NeedsCard(id) ? OnCard(s, size, GlyphPad(id)) : s;
+            return NeedsCard(id) ? OnCard(s, size, GlyphPad(id, rank), rank) : s;
         }
 
         // 字牌图，但不套墨底盘。放进 UiKit 的卡面里用 —— 外面已经有一圈描边了，
@@ -64,7 +65,7 @@ namespace InkLine
         {
             string key = "card:plate:" + size;
             if (Cache.TryGetValue(key, out Sprite s)) return s;
-            s = Bake(size, DrawCardPlate);
+            s = Bake(size, (px, n) => DrawCardPlate(px, n, 1));
             Cache[key] = s;
             return s;
         }
@@ -104,17 +105,24 @@ namespace InkLine
             }
         }
 
-        static float GlyphPad(CardId id) => NeedsCard(id) ? 0.18f : 0f;
+        // 星级越高，字在牌面里越大。1 星留最宽的边，3 星几乎顶到金边。
+        static float GlyphPad(CardId id, int star)
+        {
+            if (!NeedsCard(id)) return 0f;
+            if (star >= 3) return 0.14f;
+            if (star >= 2) return 0.16f;
+            return 0.18f;
+        }
 
-        static Sprite OnCard(Sprite art, int size, float pad = 0f)
+        static Sprite OnCard(Sprite art, int size, float pad, int star)
         {
             if (art == null) return Card(size);
             if (!CanRead(art)) return art;
-            string key = "carded:" + art.GetInstanceID() + ":" + size + ":" + pad.ToString("0.00");
+            string key = "carded:" + art.GetInstanceID() + ":" + size + ":" + pad.ToString("0.00") + ":" + star;
             if (Cache.TryGetValue(key, out Sprite s)) return s;
             s = Bake(size, (px, n) =>
             {
-                DrawCardPlate(px, n);
+                DrawCardPlate(px, n, star);
                 BlitSprite(px, n, art, pad);
             });
             Cache[key] = s;
@@ -135,15 +143,26 @@ namespace InkLine
             }
         }
 
-        static void DrawCardPlate(Color[] px, int n)
+        // 1 星是素纸墨框。2 星内圈镶一道金币黄。3 星金边更宽，里面再加一道亮金线。
+        static void DrawCardPlate(Color[] px, int n, int star)
         {
             Color paper = InkTheme.PaperInner;
+            if (star >= 3) paper = InkTheme.Hex("FFE7B0");
+            else if (star >= 2) paper = InkTheme.Hex("FFF4DC");
             Color ink = InkTheme.Graphite;
+            Color gold = star >= 3 ? InkTheme.Hex("E2A31A") : InkTheme.Gold;
+            Color goldHi = InkTheme.GoldHi;
             float r = n * 0.08f;
             float outer = 1.5f;
             float inner = n * 0.055f;
+            // 金边停在字的留白外面，避免亮线压到笔画上。
+            float band = inner + n * 0.018f;
+            float hair = inner + n * 0.052f;
             float t0 = Mathf.Max(1.6f, n * 0.018f);
             float t1 = Mathf.Max(1.2f, n * 0.014f);
+            float tGold = star >= 3 ? Mathf.Max(3.2f, n * 0.046f) : Mathf.Max(1.8f, n * 0.022f);
+            float tHair = Mathf.Max(1.3f, n * 0.012f);
+            float radIn = Mathf.Max(2f, r - 4f);
             for (int y = 0; y < n; y++)
             for (int x = 0; x < n; x++)
             {
@@ -151,9 +170,33 @@ namespace InkLine
                 float pyv = y + 0.5f;
                 float d0 = RoundRect(pxv, pyv, outer, outer, n - 1f - outer, n - 1f - outer, r);
                 if (d0 > 0.6f) continue;
-                float d1 = RoundRect(pxv, pyv, inner, inner, n - 1f - inner, n - 1f - inner, Mathf.Max(2f, r - 4f));
-                bool stroke = Mathf.Abs(d0) < t0 || Mathf.Abs(d1) < t1;
-                px[y * n + x] = stroke ? ink : paper;
+                if (Mathf.Abs(d0) < t0)
+                {
+                    px[y * n + x] = ink;
+                    continue;
+                }
+                if (star < 2)
+                {
+                    float d1 = RoundRect(pxv, pyv, inner, inner, n - 1f - inner, n - 1f - inner, radIn);
+                    px[y * n + x] = Mathf.Abs(d1) < t1 ? ink : paper;
+                    continue;
+                }
+                float dBand = RoundRect(pxv, pyv, band, band, n - 1f - band, n - 1f - band, Mathf.Max(2f, r - 8f));
+                if (Mathf.Abs(dBand) < tGold)
+                {
+                    px[y * n + x] = gold;
+                    continue;
+                }
+                if (star >= 3)
+                {
+                    float dHair = RoundRect(pxv, pyv, hair, hair, n - 1f - hair, n - 1f - hair, Mathf.Max(2f, r - 12f));
+                    if (Mathf.Abs(dHair) < tHair)
+                    {
+                        px[y * n + x] = goldHi;
+                        continue;
+                    }
+                }
+                px[y * n + x] = paper;
             }
         }
 

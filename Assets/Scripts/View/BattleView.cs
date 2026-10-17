@@ -197,7 +197,14 @@ namespace InkLine
                     bool sleep = w.CellAsleep(c, r);
                     _juice.Shape(c, r, out Vector2 squash, out Vector2 shift, out float alpha, out Color glint);
                     Transform st = _stamps[i].transform;
-                    st.localScale = new Vector3(st.localScale.x * squash.x, st.localScale.y * squash.y, 1f);
+                    // 三星慢悠悠胀一下，满级站在盘面上就能认出来。
+                    float breathe = !sleep && star >= 3
+                        ? 1f + 0.028f * Mathf.Sin(Time.unscaledTime * 3.2f + i * 0.65f)
+                        : 1f;
+                    st.localScale = new Vector3(
+                        st.localScale.x * squash.x * breathe,
+                        st.localScale.y * squash.y * breathe,
+                        1f);
                     st.position = home + (Vector3)shift;
                     _stamps[i].color = new Color(1f, 1f, 1f, (sleep ? 0.38f : 1f) * alpha);
                     PaintGlint(i, glint);
@@ -429,7 +436,9 @@ namespace InkLine
         {
             InkVfx.Stop(stamp);
             stamp.sprite = InkArt.Heap(id, star, 128);
-            stamp.transform.localScale = Vector3.one * 0.88f;
+            // 1 星 0.88，2 星略大，3 星明显大一圈。格子宽 1.16，3 星仍留一条缝。
+            float fit = star >= 3 ? 1.04f : star >= 2 ? 0.96f : 0.88f;
+            stamp.transform.localScale = Vector3.one * fit;
         }
 
         static void PaintZi(SpriteRenderer stamp, CardId id, bool sleep)
@@ -464,10 +473,11 @@ namespace InkLine
             tm.color = sleep ? new Color(ink.r, ink.g, ink.b, 0.5f) : ink;
         }
 
-        // 蜂蜜黄，生蜂蜜那种。方块色标，不做成圆章，免得读成金币。
+        // 方块色标，不做成圆章，免得读成金币。1 星是生蜂蜜黄，往上越亮、越大。
         static readonly Color Honey = new Color(0.93f, 0.72f, 0.32f, 1f);
+        static readonly Color HoneyMid = new Color(0.96f, 0.58f, 0.12f, 1f);
 
-        // 右上角方块是星级。下面的槽：常驻字一整条茶叶绿，每发都生效；
+        // 右上角方块是星级，星越高方块越大越亮。下面的槽：常驻字一整条茶叶绿，每发都生效；
         // 蓄力字按「过 N 发」分成 N 段，满格是茶叶绿，空格是淡青瓷。
         void PaintGlint(int i, Color glint)
         {
@@ -490,16 +500,18 @@ namespace InkLine
             Vector3 c = card.center;
 
             float margin = half * 2f * 0.08f;
-            float badge = half * 2f * 0.18f;
-            float corner = badge;
-            badge *= pop;
+            float rest = half * 2f * (star >= 3 ? 0.26f : star >= 2 ? 0.22f : 0.17f);
+            float badge = rest * pop;
             var bp = new Vector3(
-                c.x + half - margin - corner * 0.5f,
-                c.y + half - margin - corner * 0.5f,
+                c.x + half - margin - rest * 0.5f,
+                c.y + half - margin - rest * 0.5f,
                 0f);
             SpriteRenderer plate = _plates[i];
             plate.enabled = true;
-            Color honey = Honey;
+            Color honey = star >= 3 ? InkTheme.GoldHi : star >= 2 ? HoneyMid : Honey;
+            if (star >= 3 && !sleep)
+                honey = Color.Lerp(InkTheme.Gold, InkTheme.GoldHi,
+                    0.62f + 0.38f * (0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * 2.4f + i)));
             if (sleep) honey.a = 0.4f;
             plate.color = honey;
             plate.transform.position = bp;

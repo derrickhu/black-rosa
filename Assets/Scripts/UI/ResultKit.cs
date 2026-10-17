@@ -102,11 +102,22 @@ namespace InkLine
         // 按钮左侧的小视频角标，一眼看出「这个要看广告」。
         public static void AdMark(Button btn, float size = 40f)
         {
+            Mark(btn, AdSprite(), size);
+        }
+
+        // 按钮左侧的转发角标，和广告的播放三角分开。
+        public static void ShareMark(Button btn, float size = 40f)
+        {
+            Mark(btn, ShareSprite(), size);
+        }
+
+        static void Mark(Button btn, Sprite sprite, float size)
+        {
             if (btn == null) return;
             Transform face = btn.transform.Find("face");
             var rt = btn.GetComponent<RectTransform>();
             float x = -rt.sizeDelta.x * 0.5f + size * 0.5f + 18f;
-            UiKit.Icon(face != null ? face : btn.transform, AdSprite(), new Vector2(x, 0f), size);
+            UiKit.Icon(face != null ? face : btn.transform, sprite, new Vector2(x, 0f), size);
             var t = btn.GetComponentInChildren<Text>();
             if (t != null) t.rectTransform.anchoredPosition += new Vector2(size * 0.45f, 0f);
         }
@@ -161,6 +172,35 @@ namespace InkLine
             tex.Apply(false, true);
             _ad = Sprite.Create(tex, new Rect(0, 0, S, S), new Vector2(0.5f, 0.5f), 100f);
             return _ad;
+        }
+
+        static Sprite _share;
+
+        // 一张纸加一枚往外的箭头，读成「转发出去」。
+        static Sprite ShareSprite()
+        {
+            if (_share != null) return _share;
+            const int S = 64;
+            var tex = new Texture2D(S, S, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp };
+            var px = new Color32[S * S];
+            Color32 ink = new Color32(255, 255, 255, 255);
+            for (int y = 0; y < S; y++)
+            for (int x = 0; x < S; x++)
+            {
+                float fx = (x + 0.5f) / S * 2f - 1f, fy = (y + 0.5f) / S * 2f - 1f;
+                float page = RoundBox(fx + 0.16f, fy - 0.08f, 0.42f, 0.50f, 0.12f);
+                bool arrow = fy > 0.02f && fy < 0.62f && fx > 0.02f && fx < fy * 0.15f + 0.72f
+                    && Mathf.Abs(fx - 0.28f) < (0.62f - fy) * 0.85f + 0.08f;
+                bool shaft = fy > -0.08f && fy < 0.42f && Mathf.Abs(fx - 0.22f - fy * 0.15f) < 0.09f;
+                Color32 c = new Color32(0, 0, 0, 0);
+                if (page < -0.08f || arrow || shaft) c = ink;
+                else if (page < 0f) c = new Color32(255, 255, 255, 180);
+                px[y * S + x] = c;
+            }
+            tex.SetPixels32(px);
+            tex.Apply(false, true);
+            _share = Sprite.Create(tex, new Rect(0, 0, S, S), new Vector2(0.5f, 0.5f), 100f);
+            return _share;
         }
 
         // 一段字，金币图标跟在最后一个字后面。结算和活动页的金币数字都走这里。

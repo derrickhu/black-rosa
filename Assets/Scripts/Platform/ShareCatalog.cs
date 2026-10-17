@@ -32,11 +32,27 @@ namespace InkLine
             new Card { Title = "你同事都在偷偷玩", ImageUrlId = GrassId, ImageUrl = GrassUrl },
         };
 
-        public static Card Pick()
+        // 续命转发专属话术。只在这里用，不抽右上角那套。朋友看到的是求救，不提复活。
+        // 聊天卡片大约 14 个字就换行，每句都卡在一行里。
+        static readonly Card[] ReviveCards =
         {
-            if (Cards == null || Cards.Length == 0)
+            new Card { Title = "救救我救救我！防线告急！", ImageUrlId = GrassId, ImageUrl = GrassUrl },
+            new Card { Title = "救救我！这关我守不住了", ImageUrlId = SandId, ImageUrl = SandUrl },
+            new Card { Title = "防线要破了，快来救我", ImageUrlId = GrassId, ImageUrl = GrassUrl },
+            new Card { Title = "救救我！敌人冲上来了", ImageUrlId = SandId, ImageUrl = SandUrl },
+            new Card { Title = "就差一口气，救救我！", ImageUrlId = GrassId, ImageUrl = GrassUrl },
+            new Card { Title = "救救我救救我，要输了", ImageUrlId = SandId, ImageUrl = SandUrl },
+        };
+
+        public static Card Pick() => PickFrom(Cards);
+
+        public static Card PickRevive() => PickFrom(ReviveCards);
+
+        static Card PickFrom(Card[] cards)
+        {
+            if (cards == null || cards.Length == 0)
                 return new Card { Title = "墨字防线" };
-            return Cards[Random.Range(0, Cards.Length)];
+            return cards[Random.Range(0, cards.Length)];
         }
 
         public static bool HasImage(Card card)

@@ -298,6 +298,59 @@ namespace InkLine
 #endif
         }
 
+        static Action _shareOk;
+        static Action _shareNo;
+        static float _shareAt;
+
+        // 拉起续命转发。微信不告诉有没有真发出去，回来时按离开时长判断。
+        // 编辑器没有转发界面，直接当成功，方便把复活流程走通。
+        public static void ShareForReward(Action onOk, Action onNo)
+        {
+#if UNITY_MINIGAME || WEIXINMINIGAME || UNITY_WEIXINMINIGAME || MINIGAME_SUBPLATFORM_WEIXIN
+            if (Application.isEditor)
+            {
+                onOk?.Invoke();
+                return;
+            }
+            _shareOk = onOk;
+            _shareNo = onNo;
+            _shareAt = Time.realtimeSinceStartup;
+            try
+            {
+                WeChatWASM.WX.ShareAppMessage(ActiveOf(ShareCatalog.PickRevive()));
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning("[Share] " + e.Message);
+                Action no = _shareNo;
+                _shareOk = null;
+                _shareNo = null;
+                no?.Invoke();
+            }
+#else
+            onOk?.Invoke();
+#endif
+        }
+
+        // 从转发界面回来。待得太短当成没发出去，不发奖。
+        public static void FinishShareReturn()
+        {
+            if (_shareOk == null && _shareNo == null) return;
+            Action ok = _shareOk;
+            Action no = _shareNo;
+            float leftFor = Time.realtimeSinceStartup - _shareAt;
+            _shareOk = null;
+            _shareNo = null;
+            if (leftFor >= 0.8f) ok?.Invoke();
+            else no?.Invoke();
+        }
+
+        public static void CancelShareReturn()
+        {
+            _shareOk = null;
+            _shareNo = null;
+        }
+
 #if UNITY_MINIGAME || WEIXINMINIGAME || UNITY_WEIXINMINIGAME || MINIGAME_SUBPLATFORM_WEIXIN
         static WeChatWASM.WXShareAppMessageParam MessageOf(ShareCatalog.Card card)
         {

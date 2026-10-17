@@ -156,6 +156,7 @@ namespace InkLine
             if (_leftGame)
             {
                 _leftGame = false;
+                if (Time.realtimeSinceStartup < _shareSettleUntil) return;
                 PauseForReturn();
             }
             ScreenFit.Apply(Camera.main, _canvas);
@@ -228,17 +229,29 @@ namespace InkLine
         bool _leftGame;
         // 看广告加炮时战斗已经停了。广告自己会触发切后台，不能再弹一层设置把暂停状态弄乱。
         bool _holdForAd;
+        bool _holdForShare;
+        // 转发界面回来时，OnShow 和 OnApplicationPause 会各叫一次。这段时间里不再弹设置。
+        float _shareSettleUntil;
 
         // 切出去、锁屏、被盖住。回来时设置页已经在上面，点继续才接着打。
         void NoteLeft()
         {
-            if (_holdForAd) return;
+            if (_holdForAd || _holdForShare) return;
             _leftGame = true;
             PauseForReturn();
         }
 
         void NoteBack()
         {
+            if (_holdForShare || Time.realtimeSinceStartup < _shareSettleUntil)
+            {
+                bool finish = _holdForShare;
+                _holdForShare = false;
+                _shareSettleUntil = Time.realtimeSinceStartup + 1.2f;
+                _leftGame = false;
+                if (finish) WxBridge.FinishShareReturn();
+                return;
+            }
             if (_holdForAd) return;
             _leftGame = true;
         }
@@ -725,7 +738,8 @@ namespace InkLine
             if (_world.Stage.Event) return;
             float dt = Time.unscaledDeltaTime;
             if (_autoMute > 0f) _autoMute -= dt;
-            // 道具从丢出到演出结束，面板盖上去会把效果挡住。格子满了只剩升星，等玩家自己点。
+            // 道具从丢出到演出结束，面板盖上去会把效果挡住。回旋镖算到光球落地。
+            // 格子满了只剩升星，等玩家自己点。
             if (!_world.CanDraft || _autoMute > 0f || _world.BoardFull || _world.ItemResolving
                 || (_hud != null && _hud.ItemShow))
             {
@@ -1271,15 +1285,42 @@ namespace InkLine
             DropOverlay();
             int left = GameConstants.MaxRevives - _world.RevivesUsed;
             bool gun = _world.EmitterCount < GameConstants.AdEmitterCap;
-            _overlay = RevivePanel.Show(_layer, _world.Progress, left, gun, () =>
+            bool share = _meta.ShareReviveReady;
+            _overlay = RevivePanel.Show(_layer, _world.Progress, left, gun, share, () =>
             {
-                AdStub.Reward("revive", () =>
+                if (share) ShareRevive();
+                else AdStub.Reward("revive", () =>
                 {
                     if (_world == null || !_world.TryRevive()) return;
                     DropOverlay();
                     _screen = Screen.Battle;
                 });
-            }, ShowLoss).Root;
+            }, () =>
+            {
+                _holdForShare = false;
+                WxBridge.CancelShareReturn();
+                ShowLoss();
+            }).Root;
+        }
+
+        void ShareRevive()
+        {
+            _holdForShare = true;
+            _leftGame = false;
+            WxBridge.ShareForReward(() =>
+            {
+                _holdForShare = false;
+                _leftGame = false;
+                if (_world == null || !_meta.ShareReviveReady || !_world.TryRevive()) return;
+                _meta.TakeShareRevive();
+                DropOverlay();
+                _screen = Screen.Battle;
+            }, () =>
+            {
+                _holdForShare = false;
+                _leftGame = false;
+                if (_layer != null) InkToast.Show(_layer, "转发后才能复活");
+            });
         }
 
         void ShowLoss()
@@ -1408,7 +1449,7 @@ namespace InkLine
             {
                 DropOverlay();
                 _overlay = RevivePanel.Show(_layer, 0.83f, GameConstants.MaxRevives, true,
-                    DropOverlay, () => ShowDefeat(stage, 0.83f, true)).Root;
+                    _meta.ShareReviveReady, DropOverlay, () => ShowDefeat(stage, 0.83f, true)).Root;
             }
             else ShowDefeat(stage, 0.64f, true);
         }

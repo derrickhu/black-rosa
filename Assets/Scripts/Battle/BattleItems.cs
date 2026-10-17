@@ -44,8 +44,9 @@ namespace InkLine
         public readonly System.Collections.Generic.List<ItemCast> ItemCasts =
             new System.Collections.Generic.List<ItemCast>();
 
-        // 丢出去到落地结算之前。演出还在播由界面层另外看。
-        public bool ItemResolving => _pending.Count > 0 || ItemCasts.Count > 0;
+        // 丢出去到落地结算之前。回旋镖亮相很短，光球还在场上飞的几秒也算没放完。
+        // 界面上的亮相演出由另外一层看。
+        public bool ItemResolving => _pending.Count > 0 || ItemCasts.Count > 0 || Darts.Count > 0;
 
         // 演出要先飞过去、先亮个相，伤害等它落地那一刻再结算。
         struct PendingCast
