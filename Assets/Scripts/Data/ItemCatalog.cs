@@ -251,6 +251,8 @@ namespace InkLine
     // 钢珠、糖果是普通。机甲、黄金、霜晶是高级。赤焰、福袋是稀有。
     // 黄金、霜晶、赤焰靠炮台宝箱的碎片集齐。机甲第一周签到，福袋活动送。
     // 赤焰、福袋各带一条专属词条，只在装着时生效。
+    // 每加一门皮肤，没吃字时的裸弹都要有自己的样子：色球写在 InkShot.NakedOf，
+    // 专属弹体贴图写在 InkShot.SkinShot（Resources/Art/shot_<key>.png）。
     public static class SkinCatalog
     {
         public const int Count = 7;

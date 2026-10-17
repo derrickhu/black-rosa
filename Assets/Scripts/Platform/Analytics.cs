@@ -178,6 +178,11 @@ namespace InkLine
             body.Append("]}");
 
             long status = 0;
+#if PROMO_CAPTURE
+            Queue.Clear();
+            _sending = false;
+            yield break;
+#endif
             using (var req = new UnityWebRequest(Endpoint, "POST"))
             {
                 req.uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(body.ToString()));

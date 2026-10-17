@@ -69,6 +69,7 @@ namespace InkLine
             }
             bool hasBody = formSprite != null;
             // 没吃字的弹按炮台皮肤走。钢珠是黑铁球，糖果是粉红糖球，机甲是青蓝能量球，黄金才用紫芯金边。
+            // 赤焰、福袋、霜晶换成画好的弹体贴图。新皮肤也要在 SkinShot / NakedOf 各补一条。
             bool naked = !hasBody && v.Elements == 0 && !v.Form.On && !v.Trail.On && !v.Halo.On && !v.Orbit.On && !v.Bloom.On;
             NakedShot look = naked ? NakedOf(skin) : default;
             if (naked && skin == 3)
@@ -292,14 +293,16 @@ namespace InkLine
             public float Time;
         }
 
+        // 每门有专属弹体贴图的皮肤都要在这里返回一张图。没返回的皮肤退回 NakedOf 的色球。
         static Sprite SkinShot(int skin)
         {
             if (skin == SkinCatalog.Flame) return InkSprites.Load("shot_flame");
             if (skin == SkinCatalog.Lucky) return InkSprites.Load("shot_coin");
+            if (skin == SkinCatalog.Frost) return InkSprites.Load("shot_frost");
             return null;
         }
 
-        // 赤焰、福袋的裸弹是一张画好的弹体图（火流星 / 铜钱），图是「弹头在上、尾巴在下」画的，
+        // 赤焰、福袋、霜晶的裸弹是一张画好的弹体图（火流星 / 铜钱 / 冰晶），图是「弹头在上、尾巴在下」画的，
         // 本节点已经转到飞行方向，这里只把弹头沉回子弹位置。
         void SkinArt(Sprite sprite, int skin, int seed)
         {
@@ -312,11 +315,22 @@ namespace InkLine
             _skinArt.enabled = true;
             _skinArt.sprite = sprite;
             Undistort(out float kx, out float ky);
-            bool flame = skin == SkinCatalog.Flame;
-            float size = flame ? 0.95f : 0.62f;
-            float sink = flame ? 0.20f : 0.10f;
+            float size = 0.62f;
+            float sink = 0.10f;
+            float wobble = Mathf.Sin(Time.time * 9f + seed * 1.3f) * 14f;
+            if (skin == SkinCatalog.Flame)
+            {
+                size = 0.95f;
+                sink = 0.20f;
+                wobble = 0f;
+            }
+            else if (skin == SkinCatalog.Frost)
+            {
+                size = 0.82f;
+                sink = 0.16f;
+                wobble = 0f;
+            }
             _skinArt.transform.localPosition = new Vector3(0f, -sink * size * ky * sprite.bounds.size.y, 0f);
-            float wobble = flame ? 0f : Mathf.Sin(Time.time * 9f + seed * 1.3f) * 14f;
             _skinArt.transform.localRotation = Quaternion.Euler(0f, 0f, wobble);
             _skinArt.transform.localScale = new Vector3(size * kx, size * ky, 1f);
             _skinArt.sortingOrder = 7;
@@ -325,7 +339,7 @@ namespace InkLine
 
         SpriteRenderer _skinArt;
 
-        // 0 钢珠黑球，1 糖果粉球，2 机甲能量球，3 黄金紫芯绕金，4 火流星，5 铜钱。
+        // 0 钢珠黑球，1 糖果粉球，2 机甲能量球，3 黄金紫芯绕金，4 火流星，5 铜钱，6 冰晶。
         static NakedShot NakedOf(int skin)
         {
             if (skin == SkinCatalog.Flame)
@@ -360,6 +374,22 @@ namespace InkLine
                     Tail = InkTheme.Gold,
                     Width = 0.07f,
                     Time = 0.07f
+                };
+            }
+            if (skin == SkinCatalog.Frost)
+            {
+                return new NakedShot
+                {
+                    Pellet = Color.clear,
+                    PelletScale = 0.2f,
+                    Glow = Fade(InkTheme.IceMid, 0.28f),
+                    GlowScale = 0.74f,
+                    Hot = Color.clear,
+                    HotScale = 0.1f,
+                    Head = InkTheme.IceHi,
+                    Tail = InkTheme.Ice,
+                    Width = 0.10f,
+                    Time = 0.11f
                 };
             }
             if (skin == 3)

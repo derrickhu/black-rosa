@@ -143,7 +143,7 @@ namespace InkLine
 
         // 每只怪掉墨的章节系数，把每章首通的墨收入钉在锻造和道具定价对应的那条线上。
         // 前两章一局的怪多、局也长，系数反而要压低；改波次或只数之后跑 check_stages 重新对一遍。
-        static readonly float[] ChapterInk = { 1.55f, 0.82f, 1.08f, 1.26f, 1.41f, 1.39f, 1.28f, 1.23f };
+        static readonly float[] ChapterInk = { 1.55f, 0.82f, 1.08f, 1.26f, 1.41f, 1.05f, 1.09f, 1.07f };
 
         public static float InkOf(int chapter) =>
             ChapterInk[Mathf.Clamp(chapter, 0, ChapterInk.Length - 1)];
@@ -312,7 +312,8 @@ namespace InkLine
         // 格子变多的关靠中段的怪把变贵的改装买满，开局那一波凑不满。
         static readonly float[] ChapterMidBodies = { 1f, 1f, 1.15f, 1.18f, 1.22f, 1.12f, 1.22f, 1.30f };
         // 第一波少刷一点。开局金币来得慢，改装不会进关就弹；少掉的怪补在中间几波。
-        static readonly float[] ChapterOpenBodies = { 1f, 1f, 0.72f, 0.70f, 0.68f, 0.72f, 0.68f, 0.65f };
+        // 第六章起不再砍第一波：后面按血摊，镇守和精英一拨常常只剩一只。
+        static readonly float[] ChapterOpenBodies = { 1f, 1f, 0.72f, 0.70f, 0.68f, 1f, 1f, 1f };
         // 第一章头三关：新手引导、刚学升星、刚学冰火，怪再少一截。
         static readonly float[] FirstChapterEase = { 0.6f, 0.75f, 0.9f };
 
@@ -419,6 +420,45 @@ namespace InkLine
                         for (int k = 0; k < grid[w].Length; k++)
                             if (!bossAt[w][k] && grid[w][k] > 0)
                                 grid[w][k] = Mathf.Max(grid[w][k], Mathf.RoundToInt(grid[w][k] * mid));
+            }
+            // 第四、五章前三波里低于每秒 0.5 只的，补到这个密度。比第六章的成对轻一档，
+            // 已经够密的不动，最后一波和关底波不动。
+            if (rampOpen < 0f && chapter >= 3 && chapter <= 4 && nW >= 2)
+            {
+                const float EarlyRate = 0.5f;
+                int lim = Mathf.Min(3, nW - 1);
+                for (int w = 0; w < lim; w++)
+                {
+                    if (bossWave[w]) continue;
+                    var wt = new float[grid[w].Length];
+                    var fl = new int[grid[w].Length];
+                    int have = 0;
+                    for (int k = 0; k < grid[w].Length; k++)
+                    {
+                        if (bossAt[w][k] || grid[w][k] <= 0) continue;
+                        wt[k] = grid[w][k];
+                        fl[k] = 1;
+                        have += grid[w][k];
+                    }
+                    int want = Mathf.RoundToInt(waves[w].Duration * EarlyRate);
+                    if (want <= have) continue;
+                    int[] scaled = Share(want, wt, fl);
+                    for (int k = 0; k < grid[w].Length; k++)
+                        if (wt[k] > 0f) grid[w][k] = scaled[k];
+                }
+            }
+            // 第六章起前三波里只剩一只的那一拨补成一对。镇守、精英按血摊完就是这样，
+            // 不补的话开局半分钟场上只有一只。已经成群的不动，最后一波和关底波不动。
+            if (rampOpen < 0f && chapter >= 5 && nW >= 2)
+            {
+                int lim = Mathf.Min(3, nW - 1);
+                for (int w = 0; w < lim; w++)
+                {
+                    if (bossWave[w]) continue;
+                    for (int k = 0; k < grid[w].Length; k++)
+                        if (!bossAt[w][k] && grid[w][k] == 1)
+                            grid[w][k] = 2;
+                }
             }
             return grid;
         }

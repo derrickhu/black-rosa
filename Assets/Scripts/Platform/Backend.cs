@@ -178,6 +178,11 @@ namespace InkLine
 
         static IEnumerator Post(string path, string json, string token, Action<long, CloudReply> done)
         {
+#if PROMO_CAPTURE
+            // 录屏包是满级假档，不能登录、上传存档或上排行榜。
+            done(0, null);
+            yield break;
+#endif
             using (var req = new UnityWebRequest(CloudConfig.BaseUrl + path, "POST"))
             {
                 req.uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(json));

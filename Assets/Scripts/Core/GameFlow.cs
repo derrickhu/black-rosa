@@ -6,8 +6,13 @@ using UnityEngine.UI;
 
 namespace InkLine
 {
-    public sealed class GameFlow : MonoBehaviour
+    public sealed partial class GameFlow : MonoBehaviour
     {
+        // 买量录屏的自动演示挂在这三处，只在 PROMO_CAPTURE 宏下有实现（GameFlow.Promo.cs）。
+        partial void PromoStart(ref bool took);
+        partial void PromoBoot(ref bool took);
+        partial void PromoTick();
+
         enum Screen { Lobby, Intro, Battle, Draft, Place, Confirm, Reveal, Result }
 
         MetaProgress _meta;
@@ -64,6 +69,13 @@ namespace InkLine
 
         void Start()
         {
+            bool promo = false;
+            PromoStart(ref promo);
+            if (promo)
+            {
+                Begin();
+                return;
+            }
             Analytics.Ensure();
             WxBridge.InitSdk(() => CloudSync.Startup(Begin));
             CloudSync.Imported += OnCloudImported;
@@ -104,6 +116,9 @@ namespace InkLine
             ItemPanel.UnlockShown += _ => CloseMask();
             ItemPanel.UnlockDone += OnItemUnlocked;
             ItemPanel.EquipDone += OnItemEquipped;
+            bool promo = false;
+            PromoBoot(ref promo);
+            if (promo) return;
             if (BattleWorld.PreviewFill)
             {
                 ShowHome();
@@ -137,6 +152,7 @@ namespace InkLine
                 if (_loadingCover == 0) WxBridge.HideLoadingCover();
             }
             if (_canvas == null) return;
+            PromoTick();
             if (_leftGame)
             {
                 _leftGame = false;

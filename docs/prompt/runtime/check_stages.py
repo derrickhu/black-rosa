@@ -356,7 +356,7 @@ def waves_of(r):
     if r["ch"] == 0 and r["slot"] < len(first_ease):
         body_mul *= first_ease[r["slot"]]
     waves = ramp_bodies(out, body_mul)
-    return thicken_middle(waves, r["ch"])
+    return thicken_late_open(thicken_middle(waves, r["ch"]), r["ch"])
 
 
 def share(total, weight, floor):
@@ -410,6 +410,35 @@ def thicken_middle(waves, chapter):
                 (t, e, n if boss else max(n, round(n * mid)), boss)
                 for t, e, n, boss in w["specs"]
             ]
+    return waves
+
+
+def thicken_late_open(waves, chapter):
+    """复刻开局补厚。第四、五章前三波低于每秒 0.5 只的补到这个密度；第六章起一只补成一对。"""
+    if len(waves) < 2:
+        return waves
+    if chapter in (3, 4):
+        for w in waves[:min(3, len(waves) - 1)]:
+            if w["boss"]:
+                continue
+            idx = [i for i, s in enumerate(w["specs"]) if not s[3] and s[2] > 0]
+            have = sum(w["specs"][i][2] for i in idx)
+            want = round(w["dur"] * 0.5)
+            if not idx or want <= have:
+                continue
+            got = share(want, [w["specs"][i][2] for i in idx], [1] * len(idx))
+            specs = list(w["specs"])
+            for i, g in zip(idx, got):
+                t, e, _, boss = specs[i]
+                specs[i] = (t, e, g, boss)
+            w["specs"] = specs
+        return waves
+    if chapter < 5:
+        return waves
+    for w in waves[:min(3, len(waves) - 1)]:
+        if w["boss"]:
+            continue
+        w["specs"] = [(t, e, n if boss or n != 1 else 2, boss) for t, e, n, boss in w["specs"]]
     return waves
 
 
@@ -551,10 +580,21 @@ ink_total = round(sum(e["ink"] for e in eco))
 
 # 节奏：前面几波发育，最后一波压上来。最后一波的密度每关都要差不多，
 # 忽高忽低就会出现「这关打不过、那关没挑战」。关底波 boss 本人就是压力，不算在内。
-peaks = [(tag(r), e["peak"]) for e, r in zip(eco, rows) if not e["boss_end"]]
-odd = [f"{k}({p:.2f})" for k, p in peaks if not 1.4 <= p <= 2.4]
-check(not odd, "最后一波每秒的血是前面几波的 1.4~2.4 倍" + ("" if not odd else ": " + ", ".join(odd)))
-print(f"  最后一波 / 前面几波（每秒血）: {min(p for _, p in peaks):.2f} ~ {max(p for _, p in peaks):.2f}")
+peaks = [(tag(r), e["peak"], r["ch"]) for e, r in zip(eco, rows) if not e["boss_end"]]
+# 第四章起开局补厚了，收尾相对没那么陡。前三章仍要 1.4 倍，
+# 第四、五章 1.3 倍，第六章起只要收尾不低于前面的平均。
+def peak_floor(ch):
+    if ch >= 5:
+        return 1.0
+    if ch >= 3:
+        return 1.3
+    return 1.4
+
+
+odd = [f"{k}({p:.2f})" for k, p, ch in peaks if not peak_floor(ch) <= p <= 2.4]
+check(not odd, "最后一波每秒的血高于前面几波（前三章 ≥1.4，第四五章 ≥1.3，第六章起 ≥1.0，上限 2.4）"
+      + ("" if not odd else ": " + ", ".join(odd)))
+print(f"  最后一波 / 前面几波（每秒血）: {min(p for _, p, _ in peaks):.2f} ~ {max(p for _, p, _ in peaks):.2f}")
 # 头三关另打了折。中后段每格十来只是有意为之：怪够多，钱才够把格子铺满。
 crowd = [f"{tag(r)}({e['kills']}/{e['open']})" for e, r in zip(eco, rows)
          if r["ch"] == 0 and e["kills"] > e["open"] * 13]

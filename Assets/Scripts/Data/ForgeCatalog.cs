@@ -64,9 +64,9 @@ namespace InkLine
         // 第二章是开局金币和基地生命。专属词条跟着皮肤走。
         // 已经点过的线永远留着，免得存档玩家看见自己买过的东西消失。
         // 门槛铺满 72 关：每章都有几级可升，最后一级落在第七、八章。
-        // 价 = 门槛那一关的墨 ×4 再加 80，同一条线每级再贵一截。
-        // ×4 是「打两关」再留一倍给签到、游戏圈和以后的渠道；+80 把早期垫到一天奖励买不满一级。
-        // 多一门炮、加一滴血比加伤害贵，这两条单独上浮。
+        // 前两章的价压得低，刚解锁买得动。第三到第五章能买的那几级抬一档，
+        // 打到第五章把已解锁的词条点完，手里还留一截墨，不够再点后面没开的级。
+        // 第六到八章跟着抬，同一条线逐级只涨不降。多一门炮、加一滴血比加伤害贵。
         static readonly ForgeDef[] Lines =
         {
             // 伤害线 12 级，每级 +25%，满级 +300%，门槛铺到第 69 关。
@@ -75,21 +75,21 @@ namespace InkLine
             {
                 Line = ForgeLine.Damage, Name = "伤害", Stat = "炮弹伤害", Amount = 25f,
                 Icon = "damage", Reveal = 1, Brief = "所有炮弹的伤害一起涨",
-                Cost = new[] { 110, 140, 170, 200, 240, 300, 380, 470, 580, 700, 840, 1000 },
+                Cost = new[] { 120, 150, 180, 210, 310, 390, 490, 610, 700, 840, 1010, 1200 },
                 Gate = new[] { 1, 2, 6, 12, 20, 28, 36, 44, 52, 58, 64, 69 }
             },
             new ForgeDef
             {
                 Line = ForgeLine.Emitters, Name = "炮台数", Stat = "炮台", Amount = 1f,
                 Icon = "guns", Reveal = 9, Brief = "开局多架一门炮",
-                Cost = new[] { 260, 420 },
+                Cost = new[] { 270, 550 },
                 Gate = new[] { 9, 40 }
             },
             new ForgeDef
             {
                 Line = ForgeLine.FireRate, Name = "射速", Stat = "开火间隔", Amount = 8f,
                 Icon = "rate", Reveal = 6, Brief = "每门炮开火更快",
-                Cost = new[] { 130, 160, 220, 300, 400 },
+                Cost = new[] { 140, 170, 290, 390, 480 },
                 Gate = new[] { 6, 9, 24, 45, 62 }
             },
             // 开局金币 8 级，每级 +8，满级开局 70。门槛铺到第七、八章，
@@ -98,14 +98,14 @@ namespace InkLine
             {
                 Line = ForgeLine.StartGold, Name = "开局金币", Stat = "开局金币", Amount = 8f,
                 Icon = "gold", Reveal = 12, Brief = "开局多带金币，先手改装",
-                Cost = new[] { 140, 160, 210, 270, 360, 480, 640, 820 },
+                Cost = new[] { 150, 170, 270, 350, 430, 580, 770, 980 },
                 Gate = new[] { 12, 18, 26, 36, 48, 56, 62, 68 }
             },
             new ForgeDef
             {
                 Line = ForgeLine.BaseHp, Name = "基地生命", Stat = "基地生命", Amount = 1f,
                 Icon = "hp", Reveal = 17, Brief = "基地多扛一次突破",
-                Cost = new[] { 190, 280, 420 },
+                Cost = new[] { 200, 360, 500 },
                 Gate = new[] { 17, 27, 50 }
             },
             // ---- 皮肤专属：拥有皮肤才露面，装着才生效。Reveal 写皮肤的开放关，和 Gate[0] 对齐 ----
@@ -114,7 +114,7 @@ namespace InkLine
             {
                 Line = ForgeLine.Crit, Name = "暴击", Stat = "暴击率", Amount = 4f,
                 Icon = "crit", Reveal = 12, Brief = "炮弹有几率打出双倍伤害", Exclusive = true, Skin = SkinCatalog.Flame,
-                Cost = new[] { 150, 200, 270, 360, 480 },
+                Cost = new[] { 160, 260, 350, 430, 580 },
                 Gate = new[] { 12, 24, 38, 52, 64 }
             },
             // 福袋 · 金币收益：只加局内金币，不碰墨 —— 墨是局外总账，check_stages 的墨价比按它算。
@@ -122,7 +122,7 @@ namespace InkLine
             {
                 Line = ForgeLine.GoldGain, Name = "金币收益", Stat = "局内金币", Amount = 6f,
                 Icon = "goldgain", Reveal = 15, Brief = "打怪掉的金币更多", Exclusive = true, Skin = SkinCatalog.Lucky,
-                Cost = new[] { 160, 220, 290, 380, 500 },
+                Cost = new[] { 170, 290, 380, 460, 600 },
                 Gate = new[] { 15, 30, 44, 58, 68 }
             }
             // 以后的专属词条接在这里。活动货币升级的写 Coin = ForgeCoin.Token。
