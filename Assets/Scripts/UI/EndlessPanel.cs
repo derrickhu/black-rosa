@@ -10,7 +10,9 @@ namespace InkLine
     public sealed class EndlessPanel : MonoBehaviour
     {
         const float BoardW = 620f;
-        const float BoardH = 800f;
+        const float BoardH = 890f;
+        // 本周词缀那一条占的高度，下面的宝箱、次数、开始按钮整体往下让。
+        const float RuleH = 90f;
         const float Top = BoardH * 0.5f;
 
         static readonly Color Grape = InkTheme.Hex("7B3FB8");
@@ -54,11 +56,12 @@ namespace InkLine
             for (int i = _body.childCount - 1; i >= 0; i--) Destroy(_body.GetChild(i).gameObject);
 
             BuildHero();
+            BuildRule();
             BuildChests();
             BuildPlays();
 
             int left = _meta.EndlessPlaysLeft;
-            var go = UiKit.Btn(_body, "go", "开始", new Vector2(0f, Y(720f)), new Vector2(360f, 104f), OnStart, true);
+            var go = UiKit.Btn(_body, "go", "开始", new Vector2(0f, Y(720f + RuleH)), new Vector2(360f, 104f), OnStart, true);
             if (left <= 0) PanelKit.Dim(go, true);
             else
             {
@@ -78,29 +81,52 @@ namespace InkLine
             demon.rectTransform.localRotation = Quaternion.Euler(0f, 0f, 8f);
             UiAnim.On(demon).Breathe(demon.transform, 0f, 0.05f, 0.7f);
 
-            var cap = UiKit.Label(card, "cap", "最好成绩", 22, new Vector2(80f, 58f), new Vector2(300f, 30f));
+            var cap = UiKit.Label(card, "cap", "本周最好", 22, new Vector2(80f, 58f), new Vector2(300f, 30f));
             cap.color = Lilac;
-            string best = _meta.EndlessBest > 0 ? $"第 {_meta.EndlessBest} 波" : "还没打过";
+            int week = _meta.EndlessWeek == DayClock.Week ? _meta.EndlessWeekBest : 0;
+            string best = week > 0 ? $"第 {week} 波" : "本周还没打";
             var bestT = ResultKit.Headline(card, "best", best, 60, new Vector2(80f, 2f), Gold, InkTheme.Outline, 4f);
             bestT.rectTransform.sizeDelta = new Vector2(330f, 86f);
 
-            var pill = UiKit.Stroke(card, "total", new Vector2(80f, -60f), new Vector2(170f, 38f), Pin.Center, 3f,
+            string ever = _meta.EndlessBest > 0 ? $"历史最好 {_meta.EndlessBest} 波" : $"共 {StageCatalog.EndlessWaves} 波";
+            var pill = UiKit.Stroke(card, "total", new Vector2(80f, -60f), new Vector2(210f, 38f), Pin.Center, 3f,
                 null, GrapeDeep, 19f);
             pill.GetComponent<Image>().raycastTarget = false;
-            var total = UiKit.Label(pill, "t", $"共 {StageCatalog.EndlessWaves} 波", 20, Vector2.zero, new Vector2(170f, 38f));
+            var total = UiKit.Label(pill, "t", ever, 20, Vector2.zero, new Vector2(210f, 38f));
             total.color = Lilac;
             UiKit.Bold(total);
+        }
+
+        // 本周词缀：紫底小牌写名字，旁边一行写效果。每周一换，榜也跟着清。
+        void BuildRule()
+        {
+            StageRule rule = StageRules.ThisWeek;
+            float y = Y(350f);
+            var tag = UiKit.Stroke(_body, "ruletag", new Vector2(-196f, y), new Vector2(150f, 50f), Pin.Center, 3f,
+                null, Grape, 14f);
+            tag.GetComponent<Image>().raycastTarget = false;
+            var name = UiKit.Label(tag, "t", "本周 · " + rule.Name, 22, Vector2.zero, new Vector2(150f, 50f));
+            name.color = InkTheme.CardFace;
+            UiKit.Bold(name);
+            var desc = UiKit.Label(_body, "ruledesc", rule.Desc, 21, new Vector2(78f, y + 13f), new Vector2(380f, 28f),
+                TextAnchor.MiddleLeft);
+            desc.color = Night;
+            int days = DayClock.DaysLeftInWeek;
+            var left = UiKit.Label(_body, "ruleleft", days <= 1 ? "今晚零点换词缀、清周榜" : $"{days} 天后换词缀、清周榜", 18,
+                new Vector2(78f, y - 16f), new Vector2(380f, 24f), TextAnchor.MiddleLeft);
+            left.color = InkTheme.TextMid;
         }
 
         // 到第 10 / 20 / 30 / 40 波各升一档宝箱。拿到的盖红，下一档描紫。
         void BuildChests()
         {
-            var head = UiKit.Label(_body, "chesthead", "冲 波 奖 励", 22, new Vector2(0f, Y(334f)), new Vector2(300f, 30f));
+            float y0 = Y(334f + RuleH);
+            var head = UiKit.Label(_body, "chesthead", "冲 波 奖 励", 22, new Vector2(0f, y0), new Vector2(300f, 30f));
             UiKit.Bold(head);
             head.color = GrapeDeep;
             for (int side = -1; side <= 1; side += 2)
             {
-                var line = UiKit.Panel(_body, "rule" + side, new Vector2(side * 150f, Y(334f)), new Vector2(110f, 3f), Lilac);
+                var line = UiKit.Panel(_body, "rule" + side, new Vector2(side * 150f, y0), new Vector2(110f, 3f), Lilac);
                 line.GetComponent<Image>().raycastTarget = false;
             }
 
@@ -117,7 +143,7 @@ namespace InkLine
                 float x = (i - (n - 1) * 0.5f) * (W + Gap);
                 Color? line = got ? InkTheme.Seal : aim ? Grape : (Color?)null;
                 Color fill = got ? InkTheme.Hex("FFF6E2") : aim ? LilacFace : InkTheme.CardFace;
-                var card = UiKit.Stroke(_body, "c" + i, new Vector2(x, Y(434f)), new Vector2(W, H), Pin.Center, 4f,
+                var card = UiKit.Stroke(_body, "c" + i, new Vector2(x, Y(434f + RuleH)), new Vector2(W, H), Pin.Center, 4f,
                     line, fill, 18f);
                 card.GetComponent<Image>().raycastTarget = false;
                 ChestDef def = ChestCatalog.Get((ChestTier)i);
@@ -135,10 +161,10 @@ namespace InkLine
             int cap = _meta.EndlessPlaysCap;
             bool ad = !_meta.EndlessAdDone;
             var plays = UiKit.Label(_body, "plays", $"今日次数 {_meta.EndlessPlaysLeft}/{cap}", 26,
-                new Vector2(ad ? -130f : 0f, Y(610f)), new Vector2(260f, 36f));
+                new Vector2(ad ? -130f : 0f, Y(610f + RuleH)), new Vector2(260f, 36f));
             UiKit.Bold(plays);
             if (!ad) return;
-            var btn = UiKit.Btn(_body, "ad", $"+{GameConstants.EndlessAdPlays} 次", new Vector2(150f, Y(610f)),
+            var btn = UiKit.Btn(_body, "ad", $"+{GameConstants.EndlessAdPlays} 次", new Vector2(150f, Y(610f + RuleH)),
                 new Vector2(220f, 80f), OnAd);
             ResultKit.AdMark(btn, 34f);
         }

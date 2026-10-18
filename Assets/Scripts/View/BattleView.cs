@@ -206,7 +206,7 @@ namespace InkLine
         void TickDark(BattleWorld w)
         {
             if (_dark == null || !_dark.enabled) return;
-            float want = w.Stage != null && w.Stage.Endless ? StageCatalog.EndlessDark(w.WaveIndex) : 0f;
+            float want = w.Stage != null ? w.Stage.DarkAt(w.WaveIndex) : 0f;
             _darkK = Mathf.MoveTowards(_darkK, want, Time.deltaTime / DarkFadeSecs);
             Paint(_darkK);
         }
@@ -333,6 +333,8 @@ namespace InkLine
                 // tint 是乘算的，压太狠会把配件的颜色一起糊掉，而配件颜色
                 // 正是玩家判断危险度的依据。0.25 足够看出「它红了」。
                 if (e.Colored) tint = Color.Lerp(Color.white, InkTheme.Explode, 0.25f);
+                // 魔化的怪常驻一层洋红，和狂化的红分得开。
+                else if (e.Demon != DemonKind.None) tint = Color.Lerp(Color.white, DemonTint, 0.32f);
                 // 冻是整体染青，其余持续状态交给 InkDot 的记号层，不再抢本体颜色
                 // 持续状态现在都由 InkDot 的分区图层来说，本体染色只留一点点「它变了色」。
                 // 原来冻 0.45 / 烧 0.45 / 毒 0.32 是在图层之外再喊一遍，
@@ -443,6 +445,7 @@ namespace InkLine
         }
 
         public const float DartScale = 0.64f;
+        static readonly Color DemonTint = InkTheme.Hex("E040B8");
 
         // 命中白闪。原来是整只换成纯白剪影，射速快的时候敌人大半时间都是一团白，
         // 既看不出是什么怪，也看不出血条打到哪了 —— 白闪反而把最该看的东西盖了。

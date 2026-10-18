@@ -427,7 +427,8 @@ namespace InkLine
             // 显示停在最后一波，清场时才不会看成 3/2、6/5。
             int wave = Mathf.Min(world.WaveIndex + 1, world.Stage.Waves.Length);
             if (world.Stage.Endless) Wave.text = $"第 {wave}/{world.Stage.Waves.Length} 波";
-            else Wave.text = world.BossSpawned ? "关底" : $"波 {wave}/{world.Stage.Waves.Length}";
+            else if (world.BossSpawned) Wave.text = world.Stage.Hard ? "重描 · 关底" : "关底";
+            else Wave.text = world.Stage.Hard ? $"重描 {wave}/{world.Stage.Waves.Length}" : $"波 {wave}/{world.Stage.Waves.Length}";
             PaintMire(world);
             Ink.text = world.Ink.ToString();
             // 波次下面不写字：成词、升星、操作提示、显形都不落到这一行。
@@ -445,16 +446,11 @@ namespace InkLine
             PlaceAdGun(world, inBattle);
         }
 
-        // 无尽第 10 波起，波次正下方写魔气减伤。数字和结算用的是同一个百分比。
+        // 有魔气减伤的波次，波次正下方写出来。数字和结算用的是同一个百分比。
         void PaintMire(BattleWorld world)
         {
             if (Mire == null) return;
-            int pct = 0;
-            if (world.Stage.Endless && world.Stage.Waves.Length > 0)
-            {
-                int idx = Mathf.Clamp(world.WaveIndex, 0, world.Stage.Waves.Length - 1);
-                pct = StageCatalog.EndlessWardPercent(idx);
-            }
+            int pct = world.WardPercent;
             bool on = pct > 0;
             if (Mire.gameObject.activeSelf != on) Mire.gameObject.SetActive(on);
             if (on) Mire.text = "魔气减伤 " + pct + "%";

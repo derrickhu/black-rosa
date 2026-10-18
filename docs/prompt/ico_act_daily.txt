@@ -1,0 +1,5 @@
+A single flat cartoon sticker icon for a mobile game menu, matching the drawing style of the reference image exactly: thick dark-brown outline like strong coffee, flat solid color fills with one soft lighter band, rounded chunky shapes, and a wide clean white sticker border hugging the silhouette. The reference only provides the drawing style.
+
+Subject: one round Chinese chess piece seen from the front, like a thick wooden disc. The piece face is warm cream like rice paper, with a ring rim the green of fresh jade. Across the piece face lies one chunky calligraphy brush, diagonal from lower left to upper right, with a bamboo-yellow handle and a black ink tip, plus one round black ink splash beside the tip. A small golden sun, the yellow of a gold coin, peeks out from behind the upper right edge of the piece, with short rounded rays.
+
+Composition: the piece is centered and fills about 80% of the canvas, slightly tilted. The whole background is pure flat white. Plain sticker icon with only these shapes, crisp edges, game UI asset.

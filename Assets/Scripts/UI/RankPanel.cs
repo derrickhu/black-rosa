@@ -5,7 +5,7 @@ using UnityEngine.UI;
 
 namespace InkLine
 {
-    // 排行榜：通关 / 无尽两张榜。宣纸卡面 + 朱红飘带标题，前三名挂金银铜牌，
+    // 排行榜：通关 / 无尽周榜 / 每日残局三张榜。宣纸卡面 + 朱红飘带标题，前三名挂金银铜牌，
     // 自己那一行钉在底部，列表滚到哪都看得见。
     public sealed class RankPanel : MonoBehaviour
     {
@@ -14,18 +14,20 @@ namespace InkLine
         const float RowH = 92f;
         const float RowStep = 102f;
         const float TabY = 62f;
-        const float TabW = 224f;
+        const float TabW = 188f;
         const float TabH = 62f;
         const float SubY = 134f;
         const float ListTop = 172f;
         const float AuthH = 76f;
 
-        static readonly string[] BoardIds = { RankService.BoardStage, RankService.BoardEndless };
-        static readonly string[] BoardNames = { "通关榜", "无尽榜" };
+        // 无尽总榜还在收分（老包也在报），面板上只摆本周榜，每周一清零大家重新抢。
+        static readonly string[] BoardIds = { RankService.BoardStage, RankService.BoardWeekly, RankService.BoardDaily };
+        static readonly string[] BoardNames = { "通关榜", "无尽周榜", "每日残局" };
         static readonly string[] BoardSubs =
         {
             "按通关关数排名 · 同关数先到者居前",
-            "按无尽模式最好波数排名 · 同波数先到者居前",
+            "本周无尽最好波数 · 每周一零点清榜",
+            "今日残局撑过的波数 · 全服同一局",
         };
 
         static readonly Color[] Podium = { InkTheme.Hex("FFF1C9"), InkTheme.Hex("EEF0F4"), InkTheme.Hex("FBE3CE") };
@@ -49,7 +51,19 @@ namespace InkLine
         Button[] _tabs;
         Text _sub;
 
-        bool Endless => BoardIds[_boardIx] == RankService.BoardEndless;
+        string BoardId => BoardIds[_boardIx];
+        bool Waves => BoardId != RankService.BoardStage;
+
+        int ScoreOf(RankRow r)
+        {
+            switch (BoardId)
+            {
+                case RankService.BoardWeekly: return r.weekly;
+                case RankService.BoardDaily: return r.daily;
+                case RankService.BoardEndless: return r.endless;
+                default: return r.cleared;
+            }
+        }
 
         public static RectTransform Show(RectTransform layer, MetaProgress meta, string board = RankService.BoardStage)
         {
@@ -57,6 +71,7 @@ namespace InkLine
             dim.name = "rank";
             var panel = dim.gameObject.AddComponent<RankPanel>();
             panel._meta = meta;
+            if (board == RankService.BoardEndless) board = RankService.BoardWeekly;
             panel._boardIx = Mathf.Max(0, System.Array.IndexOf(BoardIds, board));
             panel.Build(dim);
             return dim;
@@ -226,7 +241,7 @@ namespace InkLine
             _failed = false;
             SetStatus("排行榜加载中…", false);
             int ask = ++_ask;
-            RankService.Load(BoardIds[_boardIx], _meta.ClearedCount(), _meta.EndlessBest, (board, err) =>
+            RankService.Load(BoardId, _meta, (board, err) =>
             {
                 if (this == null || ask != _ask) return;
                 if (board == null)
@@ -269,11 +284,14 @@ namespace InkLine
             if (!_fontReady) return;
             if (mine == null)
             {
+                RankService.Scores s = RankService.ScoresOf(_meta);
                 mine = new RankRow
                 {
                     rank = 0,
-                    cleared = _meta.ClearedCount(),
-                    endless = _meta.EndlessBest,
+                    cleared = s.Cleared,
+                    endless = s.Endless,
+                    weekly = s.Weekly,
+                    daily = s.Daily,
                     displayName = RankService.HasProfile ? RankService.Nick : "我",
                     avatarUrl = RankService.Avatar,
                     isMe = true,
@@ -325,12 +343,13 @@ namespace InkLine
                 new Vector2(260f, 40f), TextAnchor.MiddleLeft);
             name.font = _nameFont;
             name.color = InkTheme.TextDark;
-            int score = Endless ? r.endless : r.cleared;
+            int score = ScoreOf(r);
             if (pinned && r.rank <= 0)
             {
                 name.rectTransform.anchoredPosition = new Vector2(left + 188f + 130f, 14f);
                 string hint = score > 0 ? "上榜中，稍后再看"
-                    : Endless ? "无尽模式打完一波即可上榜" : "通关第一关即可上榜";
+                    : BoardId == RankService.BoardDaily ? "打一局今日残局即可上榜"
+                    : Waves ? "本周无尽打完一波即可上榜" : "通关第一关即可上榜";
                 var tip = UiKit.Label(root, "tip", hint, 20,
                     new Vector2(left + 188f + 130f, -20f), new Vector2(260f, 28f), TextAnchor.MiddleLeft);
                 tip.color = InkTheme.TextMid;
@@ -340,7 +359,7 @@ namespace InkLine
                 new Vector2(120f, 50f), TextAnchor.MiddleRight);
             num.color = podium ? InkTheme.Seal : InkTheme.TextDark;
             UiKit.Bold(num);
-            var unit = UiKit.Label(root, "u", Endless ? "波" : "关", 24, new Vector2(RowW * 0.5f - 38f, -2f), new Vector2(40f, 36f));
+            var unit = UiKit.Label(root, "u", Waves ? "波" : "关", 24, new Vector2(RowW * 0.5f - 38f, -2f), new Vector2(40f, 36f));
             unit.color = InkTheme.TextMid;
 
             if (r.isMe) Stamp(root);

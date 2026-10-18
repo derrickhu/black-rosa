@@ -239,6 +239,7 @@ namespace InkLine
             if (d.Id == ItemId.Splash) p.Column = BusiestColumn(out _);
             // 急救包的次数要在丢出去时就记上，否则落地前 SlotSpent 还是 false。
             if (d.Id == ItemId.Mend) MendCasts++;
+            ItemsUsed++;
             _pending.Add(p);
             ItemCasts.Add(new ItemCast
             {

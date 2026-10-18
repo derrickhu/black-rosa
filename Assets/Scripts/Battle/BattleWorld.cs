@@ -64,11 +64,16 @@ namespace InkLine
         public ShotMods DoomBy;
         // 击退的冲击波把它一路顶回去，顶完这段才接着走。
         public float KnockLeft;
+        // 魔化词缀（重描、魔化词缀局）：见 DemonKind。Ward 是它自己带的减伤比例，和魔气护体相加。
+        public DemonKind Demon;
+        public float Ward;
 
         public bool Held => HardTime > 0f && (Hard == StatusKind.Freeze || Hard == StatusKind.Stun);
         public bool Confused => HardTime > 0f && Hard == StatusKind.Confuse;
         public bool Frozen => HardTime > 0f && Hard == StatusKind.Freeze;
     }
+
+    public enum DemonKind { None, Shield, Swift, Ward }
 
     // 只留运动学，所有字带来的改动都在 Mods 里。
     public sealed class BulletActor
@@ -338,6 +343,26 @@ namespace InkLine
         bool HordeWave => Stage != null && !Stage.Event && !Stage.Endless && Stage.Index >= HordeFrom
                           && Stage.Waves.Length > 1 && WaveIndex == Stage.Waves.Length - 1;
 
+        // 每日功课的局内计数，结算时交给 MetaProgress。
+        public int Kills;
+        public readonly int[] KillsWith = new int[CardCatalog.IdCount];
+        public int WordsLit;
+        public int PairsLit;
+        public int TopStars;
+        public int ItemsUsed;
+        public int BestCombo;
+        readonly bool[] _pairLit = new bool[SignaturePairs.All.Length];
+
+        // 魔化：魔速快这么多；魔护体减这么多伤；关底在重描里带的魔护体轻一点。
+        const float DemonSpeed = 1.25f;
+        const float DemonWard = 0.15f;
+        const float DemonBossWard = 0.12f;
+        // 魔气护体和魔化减伤相加，最多减到这么多。
+        const float WardCap = 0.3f;
+
+        // 当前这一波全场的魔气减伤百分点。HUD 和结算共用。
+        public int WardPercent => Stage != null ? Stage.WardPercentAt(WaveIndex) : 0;
+
         // 图鉴：炮弹第一次真的带上某个字 / 词 / 招牌两两时报一次，一局内同一条只报一回。
         public System.Action<CodexKind, int> CodexHit;
         readonly bool[] _codexGlyph = new bool[CardCatalog.IdCount];
@@ -425,6 +450,11 @@ namespace InkLine
             if (stage.Endless) _goldGain = 1f + (_goldGain - 1f) * StageCatalog.EndlessGainBoost;
             _goldFrac = 0f;
             MaxBaseHp = Mathf.Max(1, forge.BaseHp);
+            if (stage.Rule != null)
+            {
+                Gold += stage.Rule.StartGold;
+                MaxBaseHp = Mathf.Max(1, MaxBaseHp + stage.Rule.BaseHp);
+            }
             BaseHp = MaxBaseHp;
             BeginItems(equipped);
             Enemies.Clear();
@@ -447,6 +477,14 @@ namespace InkLine
             _comboGap = 0f;
             _comboTier = 0;
             ResetChests();
+            if (stage.Preset != null)
+                for (int i = 0; i < stage.Preset.Length; i++)
+                {
+                    PresetGlyph p = stage.Preset[i];
+                    if (!IsOpen(p.Col, p.Row)) continue;
+                    Grid[p.Col, p.Row] = p.Id;
+                    Stars[p.Col, p.Row] = Mathf.Clamp(p.Star, 1, GameConstants.MaxStar);
+                }
             if (PreviewFill)
             {
                 OpenRows = GameConstants.Rows;
@@ -638,7 +676,7 @@ namespace InkLine
                     AudioBus.Horde();
                     AddShake(0.16f);
                 }
-                else if (Stage.Endless && WaveIndex < Stage.Waves.Length && StageCatalog.EndlessBossWave(WaveIndex))
+                else if (Stage.Endless && Stage.BossWave(WaveIndex))
                 {
                     Shouts.Add(new Shout { Kind = ShoutKind.Horde, Text = "第 " + (WaveIndex + 1) + " 波", Sub = "关底来了" });
                     AudioBus.Horde();
@@ -646,8 +684,8 @@ namespace InkLine
                 }
                 if (Stage.Endless && WaveIndex < Stage.Waves.Length)
                 {
-                    GrantEndlessCells();
-                    if (WaveIndex + 1 == StageCatalog.EndlessDarkFrom)
+                    if (Stage.WaveCells != null) GrantEndlessCells();
+                    if (WaveIndex == Stage.DarkShout)
                         Shouts.Add(new Shout { Kind = ShoutKind.Rush, Text = "魔气入侵！", Sub = "莲池正在被侵染" });
                 }
             }
@@ -657,7 +695,7 @@ namespace InkLine
         // 开出来的格子这一局一直留着，续命也不收回。
         void GrantEndlessCells()
         {
-            int want = StageCatalog.EndlessCellsAt(WaveIndex);
+            int want = Stage.WaveCells[Mathf.Clamp(WaveIndex, 0, Stage.WaveCells.Length - 1)];
             int have = 0;
             for (int r = 1; r < GameConstants.Rows; r++)
             for (int c = 0; c < GameConstants.Columns; c++)
@@ -719,6 +757,7 @@ namespace InkLine
                 _comboTier = 0;
             }
             Combo++;
+            if (Combo > BestCombo) BestCombo = Combo;
             _comboGap = ComboGap;
             int top = ComboAt.Length - 1;
             int need = _comboTier <= top
@@ -928,10 +967,9 @@ namespace InkLine
             }
             EnemyDef def = EnemyCatalog.Get(id, Stage.HpAt(wave));
             float hp = Stage.Endless
-                ? Mathf.Max(1f, StageCatalog.EndlessHpOf(id, wave) * hpShare)
+                ? Mathf.Max(1f, StageCatalog.SurvivalHpOf(id, Stage.HpAt(wave)) * hpShare)
                 : Mathf.Max(1f, def.Hp * hpShare);
-            float speed = def.Speed * StageCatalog.SpeedOf(Stage.Chapter);
-            if (Stage.Endless) speed *= StageCatalog.EndlessSpeed(wave);
+            float speed = def.Speed * StageCatalog.SpeedOf(Stage.Chapter) * Stage.SpeedAt(wave);
             var e = new EnemyActor
             {
                 Id = NextActorId++,
@@ -958,7 +996,39 @@ namespace InkLine
                 Wave = wave
             };
             if (e.IsBoss) BossSpawned = true;
+            Demonize(e, id);
             return e;
+        }
+
+        // 重描里关底一律魔护体；杂兵按概率挑一条。墨粒（裂出来的、墨群）太小，不挂。
+        void Demonize(EnemyActor e, EnemyId id)
+        {
+            if (PreviewFill || Stage.DemonChance <= 0f || id == EnemyId.Swarm) return;
+            if (e.IsBoss)
+            {
+                if (!Stage.Hard) return;
+                e.Demon = DemonKind.Ward;
+                e.Ward = DemonBossWard;
+                return;
+            }
+            if (UnityEngine.Random.value >= Stage.DemonChance) return;
+            int roll = UnityEngine.Random.Range(0, 3);
+            if (roll == 0 && e.Shield) roll = 2;
+            if (roll == 0)
+            {
+                e.Demon = DemonKind.Shield;
+                e.Shield = true;
+            }
+            else if (roll == 1)
+            {
+                e.Demon = DemonKind.Swift;
+                e.Speed *= DemonSpeed;
+            }
+            else
+            {
+                e.Demon = DemonKind.Ward;
+                e.Ward = DemonWard;
+            }
         }
 
         // 裂：在死亡位置就地刷墨粒，不回顶部出生点。
@@ -1405,7 +1475,14 @@ namespace InkLine
 
         void NotePairs(ShotMods m)
         {
-            if (CodexHit == null || PreviewFill) return;
+            if (PreviewFill) return;
+            for (int i = 0; i < _pairLit.Length; i++)
+            {
+                if (_pairLit[i] || !SignaturePairs.Lit(m, i)) continue;
+                _pairLit[i] = true;
+                PairsLit++;
+            }
+            if (CodexHit == null) return;
             for (int i = 0; i < _codexPair.Length; i++)
             {
                 if (_codexPair[i] || !SignaturePairs.Lit(m, i)) continue;
@@ -1588,12 +1665,11 @@ namespace InkLine
             // 二是斩杀靠 Max 抬伤害，排在甲后面才不会被甲削掉。
             if (e.Armor > 0f && dmg > 0f) dmg = Mathf.Max(1f, dmg - e.Armor);
 
-            // 4.6 魔气护体：无尽按侵染进度减伤，满了是 12%。排在斩杀前面，
+            // 4.6 魔气护体：无尽按侵染进度减伤，满了是 12%；魔化的怪再加自己那份。排在斩杀前面，
             // 斩和秒杀仍把伤害抬回去，不会被这层削掉。
-            if (Stage.Endless && dmg > 0f)
+            if (dmg > 0f)
             {
-                int wave = WaveIndex < Stage.Waves.Length ? WaveIndex : Stage.Waves.Length - 1;
-                float ward = StageCatalog.EndlessWard(wave);
+                float ward = Mathf.Min(WardCap, WardPercent * 0.01f + e.Ward);
                 if (ward > 0f) dmg = Mathf.Max(1f, dmg * (1f - ward));
             }
 
@@ -1998,6 +2074,13 @@ namespace InkLine
             AddShake(e.IsBoss ? 0.42f : e.Radius > 0.3f ? 0.16f : 0.07f);
             PulseHitStop(e.IsBoss ? 0.2f : e.Radius > 0.3f ? 0.07f : 0.04f);
             if (e.IsBoss) BossKilled = true;
+            if (!PreviewFill)
+            {
+                Kills++;
+                if (m != null)
+                    for (int i = 1; i < KillsWith.Length; i++)
+                        if (m.Has((CardId)i)) KillsWith[i]++;
+            }
             if (e.SplitCount > 0) SpawnSplit(e, e.SplitCount);
             if (m != null && m.BurnPop) BurnPop(e.Pos, m);
             if (CodexHit != null && !PreviewFill) CodexHit(CodexKind.Enemy, (int)e.Type);
@@ -2577,6 +2660,7 @@ namespace InkLine
             if (peek == PlaceResult.Upgraded)
             {
                 Stars[col, row]++;
+                if (Stars[col, row] >= GameConstants.MaxStar) TopStars++;
                 ShowToast($"{CardCatalog.Get(id).Name} {Stars[col, row]} 星");
             }
             else
@@ -2598,6 +2682,7 @@ namespace InkLine
             {
                 LastReveal = CardCatalog.WordName(_word[col]);
                 RevealTime = 1.6f;
+                WordsLit++;
                 ShowToast("成词 · " + LastReveal);
                 BeatWord(col, _word[col]);
             }

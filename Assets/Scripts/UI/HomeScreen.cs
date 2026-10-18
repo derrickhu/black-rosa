@@ -47,7 +47,7 @@ namespace InkLine
             h.Pick(Mathf.Clamp(tab, TabForge, TabSpell));
             h.RefreshTop();
             // 排行榜上线前就有进度的老玩家，进大厅补报一次；报过的同样关数不会重发。
-            RankService.Submit(meta.ClearedCount(), meta.EndlessBest);
+            RankService.Submit(meta);
             if (WxBridge.IsSimulator)
                 GmBar.Attach(layer, meta, reload, h.RefreshAfterGm);
             return h;
@@ -821,7 +821,7 @@ namespace InkLine
         void BindChapter(int frontier)
         {
             HomeChapterBoard board = _view.Chapter;
-            if (_chapter < 0) _chapter = SortiePageBuilder.ChapterOf(frontier);
+            if (_chapter < 0) _chapter = _hardView ? _hardChapter : SortiePageBuilder.ChapterOf(frontier);
             _chapter = Mathf.Clamp(_chapter, 0, SortiePageBuilder.ChapterCount - 1);
             if (board.Art != null)
             {
@@ -833,13 +833,24 @@ namespace InkLine
             CdnAssets.Prefetch("Ui/chapter_" + _chapter);
             CdnAssets.Prefetch("Ui/chapter_" + (_chapter + 2));
             CdnAssets.Prefetch("Bg/battle_bg_" + (_chapter + 1));
-            if (board.Title != null) board.Title.text = SortiePageBuilder.ChapterTitle(_chapter);
+            bool hardOpen = _meta.HardOpen(_chapter);
+            if (!hardOpen) _hardView = false;
+            if (_hardView) _hardChapter = _chapter;
+            BindHardToggle(board, hardOpen);
+            if (board.Title != null)
+            {
+                // 飘带只放得下六七个字，重描时去掉章名只留「第几章」。
+                board.Title.text = _hardView
+                    ? "重描 · " + StageCatalog.ChapterLabel(_chapter)
+                    : SortiePageBuilder.ChapterTitle(_chapter);
+            }
             BindStarChest(board);
+            if (board.StarChest != null) board.StarChest.gameObject.SetActive(!_hardView);
             int count = Mathf.Min(SortiePageBuilder.PerChapter,
                 GameConstants.StageCount - _chapter * SortiePageBuilder.PerChapter);
             if (board.Route != null)
             {
-                board.Route.color = InkTheme.Outline;
+                board.Route.color = _hardView ? HardInk : InkTheme.Outline;
                 board.Route.SetPoints(SortiePageBuilder.RoutePoints(count));
             }
             if (board.Nodes != null)
@@ -850,7 +861,10 @@ namespace InkLine
                     if (slot == null) continue;
                     bool show = i < count;
                     slot.gameObject.SetActive(show);
-                    if (show) BindNode(slot, _chapter * SortiePageBuilder.PerChapter + i, frontier);
+                    if (!show) continue;
+                    int index = _chapter * SortiePageBuilder.PerChapter + i;
+                    if (_hardView) BindHardNode(slot, index);
+                    else BindNode(slot, index, frontier);
                 }
             }
             SortiePageBuilder.RepairChrome(board);
@@ -880,6 +894,95 @@ namespace InkLine
                 board.Next.onClick.RemoveAllListeners();
                 board.Next.onClick.AddListener(() => ShiftChapter(1));
             }
+        }
+
+        // ---------- 重描 ----------
+        // 本章三星全满后，章节卡左上角多一颗「重描」键，点了整张卡换成重描的节点：
+        // 路线和节点压一层洋红，星按重描算，点节点走 StartHard。翻到没开重描的章自动切回。
+
+        static readonly Color HardInk = InkTheme.Hex("8A2C77");
+        static readonly Color HardPlate = InkTheme.Hex("F2B8E4");
+
+        // 打完重描回主页，首页是重建的，停在原来那章的重描页上。
+        static bool _hardView;
+        static int _hardChapter;
+
+        public Action<int> StartHard;
+
+        void BindHardToggle(HomeChapterBoard board, bool open)
+        {
+            Transform old = board.transform.Find("hardtog");
+            Transform oldSh = board.transform.Find("hardtog_sh");
+            if (!open)
+            {
+                if (old != null) old.gameObject.SetActive(false);
+                if (oldSh != null) oldSh.gameObject.SetActive(false);
+                return;
+            }
+            Button btn = old != null ? old.GetComponent<Button>() : null;
+            if (btn == null)
+            {
+                btn = UiKit.Btn(board.transform, "hardtog", "重描", new Vector2(16f, 16f), new Vector2(112f, 56f),
+                    ToggleHard, false, Pin.TopLeft);
+                oldSh = board.transform.Find("hardtog_sh");
+            }
+            btn.gameObject.SetActive(true);
+            if (oldSh != null) oldSh.gameObject.SetActive(true);
+            btn.onClick.RemoveAllListeners();
+            btn.onClick.AddListener(ToggleHard);
+            PanelKit.SetText(btn, _hardView ? "回普通" : "重描");
+            if (_hardView) UiKit.PaintBtn(btn, HardInk, InkTheme.Hex("5E1D51"), InkTheme.CardFace);
+            else UiKit.PaintBtn(btn, InkTheme.Plain, InkTheme.PlainDeep, HardInk);
+            RedDot(btn, !_hardView && _meta.HardCleared(_chapter) == 0);
+        }
+
+        void ToggleHard()
+        {
+            AudioBus.Tap();
+            _hardView = !_hardView;
+            if (_hardView)
+                InkToast.Show(_layer, $"重描：怪更硬、带魔化词缀，首通给钻石（关底 {GameConstants.HardDiamondBoss}）");
+            BindChapter(NextStage());
+        }
+
+        void BindHardNode(HomeSealCell slot, int index)
+        {
+            bool open = _meta.HardUnlocked(index);
+            int stars = _meta.HardStars[index];
+            bool cleared = stars > 0;
+            bool current = open && !cleared;
+            bool last = (index % SortiePageBuilder.PerChapter) == SortiePageBuilder.PerChapter - 1
+                || index == GameConstants.StageCount - 1;
+            string key = cleared ? "node_done" : current ? "node_now" : last ? "node_boss" : "node_lock";
+            Sprite face = InkSprites.Ui(key);
+            if (slot.Plate != null)
+            {
+                if (face != null) slot.Plate.sprite = face;
+                slot.Plate.color = HardPlate;
+            }
+            if (slot.Lock != null) slot.Lock.gameObject.SetActive(false);
+            NodeStars(slot, stars);
+            if (slot.Number != null)
+            {
+                slot.Number.gameObject.SetActive(current);
+                slot.Number.text = (index + 1).ToString();
+                slot.Number.color = InkTheme.CardFace;
+            }
+            if (slot.Tag != null) slot.Tag.text = "";
+            if (slot.Button == null) return;
+            slot.Button.interactable = open;
+            slot.Button.onClick.RemoveAllListeners();
+            int idx = index;
+            slot.Button.onClick.AddListener(() =>
+            {
+                if (!_meta.HardUnlocked(idx)) return;
+                if (_meta.Stamina < _meta.StageCost(idx))
+                {
+                    OpenStamina();
+                    return;
+                }
+                StartHard?.Invoke(idx);
+            });
         }
 
         void BindStarChest(HomeChapterBoard board)
@@ -1005,6 +1108,7 @@ namespace InkLine
             else if (last) key = "node_boss";
             Sprite face = InkSprites.Ui(key);
             if (slot.Plate != null && face != null) slot.Plate.sprite = face;
+            if (slot.Plate != null) slot.Plate.color = Color.white;
             if (slot.Lock != null) slot.Lock.gameObject.SetActive(false);
             NodeStars(slot, cleared ? _meta.Stars[index] : 0);
             if (slot.Number != null)
@@ -1038,6 +1142,7 @@ namespace InkLine
                 btn.onClick.RemoveAllListeners();
                 if (i == SideEvent) btn.onClick.AddListener(OpenEvent);
                 else if (i == SideEndless) btn.onClick.AddListener(OpenEndless);
+                else if (i == SideDaily) btn.onClick.AddListener(OpenDaily);
                 else btn.onClick.AddListener(() => AudioBus.Tap());
                 if (i == SideGift) btn.onClick.AddListener(() => StarterGiftPanel.Show(_layer, _meta, AfterReward));
                 else if (i == SideClub) btn.onClick.AddListener(() => GameClubPanel.Show(_layer, _meta, AfterReward));
@@ -1065,6 +1170,26 @@ namespace InkLine
                 CdnAssets.Prefetch(StageCatalog.EndlessBackdrop);
                 CdnAssets.Prefetch(StageCatalog.EndlessDarkBackdrop);
             }
+            Button daily = _view.SideActs[SideDaily];
+            if (daily != null)
+            {
+                daily.gameObject.SetActive(true);
+                // 礼包领完后左列空出最上一格，每日顶上去，不留洞。
+                if (gift != null && !gift.gameObject.activeSelf)
+                {
+                    var rt = (RectTransform)daily.transform;
+                    rt.anchoredPosition = new Vector2(rt.anchoredPosition.x, ((RectTransform)gift.transform).anchoredPosition.y);
+                }
+                RedDot(daily, _meta.TaskHasClaim || (_meta.DailyOpen && _meta.DailyPlaysLeft > 0));
+            }
+        }
+
+        public Action StartDaily;
+
+        public void OpenDaily()
+        {
+            AudioBus.Tap();
+            DailyPanel.Show(_layer, _meta, () => StartDaily?.Invoke(), AfterReward);
         }
 
         // GameFlow 接上开打活动关；结算页「回活动」也从这里重开活动面板。
@@ -1186,6 +1311,7 @@ namespace InkLine
         const int SideRank = 4;
         const int SideEvent = 5;
         const int SideEndless = 6;
+        const int SideDaily = 7;
 
         void BindSeal(HomeSealCell slot, int index)
         {

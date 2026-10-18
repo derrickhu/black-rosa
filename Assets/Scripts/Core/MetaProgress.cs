@@ -104,6 +104,22 @@ namespace InkLine
         public int EndlessPlays;
         public bool EndlessAdDone;
         public int EndlessBest;
+        // 无尽周榜：本周号、本周最好打完几波。换周清零。
+        public int EndlessWeek;
+        public int EndlessWeekBest;
+        // 重描：每关最好星数，规则同 Stars。
+        public int[] HardStars = new int[GameConstants.StageCount];
+        // 每日残局：哪一天、当天打了几局、广告加过没、当天最好、历史最好。
+        public int DailyDay;
+        public int DailyPlays;
+        public bool DailyAdDone;
+        public int DailyBest;
+        public int DailyRecord;
+        // 每日功课：哪一天、三条的编码（见 TaskCatalog）、进度、领取位（第 3 位是全领的钻石）。
+        public int TaskDay;
+        public int[] TaskCodes = new int[GameConstants.TaskCount];
+        public int[] TaskProg = new int[GameConstants.TaskCount];
+        public int TaskClaims;
         // 新手指引走到哪一步。跟着整份存档上云，清缓存、换机都不重走。
         public int GuideStep;
         public const int GuideBattle = 0;
@@ -208,6 +224,9 @@ namespace InkLine
         void Normalize()
         {
             Stars = Fit(Stars, GameConstants.StageCount);
+            HardStars = Fit(HardStars, GameConstants.StageCount);
+            TaskCodes = Fit(TaskCodes, GameConstants.TaskCount);
+            TaskProg = Fit(TaskProg, GameConstants.TaskCount);
             Forge = Fit(Forge, ForgeCatalog.LineCount);
             SkinOwned = Fit(SkinOwned, SkinCatalog.Count);
             SkinShards = Fit(SkinShards, SkinCatalog.Count);
@@ -225,6 +244,8 @@ namespace InkLine
                 Forge[i] = Mathf.Clamp(Forge[i], 0, ForgeCatalog.MaxLevel(i));
             for (int i = 0; i < Stars.Length; i++)
                 Stars[i] = Mathf.Clamp(Stars[i], 0, GameConstants.MaxStar);
+            for (int i = 0; i < HardStars.Length; i++)
+                HardStars[i] = Mathf.Clamp(HardStars[i], 0, GameConstants.MaxStar);
             for (int i = 0; i < SkinShards.Length; i++)
                 SkinShards[i] = Mathf.Max(0, SkinShards[i]);
             ChapterChest &= (1 << GameConstants.Chapters) - 1;
@@ -478,6 +499,8 @@ namespace InkLine
             bool dirty = RollDay();
             if (RollEvent()) dirty = true;
             if (RollEndless()) dirty = true;
+            if (RollDaily()) dirty = true;
+            if (RollTasks()) dirty = true;
             if (RegenStamina()) dirty = true;
             if (TickChests()) dirty = true;
             if (dirty) Save();
@@ -531,8 +554,16 @@ namespace InkLine
 
         bool RollEndless()
         {
+            bool dirty = false;
+            int week = DayClock.Week;
+            if (EndlessWeek != week)
+            {
+                EndlessWeek = week;
+                EndlessWeekBest = 0;
+                dirty = true;
+            }
             int today = Today;
-            if (EndlessDay == today) return false;
+            if (EndlessDay == today) return dirty;
             EndlessDay = today;
             EndlessPlays = 0;
             EndlessAdDone = false;
@@ -580,23 +611,226 @@ namespace InkLine
         }
 
         // 无尽结算：局内拾到的墨 + 每打完一波的墨，到档再给一只宝箱。最好成绩只升不降。
+        // 「新纪录」按本周算，周榜只看本周；历史最好另记。
         public EndlessResult ApplyEndless(int waves, int collected)
         {
+            RollEndless();
             waves = Mathf.Clamp(waves, 0, StageCatalog.EndlessWaves);
             var r = new EndlessResult
             {
                 Waves = waves,
-                OldBest = EndlessBest,
-                NewBest = waves > EndlessBest,
+                OldBest = EndlessWeekBest,
+                NewBest = waves > EndlessWeekBest,
                 Ink = Mathf.Max(0, collected) + waves * GameConstants.EndlessInkPerWave,
                 Chest = EndlessChestTier(waves),
                 ChestSlot = -2,
             };
-            if (r.NewBest) EndlessBest = waves;
+            if (r.NewBest) EndlessWeekBest = waves;
+            if (waves > EndlessBest) EndlessBest = waves;
             Ink += r.Ink;
             if (r.Chest >= 0) r.ChestSlot = GrantChest((ChestTier)r.Chest);
             Save();
             return r;
+        }
+
+        // ---------- 每日残局 ----------
+
+        public bool DailyOpen => ChapterCleared(GameConstants.DailyOpenChapter);
+
+        bool RollDaily()
+        {
+            int today = Today;
+            if (DailyDay == today) return false;
+            DailyDay = today;
+            DailyPlays = 0;
+            DailyAdDone = false;
+            DailyBest = 0;
+            return true;
+        }
+
+        public int DailyPlaysCap =>
+            GameConstants.DailyPlaysPerDay + (DailyAdDone ? GameConstants.DailyAdPlays : 0);
+
+        public int DailyPlaysLeft
+        {
+            get
+            {
+                RollDaily();
+                return Mathf.Max(0, DailyPlaysCap - DailyPlays);
+            }
+        }
+
+        public int DailyBestToday
+        {
+            get { RollDaily(); return DailyBest; }
+        }
+
+        public bool SpendDailyPlay()
+        {
+            if (DailyPlaysLeft <= 0) return false;
+            DailyPlays++;
+            Save();
+            return true;
+        }
+
+        public bool GrantDailyAdPlays()
+        {
+            RollDaily();
+            if (DailyAdDone) return false;
+            DailyAdDone = true;
+            Save();
+            return true;
+        }
+
+        // 第 10 波一只木箱，20 波全部打完一只银箱。
+        public static int DailyChestTier(int waves)
+        {
+            if (waves >= StageCatalog.DailyWaves) return (int)ChestTier.Silver;
+            if (waves >= StageCatalog.DailyBossEvery) return (int)ChestTier.Wood;
+            return -1;
+        }
+
+        // 每日残局结算：拾到的墨 + 每波的墨，到档给箱子。新纪录按当天算。
+        public EndlessResult ApplyDaily(int waves, int collected)
+        {
+            RollDaily();
+            waves = Mathf.Clamp(waves, 0, StageCatalog.DailyWaves);
+            var r = new EndlessResult
+            {
+                Waves = waves,
+                OldBest = DailyBest,
+                NewBest = waves > DailyBest,
+                Ink = Mathf.Max(0, collected) + waves * GameConstants.DailyInkPerWave,
+                Chest = DailyChestTier(waves),
+                ChestSlot = -2,
+            };
+            if (r.NewBest) DailyBest = waves;
+            if (waves > DailyRecord) DailyRecord = waves;
+            Ink += r.Ink;
+            if (r.Chest >= 0) r.ChestSlot = GrantChest((ChestTier)r.Chest);
+            Save();
+            return r;
+        }
+
+        // ---------- 重描 ----------
+
+        public bool HardOpen(int chapter) => ChapterFullStars(chapter);
+
+        public bool AnyHardOpen
+        {
+            get
+            {
+                for (int c = 0; c < GameConstants.Chapters; c++) if (HardOpen(c)) return true;
+                return false;
+            }
+        }
+
+        // 章内按顺序：第一关随章开，后面要先过上一关的重描。
+        public bool HardUnlocked(int stage)
+        {
+            if (stage < 0 || stage >= HardStars.Length) return false;
+            if (!HardOpen(stage / GameConstants.ChapterSize)) return false;
+            return stage % GameConstants.ChapterSize == 0 || HardStars[stage - 1] > 0;
+        }
+
+        public int HardCleared(int chapter)
+        {
+            int n = 0;
+            int start = chapter * GameConstants.ChapterSize;
+            for (int i = start; i < start + GameConstants.ChapterSize && i < HardStars.Length; i++)
+                if (HardStars[i] > 0) n++;
+            return n;
+        }
+
+        // ---------- 每日功课 ----------
+
+        bool RollTasks()
+        {
+            int today = Today;
+            if (TaskDay == today) return false;
+            TaskDay = today;
+            TaskCodes = TaskCatalog.Roll(today, this);
+            TaskProg = new int[GameConstants.TaskCount];
+            TaskClaims = 0;
+            return true;
+        }
+
+        public bool AnyItemEquipped
+        {
+            get
+            {
+                for (int s = 0; s < Equipped.Length; s++) if (Equipped[s] >= 0) return true;
+                return false;
+            }
+        }
+
+        public int TaskCode(int i) { RollTasks(); return TaskCodes[i]; }
+
+        public int TaskProgress(int i) { RollTasks(); return Mathf.Min(TaskProg[i], TaskCatalog.Need(TaskCodes[i])); }
+
+        public bool TaskDone(int i) => TaskProgress(i) >= TaskCatalog.Need(TaskCodes[i]);
+
+        public bool TaskClaimed(int i) { RollTasks(); return (TaskClaims & (1 << i)) != 0; }
+
+        public bool TaskBonusClaimed { get { RollTasks(); return (TaskClaims & (1 << GameConstants.TaskCount)) != 0; } }
+
+        public bool TaskBonusReady
+        {
+            get
+            {
+                if (TaskBonusClaimed) return false;
+                for (int i = 0; i < GameConstants.TaskCount; i++) if (!TaskClaimed(i)) return false;
+                return true;
+            }
+        }
+
+        public bool TaskHasClaim
+        {
+            get
+            {
+                if (TaskBonusReady) return true;
+                for (int i = 0; i < GameConstants.TaskCount; i++)
+                    if (TaskDone(i) && !TaskClaimed(i)) return true;
+                return false;
+            }
+        }
+
+        public int TaskInk => TaskCatalog.Ink(Mathf.Min(GameConstants.Chapters, ClearedCount() / GameConstants.ChapterSize));
+
+        public int ClaimTask(int i)
+        {
+            if (i < 0 || i >= GameConstants.TaskCount || !TaskDone(i) || TaskClaimed(i)) return 0;
+            TaskClaims |= 1 << i;
+            int ink = TaskInk;
+            Ink += ink;
+            Save();
+            return ink;
+        }
+
+        public int ClaimTaskBonus()
+        {
+            if (!TaskBonusReady) return 0;
+            TaskClaims |= 1 << GameConstants.TaskCount;
+            Diamond += GameConstants.TaskBonusDiamond;
+            Save();
+            return GameConstants.TaskBonusDiamond;
+        }
+
+        // 每局打完（赢、输、撤退都算）记一次功课。
+        public void NoteBattle(BattleTally t)
+        {
+            if (t == null) return;
+            RollTasks();
+            bool dirty = false;
+            for (int i = 0; i < GameConstants.TaskCount; i++)
+            {
+                int gain = TaskCatalog.Gain(TaskCodes[i], t);
+                if (gain <= 0) continue;
+                int was = TaskProg[i];
+                TaskProg[i] = TaskCatalog.Peak(TaskCodes[i]) ? Mathf.Max(was, gain) : was + gain;
+                dirty |= TaskProg[i] != was;
+            }
+            if (dirty) Save();
         }
 
         // 招财进宝：常驻，通完第一章才进得去。入口从第一天就挂着，没开时加锁。
@@ -912,22 +1146,29 @@ namespace InkLine
             return GrantSkin(i);
         }
 
-        public ResultInfo ApplyResult(int stage, int collected, int stars, int hpLeft, int hpMax, bool revived)
+        // 重描走同一条：星记在 HardStars，首通钻石另一档，章节满星宝箱不重复给。
+        public ResultInfo ApplyResult(int stage, int collected, int stars, int hpLeft, int hpMax, bool revived,
+            bool hard = false)
         {
-            var r = new ResultInfo { Chest = -1 };
-            if (stage < 0 || stage >= Stars.Length) return r;
-            StageDef def = StageCatalog.Get(stage);
+            var r = new ResultInfo { Chest = -1, Hard = hard };
+            int[] book = hard ? HardStars : Stars;
+            if (stage < 0 || stage >= book.Length) return r;
+            StageDef def = hard ? StageCatalog.HardStage(stage) : StageCatalog.Get(stage);
             stars = Mathf.Clamp(stars, 1, GameConstants.MaxStar);
             r.Stars = stars;
             r.HpLeft = Mathf.Clamp(hpLeft, 0, Mathf.Max(1, hpMax));
             r.HpMax = Mathf.Max(1, hpMax);
             r.Revived = revived;
-            r.FirstClear = Stars[stage] <= 0;
-            r.NewBest = stars > Stars[stage];
+            r.FirstClear = book[stage] <= 0;
+            r.NewBest = stars > book[stage];
             if (r.FirstClear)
             {
-                r.Diamonds = def.Finale ? GameConstants.DiamondFinale
-                    : def.HasBoss ? GameConstants.DiamondBoss : GameConstants.DiamondStage;
+                if (hard)
+                    r.Diamonds = def.Finale ? GameConstants.HardDiamondFinale
+                        : def.HasBoss ? GameConstants.HardDiamondBoss : GameConstants.HardDiamondStage;
+                else
+                    r.Diamonds = def.Finale ? GameConstants.DiamondFinale
+                        : def.HasBoss ? GameConstants.DiamondBoss : GameConstants.DiamondStage;
                 Diamond += r.Diamonds;
             }
             ChestTier tier = ChestCatalog.ForStage(def, r.FirstClear, ChestCycle);
@@ -938,10 +1179,10 @@ namespace InkLine
             r.Chest = (int)tier;
             r.ChestFull = ChestsFull;
             r.ChestInk = r.ChestFull ? ChestCatalog.InkAvg(tier) : 0;
-            if (r.NewBest) Stars[stage] = stars;
+            if (r.NewBest) book[stage] = stars;
             int chapter = stage / GameConstants.ChapterSize;
             r.StarChest = chapter;
-            r.HasStarChest = ChapterFullStars(chapter) && !ChapterChestClaimed(chapter);
+            r.HasStarChest = !hard && ChapterFullStars(chapter) && !ChapterChestClaimed(chapter);
             r.NewLines = TakeForgeReveals();
             r.NewSkins = TakeSkinReveals();
             int ink = Mathf.Max(0, collected);
@@ -954,7 +1195,7 @@ namespace InkLine
             Ink += ink;
             r.Ink = ink;
             // 新手打完第一关要能当场升一级伤害。一局掉得太少时悄悄补齐，结算页的数不变。
-            if (stage == 0 && r.FirstClear && GuideStep == GuideBattle)
+            if (!hard && stage == 0 && r.FirstClear && GuideStep == GuideBattle)
             {
                 Ink = Mathf.Max(Ink, ForgeCatalog.Get((int)ForgeLine.Damage).Cost[0]);
                 GuideStep = GuideForge;

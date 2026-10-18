@@ -7,6 +7,8 @@ namespace InkLine
     public sealed class EndlessResultArgs
     {
         public bool Win;
+        public bool Daily;      // 每日残局：纪录、次数、宝箱档都按当天算
+        public int Total;       // 这局一共几波
         public EndlessResult Result;
         public Action Double;
         public Action Again;
@@ -46,11 +48,12 @@ namespace InkLine
         void Build(RectTransform dim)
         {
             EndlessResult r = _a.Result;
-            string title = _a.Win ? "全部守住" : "无尽结算";
+            string title = _a.Win ? "全部守住" : _a.Daily ? "残局结算" : "无尽结算";
             var board = PanelKit.Board(dim, title, Vector2.zero, new Vector2(BoardW, BoardH), Pin.Center,
                 () => _a.Home?.Invoke());
 
-            var cap = UiKit.Label(board, "cap", _a.Win ? $"{StageCatalog.EndlessWaves} 波全部打完" : "这一局撑到", 26,
+            int total = _a.Total > 0 ? _a.Total : StageCatalog.EndlessWaves;
+            var cap = UiKit.Label(board, "cap", _a.Win ? $"{total} 波全部打完" : "这一局撑到", 26,
                 new Vector2(0f, Y(120f)), new Vector2(BoardW, 34f));
             cap.color = InkTheme.TextMid;
 
@@ -61,9 +64,10 @@ namespace InkLine
             _anim.CountUp(big, 0, r.Waves, 0.2f, 0.8f, "第 {0} 波", AudioBus.CountTick)
                  .Punch(big.transform, 1.0f, 0.14f, 0.3f);
 
+            string span = _a.Daily ? "今日" : "本周";
             string bestLine = r.NewBest
-                ? (r.OldBest > 0 ? $"新纪录！之前最好第 {r.OldBest} 波" : "新纪录！")
-                : $"最好成绩 第 {Mathf.Max(r.OldBest, r.Waves)} 波";
+                ? (r.OldBest > 0 ? $"{span}新纪录！之前最好第 {r.OldBest} 波" : span + "新纪录！")
+                : $"{span}最好 第 {Mathf.Max(r.OldBest, r.Waves)} 波";
             var best = UiKit.Label(board, "best", bestLine, 26, new Vector2(0f, Y(300f)), new Vector2(BoardW, 34f));
             UiKit.Bold(best);
             best.color = r.NewBest ? InkTheme.Seal : InkTheme.TextMid;
@@ -81,7 +85,7 @@ namespace InkLine
                 ResultKit.AdMark(_double, 36f);
             }
 
-            int left = _meta.EndlessPlaysLeft;
+            int left = _a.Daily ? _meta.DailyPlaysLeft : _meta.EndlessPlaysLeft;
             var again = UiKit.Btn(board, "again", $"再来一局（剩 {left}）", new Vector2(-136f, 64f), new Vector2(248f, 84f),
                 () => _a.Again?.Invoke(), _double == null, Pin.Bottom);
             if (left <= 0) PanelKit.Dim(again, true);
@@ -114,7 +118,7 @@ namespace InkLine
             }
             else
             {
-                int next = StageCatalog.EndlessBossEvery;
+                int next = _a.Daily ? StageCatalog.DailyBossEvery : StageCatalog.EndlessBossEvery;
                 var tip = UiKit.Label(card, "tip", $"打到第 {next} 波起，结算会多给宝箱", 20,
                     new Vector2(0f, -88f), new Vector2(500f, 28f));
                 tip.color = InkTheme.TextMid;

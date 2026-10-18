@@ -1,7 +1,9 @@
 /**
- * 排行榜，照 hotpot-api 的 rank.js。两张榜共用一条记录：
+ * 排行榜，照 hotpot-api 的 rank.js。四张榜共用一条记录：
  *   stage   已通关关数
- *   endless 无尽模式最好打完几波
+ *   endless 无尽模式历史最好打完几波（老客户端的「无尽榜」）
+ *   weekly  无尽模式本周最好（按北京时间的周号，换周清榜）
+ *   daily   每日残局当天最好（按北京时间的日期，换天清榜）
  *
  * 数据模型（collection: rankings，每人一条）：
  *   {
@@ -11,11 +13,14 @@
  *     reachedAt: number (ms), // 第一次到达这个关数的时间，同分先到者排前面
  *     endless: number,        // 无尽最好成绩（波数）
  *     endlessAt: number (ms), // 第一次打到这个波数的时间
+ *     week, weekly, weeklyAt, // 周号（2024-01-01 周一起算的整周数）、本周最好、达成时间
+ *     day, daily, dailyAt,    // 日期 yyyymmdd、当天最好、达成时间
  *     displayName, avatarUrl,
  *     createdAt, updatedAt
  *   }
  *
- * 索引：userId 唯一；cleared desc + reachedAt asc；endless desc + endlessAt asc。
+ * 索引：userId 唯一；cleared desc + reachedAt asc；endless desc + endlessAt asc；
+ *       week + weekly desc + weeklyAt asc；day + daily desc + dailyAt asc。
  */
 
 const crypto = require('crypto');
@@ -26,14 +31,39 @@ const { readEnvPrefer, gameKeyUpper } = require('./config');
 
 const DEFAULT_MAX_CLEARED = 72;
 const DEFAULT_MAX_ENDLESS = 50;
+const DEFAULT_MAX_DAILY = 20;
 const DEFAULT_LIST_LIMIT = 50;
 const MAX_LIST_LIMIT = 100;
 
-// 每张榜按哪个字段排、同分看哪个时间。
+// 每张榜按哪个字段排、同分看哪个时间；周榜、日榜再按 key 字段只看当期。
 const BOARDS = {
   stage: { score: 'cleared', at: 'reachedAt' },
   endless: { score: 'endless', at: 'endlessAt' },
+  weekly: { score: 'weekly', at: 'weeklyAt', key: 'week' },
+  daily: { score: 'daily', at: 'dailyAt', key: 'day' },
 };
+
+const DAY_MS = 24 * 3600 * 1000;
+const BEIJING_MS = 8 * 3600 * 1000;
+const WEEK_ZERO = Date.UTC(2024, 0, 1);
+
+// 北京时间的今天 yyyymmdd 和周号，和客户端 DayClock 同一套算法。
+function serverPeriod(now) {
+  const t = new Date(now + BEIJING_MS);
+  const day = t.getUTCFullYear() * 10000 + (t.getUTCMonth() + 1) * 100 + t.getUTCDate();
+  const midnight = Date.UTC(t.getUTCFullYear(), t.getUTCMonth(), t.getUTCDate());
+  const week = Math.floor((midnight - WEEK_ZERO) / DAY_MS / 7);
+  return { day, week };
+}
+
+// 跨零点那一下客户端可能还停在上一期，只收当期和上一期。
+function samePeriod(value, current, previous) {
+  return value === current || value === previous;
+}
+
+function previousDay(now) {
+  return serverPeriod(now - DAY_MS).day;
+}
 
 function envInt(suffix, fallback) {
   const n = Number(readEnvPrefer(`${gameKeyUpper()}_${suffix}`));
@@ -78,8 +108,25 @@ function normalizeEndless(value) {
   return endless;
 }
 
+// 周榜、日榜的成绩：缺省当 0，超上限拒收。
+function normalizePeriodScore(value, max, code) {
+  if (value === undefined || value === null || value === '') return 0;
+  const n = Number(value);
+  if (!Number.isFinite(n) || n < 0) throw httpError(400, `BAD_${code}`, `${code.toLowerCase()} 必须为非负整数`);
+  const score = Math.floor(n);
+  if (score > max) throw httpError(400, `${code}_TOO_HIGH`, `${code.toLowerCase()} 超出上限: ${score} > ${max}`);
+  return score;
+}
+
 function normalizeBoard(value) {
-  return value === 'endless' ? BOARDS.endless : BOARDS.stage;
+  return BOARDS[value] || BOARDS.stage;
+}
+
+// 周榜、日榜只看当期。
+function periodScope(board, now) {
+  if (!board.key) return {};
+  const p = serverPeriod(now);
+  return { [board.key]: board.key === 'week' ? p.week : p.day };
 }
 
 function normalizeLimit(value) {
@@ -109,10 +156,13 @@ function sanitizeAvatarUrl(value, fallback) {
 
 function publicRecord(doc, userId, rank) {
   if (!doc) return null;
+  const p = serverPeriod(Date.now());
   return {
     rank: rank || 0,
     cleared: Number(doc.cleared) || 0,
     endless: Number(doc.endless) || 0,
+    weekly: Number(doc.week) === p.week ? Number(doc.weekly) || 0 : 0,
+    daily: Number(doc.day) === p.day ? Number(doc.daily) || 0 : 0,
     displayName: doc.displayName || displayNameForUser(doc.userId || ''),
     avatarUrl: doc.avatarUrl || '',
     isMe: !!userId && doc.userId === userId,
@@ -125,14 +175,16 @@ function audience(platform) {
   return platform === 'anon' ? {} : { platform: getDb().command.neq('anon') };
 }
 
-async function findMine(col, userId, platform, board) {
+async function findMine(col, userId, platform, board, now) {
   const res = await col.where({ userId }).limit(1).get();
   const doc = (res && Array.isArray(res.data) && res.data[0]) || null;
   if (!doc || !(Number(doc[board.score]) > 0)) return null;
+  const period = periodScope(board, now);
+  if (board.key && Number(doc[board.key]) !== period[board.key]) return null;
   const _ = getDb().command;
   const score = Number(doc[board.score]);
   const at = Number(doc[board.at]) || 0;
-  const scope = audience(platform);
+  const scope = { ...audience(platform), ...period };
   const [ahead, tied] = await Promise.all([
     col.where({ ...scope, [board.score]: _.gt(score) }).count(),
     col.where({ ...scope, [board.score]: score, [board.at]: _.lt(at) }).count(),
@@ -146,6 +198,16 @@ async function handleSubmit(req) {
   const body = req.body || {};
   const cleared = normalizeCleared(body.cleared);
   const endless = normalizeEndless(body.endless);
+  const maxEndless = envInt('RANK_MAX_ENDLESS', DEFAULT_MAX_ENDLESS);
+  const now = Date.now();
+  const period = serverPeriod(now);
+  // 期号对不上（改了系统时间、跨期太久）就当没报这一项。
+  const week = Math.floor(Number(body.week) || 0);
+  const day = Math.floor(Number(body.day) || 0);
+  const weekly = samePeriod(week, period.week, period.week - 1)
+    ? normalizePeriodScore(body.weekly, maxEndless, 'WEEKLY') : 0;
+  const daily = samePeriod(day, period.day, previousDay(now))
+    ? normalizePeriodScore(body.daily, DEFAULT_MAX_DAILY, 'DAILY') : 0;
   if (blockedUsers().has(userId)) {
     return { updated: false, reason: 'BLOCKED', record: null };
   }
@@ -153,7 +215,6 @@ async function handleSubmit(req) {
   const col = getRankingCollection();
   const res = await col.where({ userId }).limit(1).get();
   const existing = (res && Array.isArray(res.data) && res.data[0]) || null;
-  const now = Date.now();
   const displayName = sanitizeDisplayName(
     body.displayName,
     (existing && existing.displayName) || displayNameForUser(userId),
@@ -161,7 +222,9 @@ async function handleSubmit(req) {
   const avatarUrl = sanitizeAvatarUrl(body.avatarUrl, (existing && existing.avatarUrl) || '');
 
   if (!existing) {
-    if (cleared <= 0 && endless <= 0) return { updated: false, reason: 'NO_PROGRESS', record: null };
+    if (cleared <= 0 && endless <= 0 && weekly <= 0 && daily <= 0) {
+      return { updated: false, reason: 'NO_PROGRESS', record: null };
+    }
     const docData = {
       userId,
       platform,
@@ -169,6 +232,12 @@ async function handleSubmit(req) {
       reachedAt: now,
       endless,
       endlessAt: now,
+      week: weekly > 0 ? week : 0,
+      weekly,
+      weeklyAt: now,
+      day: daily > 0 ? day : 0,
+      daily,
+      dailyAt: now,
       displayName,
       avatarUrl,
       createdAt: now,
@@ -188,6 +257,19 @@ async function handleSubmit(req) {
     patch.endless = endless;
     patch.endlessAt = now;
   }
+  // 周榜、日榜：新的一期直接换；同一期只升不降；旧的一期不回写。
+  const oldWeek = Number(existing.week) || 0;
+  if (weekly > 0 && (week > oldWeek || (week === oldWeek && weekly > (Number(existing.weekly) || 0)))) {
+    patch.week = week;
+    patch.weekly = weekly;
+    patch.weeklyAt = now;
+  }
+  const oldDay = Number(existing.day) || 0;
+  if (daily > 0 && (day > oldDay || (day === oldDay && daily > (Number(existing.daily) || 0)))) {
+    patch.day = day;
+    patch.daily = daily;
+    patch.dailyAt = now;
+  }
   if (existing.displayName !== displayName) patch.displayName = displayName;
   if ((existing.avatarUrl || '') !== avatarUrl) patch.avatarUrl = avatarUrl;
   if (Object.keys(patch).length === 0) {
@@ -195,7 +277,8 @@ async function handleSubmit(req) {
   }
   patch.updatedAt = now;
   await col.doc(existing._id).update(patch);
-  const scored = patch.cleared !== undefined || patch.endless !== undefined;
+  const scored = patch.cleared !== undefined || patch.endless !== undefined
+    || patch.weekly !== undefined || patch.daily !== undefined;
   return {
     updated: true,
     mode: scored ? 'update' : 'profile_update',
@@ -208,16 +291,17 @@ async function handleList(req) {
   const body = req.body || {};
   const limit = normalizeLimit(body.limit);
   const board = normalizeBoard(body.board);
+  const now = Date.now();
   const col = getRankingCollection();
   const res = await col
-    .where({ ...audience(platform), [board.score]: getDb().command.gt(0) })
+    .where({ ...audience(platform), ...periodScope(board, now), [board.score]: getDb().command.gt(0) })
     .orderBy(board.score, 'desc')
     .orderBy(board.at, 'asc')
     .limit(limit)
     .get();
   const rows = res && Array.isArray(res.data) ? res.data : [];
   const list = rows.map((doc, i) => publicRecord(doc, userId, i + 1));
-  const mine = await findMine(col, userId, platform, board);
+  const mine = await findMine(col, userId, platform, board, now);
   return { list, mine: mine ? publicRecord(mine.doc, userId, mine.rank) : null };
 }
 

@@ -74,6 +74,44 @@ namespace InkLine
             WaveGold != null && wave >= 0 && wave < WaveGold.Length
                 ? WaveGold[wave] : EnemyCatalog.DropMul(HpAt(wave));
 
+        // 下面几张逐波表只有闯波类（无尽、每日残局）填，null 都当「没有」。
+        // 移速倍率；魔气护体的整数百分比；魔化莲池盖上多少（0~1）；第一排以外该开几格。
+        public float[] WaveSpeed;
+        public int[] WaveWard;
+        public float[] WaveDark;
+        public int[] WaveCells;
+
+        static int Clip(int wave, int len) => Mathf.Clamp(wave, 0, len - 1);
+
+        public float SpeedAt(int wave) =>
+            WaveSpeed != null && WaveSpeed.Length > 0 ? WaveSpeed[Clip(wave, WaveSpeed.Length)] : 1f;
+
+        public int WardPercentAt(int wave) =>
+            WaveWard != null && WaveWard.Length > 0 ? WaveWard[Clip(wave, WaveWard.Length)] : 0;
+
+        public float DarkAt(int wave) =>
+            WaveDark != null && WaveDark.Length > 0 ? WaveDark[Clip(wave, WaveDark.Length)] : 0f;
+
+        // 这一波（从 0 数）进场时喊「魔气入侵」，-1 不喊。
+        public int DarkShout = -1;
+
+        // 每日残局：全服同一套波次、同一个开局盘面，成绩上「每日」榜。
+        public bool Daily;
+        public int DailyDay;
+        public PresetGlyph[] Preset;
+        // 今天停用、不进字池的字，只拿来给开局页写明。
+        public CardId[] Banned;
+
+        // 重描：已三星的关再打一遍，血更厚、一部分怪带魔化词缀。
+        public bool Hard;
+        // 杂兵带魔化词缀的概率；关底在重描里一律魔化。
+        public float DemonChance;
+
+        // 本局词缀。无尽按周换，每日残局按天换；主线是 null。
+        public StageRule Rule;
+        // 战场底图，空着按章节取。
+        public string Backdrop;
+
         // 这一关的钱袋，全部在 Build 里按波次表算好。
         // KillGold 是击杀赏金总和；GoldPurse 再加上黄箱的期望值，改装定价按它走。
         public int KillGold;
@@ -112,17 +150,19 @@ namespace InkLine
         }
 
         // 最后一波里有 boss 才算有关底。
-        public bool HasBoss
+        public bool HasBoss => Waves != null && Waves.Length > 0 && BossWave(Waves.Length - 1);
+
+        public bool BossWave(int wave)
         {
-            get
-            {
-                if (Waves == null || Waves.Length == 0) return false;
-                SpawnSpec[] last = Waves[Waves.Length - 1].Spawns;
-                for (int i = 0; i < last.Length; i++)
-                    if (EnemyIds.IsBoss(last[i].Id)) return true;
-                return false;
-            }
+            if (Waves == null || wave < 0 || wave >= Waves.Length) return false;
+            SpawnSpec[] list = Waves[wave].Spawns;
+            for (int i = 0; i < list.Length; i++)
+                if (EnemyIds.IsBoss(list[i].Id)) return true;
+            return false;
         }
+
+        // 浅拷贝：波次表、字池这些数组和原关共用，拷贝出来只改标量。
+        public StageDef Clone() => (StageDef)MemberwiseClone();
     }
 
     public static partial class StageCatalog

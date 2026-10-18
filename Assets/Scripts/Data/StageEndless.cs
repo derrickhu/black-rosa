@@ -4,13 +4,14 @@ using static InkLine.EnemyId;
 
 namespace InkLine
 {
-    // 无尽模式：一局 50 波，越打越硬，看能撑到第几波。成绩上排行榜的「无尽」页。
+    // 无尽模式：一局 50 波，越打越硬，看能撑到第几波。成绩上排行榜的「无尽」页（按周清榜）。
     // 血量每波一个倍率，前段抬得快、后段收平：第 1 波 2.3 倍，第 10 波约 3.9，
     // 第 20 波约 6.3，第 30 波约 9.3，第 40 波约 12.3，第 50 波停在 14 倍
     // （大约第八章关底的三倍）。薄皮杂兵另有下限。满盘面打得过第 50 波，不再是墙。
     // 只数跟着每波的总血涨，封顶 EndlessBodyCap，后期不至于卡。
     // 盘面开局一排；第 10 波起每 3 波随机开一格，先第二排后第三排，第 43 波开满。
     // 第 10 波起魔气从上往下渗到第 40 波，怪的减伤跟着涨到 12%。
+    // 每周换一条魔气词缀（StageRules），血、速、钱、怪量跟着词缀乘。
     // 金币掉得比主线吝啬、抽牌越抽越贵，钱永远不够花。
     // 兵种分四段解锁，第 10、20、30、40、50 波各压一只关底。
     // 每波用固定种子排，所有人打的是同一套，排行榜才公平。
@@ -79,12 +80,12 @@ namespace InkLine
             return EndlessHpOpen * Mathf.Pow(EndlessHpTop / EndlessHpOpen, u);
         }
 
-        // 这一只在第 wave 波的血。关底吃满倍率；杂兵基础血先托到 EndlessThinHp。
-        public static float EndlessHpOf(EnemyId id, int wave)
+        // 闯波类关卡里这一只的血：关底吃满倍率；杂兵基础血先托到 EndlessThinHp。mul 是当波倍率（含词缀）。
+        public static float SurvivalHpOf(EnemyId id, float mul)
         {
             EnemyDef bare = EnemyCatalog.Base(id);
             float hp = bare.IsBoss ? bare.Hp : Mathf.Max(bare.Hp, EndlessThinHp);
-            return hp * EndlessHp(wave);
+            return hp * mul;
         }
 
         public static bool EndlessBossWave(int wave) => (wave + 1) % EndlessBossEvery == 0;
@@ -114,21 +115,31 @@ namespace InkLine
             return Mathf.Min(pct, Mathf.RoundToInt(EndlessWardTop * 100f));
         }
 
-        public static float EndlessWard(int wave) => EndlessWardPercent(wave) * 0.01f;
-
         public static float EndlessDrop(int wave) => Mathf.Pow(Mathf.Max(0.1f, EndlessHp(wave)), EndlessDropPow);
 
-        public static StageDef EndlessStage(CardId[] pool)
+        public static StageDef EndlessStage(CardId[] pool, StageRule rule)
         {
+            float countMul = rule != null ? rule.CountMul : 1f;
             var waves = new WaveDef[EndlessWaves];
             var bodies = new int[EndlessWaves][];
             var hp = new float[EndlessWaves];
             var gold = new float[EndlessWaves];
+            var speed = new float[EndlessWaves];
+            var ward = new int[EndlessWaves];
+            var dark = new float[EndlessWaves];
+            var cells = new int[EndlessWaves];
             for (int w = 0; w < EndlessWaves; w++)
             {
-                EndlessWave(w, out waves[w], out bodies[w]);
+                EnemyId? boss = EndlessBossWave(w)
+                    ? EndlessBosses[Mathf.Clamp((w + 1) / EndlessBossEvery - 1, 0, EndlessBosses.Length - 1)]
+                    : (EnemyId?)null;
+                SurvivalWave(w, boss, new System.Random(7919 + w * 131), countMul, w, out waves[w], out bodies[w]);
                 hp[w] = EndlessHp(w);
                 gold[w] = EndlessDrop(w);
+                speed[w] = EndlessSpeed(w);
+                ward[w] = EndlessWardPercent(w);
+                dark[w] = EndlessDark(w);
+                cells[w] = EndlessCellsAt(w);
             }
             var s = new StageDef
             {
@@ -145,31 +156,59 @@ namespace InkLine
                 Hp = 1f,
                 WaveHp = hp,
                 WaveGold = gold,
+                WaveSpeed = speed,
+                WaveWard = ward,
+                WaveDark = dark,
+                WaveCells = cells,
+                DarkShout = EndlessDarkFrom - 1,
                 StaminaCost = 0,
-                Endless = true
+                Endless = true,
+                Backdrop = EndlessBackdrop,
             };
+            ApplyRule(s, rule);
+            PriceSurvival(s, EndlessPriceWaves);
+            return s;
+        }
 
-            int n = Mathf.Min(EndlessPriceWaves, EndlessWaves);
+        // 词缀乘到逐波表上。减伤只在已经有减伤的波次往上加，魔染例外：从第一波就带。
+        static void ApplyRule(StageDef s, StageRule rule)
+        {
+            s.Rule = rule;
+            if (rule == null) return;
+            for (int w = 0; w < s.Waves.Length; w++)
+            {
+                s.WaveHp[w] *= rule.HpMul;
+                s.WaveGold[w] *= rule.GoldMul;
+                if (s.WaveSpeed != null) s.WaveSpeed[w] *= rule.SpeedMul;
+                if (s.WaveWard != null) s.WaveWard[w] += rule.Ward;
+            }
+            s.DemonChance = Mathf.Max(s.DemonChance, rule.DemonChance);
+        }
+
+        // 闯波类的抽牌价只按前 n 波的钱袋定，再叠一截平方项；词缀的改装涨价乘在最后。
+        static void PriceSurvival(StageDef s, int n)
+        {
+            n = Mathf.Min(n, s.Waves.Length);
             var head = new StageDef
             {
                 Chapter = s.Chapter,
                 Mask = s.Mask,
                 Hp = s.Hp,
-                Waves = Head(waves, n),
-                Bodies = Head(bodies, n),
-                WaveHp = Head(hp, n),
-                WaveGold = Head(gold, n),
+                Waves = Head(s.Waves, n),
+                Bodies = Head(s.Bodies, n),
+                WaveHp = Head(s.WaveHp, n),
+                WaveGold = Head(s.WaveGold, n),
             };
             Price(head);
+            float draft = s.Rule != null ? s.Rule.DraftMul : 1f;
             s.KillGold = head.KillGold;
             s.GoldPurse = head.GoldPurse;
             s.InkBudget = head.InkBudget;
             s.ChestGold = head.ChestGold;
             s.ChestInk = head.ChestInk;
-            s.DraftFirst = head.DraftFirst;
-            s.DraftStep = head.DraftStep;
-            s.DraftCurve = EndlessDraftCurve;
-            return s;
+            s.DraftFirst = Mathf.RoundToInt(head.DraftFirst * draft);
+            s.DraftStep = head.DraftStep * draft;
+            s.DraftCurve = EndlessDraftCurve * draft;
         }
 
         static T[] Head<T>(T[] src, int n)
@@ -179,27 +218,27 @@ namespace InkLine
             return outp;
         }
 
-        static void EndlessWave(int w, out WaveDef wave, out int[] bodies)
+        // depth 是按无尽算的难度波号：决定兵种、预算、重兵上限和波长。shift 只用来错开出场列。
+        static void SurvivalWave(int depth, EnemyId? boss, System.Random rng, float countMul, int shift,
+            out WaveDef wave, out int[] bodies)
         {
-            var rng = new System.Random(7919 + w * 131);
-            bool boss = EndlessBossWave(w);
-            float budget = EndlessBudgetOpen + EndlessBudgetStep * w;
-            if (boss) budget *= EndlessEscort;
+            float budget = (EndlessBudgetOpen + EndlessBudgetStep * depth) * countMul;
+            if (boss.HasValue) budget *= EndlessEscort;
 
             var roster = new List<EnemyId>();
             for (int t = 0; t < EndlessTiers.Length; t++)
-                if (w >= EndlessTierFrom[t]) roster.AddRange(EndlessTiers[t]);
+                if (depth >= EndlessTierFrom[t]) roster.AddRange(EndlessTiers[t]);
 
             var ids = new List<EnemyId>();
             var groups = new List<int>();
             var used = new Dictionary<EnemyId, int>();
             float sum = 0f;
             int heads = 0, guard = 0;
-            int cap = boss ? EndlessBodyCap / 2 : EndlessBodyCap;
+            int cap = Mathf.RoundToInt((boss.HasValue ? EndlessBodyCap / 2 : EndlessBodyCap) * countMul);
             while (sum < budget && heads < cap && guard++ < 600)
             {
                 EnemyId id = roster[rng.Next(roster.Count)];
-                int limit = EndlessHeavyCap(id, w);
+                int limit = EndlessHeavyCap(id, depth);
                 used.TryGetValue(id, out int had);
                 if (limit >= 0 && had >= limit) continue;
                 // 重兵抽中一半才算，不让它们和杂兵一样常见。
@@ -212,15 +251,15 @@ namespace InkLine
                 heads += n;
             }
 
-            float span = EndlessSpanOpen + EndlessSpanStep * w;
-            float open = boss ? 2.4f : 0.4f;
+            float span = EndlessSpanOpen + EndlessSpanStep * depth;
+            float open = boss.HasValue ? 2.4f : 0.4f;
             float room = Mathf.Max(1f, span - EndlessTail - open);
             int cols = GameConstants.Columns;
             var specs = new List<SpawnSpec>();
             var counts = new List<int>();
-            if (boss)
+            if (boss.HasValue)
             {
-                EnemyId b = EndlessBosses[Mathf.Clamp((w + 1) / EndlessBossEvery - 1, 0, EndlessBosses.Length - 1)];
+                EnemyId b = boss.Value;
                 if (b == BossTwin)
                 {
                     specs.Add(new SpawnSpec(0.3f, b, 1));
@@ -237,11 +276,11 @@ namespace InkLine
             for (int i = 0; i < ids.Count; i++)
             {
                 float t = open + (ids.Count > 1 ? room * i / (ids.Count - 1f) : 0f);
-                int col = (w + SpreadOff(i % cols) + i / cols) % cols;
+                int col = (shift + SpreadOff(i % cols) + i / cols) % cols;
                 specs.Add(new SpawnSpec(t, ids[i], col, groups[i]));
                 counts.Add(groups[i]);
             }
-            float dur = boss ? Mathf.Max(22f, span + 8f) : span;
+            float dur = boss.HasValue ? Mathf.Max(22f, span + 8f) : span;
             wave = new WaveDef(dur, specs.ToArray());
             bodies = counts.ToArray();
         }

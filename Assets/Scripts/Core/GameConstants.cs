@@ -18,6 +18,18 @@ namespace InkLine
         public const int EndlessPlaysPerDay = 1;
         public const int EndlessAdPlays = 1;
         public const int EndlessInkPerWave = 5;
+        // 每日残局通关第四章开，每天一局，看广告再加一局，续一次命。
+        public const int DailyOpenChapter = 3;
+        public const int DailyPlaysPerDay = 1;
+        public const int DailyAdPlays = 1;
+        public const int DailyInkPerWave = 4;
+        // 重描首通的钻石：普通关、有关底、章底。
+        public const int HardDiamondStage = 2;
+        public const int HardDiamondBoss = 6;
+        public const int HardDiamondFinale = 15;
+        // 每日功课：三条，每条给墨；三条全领再给钻石。
+        public const int TaskCount = 3;
+        public const int TaskBonusDiamond = 10;
         // 改装起价的下限。开局有 6 金币，低于这个数按钮一进关就亮。
         public const int FirstDraftCost = 10;
         public const int DraftCostStep = 2;

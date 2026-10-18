@@ -27,6 +27,11 @@ namespace InkLine
         // 正在打的活动档位，主线关是 -1。
         int _eventTier = -1;
         bool _endless;
+        // 每日残局也走闯波那一套（_endless 同时为真），结算、次数、榜单另算。
+        bool _daily;
+        bool _hard;
+        // 这一局的功课已经记过了。赢、输、撤退各走各的路，只记一次。
+        bool _tallied;
         ResultInfo _result;
         bool _inkDoubled;
         CardId[] _offer = new CardId[3];
@@ -296,6 +301,7 @@ namespace InkLine
                 }
                 int pct = _world == null ? 0 : Mathf.Clamp(Mathf.RoundToInt(_world.Progress * 100f), 0, 99);
                 Analytics.LevelFail("give_up", pct);
+                Tally(false);
                 bool fromEvent = _eventTier >= 0;
                 ShowHome();
                 if (fromEvent) _home?.OpenEvent();
@@ -382,6 +388,8 @@ namespace InkLine
             _home = HomeScreen.Build(_layer, _meta, StartStage, ReloadSave, tab);
             _home.StartEvent = StartEvent;
             _home.StartEndless = StartEndless;
+            _home.StartDaily = StartDaily;
+            _home.StartHard = StartHard;
             AudioBus.Music("bgm_home");
             AudioBus.Warm("bgm_battle");
             if (_meta.EndlessOpen) AudioBus.Warm("bgm_endless");
@@ -676,8 +684,50 @@ namespace InkLine
             _pickStage = index;
             _eventTier = -1;
             _endless = false;
+            _daily = false;
+            _hard = false;
             _teachAim = index == 0 && !guide;
             BeginBattle(StageCatalog.Get(index));
+        }
+
+        // 重描：体力和主线一样收，章内按顺序开。
+        void StartHard(int index)
+        {
+            _meta.StorePending();
+            if (HoldOverflow(() => StartHard(index))) return;
+            _overflowSnooze = false;
+            if (!_meta.HardUnlocked(index) || !_meta.CanEnter(index)) return;
+            _meta.SpendStamina(_meta.StageCost(index));
+            _guide = false;
+            _teach = 0;
+            _pickStage = index;
+            _eventTier = -1;
+            _endless = false;
+            _daily = false;
+            _hard = true;
+            _teachAim = false;
+            BeginBattle(StageCatalog.HardStage(index));
+            _world.ShowToast("重描：怪更硬，洋红色的带魔化词缀", 2.4f);
+        }
+
+        // 每日残局：扣当天次数，不扣体力。全服同一局。
+        void StartDaily()
+        {
+            if (!_meta.DailyOpen) return;
+            _meta.StorePending();
+            if (HoldOverflow(StartDaily)) return;
+            _overflowSnooze = false;
+            if (!_meta.SpendDailyPlay()) return;
+            _guide = false;
+            _teach = 0;
+            _eventTier = -1;
+            _endless = true;
+            _daily = true;
+            _hard = false;
+            _teachAim = false;
+            StageDef stage = StageCatalog.DailyStage(DayClock.Today, DayClock.Week);
+            BeginBattle(stage);
+            _world.ShowToast("今日词缀 · " + stage.Rule.Name + "：" + stage.Rule.Desc, 3f);
         }
 
         // 招财进宝：扣当天的活动次数，不扣体力。
@@ -692,6 +742,8 @@ namespace InkLine
             _teach = 0;
             _eventTier = tier;
             _endless = false;
+            _daily = false;
+            _hard = false;
             _teachAim = false;
             BeginBattle(StageCatalog.EventStage(tier, _meta.EventPool()));
             if (_meta.EventDone) _world.ShowToast("奖励已全部领取，本局不会获得任何奖励", 2.4f);
@@ -709,19 +761,26 @@ namespace InkLine
             _teach = 0;
             _eventTier = -1;
             _endless = true;
+            _daily = false;
+            _hard = false;
             _teachAim = false;
-            BeginBattle(StageCatalog.EndlessStage(_meta.EventPool()));
-            if (_meta.EndlessBest > 0) _world.ShowToast("最好成绩：第 " + _meta.EndlessBest + " 波", 2.4f);
+            StageRule rule = StageRules.ThisWeek;
+            BeginBattle(StageCatalog.EndlessStage(_meta.EventPool(), rule));
+            string best = _meta.EndlessWeekBest > 0 ? "，本周最好第 " + _meta.EndlessWeekBest + " 波" : "";
+            _world.ShowToast("本周词缀 · " + rule.Name + "：" + rule.Desc + best, 3f);
         }
 
-        // 埋点里的关卡号。主线是正数，活动是 -1~-3，无尽单独一个。
+        // 埋点里的关卡号。主线是正数，活动是 -1~-3，无尽、每日各一个，重描在主线号上加 1000。
         const int EndlessLevelId = -100;
+        const int DailyLevelId = -101;
+        const int HardLevelBase = 1000;
 
         void BeginBattle(StageDef stage)
         {
             _home = null;
             _taughtStar = false;
             _taughtUp = false;
+            _tallied = false;
             _tip = "";
             InkSprites.EnemyTheme = stage.Event ? InkSprites.EventTheme : null;
             _world = new BattleWorld();
@@ -734,13 +793,15 @@ namespace InkLine
             if (_view != null) _view.Dispose();
             _view = new BattleView(null);
             if (stage.Event) _view.SetBackdrop(StageCatalog.EventBackdrop);
-            else if (stage.Endless) _view.SetBackdrop(StageCatalog.EndlessBackdrop);
+            else if (!string.IsNullOrEmpty(stage.Backdrop)) _view.SetBackdrop(stage.Backdrop);
             else _view.SetBackdrop(_world.Stage.Chapter);
             _view.EmitterSkin = _meta.Skin;
             _view.EmitterTint = _meta.SkinTint;
             if (!BattleWorld.PreviewFill)
             {
-                int levelId = stage.Endless ? EndlessLevelId : stage.Event ? -(stage.EventTier + 1) : stage.Index + 1;
+                int levelId = stage.Daily ? DailyLevelId : stage.Endless ? EndlessLevelId
+                    : stage.Event ? -(stage.EventTier + 1)
+                    : stage.Hard ? HardLevelBase + stage.Index + 1 : stage.Index + 1;
                 Analytics.LevelStart(levelId, stage.Name ?? "");
             }
             BuildBattleHud();
@@ -1236,8 +1297,9 @@ namespace InkLine
                 AudioBus.Win();
                 Analytics.LevelClear(_world.StarsEarned);
                 _result = _meta.ApplyResult(_pickStage, _world.Ink, _world.StarsEarned,
-                    _world.BaseHp, _world.MaxBaseHp, _world.RevivesUsed > 0);
-                RankService.Submit(_meta.ClearedCount(), _meta.EndlessBest);
+                    _world.BaseHp, _world.MaxBaseHp, _world.RevivesUsed > 0, _hard);
+                Tally(true);
+                RankService.Submit(_meta);
                 ShowVictory(_pickStage, _result);
             }
             else if (_guide)
@@ -1260,7 +1322,9 @@ namespace InkLine
             CloseMask();
             bool guide = _guide && !preview;
             int next = stage + 1;
-            bool hasNext = next < GameConstants.StageCount && (preview || _meta.Unlocked(next));
+            bool hard = info.Hard && !preview;
+            bool hasNext = next < GameConstants.StageCount
+                && (preview || (hard ? _meta.HardUnlocked(next) : _meta.Unlocked(next)));
             // 一个广告同时管墨翻倍和当场开这关的宝箱。位满了也能开，开了就不占格子。
             bool canInk = info.Ink > 0;
             bool canChest = !preview && info.Chest >= 0 && _meta.HasPendingChest;
@@ -1271,7 +1335,7 @@ namespace InkLine
                 Info = info,
                 NextCost = hasNext ? _meta.StageCost(next) : -1,
                 NextAffordable = hasNext && (preview || _meta.CanEnter(next)),
-                Next = preview ? (System.Action)ShowHome : () => StartStage(next),
+                Next = preview ? (System.Action)ShowHome : hard ? () => StartHard(next) : () => StartStage(next),
                 DoubleInk = !canInk && !canChest ? (System.Action)null : () =>
                 {
                     if (_inkDoubled) return;
@@ -1404,9 +1468,34 @@ namespace InkLine
             ShowEventResult(true, banked, unlocked);
         }
 
+        // 局后记功课。读的是 BattleWorld 自己数的计数，赢输撤退都记，同一局只记一次。
+        void Tally(bool win)
+        {
+            if (_tallied || _world == null || BattleWorld.PreviewFill) return;
+            _tallied = true;
+            StageDef s = _world.Stage;
+            _meta.NoteBattle(new BattleTally
+            {
+                Win = win,
+                Main = !s.Endless && !s.Event && !s.Hard,
+                Hard = s.Hard,
+                Daily = s.Daily,
+                Endless = s.Endless && !s.Daily,
+                Waves = _world.WavesCleared,
+                Kills = _world.Kills,
+                KillsWith = _world.KillsWith,
+                Words = _world.WordsLit,
+                Pairs = _world.PairsLit,
+                TopStars = _world.TopStars,
+                Items = _world.ItemsUsed,
+                Combo = _world.BestCombo,
+            });
+        }
+
         void ShowEventResult(bool win, int banked, string unlocked, int purse = 0)
         {
             DropOverlay();
+            Tally(win);
             int tier = _eventTier;
             int salvage = !win && !_meta.EventDone ? EventCatalog.Salvage(purse) : 0;
             bool salvaged = false;
@@ -1471,19 +1560,25 @@ namespace InkLine
                 AudioBus.Win();
                 Analytics.LevelClear(_world.StarsEarned);
             }
-            else Analytics.LevelFail("hp_zero", Mathf.Clamp(waves * 100 / StageCatalog.EndlessWaves, 0, 99));
-            EndlessResult r = _meta.ApplyEndless(waves, _world != null ? _world.Ink : 0);
-            RankService.Submit(_meta.ClearedCount(), _meta.EndlessBest);
+            int total = _world != null ? _world.Stage.Waves.Length : StageCatalog.EndlessWaves;
+            if (!win) Analytics.LevelFail("hp_zero", Mathf.Clamp(waves * 100 / Mathf.Max(1, total), 0, 99));
+            bool daily = _daily;
+            int collected = _world != null ? _world.Ink : 0;
+            EndlessResult r = daily ? _meta.ApplyDaily(waves, collected) : _meta.ApplyEndless(waves, collected);
+            Tally(win);
+            RankService.Submit(_meta);
             _inkDoubled = false;
             EndlessResultPanel panel = null;
             panel = EndlessResultPanel.Show(_layer, _meta, new EndlessResultArgs
             {
                 Win = win,
+                Daily = daily,
+                Total = total,
                 Result = r,
                 Double = r.Ink <= 0 ? (System.Action)null : () =>
                 {
                     if (_inkDoubled) return;
-                    AdStub.Reward("endless_double", () =>
+                    AdStub.Reward(daily ? "daily_double" : "endless_double", () =>
                     {
                         if (_inkDoubled) return;
                         _inkDoubled = true;
@@ -1493,6 +1588,17 @@ namespace InkLine
                 },
                 Again = () =>
                 {
+                    if (daily)
+                    {
+                        if (_meta.DailyPlaysLeft <= 0 || !_meta.DailyOpen)
+                        {
+                            AudioBus.Deny();
+                            if (_layer != null) InkToast.Show(_layer, "今天的残局次数用完了，明天换一局");
+                            return;
+                        }
+                        StartDaily();
+                        return;
+                    }
                     if (_meta.EndlessPlaysLeft <= 0 || !_meta.EndlessOpen)
                     {
                         AudioBus.Deny();
@@ -1504,7 +1610,8 @@ namespace InkLine
                 Rank = () =>
                 {
                     ShowHome();
-                    if (_screen == Screen.Lobby && _layer != null) RankPanel.Show(_layer, _meta, RankService.BoardEndless);
+                    if (_screen == Screen.Lobby && _layer != null)
+                        RankPanel.Show(_layer, _meta, daily ? RankService.BoardDaily : RankService.BoardWeekly);
                 },
                 Home = ShowHome
             });
@@ -1514,16 +1621,21 @@ namespace InkLine
         void ShowDefeat(int stage, float progress, bool preview = false)
         {
             if (!preview)
+            {
                 Analytics.LevelFail("hp_zero", Mathf.Clamp(Mathf.RoundToInt(progress * 100f), 0, 99));
+                Tally(false);
+            }
             DropOverlay();
+            bool hard = _hard && !preview;
             _overlay = DefeatPanel.Show(_layer, new DefeatArgs
             {
                 Stage = stage,
+                Hard = hard,
                 Progress = progress,
                 RetryCost = _meta.StageCost(stage),
                 CanRetry = preview || _meta.CanEnter(stage),
                 Advice = DefeatAdvice.Build(_meta),
-                Retry = preview ? (System.Action)ShowHome : () => StartStage(stage),
+                Retry = preview ? (System.Action)ShowHome : hard ? () => StartHard(stage) : () => StartStage(stage),
                 Improve = ShowHome,
                 Home = ShowHome
             }).Root;

@@ -81,7 +81,7 @@ namespace InkLine
                  .Punch(banner, 0.47f, 0.10f, 0.3f)
                  .At(0.42f, AudioBus.Stamp);
 
-            var sub = UiKit.Label(stage0, "sub", $"第 {a.Stage + 1} 关", 30,
+            var sub = UiKit.Label(stage0, "sub", (info.Hard ? "重描 · " : "") + $"第 {a.Stage + 1} 关", 30,
                 new Vector2(0f, 258f), new Vector2(560f, 44f));
             sub.color = InkTheme.Hex("FFE7B8");
             UiKit.Bold(sub);
@@ -381,7 +381,7 @@ namespace InkLine
         bool BuildTeaser(RectTransform parent, VictoryArgs a, float at, out float end)
         {
             end = at;
-            if (!a.Info.FirstClear) return false;
+            if (!a.Info.FirstClear || a.Info.Hard) return false;
             int next = a.Stage + 1;
             if (next >= GameConstants.StageCount) return false;
             List<CardId> fresh = StageCatalog.NewCards(next);
