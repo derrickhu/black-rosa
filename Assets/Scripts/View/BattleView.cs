@@ -155,18 +155,80 @@ namespace InkLine
                 _backdrop.sortingOrder = -10;
             }
             CdnAssets.Bind(_backdrop, name);
+            SetDark(name == StageCatalog.EndlessBackdrop ? StageCatalog.EndlessDarkBackdrop : null);
             FitBackdrop();
         }
 
+        // 无尽的魔化莲池叠在原图上面，透明度跟着波数往上走。
+        SpriteRenderer _dark;
+        float _darkK;
+
+        void SetDark(string name)
+        {
+            _darkK = 0f;
+            Sprite s = name != null ? InkSprites.Load(name) : null;
+            if (s == null)
+            {
+                if (_dark != null) _dark.enabled = false;
+                return;
+            }
+            if (_dark == null)
+            {
+                _dark = Make("backdrop_dark", s, Vector3.zero, 1f);
+                _dark.sortingOrder = -9;
+            }
+            _dark.enabled = true;
+            if (_reveal == null)
+            {
+                var mat = Resources.Load<Material>(RevealMat);
+                if (mat != null) _reveal = new Material(mat);
+            }
+            if (_reveal != null) _dark.sharedMaterial = _reveal;
+            Paint(0f);
+            CdnAssets.Bind(_dark, name);
+        }
+
+        // 魔气从顶上往下渗；材质没进包时退回整张淡入。
+        const string RevealMat = "Fx/endless_reveal";
+        static readonly int RevealId = Shader.PropertyToID("_Reveal");
+        Material _reveal;
+
+        void Paint(float k)
+        {
+            if (_reveal != null)
+            {
+                _reveal.SetFloat(RevealId, k);
+                _dark.color = Color.white;
+            }
+            else _dark.color = new Color(1f, 1f, 1f, k);
+        }
+
+        void TickDark(BattleWorld w)
+        {
+            if (_dark == null || !_dark.enabled) return;
+            float want = w.Stage != null && w.Stage.Endless ? StageCatalog.EndlessDark(w.WaveIndex) : 0f;
+            _darkK = Mathf.MoveTowards(_darkK, want, Time.deltaTime / DarkFadeSecs);
+            Paint(_darkK);
+        }
+
+        // 每一档（一成）魔化用几秒慢慢渗下来，不在换波那一下跳色。
+        const float DarkFadeSecs = 30f;
+
         void FitBackdrop()
         {
+            Fit(_backdrop);
+            if (_dark != null && _dark.enabled) Fit(_dark);
+        }
+
+        static void Fit(SpriteRenderer sr)
+        {
             Camera cam = Camera.main;
-            if (_backdrop == null || _backdrop.sprite == null || cam == null) return;
+            if (sr == null || sr.sprite == null || cam == null) return;
             float h = cam.orthographicSize * 2f;
             float w = h * cam.aspect;
-            Vector2 size = _backdrop.sprite.bounds.size;
+            Vector2 size = sr.sprite.bounds.size;
             float k = Mathf.Max(w / Mathf.Max(0.01f, size.x), h / Mathf.Max(0.01f, size.y));
-            Transform t = _backdrop.transform;
+            Transform t = sr.transform;
             t.localScale = new Vector3(k, k, 1f);
             t.position = new Vector3(cam.transform.position.x, cam.transform.position.y, 0f);
         }
@@ -174,6 +236,7 @@ namespace InkLine
         public void Sync(BattleWorld w)
         {
             FitBackdrop();
+            TickDark(w);
             _juice.Consume(w);
             _juice.Tick();
             int i = 0;

@@ -10,16 +10,20 @@ namespace InkLine
         public static readonly Color BoardFill = InkTheme.Hex("FBF4E6");
 
         public static RectTransform Board(RectTransform dim, string title, Vector2 pos, Vector2 size, Pin pin, Action close)
+            => Board(dim, title, pos, size, pin, close, "Ui/ribbon_chapter", 380f, 0.10f);
+
+        // ribbon 换横幅图；lift 是标题相对横幅中心往上抬的比例，按横幅正面那块的位置定。
+        public static RectTransform Board(RectTransform dim, string title, Vector2 pos, Vector2 size, Pin pin, Action close,
+            string ribbonKey, float ribW, float lift)
         {
             var board = UiKit.Stroke(dim, "board", pos, size, pin, 6f, null, BoardFill, 28f);
 
-            Sprite rib = InkSprites.Load("Ui/ribbon_chapter");
-            float ribW = 380f;
+            Sprite rib = InkSprites.Load(ribbonKey);
             float ribH = rib != null && rib.rect.width > 1f ? ribW * rib.rect.height / rib.rect.width : 100f;
-            var ribbon = UiKit.Art(board, "ribbon", "Ui/ribbon_chapter", new Vector2(0f, -ribH * 0.46f),
+            var ribbon = UiKit.Art(board, "ribbon", ribbonKey, new Vector2(0f, -ribH * 0.46f),
                 new Vector2(ribW, ribH), Pin.Top);
             ribbon.GetComponent<Image>().raycastTarget = false;
-            var t = UiKit.Label(ribbon, "t", title, 38, new Vector2(0f, ribH * 0.10f), new Vector2(260f, 56f));
+            var t = UiKit.Label(ribbon, "t", title, 38, new Vector2(0f, ribH * lift), new Vector2(260f, 56f));
             t.color = InkTheme.CardFace;
             UiKit.Bold(t);
 

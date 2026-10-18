@@ -1036,14 +1036,14 @@ namespace InkLine
                 Button btn = _view.SideActs[i];
                 if (btn == null) continue;
                 btn.onClick.RemoveAllListeners();
-                btn.onClick.AddListener(() => AudioBus.Tap());
+                if (i == SideEvent) btn.onClick.AddListener(OpenEvent);
+                else if (i == SideEndless) btn.onClick.AddListener(OpenEndless);
+                else btn.onClick.AddListener(() => AudioBus.Tap());
                 if (i == SideGift) btn.onClick.AddListener(() => StarterGiftPanel.Show(_layer, _meta, AfterReward));
                 else if (i == SideClub) btn.onClick.AddListener(() => GameClubPanel.Show(_layer, _meta, AfterReward));
                 else if (i == SideCheckIn) btn.onClick.AddListener(() => CheckInPanel.Show(_layer, _meta, AfterReward));
                 else if (i == SideCodex) btn.onClick.AddListener(() => CodexPanel.Show(_layer, _meta, AfterReward));
                 else if (i == SideRank) btn.onClick.AddListener(() => RankPanel.Show(_layer, _meta));
-                else if (i == SideEvent) btn.onClick.AddListener(OpenEvent);
-                else if (i == SideEndless) btn.onClick.AddListener(OpenEndless);
             }
             if (_view.SideActs.Length != SortiePageBuilder.SideCount) return;
             Button gift = _view.SideActs[SideGift];
@@ -1053,12 +1053,18 @@ namespace InkLine
             RedDot(_view.SideActs[SideCheckIn], !_meta.CheckedToday);
             RedDot(_view.SideActs[SideCodex], _meta.CodexHasNew);
             Button ev = _view.SideActs[SideEvent];
-            if (ev != null) ev.gameObject.SetActive(_meta.EventOpen);
+            if (ev != null) ev.gameObject.SetActive(true);
+            PaintLock(ev, !_meta.EventOpen);
             RedDot(ev, _meta.EventOpen && (_meta.EventHasClaim() || (!_meta.EventDone && _meta.EventPlaysLeft > 0)));
             Button endless = _view.SideActs[SideEndless];
-            if (endless != null) endless.gameObject.SetActive(_meta.EndlessOpen);
+            if (endless != null) endless.gameObject.SetActive(true);
+            PaintLock(endless, !_meta.EndlessOpen);
             RedDot(endless, _meta.EndlessOpen && _meta.EndlessPlaysLeft > 0);
-            if (_meta.EndlessOpen) CdnAssets.Prefetch(StageCatalog.EndlessBackdrop);
+            if (_meta.EndlessOpen)
+            {
+                CdnAssets.Prefetch(StageCatalog.EndlessBackdrop);
+                CdnAssets.Prefetch(StageCatalog.EndlessDarkBackdrop);
+            }
         }
 
         // GameFlow 接上开打活动关；结算页「回活动」也从这里重开活动面板。
@@ -1066,7 +1072,13 @@ namespace InkLine
 
         public void OpenEvent()
         {
-            if (!_meta.EventOpen) return;
+            if (!_meta.EventOpen)
+            {
+                AudioBus.Deny();
+                InkToast.Show(_layer, "通关第一章开放");
+                return;
+            }
+            AudioBus.Tap();
             EventPanel.Show(_layer, _meta, tier => StartEvent?.Invoke(tier), AfterReward);
         }
 
@@ -1074,8 +1086,34 @@ namespace InkLine
 
         public void OpenEndless()
         {
-            if (!_meta.EndlessOpen) return;
+            if (!_meta.EndlessOpen)
+            {
+                AudioBus.Deny();
+                InkToast.Show(_layer, "通关第二章开放");
+                return;
+            }
+            AudioBus.Tap();
             EndlessPanel.Show(_layer, _meta, () => StartEndless?.Invoke(), AfterReward);
+        }
+
+        // 没开的入口留在原位，压一把锁，图标压暗。开了就把锁拿掉。
+        static void PaintLock(Button btn, bool locked)
+        {
+            if (btn == null) return;
+            var icon = btn.transform.Find("icon");
+            if (icon != null)
+            {
+                var img = icon.GetComponent<Image>();
+                if (img != null) img.color = locked ? new Color(0.62f, 0.62f, 0.62f, 1f) : Color.white;
+            }
+            Transform mark = btn.transform.Find("lock");
+            if (locked && mark == null)
+            {
+                var img = UiKit.Icon(btn.transform, InkSprites.Load("icon_lock"), new Vector2(0f, 8f), 46f);
+                img.gameObject.name = "lock";
+                mark = img.transform;
+            }
+            if (mark != null) mark.gameObject.SetActive(locked);
         }
 
         // 领了礼包 / 游戏圈奖励：顶栏数值、礼包贴纸、皮肤页都要跟着变。

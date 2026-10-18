@@ -539,7 +539,7 @@ namespace InkLine
             return true;
         }
 
-        // 无尽：通完第二章才露入口。每天免费一局，看广告再加一局，不扣体力。
+        // 无尽：通完第二章才进得去。入口从第一天就挂着，没开时加锁。每天免费一局，看广告再加一局，不扣体力。
         public bool EndlessOpen => ChapterCleared(GameConstants.EndlessOpenChapter);
 
         public int EndlessPlaysLeft
@@ -599,8 +599,8 @@ namespace InkLine
             return r;
         }
 
-        // 招财进宝：常驻，通完第一章才露入口。
-        public bool EventOpen => ChapterCleared(0);
+        // 招财进宝：常驻，通完第一章才进得去。入口从第一天就挂着，没开时加锁。
+        public bool EventOpen => ChapterCleared(GameConstants.EventOpenChapter);
 
         // 里程碑全领完了：还能打，但不再存钱，也没有翻倍。
         public bool EventDone

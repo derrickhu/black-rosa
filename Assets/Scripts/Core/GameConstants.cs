@@ -12,6 +12,8 @@ namespace InkLine
         public const int MaxRevives = 2;
         // 无尽模式只给续一次命。
         public const int EndlessRevives = 1;
+        // 章下标从 0 数。招财进宝通关第一章开，无尽通关第二章开。
+        public const int EventOpenChapter = 0;
         public const int EndlessOpenChapter = 1;
         public const int EndlessPlaysPerDay = 1;
         public const int EndlessAdPlays = 1;

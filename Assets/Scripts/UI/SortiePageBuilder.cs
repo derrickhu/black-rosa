@@ -277,18 +277,39 @@ namespace InkLine
             return btn;
         }
 
-        // 侧边贴纸：左列新手礼包、游戏圈、签到，右列招财进宝（最上）、图鉴、排行榜、无尽（最下）。下标见 HomeScreen.Side*。
+        // 侧边贴纸：左列签到、游戏圈、新手礼包，右列排行榜（最上）、图鉴、招财进宝、无尽（最下）。下标见 HomeScreen.Side*。
+        // 新手礼包领完就消失，所以放在最下，空出来的是列尾。
         public const int SideCount = 7;
 
-        // 老的 Home.prefab 里烘的是四个贴纸，数量对不上就当场重建。
+        // 老的 Home.prefab 里烘的是四个贴纸，数量对不上就当场重建。数量够了也按现在的位置排一次，
+        // 预制里烘过的坐标不会自己跟着改。
         public static void EnsureSides(HomeView view, RectTransform page)
         {
             if (view == null || page == null) return;
-            if (view.SideActs != null && view.SideActs.Length == SideCount) return;
-            if (view.SideActs != null)
-                foreach (Button old in view.SideActs)
-                    if (old != null) UnityEngine.Object.Destroy(old.gameObject);
-            view.SideActs = BuildSides(page);
+            if (view.SideActs == null || view.SideActs.Length != SideCount)
+            {
+                if (view.SideActs != null)
+                    foreach (Button old in view.SideActs)
+                        if (old != null) UnityEngine.Object.Destroy(old.gameObject);
+                view.SideActs = BuildSides(page);
+                return;
+            }
+            float[] ys = SideYs();
+            for (int i = 0; i < view.SideActs.Length && i < ys.Length; i++)
+            {
+                if (view.SideActs[i] == null) continue;
+                var rt = (RectTransform)view.SideActs[i].transform;
+                rt.anchoredPosition = new Vector2(rt.anchoredPosition.x, -ys[i]);
+            }
+        }
+
+        static float[] SideYs()
+        {
+            float y1 = CardTop + CardH * 0.40f;
+            float y2 = CardTop + CardH * 0.68f;
+            float y0 = y1 - (y2 - y1);
+            float y3 = y2 + (y2 - y1);
+            return new[] { y2, y1, y0, y1, y0, y2, y3 };
         }
 
         static Button[] BuildSides(RectTransform page)
@@ -306,11 +327,7 @@ namespace InkLine
                 new Vector2(100f, 100f),
                 new Vector2(104f, 112f),
             };
-            float y1 = CardTop + CardH * 0.40f;
-            float y2 = CardTop + CardH * 0.68f;
-            float y0 = y1 - (y2 - y1);
-            float y3 = y2 + (y2 - y1);
-            float[] ys = { y0, y1, y2, y1, y2, y0, y3 };
+            float[] ys = SideYs();
             var buttons = new Button[SideCount];
             for (int i = 0; i < SideCount; i++)
             {

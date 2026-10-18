@@ -644,7 +644,12 @@ namespace InkLine
                     AudioBus.Horde();
                     AddShake(0.16f);
                 }
-                if (Stage.Endless && WaveIndex < Stage.Waves.Length) GrantEndlessCells();
+                if (Stage.Endless && WaveIndex < Stage.Waves.Length)
+                {
+                    GrantEndlessCells();
+                    if (WaveIndex == StageCatalog.EndlessDarkFrom)
+                        Shouts.Add(new Shout { Kind = ShoutKind.Rush, Text = "魔气入侵！", Sub = "莲池正在被侵染" });
+                }
             }
         }
 

@@ -18,6 +18,10 @@ namespace InkLine
         public const int EndlessWaves = 50;
         public const int EndlessBossEvery = 10;
         public const string EndlessBackdrop = "Bg/battle_bg_endless";
+        // 同布局的魔化莲池。第一只关底之后逐波叠上来，EndlessDarkSpan 波后整张换掉。
+        public const string EndlessDarkBackdrop = "Bg/battle_bg_endless_dark";
+        public const int EndlessDarkFrom = 10;
+        const int EndlessDarkSpan = 10;
 
         // 基础移速、掉墨借这一章；移速再按 EndlessSpeed 逐波加。
         const int EndlessPace = 3;
@@ -37,7 +41,7 @@ namespace InkLine
 
         // 开局只有第一排。第 EndlessCellFrom 波（从 1 数）起每 EndlessCellEvery 波开一格：
         // 先在第二排随机挑，第二排满了再随机开第三排。挑哪格每局不同，只数和时机人人一样。
-        const int EndlessCellFrom = 10;
+        public const int EndlessCellFrom = 10;
         const int EndlessCellEvery = 3;
         public const int EndlessCellMax = GameConstants.Columns * (GameConstants.Rows - 1);
         const float EndlessTail = 5f;
@@ -75,6 +79,10 @@ namespace InkLine
         public static int EndlessCellsAt(int wave) =>
             wave < EndlessCellFrom - 1 ? 0
                 : Mathf.Min(EndlessCellMax, 1 + (wave - EndlessCellFrom + 1) / EndlessCellEvery);
+
+        // 第 wave 波（从 0 数）魔化莲池该盖上多少。
+        public static float EndlessDark(int wave) =>
+            Mathf.Clamp01((wave - EndlessDarkFrom + 1) / (float)EndlessDarkSpan);
 
         public static float EndlessDrop(int wave) => Mathf.Pow(Mathf.Max(0.1f, EndlessHp(wave)), EndlessDropPow);
 
