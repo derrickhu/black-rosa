@@ -277,8 +277,8 @@ namespace InkLine
             return btn;
         }
 
-        // 侧边贴纸：左列新手礼包、游戏圈、签到，右列招财进宝（最上）、图鉴、排行榜。下标见 HomeScreen.Side*。
-        public const int SideCount = 6;
+        // 侧边贴纸：左列新手礼包、游戏圈、签到，右列招财进宝（最上）、图鉴、排行榜、无尽（最下）。下标见 HomeScreen.Side*。
+        public const int SideCount = 7;
 
         // 老的 Home.prefab 里烘的是四个贴纸，数量对不上就当场重建。
         public static void EnsureSides(HomeView view, RectTransform page)
@@ -294,8 +294,8 @@ namespace InkLine
         static Button[] BuildSides(RectTransform page)
         {
             // 合稿上的贴纸尺寸，含一圈白边。锚在页面左右边，外沿贴屏幕。
-            string[] labels = { "新手礼包", "游戏圈", "签到", "图鉴", "排行榜", EventCatalog.Title };
-            string[] icons = { "act_event", "act_circle", "act_checkin", "act_codex", "act_rank", "skin_lucky" };
+            string[] labels = { "新手礼包", "游戏圈", "签到", "图鉴", "排行榜", EventCatalog.Title, "无尽模式" };
+            string[] icons = { "act_event", "act_circle", "act_checkin", "act_codex", "act_rank", "skin_lucky", "act_endless" };
             Vector2[] iconSize =
             {
                 new Vector2(96f, 96f),
@@ -304,11 +304,13 @@ namespace InkLine
                 new Vector2(86f, 106f),
                 new Vector2(112f, 102f),
                 new Vector2(100f, 100f),
+                new Vector2(104f, 112f),
             };
             float y1 = CardTop + CardH * 0.40f;
             float y2 = CardTop + CardH * 0.68f;
             float y0 = y1 - (y2 - y1);
-            float[] ys = { y0, y1, y2, y1, y2, y0 };
+            float y3 = y2 + (y2 - y1);
+            float[] ys = { y0, y1, y2, y1, y2, y0, y3 };
             var buttons = new Button[SideCount];
             for (int i = 0; i < SideCount; i++)
             {

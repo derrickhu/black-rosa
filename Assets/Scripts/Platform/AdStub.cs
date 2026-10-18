@@ -18,7 +18,8 @@ namespace InkLine
         const string Double = "adunit-7eef570170a031a0";
         const string Revive = "adunit-cf484a6c10184818";
 
-        // 签到当天补领一份和当场翻倍是同一个广告位；招财进宝加次数、存钱翻倍、失败存回也共用一个。
+        // 签到当天补领一份和当场翻倍是同一个广告位。
+        // 招财进宝的加次数、存钱翻倍、失败存回共用一个；无尽的看广告加次数也走这一条。
         static string UnitOf(string slot)
         {
             switch (slot)
@@ -35,7 +36,8 @@ namespace InkLine
                 case "checkin_bonus": return CheckIn;
                 case "event_plays":
                 case "event_double":
-                case "event_salvage": return Event;
+                case "event_salvage":
+                case "endless_plays": return Event;
                 default: return null;
             }
         }

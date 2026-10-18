@@ -6,16 +6,20 @@ using UnityEngine.Networking;
 
 namespace InkLine
 {
-    // 通关排行榜，逻辑照 hotpot 的 RankService：
-    //   每次通关报一次已通关关数，同样的「关数 + 昵称头像」只报一次；
-    //   打开榜单先把没报上去的补报，再拉前 N 名和自己的名次。
+    // 排行榜，逻辑照 hotpot 的 RankService：
+    //   通关关数和无尽最好波数一起报，同样的「关数 + 波数 + 昵称头像」只报一次；
+    //   打开榜单先把没报上去的补报，再拉某张榜的前 N 名和自己的名次。
     // 服务端只升不降，所以本地清档、换设备都不会把榜上成绩拉下来。
     public sealed class RankService : MonoBehaviour
     {
+        public const string BoardStage = "stage";
+        public const string BoardEndless = "endless";
+
         [Serializable]
         sealed class SubmitBody
         {
             public int cleared;
+            public int endless;
             public string displayName;
             public string avatarUrl;
         }
@@ -24,6 +28,7 @@ namespace InkLine
         sealed class ListBody
         {
             public int limit;
+            public string board;
         }
 
         [Serializable]
@@ -85,31 +90,32 @@ namespace InkLine
             return true;
         }
 
-        static string SentKey(int cleared) => cleared + ":" + Nick + ":" + Avatar;
+        // 老版本只记了「关数:昵称:头像」，升级后 key 对不上会补报一次，正好把波数带上去。
+        static string SentKey(int cleared, int endless) => cleared + ":" + endless + ":" + Nick + ":" + Avatar;
 
-        public static void Submit(int cleared)
+        public static void Submit(int cleared, int endless)
         {
-            if (cleared <= 0 || Muted) return;
-            if (PlayerPrefs.GetString(CloudConfig.RankSentKey, "") == SentKey(cleared)) return;
-            It.StartCoroutine(It.SubmitRoutine(cleared, null));
+            if ((cleared <= 0 && endless <= 0) || Muted) return;
+            if (PlayerPrefs.GetString(CloudConfig.RankSentKey, "") == SentKey(cleared, endless)) return;
+            It.StartCoroutine(It.SubmitRoutine(cleared, endless, null));
         }
 
-        public static void Load(int cleared, Action<Board, string> done)
+        public static void Load(string board, int cleared, int endless, Action<Board, string> done)
         {
-            It.StartCoroutine(It.LoadRoutine(cleared, done));
+            It.StartCoroutine(It.LoadRoutine(board, cleared, endless, done));
         }
 
-        IEnumerator SubmitRoutine(int cleared, Action done)
+        IEnumerator SubmitRoutine(int cleared, int endless, Action done)
         {
             while (_sending) yield return null;
-            string key = SentKey(cleared);
-            if (cleared <= 0 || Muted || PlayerPrefs.GetString(CloudConfig.RankSentKey, "") == key)
+            string key = SentKey(cleared, endless);
+            if ((cleared <= 0 && endless <= 0) || Muted || PlayerPrefs.GetString(CloudConfig.RankSentKey, "") == key)
             {
                 done?.Invoke();
                 yield break;
             }
             _sending = true;
-            var body = new SubmitBody { cleared = cleared, displayName = Nick, avatarUrl = Avatar };
+            var body = new SubmitBody { cleared = cleared, endless = endless, displayName = Nick, avatarUrl = Avatar };
             string err = null;
             yield return Backend.Call(CloudConfig.RankSubmitPath, JsonUtility.ToJson(body), (s, r, e) => err = e);
             _sending = false;
@@ -122,12 +128,12 @@ namespace InkLine
             done?.Invoke();
         }
 
-        IEnumerator LoadRoutine(int cleared, Action<Board, string> done)
+        IEnumerator LoadRoutine(string board, int cleared, int endless, Action<Board, string> done)
         {
-            yield return SubmitRoutine(cleared, null);
+            yield return SubmitRoutine(cleared, endless, null);
             CloudReply reply = null;
             string err = null;
-            var body = new ListBody { limit = CloudConfig.RankListLimit };
+            var body = new ListBody { limit = CloudConfig.RankListLimit, board = board };
             yield return Backend.Call(CloudConfig.RankListPath, JsonUtility.ToJson(body), (s, r, e) => { reply = r; err = e; });
             if (err != null || reply == null || reply.data == null)
             {

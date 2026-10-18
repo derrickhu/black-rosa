@@ -5,7 +5,7 @@ using UnityEngine.UI;
 
 namespace InkLine
 {
-    // 通关排行榜。宣纸卡面 + 朱红飘带标题，前三名挂金银铜牌，
+    // 排行榜：通关 / 无尽两张榜。宣纸卡面 + 朱红飘带标题，前三名挂金银铜牌，
     // 自己那一行钉在底部，列表滚到哪都看得见。
     public sealed class RankPanel : MonoBehaviour
     {
@@ -13,8 +13,20 @@ namespace InkLine
         const float RowW = 592f;
         const float RowH = 92f;
         const float RowStep = 102f;
-        const float ListTop = 104f;
+        const float TabY = 62f;
+        const float TabW = 224f;
+        const float TabH = 62f;
+        const float SubY = 134f;
+        const float ListTop = 172f;
         const float AuthH = 76f;
+
+        static readonly string[] BoardIds = { RankService.BoardStage, RankService.BoardEndless };
+        static readonly string[] BoardNames = { "通关榜", "无尽榜" };
+        static readonly string[] BoardSubs =
+        {
+            "按通关关数排名 · 同关数先到者居前",
+            "按无尽模式最好波数排名 · 同波数先到者居前",
+        };
 
         static readonly Color[] Podium = { InkTheme.Hex("FFF1C9"), InkTheme.Hex("EEF0F4"), InkTheme.Hex("FBE3CE") };
         static readonly Color MineFill = InkTheme.Hex("FFF6E6");
@@ -32,13 +44,20 @@ namespace InkLine
         bool _fontReady;
         bool _failed;
         bool _authWait;
+        int _boardIx;
+        int _ask;
+        Button[] _tabs;
+        Text _sub;
 
-        public static RectTransform Show(RectTransform layer, MetaProgress meta)
+        bool Endless => BoardIds[_boardIx] == RankService.BoardEndless;
+
+        public static RectTransform Show(RectTransform layer, MetaProgress meta, string board = RankService.BoardStage)
         {
             var dim = UiKit.Dimmer(layer);
             dim.name = "rank";
             var panel = dim.gameObject.AddComponent<RankPanel>();
             panel._meta = meta;
+            panel._boardIx = Mathf.Max(0, System.Array.IndexOf(BoardIds, board));
             panel.Build(dim);
             return dim;
         }
@@ -61,9 +80,18 @@ namespace InkLine
             float h = Mathf.Max(760f, ScreenFit.CanvasH - top - bottom);
             _board = PanelKit.Board(dim, "排行榜", new Vector2(0f, top), new Vector2(BoardW, h), Pin.Top, Close);
 
-            var sub = UiKit.Label(_board, "sub", "按通关关数排名 · 同关数先到者居前", 22,
-                new Vector2(0f, 64f), new Vector2(BoardW - 60f, 30f), TextAnchor.MiddleCenter, Pin.Top);
-            sub.color = InkTheme.TextMid;
+            _tabs = new Button[BoardIds.Length];
+            for (int i = 0; i < BoardIds.Length; i++)
+            {
+                int ix = i;
+                float x = (i - (BoardIds.Length - 1) * 0.5f) * (TabW + 16f);
+                _tabs[i] = UiKit.Btn(_board, "tab" + i, BoardNames[i], new Vector2(x, TabY),
+                    new Vector2(TabW, TabH), () => Pick(ix), false, Pin.Top);
+            }
+            _sub = UiKit.Label(_board, "sub", "", 22,
+                new Vector2(0f, SubY), new Vector2(BoardW - 60f, 30f), TextAnchor.MiddleCenter, Pin.Top);
+            _sub.color = InkTheme.TextMid;
+            PaintTabs();
 
             bool askProfile = WxBridge.CanAskProfile && !RankService.HasProfile;
             float footerH = RowH + 36f + (askProfile ? AuthH + 22f : 0f);
@@ -168,14 +196,39 @@ namespace InkLine
             if (sh != null) sh.gameObject.SetActive(retry);
         }
 
+        void Pick(int ix)
+        {
+            if (ix == _boardIx) return;
+            AudioBus.Tap();
+            _boardIx = ix;
+            PaintTabs();
+            for (int i = _content.childCount - 1; i >= 0; i--)
+                Destroy(_content.GetChild(i).gameObject);
+            _content.sizeDelta = Vector2.zero;
+            _content.anchoredPosition = Vector2.zero;
+            Reload();
+        }
+
+        void PaintTabs()
+        {
+            for (int i = 0; i < _tabs.Length; i++)
+            {
+                bool on = i == _boardIx;
+                UiKit.PaintBtn(_tabs[i], on ? InkTheme.Cta : InkTheme.Plain, on ? InkTheme.CtaDeep : InkTheme.PlainDeep,
+                    on ? InkTheme.CardFace : InkTheme.TextDark);
+            }
+            _sub.text = BoardSubs[_boardIx];
+        }
+
         void Reload()
         {
             _data = null;
             _failed = false;
             SetStatus("排行榜加载中…", false);
-            RankService.Load(_meta.ClearedCount(), (board, err) =>
+            int ask = ++_ask;
+            RankService.Load(BoardIds[_boardIx], _meta.ClearedCount(), _meta.EndlessBest, (board, err) =>
             {
-                if (this == null) return;
+                if (this == null || ask != _ask) return;
                 if (board == null)
                 {
                     _failed = true;
@@ -220,6 +273,7 @@ namespace InkLine
                 {
                     rank = 0,
                     cleared = _meta.ClearedCount(),
+                    endless = _meta.EndlessBest,
                     displayName = RankService.HasProfile ? RankService.Nick : "我",
                     avatarUrl = RankService.Avatar,
                     isMe = true,
@@ -271,19 +325,22 @@ namespace InkLine
                 new Vector2(260f, 40f), TextAnchor.MiddleLeft);
             name.font = _nameFont;
             name.color = InkTheme.TextDark;
+            int score = Endless ? r.endless : r.cleared;
             if (pinned && r.rank <= 0)
             {
                 name.rectTransform.anchoredPosition = new Vector2(left + 188f + 130f, 14f);
-                var tip = UiKit.Label(root, "tip", r.cleared > 0 ? "上榜中，稍后再看" : "通关第一关即可上榜", 20,
+                string hint = score > 0 ? "上榜中，稍后再看"
+                    : Endless ? "无尽模式打完一波即可上榜" : "通关第一关即可上榜";
+                var tip = UiKit.Label(root, "tip", hint, 20,
                     new Vector2(left + 188f + 130f, -20f), new Vector2(260f, 28f), TextAnchor.MiddleLeft);
                 tip.color = InkTheme.TextMid;
             }
 
-            var num = UiKit.Label(root, "n", r.cleared.ToString(), 40, new Vector2(RowW * 0.5f - 64f - 60f, 2f),
+            var num = UiKit.Label(root, "n", score.ToString(), 40, new Vector2(RowW * 0.5f - 64f - 60f, 2f),
                 new Vector2(120f, 50f), TextAnchor.MiddleRight);
             num.color = podium ? InkTheme.Seal : InkTheme.TextDark;
             UiKit.Bold(num);
-            var unit = UiKit.Label(root, "u", "关", 24, new Vector2(RowW * 0.5f - 38f, -2f), new Vector2(40f, 36f));
+            var unit = UiKit.Label(root, "u", Endless ? "波" : "关", 24, new Vector2(RowW * 0.5f - 38f, -2f), new Vector2(40f, 36f));
             unit.color = InkTheme.TextMid;
 
             if (r.isMe) Stamp(root);
@@ -380,7 +437,7 @@ namespace InkLine
                 RectTransform dim = (RectTransform)transform;
                 RectTransform layer = (RectTransform)dim.parent;
                 Destroy(gameObject);
-                Show(layer, _meta);
+                Show(layer, _meta, BoardIds[_boardIx]);
             });
         }
 

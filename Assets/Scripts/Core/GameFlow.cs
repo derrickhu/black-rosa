@@ -26,6 +26,7 @@ namespace InkLine
         int _pickStage;
         // 正在打的活动档位，主线关是 -1。
         int _eventTier = -1;
+        bool _endless;
         ResultInfo _result;
         bool _inkDoubled;
         CardId[] _offer = new CardId[3];
@@ -287,6 +288,12 @@ namespace InkLine
                 AudioBus.Tap();
                 _askingRetreat = false;
                 if (dim != null) Destroy(dim.gameObject);
+                // 无尽撤退也按已打完的波数结算、上榜，不白打。
+                if (_endless)
+                {
+                    SettleEndless(false);
+                    return;
+                }
                 int pct = _world == null ? 0 : Mathf.Clamp(Mathf.RoundToInt(_world.Progress * 100f), 0, 99);
                 Analytics.LevelFail("give_up", pct);
                 bool fromEvent = _eventTier >= 0;
@@ -297,7 +304,8 @@ namespace InkLine
 
             UiKit.Btn(board, "stay", "继续游戏", new Vector2(0f, 108f), new Vector2(400f, 92f), Stay, true, Pin.Top);
             UiKit.Btn(board, "leave", "撤退", new Vector2(0f, 214f), new Vector2(400f, 80f), Leave, false, Pin.Top);
-            string leaveNote = _eventTier >= 0 ? "撤退不存金币，次数也不退还" : "撤退后没有奖励，体力也不退还";
+            string leaveNote = _endless ? "撤退按已打完的波数结算，次数不退还"
+                : _eventTier >= 0 ? "撤退不存金币，次数也不退还" : "撤退后没有奖励，体力也不退还";
             var note = UiKit.Label(board, "note", leaveNote, 22, new Vector2(0f, 316f),
                 new Vector2(440f, 32f), TextAnchor.MiddleCenter, Pin.Top);
             note.color = InkTheme.TextMid;
@@ -369,9 +377,11 @@ namespace InkLine
             _guide = false;
             _teach = 0;
             _eventTier = -1;
+            _endless = false;
             InkSprites.EnemyTheme = null;
             _home = HomeScreen.Build(_layer, _meta, StartStage, ReloadSave, tab);
             _home.StartEvent = StartEvent;
+            _home.StartEndless = StartEndless;
             AudioBus.Music("bgm_home");
             AudioBus.Warm("bgm_battle");
             _home.TabPicked += OnHomeTab;
@@ -664,6 +674,7 @@ namespace InkLine
             _teach = guide ? 1 : 0;
             _pickStage = index;
             _eventTier = -1;
+            _endless = false;
             _teachAim = index == 0 && !guide;
             BeginBattle(StageCatalog.Get(index));
         }
@@ -679,10 +690,31 @@ namespace InkLine
             _guide = false;
             _teach = 0;
             _eventTier = tier;
+            _endless = false;
             _teachAim = false;
             BeginBattle(StageCatalog.EventStage(tier, _meta.EventPool()));
             if (_meta.EventDone) _world.ShowToast("奖励已全部领取，本局不会获得任何奖励", 2.4f);
         }
+
+        // 无尽：扣当天的无尽次数，不扣体力。字池和活动一样，打到哪关就用那关的字。
+        void StartEndless()
+        {
+            if (!_meta.EndlessOpen) return;
+            _meta.StorePending();
+            if (HoldOverflow(StartEndless)) return;
+            _overflowSnooze = false;
+            if (!_meta.SpendEndlessPlay()) return;
+            _guide = false;
+            _teach = 0;
+            _eventTier = -1;
+            _endless = true;
+            _teachAim = false;
+            BeginBattle(StageCatalog.EndlessStage(_meta.EventPool()));
+            if (_meta.EndlessBest > 0) _world.ShowToast("最好成绩：第 " + _meta.EndlessBest + " 波", 2.4f);
+        }
+
+        // 埋点里的关卡号。主线是正数，活动是 -1~-3，无尽单独一个。
+        const int EndlessLevelId = -100;
 
         void BeginBattle(StageDef stage)
         {
@@ -701,12 +733,13 @@ namespace InkLine
             if (_view != null) _view.Dispose();
             _view = new BattleView(null);
             if (stage.Event) _view.SetBackdrop(StageCatalog.EventBackdrop);
+            else if (stage.Endless) _view.SetBackdrop(StageCatalog.EndlessBackdrop);
             else _view.SetBackdrop(_world.Stage.Chapter);
             _view.EmitterSkin = _meta.Skin;
             _view.EmitterTint = _meta.SkinTint;
             if (!BattleWorld.PreviewFill)
             {
-                int levelId = stage.Event ? -(stage.EventTier + 1) : stage.Index + 1;
+                int levelId = stage.Endless ? EndlessLevelId : stage.Event ? -(stage.EventTier + 1) : stage.Index + 1;
                 Analytics.LevelStart(levelId, stage.Name ?? "");
             }
             BuildBattleHud();
@@ -1189,13 +1222,19 @@ namespace InkLine
                 FinishEvent(win);
                 return;
             }
+            if (_endless)
+            {
+                if (!win && _world.RevivesUsed < GameConstants.EndlessRevives) ShowRevive();
+                else SettleEndless(win);
+                return;
+            }
             if (win)
             {
                 AudioBus.Win();
                 Analytics.LevelClear(_world.StarsEarned);
                 _result = _meta.ApplyResult(_pickStage, _world.Ink, _world.StarsEarned,
                     _world.BaseHp, _world.MaxBaseHp, _world.RevivesUsed > 0);
-                RankService.Submit(_meta.ClearedCount());
+                RankService.Submit(_meta.ClearedCount(), _meta.EndlessBest);
                 ShowVictory(_pickStage, _result);
             }
             else if (_guide)
@@ -1283,10 +1322,12 @@ namespace InkLine
         void ShowRevive()
         {
             DropOverlay();
-            int left = GameConstants.MaxRevives - _world.RevivesUsed;
+            int left = (_endless ? GameConstants.EndlessRevives : GameConstants.MaxRevives) - _world.RevivesUsed;
             bool gun = _world.EmitterCount < GameConstants.AdEmitterCap;
             bool share = _meta.ShareReviveReady;
-            _overlay = RevivePanel.Show(_layer, _world.Progress, left, gun, share, () =>
+            float progress = _endless ? _world.WavesCleared / (float)_world.Stage.Waves.Length : _world.Progress;
+            string done = _endless ? "已撑过 " + _world.WavesCleared + " 波" : null;
+            _overlay = RevivePanel.Show(_layer, progress, left, gun, share, () =>
             {
                 if (share) ShareRevive();
                 else AdStub.Reward("revive", () =>
@@ -1300,7 +1341,7 @@ namespace InkLine
                 _holdForShare = false;
                 WxBridge.CancelShareReturn();
                 ShowLoss();
-            }).Root;
+            }, done).Root;
         }
 
         void ShareRevive()
@@ -1325,6 +1366,11 @@ namespace InkLine
 
         void ShowLoss()
         {
+            if (_endless)
+            {
+                SettleEndless(false);
+                return;
+            }
             if (_eventTier >= 0)
             {
                 int purse = _world != null ? Mathf.Max(0, _world.Gold) : 0;
@@ -1406,6 +1452,58 @@ namespace InkLine
                     ShowHome();
                     _home?.OpenEvent();
                 }
+            });
+            _overlay = panel.Root;
+        }
+
+        // 无尽结算只算一次：阵亡（续过命或不续）、撤退、打完 50 波都走这里。
+        void SettleEndless(bool win)
+        {
+            _screen = Screen.Result;
+            if (_world != null) _world.Paused = true;
+            DropOverlay();
+            int waves = _world != null ? _world.WavesCleared : 0;
+            if (win)
+            {
+                AudioBus.Win();
+                Analytics.LevelClear(_world.StarsEarned);
+            }
+            else Analytics.LevelFail("hp_zero", Mathf.Clamp(waves * 100 / StageCatalog.EndlessWaves, 0, 99));
+            EndlessResult r = _meta.ApplyEndless(waves, _world != null ? _world.Ink : 0);
+            RankService.Submit(_meta.ClearedCount(), _meta.EndlessBest);
+            _inkDoubled = false;
+            EndlessResultPanel panel = null;
+            panel = EndlessResultPanel.Show(_layer, _meta, new EndlessResultArgs
+            {
+                Win = win,
+                Result = r,
+                Double = r.Ink <= 0 ? (System.Action)null : () =>
+                {
+                    if (_inkDoubled) return;
+                    AdStub.Reward("endless_double", () =>
+                    {
+                        if (_inkDoubled) return;
+                        _inkDoubled = true;
+                        _meta.AddInk(r.Ink);
+                        if (panel != null) panel.Doubled();
+                    });
+                },
+                Again = () =>
+                {
+                    if (_meta.EndlessPlaysLeft <= 0 || !_meta.EndlessOpen)
+                    {
+                        AudioBus.Deny();
+                        if (_layer != null) InkToast.Show(_layer, "今天的无尽次数用完了，明天再来");
+                        return;
+                    }
+                    StartEndless();
+                },
+                Rank = () =>
+                {
+                    ShowHome();
+                    if (_screen == Screen.Lobby && _layer != null) RankPanel.Show(_layer, _meta, RankService.BoardEndless);
+                },
+                Home = ShowHome
             });
             _overlay = panel.Root;
         }

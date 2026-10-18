@@ -319,7 +319,7 @@ namespace InkLine
         // 头两关是教学，不拆。
         const int HordeFrom = 2;
         const float HordeShare = 0.5f;
-        bool HordeWave => Stage != null && !Stage.Event && Stage.Index >= HordeFrom
+        bool HordeWave => Stage != null && !Stage.Event && !Stage.Endless && Stage.Index >= HordeFrom
                           && Stage.Waves.Length > 1 && WaveIndex == Stage.Waves.Length - 1;
 
         // 图鉴：炮弹第一次真的带上某个字 / 词 / 招牌两两时报一次，一局内同一条只报一回。
@@ -620,6 +620,12 @@ namespace InkLine
                     AudioBus.Horde();
                     AddShake(0.16f);
                 }
+                else if (Stage.Endless && WaveIndex < Stage.Waves.Length && StageCatalog.EndlessBossWave(WaveIndex))
+                {
+                    Shouts.Add(new Shout { Kind = ShoutKind.Horde, Text = "第 " + (WaveIndex + 1) + " 波", Sub = "关底来了" });
+                    AudioBus.Horde();
+                    AddShake(0.16f);
+                }
             }
         }
 
@@ -853,7 +859,7 @@ namespace InkLine
                 _waveLeft[wave]++;
                 _waveSeen[wave] = true;
             }
-            EnemyDef def = EnemyCatalog.Get(id, Stage.Hp);
+            EnemyDef def = EnemyCatalog.Get(id, Stage.HpAt(wave));
             float hp = Mathf.Max(1f, def.Hp * hpShare);
             float speed = def.Speed * StageCatalog.SpeedOf(Stage.Chapter);
             var e = new EnemyActor
@@ -2352,6 +2358,20 @@ namespace InkLine
                 EnemyActor e = Enemies[i];
                 if (e.Dead || e.Pos.y >= line) continue;
                 SendBack(e);
+            }
+        }
+
+        // 无尽模式的成绩：这一波已经出完、而且出的怪全打光了才算。关底拖着没死，后面清掉的照样算。
+        public int WavesCleared
+        {
+            get
+            {
+                if (Victory) return Stage.Waves.Length;
+                if (_waveLeft == null) return 0;
+                int n = 0;
+                for (int w = 0; w < _waveLeft.Length && w < WaveIndex; w++)
+                    if (_waveSeen[w] && _waveLeft[w] <= 0) n++;
+                return n;
             }
         }
 

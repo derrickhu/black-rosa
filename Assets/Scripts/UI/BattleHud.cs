@@ -412,7 +412,8 @@ namespace InkLine
             // 最后一波计时走完，下标会拨到总波数外面，用来等场上的怪清完再结算。
             // 显示停在最后一波，清场时才不会看成 3/2、6/5。
             int wave = Mathf.Min(world.WaveIndex + 1, world.Stage.Waves.Length);
-            Wave.text = world.BossSpawned ? "关底" : $"波 {wave}/{world.Stage.Waves.Length}";
+            if (world.Stage.Endless) Wave.text = $"第 {wave}/{world.Stage.Waves.Length} 波";
+            else Wave.text = world.BossSpawned ? "关底" : $"波 {wave}/{world.Stage.Waves.Length}";
             Ink.text = world.Ink.ToString();
             // 波次下面不写字：成词、升星、操作提示、显形都不落到这一行。
             if (Toast != null) Toast.text = "";

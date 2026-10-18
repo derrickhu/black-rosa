@@ -52,14 +52,19 @@ namespace InkLine
             int col = FieldLayout.ColumnAtX(e.Pos.x);
             float low = FieldLayout.GridTop + 0.9f;
             float high = GameConstants.SpawnY - 1.6f;
+            float hp = Stage.HpAt(e.Wave);
+            int amount = gold ? Stage.ChestGold : Stage.ChestInk;
+            // 无尽的箱价按前几波定的，后面的怪越来越值钱，箱子跟着同一条掉落曲线涨。
+            if (Stage.Endless)
+                amount = Mathf.Max(1, Mathf.RoundToInt(amount * EnemyCatalog.DropMul(hp) / EnemyCatalog.DropMul(Stage.HpAt(0))));
             Chests.Add(new ChestActor
             {
                 Id = NextActorId++,
                 Kind = gold ? ChestKind.Gold : ChestKind.Ink,
                 Pos = new Vector2(FieldLayout.ColumnX(col), Mathf.Clamp(e.Pos.y, low, high)),
-                Hp = ChestHpBase * Stage.Hp,
-                MaxHp = ChestHpBase * Stage.Hp,
-                Amount = gold ? Stage.ChestGold : Stage.ChestInk,
+                Hp = ChestHpBase * hp,
+                MaxHp = ChestHpBase * hp,
+                Amount = amount,
                 Life = ChestLife,
                 Seed = Random.value * 10f
             });

@@ -99,6 +99,11 @@ namespace InkLine
         public bool EventDoubleDone;
         // 打赢过的地点。位下标是档位，赢了上一处才开下一处。
         public int EventClears;
+        // 无尽模式：当天打了几局、广告加次数用过没、历史最好打完几波。
+        public int EndlessDay;
+        public int EndlessPlays;
+        public bool EndlessAdDone;
+        public int EndlessBest;
         // 新手指引走到哪一步。跟着整份存档上云，清缓存、换机都不重走。
         public int GuideStep;
         public const int GuideBattle = 0;
@@ -472,6 +477,7 @@ namespace InkLine
         {
             bool dirty = RollDay();
             if (RollEvent()) dirty = true;
+            if (RollEndless()) dirty = true;
             if (RegenStamina()) dirty = true;
             if (TickChests()) dirty = true;
             if (dirty) Save();
@@ -521,6 +527,76 @@ namespace InkLine
                 dirty = true;
             }
             return dirty;
+        }
+
+        bool RollEndless()
+        {
+            int today = Today;
+            if (EndlessDay == today) return false;
+            EndlessDay = today;
+            EndlessPlays = 0;
+            EndlessAdDone = false;
+            return true;
+        }
+
+        // 无尽：通完第二章才露入口。每天免费一局，看广告再加一局，不扣体力。
+        public bool EndlessOpen => ChapterCleared(GameConstants.EndlessOpenChapter);
+
+        public int EndlessPlaysLeft
+        {
+            get
+            {
+                RollEndless();
+                int cap = GameConstants.EndlessPlaysPerDay + (EndlessAdDone ? GameConstants.EndlessAdPlays : 0);
+                return Mathf.Max(0, cap - EndlessPlays);
+            }
+        }
+
+        public int EndlessPlaysCap =>
+            GameConstants.EndlessPlaysPerDay + (EndlessAdDone ? GameConstants.EndlessAdPlays : 0);
+
+        public bool SpendEndlessPlay()
+        {
+            if (EndlessPlaysLeft <= 0) return false;
+            EndlessPlays++;
+            Save();
+            return true;
+        }
+
+        public bool GrantEndlessAdPlays()
+        {
+            RollEndless();
+            if (EndlessAdDone) return false;
+            EndlessAdDone = true;
+            Save();
+            return true;
+        }
+
+        // 打到第 10、20、30 波各升一档宝箱，40 波起是最高档。不到 10 波没有箱子。
+        public static int EndlessChestTier(int waves)
+        {
+            if (waves < StageCatalog.EndlessBossEvery) return -1;
+            return Mathf.Min((int)ChestTier.Royal, waves / StageCatalog.EndlessBossEvery - 1);
+        }
+
+        // 无尽结算：局内拾到的墨 + 每打完一波的墨，到档再给一只宝箱。最好成绩只升不降。
+        public EndlessResult ApplyEndless(int waves, int collected)
+        {
+            waves = Mathf.Clamp(waves, 0, StageCatalog.EndlessWaves);
+            var r = new EndlessResult
+            {
+                Waves = waves,
+                OldBest = EndlessBest,
+                NewBest = waves > EndlessBest,
+                Ink = Mathf.Max(0, collected) + waves * GameConstants.EndlessInkPerWave,
+                Chest = EndlessChestTier(waves),
+                ChestSlot = -2,
+            };
+            if (r.NewBest) EndlessBest = waves;
+            Ink += r.Ink;
+            if (r.Chest >= 0) r.ChestSlot = GrantChest((ChestTier)r.Chest);
+            Save();
+            return r;
         }
 
         // 招财进宝：常驻，通完第一章才露入口。

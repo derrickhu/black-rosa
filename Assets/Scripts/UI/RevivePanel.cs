@@ -20,8 +20,9 @@ namespace InkLine
 
         public RectTransform Root => _root;
 
+        // doneText 换掉「本关已完成」那一行，无尽模式写已撑过几波。
         public static RevivePanel Show(RectTransform layer, float progress, int revivesLeft, bool grantGun,
-            bool shareRevive, Action revive, Action giveUp)
+            bool shareRevive, Action revive, Action giveUp, string doneText = null)
         {
             var dim = UiKit.Dimmer(layer);
             dim.GetComponent<Image>().color = new Color(0.18f, 0.04f, 0.03f, 0.80f);
@@ -29,12 +30,12 @@ namespace InkLine
             p._root = dim;
             p._anim = UiAnim.On(p);
             p._giveUp = giveUp;
-            p.Build(Mathf.Clamp01(progress), revivesLeft, grantGun, shareRevive, revive);
+            p.Build(Mathf.Clamp01(progress), revivesLeft, grantGun, shareRevive, revive, doneText);
             AudioBus.Sweep(dim);
             return p;
         }
 
-        void Build(float progress, int revivesLeft, bool grantGun, bool shareRevive, Action revive)
+        void Build(float progress, int revivesLeft, bool grantGun, bool shareRevive, Action revive, string doneText)
         {
             _heart = ResultKit.Group(_root, "heart", new Vector2(0f, 420f), new Vector2(120f, 120f));
             UiKit.Icon(_heart, InkArt.Icon(InkShape.Heart, 128), Vector2.zero, 120f);
@@ -50,7 +51,7 @@ namespace InkLine
                 fill: InkTheme.Hex("FFF6E2"), radius: 36f);
             _anim.Pop(card, 0.22f, 0.36f);
 
-            var done = UiKit.Label(card, "done", "本关已完成", 30, new Vector2(0f, 108f), new Vector2(400f, 40f));
+            var done = UiKit.Label(card, "done", doneText ?? "本关已完成", 30, new Vector2(0f, 108f), new Vector2(400f, 40f));
             done.color = InkTheme.TextMid;
             int pct = Mathf.Clamp(Mathf.RoundToInt(progress * 100f), 1, 99);
             var big = ResultKit.Headline(card, "pct", "0%", 104, new Vector2(0f, 28f),

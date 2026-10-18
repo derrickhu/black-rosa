@@ -20,6 +20,9 @@ namespace InkLine
         const string GrassUrl = "https://mmocgame.qpic.cn/wechatgame/gkKEMSAOfJ2eVic3RDvGvsbxrHK6CWSIeIsCvicKCZxBHocre0HLJmruh8S4SpfGWF/0";
         const string SandId = "uuqPNAVORjyJyLLHWmtH3A==";
         const string SandUrl = "https://mmocgame.qpic.cn/wechatgame/gkKEMSAOfJ0ibXUrmAVF5n0joBhR4R9ic5zfogvTUia8Xcd62KhkuEwtVBf8ex7rdBJ/0";
+        // 续命转发专用：哭脸炮弹。右上角转发仍用上面两张。
+        const string ReviveId = "KN7DGivERI2hceKSl4VAWw==";
+        const string ReviveUrl = "https://mmocgame.qpic.cn/wechatgame/gkKEMSAOfJ0bduCia9LrPw11ndaudWMcXyItHTiaLOt8FtMxeXwOBgz16G5FFU45mJ/0";
 
         public static readonly Card[] Cards =
         {
@@ -36,12 +39,12 @@ namespace InkLine
         // 聊天卡片大约 14 个字就换行，每句都卡在一行里。
         static readonly Card[] ReviveCards =
         {
-            new Card { Title = "救救我救救我！防线告急！", ImageUrlId = GrassId, ImageUrl = GrassUrl },
-            new Card { Title = "救救我！这关我守不住了", ImageUrlId = SandId, ImageUrl = SandUrl },
-            new Card { Title = "防线要破了，快来救我", ImageUrlId = GrassId, ImageUrl = GrassUrl },
-            new Card { Title = "救救我！敌人冲上来了", ImageUrlId = SandId, ImageUrl = SandUrl },
-            new Card { Title = "就差一口气，救救我！", ImageUrlId = GrassId, ImageUrl = GrassUrl },
-            new Card { Title = "救救我救救我，要输了", ImageUrlId = SandId, ImageUrl = SandUrl },
+            new Card { Title = "救救我救救我！防线告急！", ImageUrlId = ReviveId, ImageUrl = ReviveUrl },
+            new Card { Title = "救救我！这关我守不住了", ImageUrlId = ReviveId, ImageUrl = ReviveUrl },
+            new Card { Title = "防线要破了，快来救我", ImageUrlId = ReviveId, ImageUrl = ReviveUrl },
+            new Card { Title = "救救我！敌人冲上来了", ImageUrlId = ReviveId, ImageUrl = ReviveUrl },
+            new Card { Title = "就差一口气，救救我！", ImageUrlId = ReviveId, ImageUrl = ReviveUrl },
+            new Card { Title = "救救我救救我，要输了", ImageUrlId = ReviveId, ImageUrl = ReviveUrl },
         };
 
         public static Card Pick() => PickFrom(Cards);

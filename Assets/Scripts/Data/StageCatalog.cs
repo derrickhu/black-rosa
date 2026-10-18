@@ -60,6 +60,12 @@ namespace InkLine
         // 活动关的档位，主线关是 -1。活动关不掉墨、不出墨箱，每波按钱袋给利息。
         public int EventTier = -1;
         public bool Event => EventTier >= 0;
+        // 无尽模式。血量逐波往上走，WaveHp 和 Waves 一一对应，乘在 Hp 上；主线和活动关是 null。
+        public bool Endless;
+        public float[] WaveHp;
+
+        public float HpAt(int wave) =>
+            WaveHp != null && wave >= 0 && wave < WaveHp.Length ? Hp * WaveHp[wave] : Hp;
 
         // 这一关的钱袋，全部在 Build 里按波次表算好。
         // KillGold 是击杀赏金总和；GoldPurse 再加上黄箱的期望值，改装定价按它走。
@@ -585,12 +591,12 @@ namespace InkLine
         // 每只掉满自己那份，章节系数保底 1。
         static void Price(StageDef s, float share = DraftBudgetShare)
         {
-            float drop = EnemyCatalog.DropMul(s.Hp);
-            float inkMul = drop * InkOf(s.Chapter);
             int gold = 0, kills = 0;
             float ink = 0f;
             for (int w = 0; w < s.Waves.Length; w++)
             {
+                float drop = EnemyCatalog.DropMul(s.HpAt(w));
+                float inkMul = drop * InkOf(s.Chapter);
                 SpawnSpec[] list = s.Waves[w].Spawns;
                 for (int k = 0; k < list.Length; k++)
                 {

@@ -47,7 +47,7 @@ namespace InkLine
             h.Pick(Mathf.Clamp(tab, TabForge, TabSpell));
             h.RefreshTop();
             // 排行榜上线前就有进度的老玩家，进大厅补报一次；报过的同样关数不会重发。
-            RankService.Submit(meta.ClearedCount());
+            RankService.Submit(meta.ClearedCount(), meta.EndlessBest);
             if (WxBridge.IsSimulator)
                 GmBar.Attach(layer, meta, reload, h.RefreshAfterGm);
             return h;
@@ -1043,6 +1043,7 @@ namespace InkLine
                 else if (i == SideCodex) btn.onClick.AddListener(() => CodexPanel.Show(_layer, _meta, AfterReward));
                 else if (i == SideRank) btn.onClick.AddListener(() => RankPanel.Show(_layer, _meta));
                 else if (i == SideEvent) btn.onClick.AddListener(OpenEvent);
+                else if (i == SideEndless) btn.onClick.AddListener(OpenEndless);
             }
             if (_view.SideActs.Length != SortiePageBuilder.SideCount) return;
             Button gift = _view.SideActs[SideGift];
@@ -1054,6 +1055,10 @@ namespace InkLine
             Button ev = _view.SideActs[SideEvent];
             if (ev != null) ev.gameObject.SetActive(_meta.EventOpen);
             RedDot(ev, _meta.EventOpen && (_meta.EventHasClaim() || (!_meta.EventDone && _meta.EventPlaysLeft > 0)));
+            Button endless = _view.SideActs[SideEndless];
+            if (endless != null) endless.gameObject.SetActive(_meta.EndlessOpen);
+            RedDot(endless, _meta.EndlessOpen && _meta.EndlessPlaysLeft > 0);
+            if (_meta.EndlessOpen) CdnAssets.Prefetch(StageCatalog.EndlessBackdrop);
         }
 
         // GameFlow 接上开打活动关；结算页「回活动」也从这里重开活动面板。
@@ -1063,6 +1068,14 @@ namespace InkLine
         {
             if (!_meta.EventOpen) return;
             EventPanel.Show(_layer, _meta, tier => StartEvent?.Invoke(tier), AfterReward);
+        }
+
+        public Action StartEndless;
+
+        public void OpenEndless()
+        {
+            if (!_meta.EndlessOpen) return;
+            EndlessPanel.Show(_layer, _meta, () => StartEndless?.Invoke(), AfterReward);
         }
 
         // 领了礼包 / 游戏圈奖励：顶栏数值、礼包贴纸、皮肤页都要跟着变。
@@ -1134,6 +1147,7 @@ namespace InkLine
         const int SideCodex = 3;
         const int SideRank = 4;
         const int SideEvent = 5;
+        const int SideEndless = 6;
 
         void BindSeal(HomeSealCell slot, int index)
         {

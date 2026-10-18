@@ -10,6 +10,12 @@ namespace InkLine
         public const int AdEmitterCap = 6;
         public const int BaseHp = 3;
         public const int MaxRevives = 2;
+        // 无尽模式只给续一次命。
+        public const int EndlessRevives = 1;
+        public const int EndlessOpenChapter = 1;
+        public const int EndlessPlaysPerDay = 1;
+        public const int EndlessAdPlays = 1;
+        public const int EndlessInkPerWave = 5;
         // 改装起价的下限。开局有 6 金币，低于这个数按钮一进关就亮。
         public const int FirstDraftCost = 10;
         public const int DraftCostStep = 2;

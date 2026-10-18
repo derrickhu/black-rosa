@@ -26,6 +26,7 @@ namespace InkLine
     {
         public int rank;
         public int cleared;
+        public int endless;
         public string displayName;
         public string avatarUrl;
         public bool isMe;
