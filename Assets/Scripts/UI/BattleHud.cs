@@ -26,6 +26,7 @@ namespace InkLine
         public readonly RectTransform GoldChip;
         public readonly Image[] Hearts;
         public readonly Text Wave;
+        public readonly Text Mire;
         public readonly Text Toast;
         public readonly Text Ink;
         public readonly RectTransform InkChip;
@@ -41,7 +42,7 @@ namespace InkLine
         Image _adMark;
 
         BattleHud(RectTransform layer, Text gold, RectTransform goldChip, Image[] hearts,
-            RectTransform heartsWrap, RectTransform wavePlate, Text wave, Text toast, Text ink, RectTransform inkChip,
+            RectTransform heartsWrap, RectTransform wavePlate, Text wave, Text mire, Text toast, Text ink, RectTransform inkChip,
             Button draft, Button retreat, Text draftLabel, ItemKey[] keys)
         {
             _layer = layer;
@@ -51,6 +52,7 @@ namespace InkLine
             Hearts = hearts;
             _heartsWrap = heartsWrap;
             Wave = wave;
+            Mire = mire;
             Toast = toast;
             Ink = ink;
             InkChip = inkChip;
@@ -72,6 +74,16 @@ namespace InkLine
             var gold = Readout(layer, "gold", InkSprites.Ui("gold"), "0", false, Pin.TopLeft, out RectTransform goldChip);
             var ink = Readout(layer, "ink", InkSprites.Ui("ink"), "0", true, Pin.TopRight, out RectTransform inkChip);
             var wave = ReadoutText(layer, "wave", "", 36, new Vector2(220f, Gear), Pin.Top);
+            // 无尽魔气减伤，夹在波次和金币之间。平时藏着，有数值才亮。
+            var mire = ReadoutText(layer, "mire", "", 30, new Vector2(280f, ReadH), Pin.Top);
+            mire.color = InkTheme.Hex("FF7AD9");
+            var mireEdge = mire.GetComponent<Outline>();
+            if (mireEdge != null)
+            {
+                mireEdge.effectColor = new Color(0.28f, 0.04f, 0.16f, 0.95f);
+                mireEdge.effectDistance = new Vector2(2f, -2f);
+            }
+            mire.gameObject.SetActive(false);
 
             // 波次下面不放提示。这条留着是为了不改预制和刷新入口，字永远是空的。
             var toast = UiKit.Label(layer, "toast", "", 24, new Vector2(0, top + 62f), new Vector2(640, 44),
@@ -92,7 +104,7 @@ namespace InkLine
             var hearts = UiKit.Hearts(layer, Vector2.zero, 36f, maxHp, Pin.Center);
             var heartsWrap = hearts.Length > 0 ? hearts[0].transform.parent as RectTransform : null;
 
-            var hud = new BattleHud(layer, gold, goldChip, hearts, heartsWrap, wave.rectTransform, wave, toast,
+            var hud = new BattleHud(layer, gold, goldChip, hearts, heartsWrap, wave.rectTransform, wave, mire, toast,
                 ink, inkChip, draftBtn, settingsBtn, draftLabel, keys);
             hud._fx = ItemFx.Build(layer);
             hud._world = world;
@@ -229,6 +241,8 @@ namespace InkLine
             PinTop(GoldChip, new Vector2(Side, row), new Vector2(ReadW, ReadH), 0f, Pin.TopLeft);
             // 波次和设置同一行，垂直居中在齿轮高度里。金币和墨仍在下一行。
             PinTop(_wavePlate, new Vector2(0f, top), new Vector2(220f, Gear), 0f, Pin.Top);
+            if (Mire != null)
+                PinTop(Mire.rectTransform, new Vector2(0f, row), new Vector2(280f, ReadH), 0f, Pin.Top);
             PinTop(InkChip, new Vector2(Side, row), new Vector2(ReadW, ReadH), 0f, Pin.TopRight);
             PinBottom(Draft.transform as RectTransform, new Vector2(draftX, bot),
                 new Vector2(draftW, RowH), 8f, Pin.Bottom);
@@ -414,6 +428,7 @@ namespace InkLine
             int wave = Mathf.Min(world.WaveIndex + 1, world.Stage.Waves.Length);
             if (world.Stage.Endless) Wave.text = $"第 {wave}/{world.Stage.Waves.Length} 波";
             else Wave.text = world.BossSpawned ? "关底" : $"波 {wave}/{world.Stage.Waves.Length}";
+            PaintMire(world);
             Ink.text = world.Ink.ToString();
             // 波次下面不写字：成词、升星、操作提示、显形都不落到这一行。
             if (Toast != null) Toast.text = "";
@@ -428,6 +443,21 @@ namespace InkLine
                 ? Vector3.one * (1f + 0.04f * Mathf.Sin(Time.unscaledTime * 8f))
                 : Vector3.one;
             PlaceAdGun(world, inBattle);
+        }
+
+        // 无尽第 10 波起，波次正下方写魔气减伤。数字和结算用的是同一个百分比。
+        void PaintMire(BattleWorld world)
+        {
+            if (Mire == null) return;
+            int pct = 0;
+            if (world.Stage.Endless && world.Stage.Waves.Length > 0)
+            {
+                int idx = Mathf.Clamp(world.WaveIndex, 0, world.Stage.Waves.Length - 1);
+                pct = StageCatalog.EndlessWardPercent(idx);
+            }
+            bool on = pct > 0;
+            if (Mire.gameObject.activeSelf != on) Mire.gameObject.SetActive(on);
+            if (on) Mire.text = "魔气减伤 " + pct + "%";
         }
 
         // 看广告加炮：改装左边的一颗按钮。左边放炮台图和播放章，右边写「加一门炮」。

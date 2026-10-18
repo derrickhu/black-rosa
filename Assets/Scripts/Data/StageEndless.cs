@@ -5,10 +5,12 @@ using static InkLine.EnemyId;
 namespace InkLine
 {
     // 无尽模式：一局 50 波，越打越硬，看能撑到第几波。成绩上排行榜的「无尽」页。
-    // 血量每波单独一个倍率，按指数涨：开头和第二章差不多，第 20 波已经过了主线关底，
-    // 第 50 波是第八章关底的五倍多，再配上逐波加快的移速 —— 打满 50 波的只该是少数人。
+    // 血量每波一个倍率，前段抬得快、后段收平：第 1 波 2.3 倍，第 10 波约 3.9，
+    // 第 20 波约 6.3，第 30 波约 9.3，第 40 波约 12.3，第 50 波停在 14 倍
+    // （大约第八章关底的三倍）。薄皮杂兵另有下限。满盘面打得过第 50 波，不再是墙。
     // 只数跟着每波的总血涨，封顶 EndlessBodyCap，后期不至于卡。
     // 盘面开局一排；第 10 波起每 3 波随机开一格，先第二排后第三排，第 43 波开满。
+    // 第 10 波起魔气从上往下渗到第 40 波，怪的减伤跟着涨到 12%。
     // 金币掉得比主线吝啬、抽牌越抽越贵，钱永远不够花。
     // 兵种分四段解锁，第 10、20、30、40、50 波各压一只关底。
     // 每波用固定种子排，所有人打的是同一套，排行榜才公平。
@@ -18,21 +20,27 @@ namespace InkLine
         public const int EndlessWaves = 50;
         public const int EndlessBossEvery = 10;
         public const string EndlessBackdrop = "Bg/battle_bg_endless";
-        // 同布局的魔化莲池。第一只关底之后逐波叠上来，EndlessDarkSpan 波后整张换掉。
+        // 同布局的魔化莲池。第 10 波开始从上往下渗，第 40 波整张换掉。
+        // 减伤跟这张图走，满了是 12%，中间按整数百分点一点一点加。
         public const string EndlessDarkBackdrop = "Bg/battle_bg_endless_dark";
         public const int EndlessDarkFrom = 10;
-        const int EndlessDarkSpan = 10;
+        public const int EndlessDarkTo = 40;
+        const float EndlessWardTop = 0.12f;
 
         // 基础移速、掉墨借这一章；移速再按 EndlessSpeed 逐波加。
         const int EndlessPace = 3;
-        const float EndlessHpOpen = 1.4f;
-        const float EndlessHpTop = 24f;
+        const float EndlessHpOpen = 2.3f;
+        const float EndlessHpTop = 14f;
+        // 大于 1：同样的终点，进度前段走得快，后段变平。
+        const float EndlessHpEase = 1.65f;
+        // 基础血低于这个数的杂兵先抬到这里再乘倍率，免得跑得快的那几种两三下就没了。
+        const float EndlessThinHp = 6.5f;
         // 每波杂兵的基础血总量（按第一章那一只算），再乘上当波倍率才是实际的血。
-        const float EndlessBudgetOpen = 80f;
-        const float EndlessBudgetStep = 6.5f;
+        const float EndlessBudgetOpen = 104f;
+        const float EndlessBudgetStep = 8.2f;
         // 关底波的护送只给这一成，压力在关底本人。
         const float EndlessEscort = 0.5f;
-        const int EndlessBodyCap = 70;
+        const int EndlessBodyCap = 86;
         // 每波多长。出场摊在前面，最后留几秒给场上的怪走完。后期只数涨得比时长快，越往后越密。
         const float EndlessSpanOpen = 14f;
         const float EndlessSpanStep = 0.1f;
@@ -67,7 +75,16 @@ namespace InkLine
         public static float EndlessHp(int wave)
         {
             float k = Mathf.Clamp01(wave / (float)(EndlessWaves - 1));
-            return EndlessHpOpen * Mathf.Pow(EndlessHpTop / EndlessHpOpen, k);
+            float u = 1f - Mathf.Pow(1f - k, EndlessHpEase);
+            return EndlessHpOpen * Mathf.Pow(EndlessHpTop / EndlessHpOpen, u);
+        }
+
+        // 这一只在第 wave 波的血。关底吃满倍率；杂兵基础血先托到 EndlessThinHp。
+        public static float EndlessHpOf(EnemyId id, int wave)
+        {
+            EnemyDef bare = EnemyCatalog.Base(id);
+            float hp = bare.IsBoss ? bare.Hp : Mathf.Max(bare.Hp, EndlessThinHp);
+            return hp * EndlessHp(wave);
         }
 
         public static bool EndlessBossWave(int wave) => (wave + 1) % EndlessBossEvery == 0;
@@ -80,9 +97,24 @@ namespace InkLine
             wave < EndlessCellFrom - 1 ? 0
                 : Mathf.Min(EndlessCellMax, 1 + (wave - EndlessCellFrom + 1) / EndlessCellEvery);
 
-        // 第 wave 波（从 0 数）魔化莲池该盖上多少。
-        public static float EndlessDark(int wave) =>
-            Mathf.Clamp01((wave - EndlessDarkFrom + 1) / (float)EndlessDarkSpan);
+        // 第 wave 波（从 0 数）魔化莲池该盖上多少。第 10 波刚渗出一点，第 40 波铺满。
+        public static float EndlessDark(int wave)
+        {
+            float shown = wave + 1f;
+            return Mathf.Clamp01((shown - (EndlessDarkFrom - 1f)) / (EndlessDarkTo - EndlessDarkFrom + 1f));
+        }
+
+        // 魔气护体：和侵染同一条进度，显示和结算都用这个整数百分比。
+        public static int EndlessWardPercent(int wave)
+        {
+            float dark = EndlessDark(wave);
+            if (dark <= 0f) return 0;
+            int pct = Mathf.FloorToInt(dark * EndlessWardTop * 100f + 0.001f);
+            if (pct < 1) pct = 1;
+            return Mathf.Min(pct, Mathf.RoundToInt(EndlessWardTop * 100f));
+        }
+
+        public static float EndlessWard(int wave) => EndlessWardPercent(wave) * 0.01f;
 
         public static float EndlessDrop(int wave) => Mathf.Pow(Mathf.Max(0.1f, EndlessHp(wave)), EndlessDropPow);
 

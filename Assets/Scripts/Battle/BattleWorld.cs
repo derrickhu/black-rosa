@@ -647,7 +647,7 @@ namespace InkLine
                 if (Stage.Endless && WaveIndex < Stage.Waves.Length)
                 {
                     GrantEndlessCells();
-                    if (WaveIndex == StageCatalog.EndlessDarkFrom)
+                    if (WaveIndex + 1 == StageCatalog.EndlessDarkFrom)
                         Shouts.Add(new Shout { Kind = ShoutKind.Rush, Text = "魔气入侵！", Sub = "莲池正在被侵染" });
                 }
             }
@@ -927,7 +927,9 @@ namespace InkLine
                 _waveSeen[wave] = true;
             }
             EnemyDef def = EnemyCatalog.Get(id, Stage.HpAt(wave));
-            float hp = Mathf.Max(1f, def.Hp * hpShare);
+            float hp = Stage.Endless
+                ? Mathf.Max(1f, StageCatalog.EndlessHpOf(id, wave) * hpShare)
+                : Mathf.Max(1f, def.Hp * hpShare);
             float speed = def.Speed * StageCatalog.SpeedOf(Stage.Chapter);
             if (Stage.Endless) speed *= StageCatalog.EndlessSpeed(wave);
             var e = new EnemyActor
@@ -1585,6 +1587,15 @@ namespace InkLine
             // 放这里有两个原因：一是减伤要吃满所有增伤，不然重击流被削两次；
             // 二是斩杀靠 Max 抬伤害，排在甲后面才不会被甲削掉。
             if (e.Armor > 0f && dmg > 0f) dmg = Mathf.Max(1f, dmg - e.Armor);
+
+            // 4.6 魔气护体：无尽按侵染进度减伤，满了是 12%。排在斩杀前面，
+            // 斩和秒杀仍把伤害抬回去，不会被这层削掉。
+            if (Stage.Endless && dmg > 0f)
+            {
+                int wave = WaveIndex < Stage.Waves.Length ? WaveIndex : Stage.Waves.Length - 1;
+                float ward = StageCatalog.EndlessWard(wave);
+                if (ward > 0f) dmg = Mathf.Max(1f, dmg * (1f - ward));
+            }
 
             // 1 斩杀优先级最高：只会把伤害抬上去，不会被别的字压低
             if (execute)
