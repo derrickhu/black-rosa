@@ -202,14 +202,28 @@ namespace InkLine
 
         public static void ShowClubButton(Rect screenRect)
         {
-            HideClubButton();
 #if UNITY_MINIGAME || WEIXINMINIGAME || UNITY_WEIXINMINIGAME || MINIGAME_SUBPLATFORM_WEIXIN
             if (Application.isEditor) return;
             RectInt r = ToWindow(screenRect);
+            int font = Mathf.Max(16, r.height);
+            if (_clubBtn != null)
+            {
+                // 打开动画里每帧跟着走。反复销毁重建会闪，直接改 style。
+                WeChatWASM.WXGameClubButtonStyle s = _clubBtn.style;
+                s.left = r.x;
+                s.top = r.y;
+                s.width = r.width;
+                s.height = r.height;
+                s.fontSize = font;
+                s.lineHeight = font;
+                return;
+            }
+            // 有的基础库只把文字排版盒当成热区。字号撑满按钮高度、文字居中，
+            // 热区才跟 style 的宽高一样，不会缩成左上角一个空格。
             _clubBtn = WeChatWASM.WX.CreateGameClubButton(new WeChatWASM.WXCreateGameClubButtonParam
             {
                 type = WeChatWASM.GameClubButtonType.text,
-                text = " ",
+                text = "　　",
                 style = new WeChatWASM.GameClubButtonStyle
                 {
                     left = r.x,
@@ -221,8 +235,9 @@ namespace InkLine
                     borderWidth = 0,
                     borderRadius = 0,
                     color = "rgba(0,0,0,0)",
-                    fontSize = 12,
-                    lineHeight = r.height,
+                    textAlign = WeChatWASM.GameClubButtonTextAlign.center,
+                    fontSize = font,
+                    lineHeight = font,
                 },
             });
             _clubBtn?.Show();
@@ -403,11 +418,18 @@ namespace InkLine
         }
 
         // 游戏圈按钮的 style 是逻辑像素，SDK 不再缩放。
+        // 宽高分开换算。只拿宽度的比例去乘高度时，长屏上热区会整块错位。
         static RectInt ToWindow(Rect screenRect)
         {
             float winW = Num(SystemInfo(), "windowWidth");
-            float k = winW > 0f ? winW / Mathf.Max(1, Screen.width) : 1f;
-            return TopLeft(screenRect, k);
+            float winH = Num(SystemInfo(), "windowHeight");
+            float sx = winW > 0f ? winW / Mathf.Max(1, Screen.width) : 1f;
+            float sy = winH > 0f ? winH / Mathf.Max(1, Screen.height) : sx;
+            return new RectInt(
+                Mathf.RoundToInt(screenRect.xMin * sx),
+                Mathf.RoundToInt((Screen.height - screenRect.yMax) * sy),
+                Mathf.Max(1, Mathf.RoundToInt(screenRect.width * sx)),
+                Mathf.Max(1, Mathf.RoundToInt(screenRect.height * sy)));
         }
 
         // 昵称按钮的 JS 会再除 devicePixelRatio。Unity 屏幕若已是逻辑像素，这里先乘回去。

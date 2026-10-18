@@ -344,10 +344,25 @@ namespace InkLine
 
         IEnumerator PlaceProfileButton()
         {
-            yield return null;
+            // 排行榜卡面也是 0.32 秒从 0.72 涨开，而且贴顶，底下这颗会跟着挪。
+            // 昵称按钮没有改位置的接口，放大过程中反复销毁重建会闪，所以等它停稳再盖一次。
+            RectTransform rt = _auth.GetComponent<RectTransform>();
+            float still = 0f;
+            Rect last = default;
+            while (_auth != null && still < 0.12f)
+            {
+                Rect now = PanelKit.ScreenRect(rt);
+                if (Mathf.Abs(now.x - last.x) > 0.5f || Mathf.Abs(now.y - last.y) > 0.5f
+                    || Mathf.Abs(now.width - last.width) > 0.5f || Mathf.Abs(now.height - last.height) > 0.5f)
+                {
+                    last = now;
+                    still = 0f;
+                }
+                else still += Time.unscaledDeltaTime;
+                yield return null;
+            }
             if (_auth == null) yield break;
-            var rect = PanelKit.ScreenRect(_auth.GetComponent<RectTransform>());
-            WxBridge.ShowProfileButton(rect, (nick, avatar, err) =>
+            WxBridge.ShowProfileButton(last, (nick, avatar, err) =>
             {
                 if (this == null) return;
                 if (string.IsNullOrEmpty(nick))

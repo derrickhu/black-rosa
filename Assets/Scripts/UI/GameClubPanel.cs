@@ -84,9 +84,24 @@ namespace InkLine
 
         IEnumerator PlaceClubButton()
         {
-            yield return null;
-            if (_go == null) yield break;
-            WxBridge.ShowClubButton(PanelKit.ScreenRect(_go.GetComponent<RectTransform>()));
+            // 卡面打开的 0.32 秒里从 0.72 涨到 1。只在第一帧量一次的话，
+            // 微信那个透明按钮会留在还没涨开的位置，之后点「去游戏圈」点到的是底下的 Unity 按钮。
+            RectTransform rt = _go.GetComponent<RectTransform>();
+            float still = 0f;
+            Rect last = default;
+            while (_go != null && still < 0.12f)
+            {
+                Rect now = PanelKit.ScreenRect(rt);
+                if (Mathf.Abs(now.x - last.x) > 0.5f || Mathf.Abs(now.y - last.y) > 0.5f
+                    || Mathf.Abs(now.width - last.width) > 0.5f || Mathf.Abs(now.height - last.height) > 0.5f)
+                {
+                    WxBridge.ShowClubButton(now);
+                    last = now;
+                    still = 0f;
+                }
+                else still += Time.unscaledDeltaTime;
+                yield return null;
+            }
         }
 
         // 发帖后游戏圈那边的统计有延迟，切回来多问几次。
