@@ -58,7 +58,7 @@ namespace InkLine
             BuildChests();
 
             var rule = UiKit.Label(_body, "rule",
-                $"每 {StageCatalog.EndlessBossEvery} 波一只关底 · 只能续命一次\n成绩是打完的波数，最好成绩会上排行榜", 20,
+                $"开局一排格子，第 10 波起每 3 波加一格 · 每 {StageCatalog.EndlessBossEvery} 波一只关底\n金币不够花，福袋的金币收益在这里翻倍 · 只能续命一次", 20,
                 new Vector2(0f, Y(560f)), new Vector2(BoardW - 60f, 64f));
             rule.horizontalOverflow = HorizontalWrapMode.Wrap;
             rule.color = InkTheme.TextMid;

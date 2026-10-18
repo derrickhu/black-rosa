@@ -12,6 +12,7 @@ namespace InkLine
             new Dictionary<string, (string, string)>
             {
                 { "Audio/bgm_battle", ("Audio/bgm_battle_110e580f6542fd5eb9abc5d7320fc8fb.mp3", "Audio/bgm_battle.mp3") },
+                { "Audio/bgm_endless", ("Audio/bgm_endless_23762b406ce1c32cec8a6aa1ba09e58c.mp3", "Audio/bgm_endless.mp3") },
                 { "Bg/battle_bg_1", ("Bg/battle_bg_1_184971bb69c3716cdd2ecd200a5fac00.jpg", "Bg/battle_bg_1.png") },
                 { "Bg/battle_bg_2", ("Bg/battle_bg_2_e100de608c3b86b76a8f28686e8f9e80.jpg", "Bg/battle_bg_2.png") },
                 { "Bg/battle_bg_3", ("Bg/battle_bg_3_a8bda397b8e0c6f198b886c1b462a54a.jpg", "Bg/battle_bg_3.png") },

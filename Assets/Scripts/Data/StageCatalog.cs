@@ -67,6 +67,13 @@ namespace InkLine
         public float HpAt(int wave) =>
             WaveHp != null && wave >= 0 && wave < WaveHp.Length ? Hp * WaveHp[wave] : Hp;
 
+        // 金币掉落的逐波倍率，只有无尽填。为 null 时金币和墨一样按 EnemyCatalog.DropMul 走。
+        public float[] WaveGold;
+
+        public float GoldAt(int wave) =>
+            WaveGold != null && wave >= 0 && wave < WaveGold.Length
+                ? WaveGold[wave] : EnemyCatalog.DropMul(HpAt(wave));
+
         // 这一关的钱袋，全部在 Build 里按波次表算好。
         // KillGold 是击杀赏金总和；GoldPurse 再加上黄箱的期望值，改装定价按它走。
         public int KillGold;
@@ -79,6 +86,10 @@ namespace InkLine
         public int DraftFirst = GameConstants.FirstDraftCost;
         // 小数。由 Price 按目标抽牌数反推，凑整会让曲线一下差出好几次抽牌。
         public float DraftStep = GameConstants.DraftCostStep;
+        // 第 n 次抽牌再加 DraftCurve·n²。只有无尽用，主线是 0。
+        public float DraftCurve;
+
+        public int DraftCostAt(int n) => Mathf.RoundToInt(DraftFirst + n * DraftStep + n * n * DraftCurve);
 
         public int OpenRows => Mask.Length;
 
@@ -605,7 +616,7 @@ namespace InkLine
                     int count = s.Bodies != null ? s.Bodies[w][k]
                         : sp.Count * EnemyCatalog.Density(sp.Id);
                     EnemyDef d = EnemyCatalog.Base(sp.Id);
-                    gold += count * EnemyCatalog.Drop(d.Gold, drop);
+                    gold += count * EnemyCatalog.Drop(d.Gold, s.GoldAt(w));
                     ink += count * d.Ink * inkMul;
                     if (!boss) kills += count;
                 }

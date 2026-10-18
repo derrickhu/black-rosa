@@ -59,6 +59,11 @@ namespace InkLine
         // 挨打时往后一顿。纯表现，不进碰撞，由视图加到绘制位置上。
         public Vector2 Recoil;
         public bool Colored;
+        // 秒杀定身：光刀插在身上停一下，到点爆开才算死。期间不吃别的炮弹，也不往前走。
+        public float Doom;
+        public ShotMods DoomBy;
+        // 击退的冲击波把它一路顶回去，顶完这段才接着走。
+        public float KnockLeft;
 
         public bool Held => HardTime > 0f && (Hard == StatusKind.Freeze || Hard == StatusKind.Stun);
         public bool Confused => HardTime > 0f && Hard == StatusKind.Confuse;
@@ -106,7 +111,7 @@ namespace InkLine
     }
 
     // 格子上的每一次变化。世界只记「发生了什么」，手感和声音都归视图。
-    public enum CellBeat { Drop, Upgrade, Replace, Word, Unword, Fire, Pass, Deny }
+    public enum CellBeat { Drop, Upgrade, Replace, Word, Unword, Fire, Pass, Deny, Unlock }
 
     public struct CellPulse
     {
@@ -158,6 +163,16 @@ namespace InkLine
         public Vector2 A;
         public Vector2 B;
         public Color Tint;
+    }
+
+    // 秒杀 / 连斩 / 击退的光效投递单。视图拿 Target 跟着怪走：
+    // 秒杀等它爆开，击退等它被顶到位，世界这边不等视图。
+    public struct WordHit
+    {
+        public WordId Word;
+        public EnemyActor Target;
+        public Vector2 From;
+        public int Step;    // 连斩第几跳，0 是炮弹本体那一下
     }
 
     // 这一下伤害是哪来的。域和连斩不再走斩杀，也不再触发新的域。
@@ -268,6 +283,7 @@ namespace InkLine
         public readonly List<DropItem> Drops = new List<DropItem>();
         public readonly List<DeathFx> Deaths = new List<DeathFx>();
         public readonly List<ArcFx> Arcs = new List<ArcFx>();
+        public readonly List<WordHit> WordHits = new List<WordHit>();
         public readonly List<CellPulse> Pulses = new List<CellPulse>();
 
         // 顶栏两个药丸在世界里的位置，由 BattleView 每帧按画布算好塞进来。
@@ -369,7 +385,7 @@ namespace InkLine
         int[] _stunStar;
 
         public int DraftCost => Stage != null
-            ? Mathf.RoundToInt(Stage.DraftFirst + DraftCount * Stage.DraftStep)
+            ? Stage.DraftCostAt(DraftCount)
             : GameConstants.FirstDraftCost + DraftCount * GameConstants.DraftCostStep;
         public bool CanDraft => Gold >= DraftCost && !Victory && !Defeat;
         public int AliveEnemies
@@ -406,6 +422,7 @@ namespace InkLine
             _intervalMul = Mathf.Clamp(forge.IntervalMul, 0.3f, 2f);
             _critChance = Mathf.Clamp01(forge.CritChance);
             _goldGain = Mathf.Max(1f, forge.GoldMul);
+            if (stage.Endless) _goldGain = 1f + (_goldGain - 1f) * StageCatalog.EndlessGainBoost;
             _goldFrac = 0f;
             MaxBaseHp = Mathf.Max(1, forge.BaseHp);
             BaseHp = MaxBaseHp;
@@ -417,6 +434,7 @@ namespace InkLine
             Drops.Clear();
             Deaths.Clear();
             Arcs.Clear();
+            WordHits.Clear();
             Pulses.Clear();
             Rain.Clear();
             Shouts.Clear();
@@ -626,7 +644,51 @@ namespace InkLine
                     AudioBus.Horde();
                     AddShake(0.16f);
                 }
+                if (Stage.Endless && WaveIndex < Stage.Waves.Length) GrantEndlessCells();
             }
+        }
+
+        // 无尽开局只有第一排，按波数往上补格：第二排随机挑空格，满了再轮到第三排。
+        // 开出来的格子这一局一直留着，续命也不收回。
+        void GrantEndlessCells()
+        {
+            int want = StageCatalog.EndlessCellsAt(WaveIndex);
+            int have = 0;
+            for (int r = 1; r < GameConstants.Rows; r++)
+            for (int c = 0; c < GameConstants.Columns; c++)
+                if (Open[c, r]) have++;
+            int row = -1;
+            for (; have < want; have++)
+            {
+                row = GameConstants.Rows;
+                for (int r = 1; r < GameConstants.Rows && row == GameConstants.Rows; r++)
+                for (int c = 0; c < GameConstants.Columns; c++)
+                    if (!Open[c, r]) { row = r; break; }
+                if (row >= GameConstants.Rows) break;
+                int pick = UnityEngine.Random.Range(0, ClosedIn(row));
+                for (int c = 0; c < GameConstants.Columns; c++)
+                {
+                    if (Open[c, row] || pick-- > 0) continue;
+                    Open[c, row] = true;
+                    OpenRows = Mathf.Max(OpenRows, row + 1);
+                    Beat(CellBeat.Unlock, c, row);
+                    break;
+                }
+            }
+            if (row < 1 || row >= GameConstants.Rows) return;
+            int left = ClosedIn(row);
+            string sub = left > 0 ? $"第{(row == 1 ? "二" : "三")}排还差 {left} 格"
+                : row == 1 ? "第二排开满，接着开第三排" : "格子全开了";
+            Shouts.Add(new Shout { Kind = ShoutKind.Rush, Text = "新格子！", Sub = sub });
+            AudioBus.CellUpgrade(3);
+        }
+
+        int ClosedIn(int row)
+        {
+            int n = 0;
+            for (int c = 0; c < GameConstants.Columns; c++)
+                if (!Open[c, row]) n++;
+            return n;
         }
 
         void WaveDone(int w)
@@ -862,6 +924,7 @@ namespace InkLine
             EnemyDef def = EnemyCatalog.Get(id, Stage.HpAt(wave));
             float hp = Mathf.Max(1f, def.Hp * hpShare);
             float speed = def.Speed * StageCatalog.SpeedOf(Stage.Chapter);
+            if (Stage.Endless) speed *= StageCatalog.EndlessSpeed(wave);
             var e = new EnemyActor
             {
                 Id = NextActorId++,
@@ -872,7 +935,7 @@ namespace InkLine
                 HpShare = hpShare,
                 Speed = speed,
                 Radius = def.Radius,
-                Gold = def.Gold,
+                Gold = Stage.WaveGold != null ? EnemyCatalog.Drop(EnemyCatalog.Base(id).Gold, Stage.GoldAt(wave)) : def.Gold,
                 Ink = Stage.Event ? 0f : def.Ink * StageCatalog.InkOf(Stage.Chapter),
                 Shield = def.HasShield,
                 Strafe = def.Strafe,
@@ -1389,9 +1452,12 @@ namespace InkLine
             for (int i = 0; i < Enemies.Count; i++)
             {
                 EnemyActor e = Enemies[i];
-                if (e.Dead || b.HitIds.Contains(e.Id)) continue;
+                if (e.Dead || e.Doom > 0f || b.HitIds.Contains(e.Id)) continue;
                 if ((e.Pos - b.Pos).sqrMagnitude > (e.Radius + b.Radius) * (e.Radius + b.Radius)) continue;
                 b.HitIds.Add(e.Id);
+                Vector2 dir = b.Vel.sqrMagnitude > 0.01f ? b.Vel.normalized : Vector2.up;
+                _cleaveFrom = b.Pos - dir * 1.1f;
+                _cleaveStep = 0;
                 ResolveHit(e, b.Mods, b, HitSource.Direct);
                 while (b.Mods.CleaveLeft > 0) Cleave(b);
                 if (b.Mods.ExplodeR > 0f) Explode(b.Pos, b.Mods, b);
@@ -1405,6 +1471,10 @@ namespace InkLine
             if (!b.Dead && HitChests(b)) b.Dead = true;
         }
 
+        // 连斩光效从哪一只跳到哪一只，ResolveHit 里按它投递。
+        Vector2 _cleaveFrom;
+        int _cleaveStep;
+
         void Cleave(BulletActor b)
         {
             EnemyActor best = null;
@@ -1412,7 +1482,7 @@ namespace InkLine
             for (int i = 0; i < Enemies.Count; i++)
             {
                 EnemyActor e = Enemies[i];
-                if (e.Dead || b.HitIds.Contains(e.Id)) continue;
+                if (e.Dead || e.Doom > 0f || b.HitIds.Contains(e.Id)) continue;
                 float d = (e.Pos - b.Pos).sqrMagnitude;
                 if (d < bestD) { bestD = d; best = e; }
             }
@@ -1439,7 +1509,7 @@ namespace InkLine
             for (int i = 0; i < Enemies.Count; i++)
             {
                 EnemyActor e = Enemies[i];
-                if (e.Dead) continue;
+                if (e.Dead || e.Doom > 0f) continue;
                 // 量到怪身边缘：大个子半个身子在圈里就该挨炸。
                 float reach = r + e.Radius;
                 if ((e.Pos - pos).sqrMagnitude > reach * reach) continue;
@@ -1547,7 +1617,23 @@ namespace InkLine
             }
             else
             {
-                Bursts.Add(BuildBurst(e.Pos, m, execute));
+                // 秒杀 / 连斩 / 击退的命中整套换成光效，和单字炮弹的墨溅分开。
+                if (WordGlow(e, m, from, execute))
+                {
+                    WordHits.Add(new WordHit
+                    {
+                        Word = m.Word,
+                        Target = e,
+                        From = m.Word == WordId.Cleave ? _cleaveFrom : src != null ? src.Pos : e.Pos,
+                        Step = m.Word == WordId.Cleave ? _cleaveStep : 0
+                    });
+                    if (m.Word == WordId.Cleave)
+                    {
+                        _cleaveFrom = e.Pos;
+                        _cleaveStep++;
+                    }
+                }
+                else Bursts.Add(BuildBurst(e.Pos, m, execute));
                 PlayHit(m, execute);
                 PulseHitStop(HitStopOf(m, execute));
             }
@@ -1563,7 +1649,29 @@ namespace InkLine
                 ShowDamage(e, dmg, InkTheme.CoinFace, 1.5f, false, 77);
             else
                 ShowDamage(e, dmg, execute || crit ? InkTheme.Heart : ink, heavy || crit ? 1.42f : 1f, heavy || execute || crit);
-            if (e.Hp <= 0f) Kill(e, m);
+            if (e.Hp <= 0f)
+            {
+                if (execute && e.Doom <= 0f)
+                {
+                    e.Doom = DoomTime;
+                    e.DoomBy = m;
+                }
+                else Kill(e, m);
+            }
+        }
+
+        // 光刀插进去到爆开的这一段。比这长，成片秒杀时场面会拖。
+        const float DoomTime = 0.32f;
+
+        static bool WordGlow(EnemyActor e, ShotMods m, HitSource from, bool execute)
+        {
+            switch (m.Word)
+            {
+                case WordId.InstantKill: return execute;
+                case WordId.Cleave: return from == HitSource.Direct || from == HitSource.Cleave;
+                case WordId.Knockback: return m.PushColumn > 0f && !e.NoKnock;
+                default: return false;
+            }
         }
 
         void ApplyStatusSet(EnemyActor e, ShotMods m)
@@ -1712,7 +1820,12 @@ namespace InkLine
             }
             if (m.PushColumn > 0f)
             {
-                e.Pos.y = Mathf.Min(GameConstants.SpawnY - 0.35f, e.Pos.y + m.PushColumn);
+                float top = GameConstants.SpawnY - 0.35f;
+                // 击退这一词是冲击波一路顶回去，不是瞬移；土的落地硬直还按原样一下到位。
+                if (m.Word == WordId.Knockback)
+                    e.KnockLeft = Mathf.Max(e.KnockLeft, Mathf.Min(top, e.Pos.y + m.PushColumn) - e.Pos.y);
+                else
+                    e.Pos.y = Mathf.Min(top, e.Pos.y + m.PushColumn);
                 if (m.PushHold > 0f) e.HoldTime = Mathf.Max(e.HoldTime, m.PushHold);
                 ShowFloat(e.Pos, "退", InkTheme.GraphiteHi, 0.9f);
             }
@@ -2120,6 +2233,17 @@ namespace InkLine
             {
                 EnemyActor e = Enemies[i];
                 if (e.Dead) continue;
+                if (e.Doom > 0f)
+                {
+                    e.Doom -= dt;
+                    if (e.HitFlash > 0f) e.HitFlash -= dt;
+                    if (e.Doom <= 0f)
+                    {
+                        Kill(e, e.DoomBy);
+                        e.DoomBy = null;
+                    }
+                    continue;
+                }
                 if (FrostLeft > 0f)
                 {
                     e.Slow = Mathf.Min(e.Slow, FrostSlow);
@@ -2168,6 +2292,15 @@ namespace InkLine
                             if (e.Hp <= 0f) { Kill(e, null); continue; }
                         }
                     }
+                }
+                if (e.KnockLeft > 0f)
+                {
+                    // 先快后慢地顶回去，大约 0.3 秒到位，冲击波跟着它走完才散。
+                    float step = Mathf.Min(e.KnockLeft, Mathf.Max(e.KnockLeft * 11f, 1.2f) * dt);
+                    e.Pos.y += step;
+                    e.KnockLeft -= step;
+                    if (e.KnockLeft < 0.01f) e.KnockLeft = 0f;
+                    continue;
                 }
                 if (HaltAura > 0f)
                 {

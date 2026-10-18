@@ -135,6 +135,13 @@ namespace InkLine
                         if (!w.IsOpen(p.Col, p.Row)) Ring(at, InkTheme.Explode, 0.5f, 1.1f, 0.3f, 0f);
                         deny = true;
                         break;
+                    case CellBeat.Unlock:
+                        Ring(at, InkTheme.GoldHi, 0.3f, 2.2f, 0.6f, 0f);
+                        Ring(at, InkTheme.Gold, 0.2f, 1.5f, 0.45f, 0.08f);
+                        Sparks(at, 14, InkTheme.GoldHi, 0f);
+                        w.ShowFloat(at + new Vector2(0f, Cw * 0.62f), "新格", InkTheme.GoldHi, 1.3f);
+                        w.AddShake(0.08f);
+                        break;
                 }
             }
             w.Pulses.Clear();

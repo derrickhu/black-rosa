@@ -1,0 +1,29 @@
+A sprite sheet of glowing magic effect layers for a cartoon mobile game. Three columns and two rows, six equal square cells. The background of every cell and every gap is pure black #000000. Each cell holds one separate element, centered, filling about 70 percent of the cell, with its glow fading smoothly into the black.
+
+The attached images show the target look: the glowing pink orb and the glowing crescent from the same game. Match their soft saturated glow, their white-hot centres and their clean cartoon build. Use only their way of painting light; the shapes come from the list below.
+
+Cell 1, top left: a blade of light for the "instant kill" strike. A long straight single-edged sword blade standing upright, point at the top, hilt end cut off clean at the bottom. The blade is a white-hot sliver of light, wrapped in a thick glow in the red of a ripe cherry, with a thin ruby-red outer haze. A bright glint star sits on the point.
+
+Cell 2, top middle: the "instant kill" burst. A sharp X-shaped double slash crossing at the centre, two long thin streaks of white-hot light with cherry-red glow, inside a round flash of light the red of a ripe cherry, with eight thin rays shooting outward and a few small ember sparks the orange of a glowing charcoal.
+
+Cell 3, top right: a sword shadow for the "chain slash". A slim straight double-edged sword standing upright, point at the top, made entirely of translucent light, the blue of a gas stove flame, with a white-hot edge line along both sides and a faint second copy of the blade offset slightly behind it like an afterimage.
+
+Cell 4, bottom left: a single slash streak for the "chain slash". One thin curved crescent cut of light, sweeping from lower left to upper right, sharp at both ends and thickest in the middle, white-hot core with the blue glow of a gas stove flame and a soft ice-white haze.
+
+Cell 5, bottom middle: a shockwave front for the "knockback" strike. A wide flat arc of light bowing upward like a rainbow lying low, spanning almost the full width of the cell, thick and bright in the middle and tapering to thin points at both ends. White-hot leading edge on top, body glowing the violet of an amethyst crystal, trailing downward into a soft lavender haze, with small streaks of air rushing along its curve.
+
+Cell 6, bottom right: a shockwave ripple. One thin oval ring of light, wider than tall, the violet of an amethyst crystal with a white-hot inner edge, the inside of the ring is plain black.
+
+Clean cartoon game-effect style, smooth gradients, bright saturated glow. The image contains only these six glowing shapes on black.
+
+---- 秒杀两格重出（第一版「樱桃红」直接画出了樱桃，改用霓虹灯管锚色）----
+
+A sprite sheet of two glowing magic effect layers for a cartoon mobile game. Two equal square cells side by side. The background of every cell is pure black #000000. Each cell holds one separate element, centered, filling about 70 percent of the cell, with its glow fading smoothly into the black. Match the glow style of the attached crescent: soft saturated glow, white-hot centre, clean cartoon build.
+
+Left cell: a blade made purely of light. A long straight slim katana blade standing upright, point at the top, the bottom end simply fades out into a soft glow. The blade is a white-hot sliver, wrapped in a thick glow the colour of a red neon sign tube, with a thin deep crimson outer haze. A bright four-pointed glint star sits on the point.
+
+Right cell: a crossing double slash burst. Two long thin streaks of white-hot light crossing in a sharp X at the centre, each streak glowing the colour of a red neon sign tube, behind them a round flash of crimson light, eight thin straight rays shooting outward, and a scatter of tiny sparks the orange of hot embers.
+
+Clean cartoon game-effect style, smooth gradients, bright saturated glow. The image contains only these two glowing shapes on black.
+
+切图：docs/prompt/runtime/word_glow_slice.py

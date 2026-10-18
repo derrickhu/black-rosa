@@ -35,7 +35,8 @@ namespace InkLine
 
             ShotMods m = b.Mods;
             ShotView v = ShotLook.Resolve(m);
-            if (v.Hidden)
+            // 秒杀 / 连斩 / 击退这一发整颗换成 WordGlow 的光刃，这里一层都不画。
+            if (v.Hidden || WordGlow.Owns(m))
             {
                 Blank();
                 return;

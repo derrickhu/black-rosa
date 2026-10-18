@@ -326,7 +326,17 @@ namespace InkLine
                 var layer = shot.GetComponent<InkShot>();
                 if (layer == null) layer = shot.gameObject.AddComponent<InkShot>();
                 layer.Present(b, EmitterSkin);
+                var glow = shot.GetComponent<WordGlow>();
+                if (WordGlow.Owns(b.Mods))
+                {
+                    if (glow == null) glow = shot.gameObject.AddComponent<WordGlow>();
+                    glow.Sync(b);
+                }
+                else if (glow != null) glow.Hide();
             }
+            WordFx.Bind(_root);
+            for (int n = 0; n < w.WordHits.Count; n++) WordFx.Hit(w.WordHits[n]);
+            w.WordHits.Clear();
 
             for (int n = 0; n < w.Bursts.Count; n++) InkVfx.SpawnHit(w.Bursts[n]);
             w.Bursts.Clear();

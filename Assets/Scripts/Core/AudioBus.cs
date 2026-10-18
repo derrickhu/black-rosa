@@ -228,7 +228,7 @@ namespace InkLine
 
         public static void Tick()
         {
-            float bed = _musicName == "bgm_battle" ? MusicBattle : MusicHome;
+            float bed = _musicName == "bgm_battle" || _musicName == "bgm_endless" ? MusicBattle : MusicHome;
             float target = MusicOn ? bed * (_duck ? 0.4f : 1f) : 0f;
             float step = Time.unscaledDeltaTime * 0.7f;
 #if UNITY_MINIGAME || WEIXINMINIGAME || UNITY_WEIXINMINIGAME || MINIGAME_SUBPLATFORM_WEIXIN

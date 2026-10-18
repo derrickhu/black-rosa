@@ -384,6 +384,7 @@ namespace InkLine
             _home.StartEndless = StartEndless;
             AudioBus.Music("bgm_home");
             AudioBus.Warm("bgm_battle");
+            if (_meta.EndlessOpen) AudioBus.Warm("bgm_endless");
             _home.TabPicked += OnHomeTab;
             _home.ForgeBought += OnHomeForge;
             _home.ChestOpened += OnChestPanel;
@@ -749,7 +750,7 @@ namespace InkLine
             _offerKept = false;
             _rerolled = false;
             _dragging = false;
-            AudioBus.Music("bgm_battle");
+            AudioBus.Music(stage.Endless ? "bgm_endless" : "bgm_battle");
             if (BattleWorld.PreviewFill)
             {
                 _screen = Screen.Battle;
@@ -956,8 +957,10 @@ namespace InkLine
             if (def.Wake == CardWake.WordPart)
             {
                 CardId mate = CardCatalog.Partner(id);
-                if (mate != CardId.None && HasSameOnBoard(mate)) return 22;
-                return onBoard ? 12 : 6;
+                int w = mate != CardId.None && HasSameOnBoard(mate) ? 22 : onBoard ? 12 : 6;
+                // 万箭是满屏清场，和别的词一样好凑就太强了，压到六成左右。
+                if (def.Word == WordId.ArrowRain) w = (w * 3 + 2) / 5;
+                return w;
             }
             return onBoard ? 16 : 10;
         }

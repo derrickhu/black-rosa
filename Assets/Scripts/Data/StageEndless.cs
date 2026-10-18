@@ -5,8 +5,11 @@ using static InkLine.EnemyId;
 namespace InkLine
 {
     // 无尽模式：一局 50 波，越打越硬，看能撑到第几波。成绩上排行榜的「无尽」页。
-    // 血量每波单独一个倍率，从第二章开头一路涨到第八章关底的 1.6 倍，大部分人到不了 50。
+    // 血量每波单独一个倍率，按指数涨：开头和第二章差不多，第 20 波已经过了主线关底，
+    // 第 50 波是第八章关底的五倍多，再配上逐波加快的移速 —— 打满 50 波的只该是少数人。
     // 只数跟着每波的总血涨，封顶 EndlessBodyCap，后期不至于卡。
+    // 盘面开局一排；第 10 波起每 3 波随机开一格，先第二排后第三排，第 43 波开满。
+    // 金币掉得比主线吝啬、抽牌越抽越贵，钱永远不够花。
     // 兵种分四段解锁，第 10、20、30、40、50 波各压一只关底。
     // 每波用固定种子排，所有人打的是同一套，排行榜才公平。
     // 不进 72 关的表，也不进 check_stages 的主线曲线。
@@ -16,22 +19,36 @@ namespace InkLine
         public const int EndlessBossEvery = 10;
         public const string EndlessBackdrop = "Bg/battle_bg_endless";
 
-        // 移速、掉墨借这一章，整局不变，难度只加在血和只数上。
+        // 基础移速、掉墨借这一章；移速再按 EndlessSpeed 逐波加。
         const int EndlessPace = 3;
-        const float EndlessHpOpen = 1.3f;
-        const float EndlessHpTop = 7.2f;
+        const float EndlessHpOpen = 1.4f;
+        const float EndlessHpTop = 24f;
         // 每波杂兵的基础血总量（按第一章那一只算），再乘上当波倍率才是实际的血。
-        const float EndlessBudgetOpen = 70f;
-        const float EndlessBudgetStep = 5f;
+        const float EndlessBudgetOpen = 80f;
+        const float EndlessBudgetStep = 6.5f;
         // 关底波的护送只给这一成，压力在关底本人。
         const float EndlessEscort = 0.5f;
-        const int EndlessBodyCap = 56;
-        // 每波多长。出场摊在前面，最后留几秒给场上的怪走完。
+        const int EndlessBodyCap = 70;
+        // 每波多长。出场摊在前面，最后留几秒给场上的怪走完。后期只数涨得比时长快，越往后越密。
         const float EndlessSpanOpen = 14f;
-        const float EndlessSpanStep = 0.2f;
+        const float EndlessSpanStep = 0.1f;
+        // 第 50 波比第 1 波快这么多。
+        const float EndlessSpeedTop = 1.22f;
+
+        // 开局只有第一排。第 EndlessCellFrom 波（从 1 数）起每 EndlessCellEvery 波开一格：
+        // 先在第二排随机挑，第二排满了再随机开第三排。挑哪格每局不同，只数和时机人人一样。
+        const int EndlessCellFrom = 10;
+        const int EndlessCellEvery = 3;
+        public const int EndlessCellMax = GameConstants.Columns * (GameConstants.Rows - 1);
         const float EndlessTail = 5f;
-        // 抽牌定价只看前这么多波，按一关的钱袋来定，后面的钱越打越多，正好够把格子升满。
+        // 抽牌定价只看前这么多波，按一关的钱袋来定起价。
         const int EndlessPriceWaves = 12;
+        // 金币一直紧：掉落只吃血量倍率的这个次方（主线是 0.6），后面怪再硬钱也涨得慢；
+        // 抽牌价在线性之外再加一截平方项，抽得越多越贵。金币收益在无尽里按 EndlessGainBoost 倍算，
+        // 装福袋炮台是缺钱时的正经出路。
+        const float EndlessDropPow = 0.25f;
+        const float EndlessDraftCurve = 0.9f;
+        public const float EndlessGainBoost = 2f;
 
         static readonly EnemyId[][] EndlessTiers =
         {
@@ -51,15 +68,27 @@ namespace InkLine
 
         public static bool EndlessBossWave(int wave) => (wave + 1) % EndlessBossEvery == 0;
 
+        public static float EndlessSpeed(int wave) =>
+            Mathf.Lerp(1f, EndlessSpeedTop, Mathf.Clamp01(wave / (float)(EndlessWaves - 1)));
+
+        // 打到第 wave 波（从 0 数）时第一排以外一共该开几格。
+        public static int EndlessCellsAt(int wave) =>
+            wave < EndlessCellFrom - 1 ? 0
+                : Mathf.Min(EndlessCellMax, 1 + (wave - EndlessCellFrom + 1) / EndlessCellEvery);
+
+        public static float EndlessDrop(int wave) => Mathf.Pow(Mathf.Max(0.1f, EndlessHp(wave)), EndlessDropPow);
+
         public static StageDef EndlessStage(CardId[] pool)
         {
             var waves = new WaveDef[EndlessWaves];
             var bodies = new int[EndlessWaves][];
             var hp = new float[EndlessWaves];
+            var gold = new float[EndlessWaves];
             for (int w = 0; w < EndlessWaves; w++)
             {
                 EndlessWave(w, out waves[w], out bodies[w]);
                 hp[w] = EndlessHp(w);
+                gold[w] = EndlessDrop(w);
             }
             var s = new StageDef
             {
@@ -68,13 +97,14 @@ namespace InkLine
                 Slot = 0,
                 Title = "无尽",
                 Name = "无尽 · " + EndlessWaves + " 波",
-                Mask = G("XXXXXX", "XXXXXX"),
+                Mask = G("XXXXXX"),
                 Pool = pool,
                 Fresh = new CardId[0],
                 Waves = waves,
                 Bodies = bodies,
                 Hp = 1f,
                 WaveHp = hp,
+                WaveGold = gold,
                 StaminaCost = 0,
                 Endless = true
             };
@@ -88,6 +118,7 @@ namespace InkLine
                 Waves = Head(waves, n),
                 Bodies = Head(bodies, n),
                 WaveHp = Head(hp, n),
+                WaveGold = Head(gold, n),
             };
             Price(head);
             s.KillGold = head.KillGold;
@@ -97,6 +128,7 @@ namespace InkLine
             s.ChestInk = head.ChestInk;
             s.DraftFirst = head.DraftFirst;
             s.DraftStep = head.DraftStep;
+            s.DraftCurve = EndlessDraftCurve;
             return s;
         }
 
