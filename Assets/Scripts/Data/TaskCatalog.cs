@@ -65,7 +65,7 @@ namespace InkLine
             new TaskDef(TaskKind.Combo, 25, "一局里打出 {0} 连杀"),
             new TaskDef(TaskKind.EndlessWaves, 12, "无尽模式累计撑过 {0} 波"),
             new TaskDef(TaskKind.Daily, 1, "打 {0} 局每日残局"),
-            new TaskDef(TaskKind.Hard, 1, "打赢 {0} 场重描"),
+            new TaskDef(TaskKind.Hard, 1, "打赢 {0} 场精英"),
         };
 
         public static TaskDef Def(TaskKind k) => Defs[(int)k];

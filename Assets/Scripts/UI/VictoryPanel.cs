@@ -81,7 +81,7 @@ namespace InkLine
                  .Punch(banner, 0.47f, 0.10f, 0.3f)
                  .At(0.42f, AudioBus.Stamp);
 
-            var sub = UiKit.Label(stage0, "sub", (info.Hard ? "重描 · " : "") + $"第 {a.Stage + 1} 关", 30,
+            var sub = UiKit.Label(stage0, "sub", (info.Hard ? "精英 · " : "") + $"第 {a.Stage + 1} 关", 30,
                 new Vector2(0f, 258f), new Vector2(560f, 44f));
             sub.color = InkTheme.Hex("FFE7B8");
             UiKit.Bold(sub);

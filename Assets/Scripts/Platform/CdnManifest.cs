@@ -32,6 +32,8 @@ namespace InkLine
                 { "Ui/chapter_6", ("Ui/chapter_6_1720d0fee98e82cecb068c4005f5676f.png", "Ui/chapter_6.png") },
                 { "Ui/chapter_7", ("Ui/chapter_7_fc264cb96a746d2b9e325fcb835aea4e.png", "Ui/chapter_7.png") },
                 { "Ui/chapter_8", ("Ui/chapter_8_ba704b49e18d5b1a6b3f44684ac6021a.png", "Ui/chapter_8.png") },
+                { "Ui/dungeon_daily", ("Ui/dungeon_daily_98d49547e4c63a07a05789f9d69e8a3c.png", "Ui/dungeon_daily.png") },
+                { "Ui/dungeon_endless", ("Ui/dungeon_endless_cc4194f50b82b00a39c109de67f4ad60.png", "Ui/dungeon_endless.png") },
             };
     }
 }

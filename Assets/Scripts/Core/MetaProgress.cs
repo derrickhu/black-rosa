@@ -107,7 +107,7 @@ namespace InkLine
         // 无尽周榜：本周号、本周最好打完几波。换周清零。
         public int EndlessWeek;
         public int EndlessWeekBest;
-        // 重描：每关最好星数，规则同 Stars。
+        // 精英：每关最好星数，规则同 Stars。
         public int[] HardStars = new int[GameConstants.StageCount];
         // 每日残局：哪一天、当天打了几局、广告加过没、当天最好、历史最好。
         public int DailyDay;
@@ -712,7 +712,7 @@ namespace InkLine
             return r;
         }
 
-        // ---------- 重描 ----------
+        // ---------- 精英 ----------
 
         public bool HardOpen(int chapter) => ChapterFullStars(chapter);
 
@@ -725,7 +725,7 @@ namespace InkLine
             }
         }
 
-        // 章内按顺序：第一关随章开，后面要先过上一关的重描。
+        // 章内按顺序：第一关随章开，后面要先过上一关的精英。
         public bool HardUnlocked(int stage)
         {
             if (stage < 0 || stage >= HardStars.Length) return false;
@@ -799,6 +799,7 @@ namespace InkLine
 
         public int ClaimTask(int i)
         {
+            if (!TasksLive) return 0;
             if (i < 0 || i >= GameConstants.TaskCount || !TaskDone(i) || TaskClaimed(i)) return 0;
             TaskClaims |= 1 << i;
             int ink = TaskInk;
@@ -809,17 +810,20 @@ namespace InkLine
 
         public int ClaimTaskBonus()
         {
-            if (!TaskBonusReady) return 0;
+            if (!TasksLive || !TaskBonusReady) return 0;
             TaskClaims |= 1 << GameConstants.TaskCount;
             Diamond += GameConstants.TaskBonusDiamond;
             Save();
             return GameConstants.TaskBonusDiamond;
         }
 
+        // 每日功课先下线：任务和奖励都还没定，不记进度，领奖也直接拒绝。
+        public const bool TasksLive = false;
+
         // 每局打完（赢、输、撤退都算）记一次功课。
         public void NoteBattle(BattleTally t)
         {
-            if (t == null) return;
+            if (!TasksLive || t == null) return;
             RollTasks();
             bool dirty = false;
             for (int i = 0; i < GameConstants.TaskCount; i++)
@@ -1146,7 +1150,7 @@ namespace InkLine
             return GrantSkin(i);
         }
 
-        // 重描走同一条：星记在 HardStars，首通钻石另一档，章节满星宝箱不重复给。
+        // 精英走同一条：星记在 HardStars，首通钻石另一档，章节满星宝箱不重复给。
         public ResultInfo ApplyResult(int stage, int collected, int stars, int hpLeft, int hpMax, bool revived,
             bool hard = false)
         {

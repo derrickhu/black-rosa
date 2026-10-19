@@ -23,7 +23,7 @@ namespace InkLine
         public const int DailyPlaysPerDay = 1;
         public const int DailyAdPlays = 1;
         public const int DailyInkPerWave = 4;
-        // 重描首通的钻石：普通关、有关底、章底。
+        // 精英首通的钻石：普通关、有关底、章底。
         public const int HardDiamondStage = 2;
         public const int HardDiamondBoss = 6;
         public const int HardDiamondFinale = 15;

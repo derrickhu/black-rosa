@@ -3,7 +3,7 @@ using UnityEngine.UI;
 
 namespace InkLine
 {
-    // 首页三页的壳。排版在 Prefabs/Home 里改，代码只填数、挂钩子。
+    // 首页四页的壳。排版在 Prefabs/Home 里改，代码只填数、挂钩子。
     public sealed class HomeView : MonoBehaviour
     {
         public Text Stamina;
@@ -14,6 +14,7 @@ namespace InkLine
         public GameObject ForgePage;
         public GameObject SortiePage;
         public GameObject SpellPage;
+        public GameObject DungeonPage;
 
         public Image Board;
         public Text GunSummary;

@@ -427,8 +427,8 @@ namespace InkLine
             // 显示停在最后一波，清场时才不会看成 3/2、6/5。
             int wave = Mathf.Min(world.WaveIndex + 1, world.Stage.Waves.Length);
             if (world.Stage.Endless) Wave.text = $"第 {wave}/{world.Stage.Waves.Length} 波";
-            else if (world.BossSpawned) Wave.text = world.Stage.Hard ? "重描 · 关底" : "关底";
-            else Wave.text = world.Stage.Hard ? $"重描 {wave}/{world.Stage.Waves.Length}" : $"波 {wave}/{world.Stage.Waves.Length}";
+            else if (world.BossSpawned) Wave.text = world.Stage.Hard ? "精英 · 关底" : "关底";
+            else Wave.text = world.Stage.Hard ? $"精英 {wave}/{world.Stage.Waves.Length}" : $"波 {wave}/{world.Stage.Waves.Length}";
             PaintMire(world);
             Ink.text = world.Ink.ToString();
             // 波次下面不写字：成词、升星、操作提示、显形都不落到这一行。

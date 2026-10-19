@@ -4,7 +4,7 @@ using UnityEngine.UI;
 
 namespace InkLine
 {
-    // 首页三页的壳。只挂工程里的 Sprite。
+    // 首页四页的壳。只挂工程里的 Sprite。
     // 预制已在就以编辑器里拖的为准，不要当日常保存。
     public static class HomePrefabBaker
     {
@@ -98,16 +98,18 @@ namespace InkLine
             view.ForgePage = Page(root.transform, "page_forge").gameObject;
             view.SortiePage = Page(root.transform, "page_sortie").gameObject;
             view.SpellPage = Page(root.transform, "page_spell").gameObject;
+            view.DungeonPage = Page(root.transform, "page_dungeon").gameObject;
             BakeForge(view.ForgePage.GetComponent<RectTransform>(), view);
             BakeSortie(view.SortiePage.GetComponent<RectTransform>(), view);
             BakeSpell(view.SpellPage.GetComponent<RectTransform>(), view);
+            BakeDungeon(view.DungeonPage.GetComponent<RectTransform>());
             view.Tabs = BakeTabs(root.transform, view);
 
             System.IO.Directory.CreateDirectory("Assets/Resources/Prefabs");
             PrefabUtility.SaveAsPrefabAsset(root, Out);
             Object.DestroyImmediate(root);
             AssetDatabase.SaveAssets();
-            Debug.Log("首页预制已写入 " + Out + "。炮台 / 出征 / 技能可在 Project 里双开后直接拖。");
+            Debug.Log("首页预制已写入 " + Out + "。炮台 / 出征 / 道具 / 副本可在 Project 里双开后直接拖。");
         }
 
         static void BakeChips(Transform root, HomeView view)
@@ -280,26 +282,103 @@ namespace InkLine
             view.TabDock = Pic(root, "tabbar", "tab_dock", new Vector2(0f, 0f),
                 new Vector2(720f, UiKit.DockH), Pin.Bottom);
             view.TabDock.raycastTarget = false;
-            string[] names = { "炮台", "出征", "道具" };
-            string[] icons = { "ico_tab_forge", "ico_tab_sortie", "ico_tab_spell" };
-            var tabs = new Button[3];
-            for (int i = 0; i < 3; i++)
-            {
-                var go = new GameObject("tab" + i, typeof(RectTransform), typeof(Image), typeof(Button));
-                go.transform.SetParent(view.TabDock.transform, false);
-                var t = go.GetComponent<RectTransform>();
-                t.anchorMin = t.anchorMax = t.pivot = new Vector2(0.5f, 0.5f);
-                t.anchoredPosition = new Vector2((i - 1) * 180f, 4f);
-                t.sizeDelta = new Vector2(172f, 152f);
-                go.GetComponent<Image>().color = Color.clear;
-                var btn = go.GetComponent<Button>();
-                btn.transition = Selectable.Transition.None;
-                Pic(t, "plaque", "tab_plaque", new Vector2(0f, 42f), new Vector2(112f, 112f), Pin.Center);
-                Icon(t, icons[i], new Vector2(0f, 42f), 80f);
-                Label(t, "t", names[i], 28, new Vector2(0f, -36f), new Vector2(160, 36), Pin.Center);
-                tabs[i] = btn;
-            }
+            string[] names = { "炮台", "出征", "道具", "副本" };
+            string[] icons = { "ico_tab_forge", "ico_tab_sortie", "ico_tab_spell", DungeonTabIcon };
+            var tabs = new Button[names.Length];
+            for (int i = 0; i < names.Length; i++)
+                tabs[i] = Tab(view.TabDock.transform, i, names[i], icons[i]);
+            LayTabs(tabs);
             return tabs;
+        }
+
+        const string DungeonTabIcon = "ico_act_endless";
+
+        static Button Tab(Transform dock, int i, string name, string icon)
+        {
+            var go = new GameObject("tab" + i, typeof(RectTransform), typeof(Image), typeof(Button));
+            go.transform.SetParent(dock, false);
+            var t = go.GetComponent<RectTransform>();
+            t.anchorMin = t.anchorMax = t.pivot = new Vector2(0.5f, 0.5f);
+            t.sizeDelta = new Vector2(172f, 152f);
+            go.GetComponent<Image>().color = Color.clear;
+            var btn = go.GetComponent<Button>();
+            btn.transition = Selectable.Transition.None;
+            Pic(t, "plaque", "tab_plaque", new Vector2(0f, 42f), new Vector2(112f, 112f), Pin.Center);
+            Icon(t, icon, new Vector2(0f, 42f), 80f);
+            Label(t, "t", name, 28, new Vector2(0f, -36f), new Vector2(160, 36), Pin.Center);
+            return btn;
+        }
+
+        static void LayTabs(Button[] tabs)
+        {
+            float step = UiKit.TabStep(tabs.Length);
+            for (int i = 0; i < tabs.Length; i++)
+            {
+                var t = (RectTransform)tabs[i].transform;
+                t.anchoredPosition = new Vector2((i - (tabs.Length - 1) * 0.5f) * step, 4f);
+                t.sizeDelta = new Vector2(step - 8f, 152f);
+            }
+        }
+
+        static void BakeDungeon(RectTransform page)
+        {
+            DungeonPageBuilder.SpriteOf = key =>
+                AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Resources/Art/" + key + ".png");
+            try { DungeonPageBuilder.Build(page); }
+            finally { DungeonPageBuilder.SpriteOf = null; }
+        }
+
+        [MenuItem("墨字防线/重排副本页")]
+        public static void BakeDungeonMenu()
+        {
+            AssetDatabase.ImportAsset("Assets/Resources/Art/Ui",
+                ImportAssetOptions.ImportRecursive | ImportAssetOptions.ForceUpdate);
+            BakeDungeonOnly();
+        }
+
+        // 只换副本页，顺带补第四个页签、把出征页侧栏的「无尽模式」摘掉。炮台、出征、道具页的其余部分不动。
+        public static void BakeDungeonOnly()
+        {
+            if (!System.IO.File.Exists(Out)) return;
+            var root = PrefabUtility.LoadPrefabContents(Out);
+            var view = root.GetComponent<HomeView>();
+
+            if (view.DungeonPage != null) Object.DestroyImmediate(view.DungeonPage);
+            Transform stale = root.transform.Find("page_dungeon");
+            if (stale != null) Object.DestroyImmediate(stale.gameObject);
+            var page = Page(root.transform, "page_dungeon");
+            page.SetSiblingIndex(view.SpellPage.transform.GetSiblingIndex() + 1);
+            BakeDungeon(page);
+            view.DungeonPage = page.gameObject;
+
+            if (view.Tabs != null && view.Tabs.Length == 3 && view.TabDock != null)
+            {
+                var tabs = new Button[4];
+                for (int i = 0; i < 3; i++) tabs[i] = view.Tabs[i];
+                tabs[3] = Tab(view.TabDock.transform, 3, "副本", DungeonTabIcon);
+                view.Tabs = tabs;
+            }
+            if (view.Tabs != null) LayTabs(view.Tabs);
+
+            // 前 6 个是礼包到活动。8 个时后面是无尽和每日，7 个时后面是每日任务，都摘掉。
+            if (view.SideActs != null && view.SideActs.Length > SortiePageBuilder.SideCount)
+            {
+                for (int i = SortiePageBuilder.SideCount; i < view.SideActs.Length; i++)
+                    if (view.SideActs[i] != null) Object.DestroyImmediate(view.SideActs[i].gameObject);
+                var sides = new Button[SortiePageBuilder.SideCount];
+                for (int i = 0; i < sides.Length; i++) sides[i] = view.SideActs[i];
+                view.SideActs = sides;
+            }
+
+            PrefabUtility.SaveAsPrefabAsset(root, Out, out bool saved);
+            PrefabUtility.UnloadPrefabContents(root);
+            if (!saved)
+            {
+                Debug.LogError("副本页写入失败 " + Out);
+                return;
+            }
+            AssetDatabase.SaveAssets();
+            Debug.Log("副本页已写入 " + Out + "。炮台、出征、道具页没动。");
         }
 
         static Button PillBtn(Transform parent, string name, string text, Vector2 pos, Vector2 size, bool primary)
@@ -427,6 +506,25 @@ namespace InkLine
                 if (text.Contains("m_Name: " + ItemPageBuilder.Mark + "\n") || text.Contains("m_Name: " + ItemPageBuilder.Mark + "\r\n"))
                     return;
                 BakeItemsMenu();
+            }
+        }
+
+        // 底栏加「副本」之前的旧预制没有副本页，编译后补一次。
+        [InitializeOnLoad]
+        static class DungeonPrefabHook
+        {
+            static DungeonPrefabHook()
+            {
+                EditorApplication.delayCall += Once;
+            }
+
+            static void Once()
+            {
+                if (!System.IO.File.Exists(Out)) return;
+                string text = System.IO.File.ReadAllText(Out);
+                if (text.Contains("m_Name: " + DungeonPageBuilder.Mark + "\n") || text.Contains("m_Name: " + DungeonPageBuilder.Mark + "\r\n"))
+                    return;
+                BakeDungeonMenu();
             }
         }
 

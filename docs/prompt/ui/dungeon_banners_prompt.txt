@@ -1,0 +1,16 @@
+副本页两张卡的横幅插画。Cursor 内置生图，16:9，参考图 CdnArt/Ui/chapter_8.png（无尽那张再加 Ui/ico_act_endless.png）。
+母版在 game_assets/black-rosa/美术/runtime/dungeon/raw/，裁切加框见 docs/prompt/ui/dungeon_art.py。
+
+== 每日副本 dungeon_daily ==
+A wide banner illustration for a casual mobile tower-defense game, drawn in exactly the same style as the attached chapter art: thick dark-brown outlines, flat cartoon colors with two hard shading steps, chubby round charcoal-black ink soldiers with two white oval eyes, small black toy cannons at the bottom edge firing bright shots. The image fills the whole frame edge to edge with the scene.
+
+Scene: a fresh early morning on a calm stone courtyard. The sky is the soft green of jade and mint with a big cheerful sunrise sun of egg-yolk yellow peeking over pale green hills and a few bamboo stalks on the left and right edges. In the middle of the courtyard lies a giant stone game grid of square tiles, like a puzzle board. Several tiles glow: one with a campfire-orange flame, one with glacier-blue ice crystals, one with lemon-yellow lightning sparks. Five chubby ink soldiers march toward the board in a neat little line, one holding a small round shield, one carrying a short spear. Three small black cannons in the bottom corners and bottom center shoot glowing orange and blue shots across the board. A few paper scraps and green leaves drift in the air.
+
+Leave the upper-left corner sky fairly calm. Bright, clean and friendly mood. The picture contains this scene only.
+
+== 无尽副本 dungeon_endless ==
+A wide banner illustration for a casual mobile tower-defense game, drawn in exactly the same style as the first attached chapter art: thick dark-brown outlines, flat cartoon colors with two hard shading steps, chubby round charcoal-black ink soldiers with two white oval eyes, small black toy cannons at the bottom edge firing bright shots. The image fills the whole frame edge to edge with the scene.
+
+Scene: a lotus pond at dusk under a swirling grape-purple sky. Looming huge in the sky in the upper center is the grumpy purple demon face from the second attached image: round grape-soda purple head, two cream horns, angry red eyes, frowning mouth, surrounded by a thick purple mist that pours downward. Below it, an endless crowd of chubby ink soldiers wades forward across the pond in many rows that shrink into the far distance, some with glowing purple eyes and purple flames on their heads. Big round lotus leaves of fresh grass green and pink lotus flowers float in the foreground water. Three small black cannons in the bottom corners and bottom center blast bright orange fireballs and lemon-yellow sparks into the crowd.
+
+Dramatic but cute mood. The picture contains this scene only.

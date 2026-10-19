@@ -4,13 +4,14 @@ using UnityEngine.UI;
 
 namespace InkLine
 {
-    // 首页：常驻顶栏 + 三段底栏（炮台 / 出征 / 道具）。
+    // 首页：常驻顶栏 + 四段底栏（炮台 / 出征 / 道具 / 副本）。
     // 有 Prefabs/Home 就只绑定；没有才走下面那套临时代码搭壳。
     public sealed class HomeScreen
     {
         public const int TabForge = 0;
         public const int TabSortie = 1;
         public const int TabSpell = 2;
+        public const int TabDungeon = 3;
 
         const float CardW = 322f;
         const float CardH = 152f;
@@ -20,7 +21,7 @@ namespace InkLine
         readonly RectTransform _layer;
         readonly MetaProgress _meta;
         readonly Action<int> _start;
-        readonly RectTransform[] _pages = new RectTransform[3];
+        readonly RectTransform[] _pages = new RectTransform[4];
         HomeView _view;
         Button[] _tabs;
         Text _ink;
@@ -44,7 +45,8 @@ namespace InkLine
             UiKit.PaperSheet(layer);
             if (!h.TryPrefab()) h.BuildShell();
             h.FitFrame();
-            h.Pick(Mathf.Clamp(tab, TabForge, TabSpell));
+            if (tab == TabDungeon && !meta.EndlessOpen) tab = TabSortie;
+            h.Pick(Mathf.Clamp(tab, TabForge, TabDungeon));
             h.RefreshTop();
             // 排行榜上线前就有进度的老玩家，进大厅补报一次；报过的同样关数不会重发。
             RankService.Submit(meta);
@@ -80,6 +82,8 @@ namespace InkLine
             _pages[0] = _view.ForgePage != null ? _view.ForgePage.GetComponent<RectTransform>() : null;
             _pages[1] = _view.SortiePage != null ? _view.SortiePage.GetComponent<RectTransform>() : null;
             _pages[2] = _view.SpellPage != null ? _view.SpellPage.GetComponent<RectTransform>() : null;
+            _pages[3] = EnsureDungeonPage();
+            EnsureDungeonTab();
             if (_tabs != null)
             {
                 for (int i = 0; i < _tabs.Length; i++)
@@ -127,9 +131,10 @@ namespace InkLine
             StaminaTap(stam);
 
             for (int i = 0; i < _pages.Length; i++) _pages[i] = Page("page" + i);
-            _tabs = UiKit.TabBar(_layer, new[] { "炮台", "出征", "道具" },
-                new[] { InkSprites.Ui("tab_forge"), InkSprites.Ui("tab_sortie"), InkSprites.Ui("tab_spell") },
+            _tabs = UiKit.TabBar(_layer, new[] { "炮台", "出征", "道具", "副本" },
+                new[] { InkSprites.Ui("tab_forge"), InkSprites.Ui("tab_sortie"), InkSprites.Ui("tab_spell"), InkSprites.Ui(DungeonTabIcon) },
                 Pick);
+            DungeonPageBuilder.Build(_pages[TabDungeon]);
         }
 
         const float ChipStep = 232f;
@@ -226,6 +231,13 @@ namespace InkLine
 
         void Pick(int tab)
         {
+            if (tab == TabDungeon && !_meta.EndlessOpen)
+            {
+                AudioBus.Deny();
+                InkToast.Show(_layer, "通关第二章开放副本");
+                PaintDungeonLock();
+                return;
+            }
             _tab = tab;
             for (int i = 0; i < _pages.Length; i++)
                 if (_pages[i] != null) _pages[i].gameObject.SetActive(i == tab);
@@ -275,17 +287,29 @@ namespace InkLine
             {
                 if (tab == TabForge) BindForge();
                 else if (tab == TabSortie) BindSortie();
+                else if (tab == TabDungeon) BindDungeon();
                 else ShowItems(_pages[TabSpell]);
                 RefreshTop();
                 ForgeTabDot();
                 ItemTabDot();
+                DungeonTabDot();
+                PaintDungeonLock();
                 return;
             }
             RectTransform page = _pages[tab];
+            if (tab == TabDungeon)
+            {
+                BindDungeon();
+                RefreshTop();
+                DungeonTabDot();
+                PaintDungeonLock();
+                return;
+            }
             if (tab == TabSpell)
             {
                 ShowItems(page);
                 RefreshTop();
+                PaintDungeonLock();
                 return;
             }
             for (int i = page.childCount - 1; i >= 0; i--)
@@ -293,6 +317,7 @@ namespace InkLine
             if (tab == TabForge) BuildForge(page);
             else if (tab == TabSortie) BuildSortie(page);
             RefreshTop();
+            PaintDungeonLock();
         }
 
         float _fitW = -1f;
@@ -839,9 +864,9 @@ namespace InkLine
             BindHardToggle(board, hardOpen);
             if (board.Title != null)
             {
-                // 飘带只放得下六七个字，重描时去掉章名只留「第几章」。
+                // 飘带只放得下六七个字，精英时去掉章名只留「第几章」。
                 board.Title.text = _hardView
-                    ? "重描 · " + StageCatalog.ChapterLabel(_chapter)
+                    ? "精英 · " + StageCatalog.ChapterLabel(_chapter)
                     : SortiePageBuilder.ChapterTitle(_chapter);
             }
             BindStarChest(board);
@@ -896,14 +921,14 @@ namespace InkLine
             }
         }
 
-        // ---------- 重描 ----------
-        // 本章三星全满后，章节卡左上角多一颗「重描」键，点了整张卡换成重描的节点：
-        // 路线和节点压一层洋红，星按重描算，点节点走 StartHard。翻到没开重描的章自动切回。
+        // ---------- 精英 ----------
+        // 本章三星全满后，章节卡左上角多一颗「精英」键，点了整张卡换成精英的节点：
+        // 路线和节点压一层洋红，星按精英算，点节点走 StartHard。翻到没开精英的章自动切回。
 
         static readonly Color HardInk = InkTheme.Hex("8A2C77");
         static readonly Color HardPlate = InkTheme.Hex("F2B8E4");
 
-        // 打完重描回主页，首页是重建的，停在原来那章的重描页上。
+        // 打完精英回主页，首页是重建的，停在原来那章的精英页上。
         static bool _hardView;
         static int _hardChapter;
 
@@ -922,7 +947,7 @@ namespace InkLine
             Button btn = old != null ? old.GetComponent<Button>() : null;
             if (btn == null)
             {
-                btn = UiKit.Btn(board.transform, "hardtog", "重描", new Vector2(16f, 16f), new Vector2(112f, 56f),
+                btn = UiKit.Btn(board.transform, "hardtog", "精英", new Vector2(16f, 16f), new Vector2(112f, 56f),
                     ToggleHard, false, Pin.TopLeft);
                 oldSh = board.transform.Find("hardtog_sh");
             }
@@ -930,7 +955,7 @@ namespace InkLine
             if (oldSh != null) oldSh.gameObject.SetActive(true);
             btn.onClick.RemoveAllListeners();
             btn.onClick.AddListener(ToggleHard);
-            PanelKit.SetText(btn, _hardView ? "回普通" : "重描");
+            PanelKit.SetText(btn, _hardView ? "回普通" : "精英");
             if (_hardView) UiKit.PaintBtn(btn, HardInk, InkTheme.Hex("5E1D51"), InkTheme.CardFace);
             else UiKit.PaintBtn(btn, InkTheme.Plain, InkTheme.PlainDeep, HardInk);
             RedDot(btn, !_hardView && _meta.HardCleared(_chapter) == 0);
@@ -941,7 +966,7 @@ namespace InkLine
             AudioBus.Tap();
             _hardView = !_hardView;
             if (_hardView)
-                InkToast.Show(_layer, $"重描：怪更硬、带魔化词缀，首通给钻石（关底 {GameConstants.HardDiamondBoss}）");
+                InkToast.Show(_layer, $"精英：怪更硬、带魔化词缀，首通给钻石（关底 {GameConstants.HardDiamondBoss}）");
             BindChapter(NextStage());
         }
 
@@ -1141,8 +1166,6 @@ namespace InkLine
                 if (btn == null) continue;
                 btn.onClick.RemoveAllListeners();
                 if (i == SideEvent) btn.onClick.AddListener(OpenEvent);
-                else if (i == SideEndless) btn.onClick.AddListener(OpenEndless);
-                else if (i == SideDaily) btn.onClick.AddListener(OpenDaily);
                 else btn.onClick.AddListener(() => AudioBus.Tap());
                 if (i == SideGift) btn.onClick.AddListener(() => StarterGiftPanel.Show(_layer, _meta, AfterReward));
                 else if (i == SideClub) btn.onClick.AddListener(() => GameClubPanel.Show(_layer, _meta, AfterReward));
@@ -1161,35 +1184,20 @@ namespace InkLine
             if (ev != null) ev.gameObject.SetActive(true);
             PaintLock(ev, !_meta.EventOpen);
             RedDot(ev, _meta.EventOpen && (_meta.EventHasClaim() || (!_meta.EventDone && _meta.EventPlaysLeft > 0)));
-            Button endless = _view.SideActs[SideEndless];
-            if (endless != null) endless.gameObject.SetActive(true);
-            PaintLock(endless, !_meta.EndlessOpen);
-            RedDot(endless, _meta.EndlessOpen && _meta.EndlessPlaysLeft > 0);
-            if (_meta.EndlessOpen)
-            {
-                CdnAssets.Prefetch(StageCatalog.EndlessBackdrop);
-                CdnAssets.Prefetch(StageCatalog.EndlessDarkBackdrop);
-            }
-            Button daily = _view.SideActs[SideDaily];
-            if (daily != null)
-            {
-                daily.gameObject.SetActive(true);
-                // 礼包领完后左列空出最上一格，每日顶上去，不留洞。
-                if (gift != null && !gift.gameObject.activeSelf)
-                {
-                    var rt = (RectTransform)daily.transform;
-                    rt.anchoredPosition = new Vector2(rt.anchoredPosition.x, ((RectTransform)gift.transform).anchoredPosition.y);
-                }
-                RedDot(daily, _meta.TaskHasClaim || (_meta.DailyOpen && _meta.DailyPlaysLeft > 0));
-            }
         }
 
         public Action StartDaily;
 
-        public void OpenDaily()
+        public void OpenDailyPuzzle()
         {
+            if (!_meta.DailyOpen)
+            {
+                AudioBus.Deny();
+                InkToast.Show(_layer, "通关第四章开放");
+                return;
+            }
             AudioBus.Tap();
-            DailyPanel.Show(_layer, _meta, () => StartDaily?.Invoke(), AfterReward);
+            DailyPuzzlePanel.Show(_layer, _meta, () => StartDaily?.Invoke(), AfterReward);
         }
 
         // GameFlow 接上开打活动关；结算页「回活动」也从这里重开活动面板。
@@ -1246,6 +1254,98 @@ namespace InkLine
         {
             _shownSec = -1;
             Rebuild(_tab);
+        }
+
+        // ---------- 副本页 ----------
+
+        const string DungeonTabIcon = "act_endless";
+
+        // 老预制体没烘副本页时，运行时照烘焙那套搭一份，换到新预制体后这段就只是取引用。
+        RectTransform EnsureDungeonPage()
+        {
+            if (_view.DungeonPage != null) return _view.DungeonPage.GetComponent<RectTransform>();
+            var spell = _view.SpellPage.GetComponent<RectTransform>();
+            var go = new GameObject("page_dungeon", typeof(RectTransform));
+            var rt = (RectTransform)go.transform;
+            rt.SetParent(spell.parent, false);
+            rt.SetSiblingIndex(spell.GetSiblingIndex() + 1);
+            rt.anchorMin = spell.anchorMin;
+            rt.anchorMax = spell.anchorMax;
+            rt.pivot = spell.pivot;
+            rt.offsetMin = spell.offsetMin;
+            rt.offsetMax = spell.offsetMax;
+            DungeonPageBuilder.Build(rt);
+            go.SetActive(false);
+            _view.DungeonPage = go;
+            return rt;
+        }
+
+        // 同上：老预制体只有三个页签，照「道具」复制出第四个。
+        void EnsureDungeonTab()
+        {
+            if (_tabs == null || _tabs.Length > TabDungeon || _tabs.Length <= TabSpell || _tabs[TabSpell] == null) return;
+            var copy = UnityEngine.Object.Instantiate(_tabs[TabSpell].gameObject, _tabs[TabSpell].transform.parent);
+            copy.name = "tab" + TabDungeon;
+            Transform dot = copy.transform.Find("dot");
+            if (dot != null) UnityEngine.Object.Destroy(dot.gameObject);
+            var icon = copy.transform.Find("icon")?.GetComponent<Image>();
+            if (icon != null) icon.sprite = InkSprites.Ui(DungeonTabIcon);
+            var t = copy.transform.Find("t")?.GetComponent<Text>();
+            if (t != null) t.text = "副本";
+            var tabs = new Button[TabDungeon + 1];
+            for (int i = 0; i < _tabs.Length; i++) tabs[i] = _tabs[i];
+            tabs[TabDungeon] = copy.GetComponent<Button>();
+            _tabs = tabs;
+            _view.Tabs = tabs;
+        }
+
+        void BindDungeon()
+        {
+            RectTransform page = _pages[TabDungeon];
+            if (page == null) return;
+            DungeonPage view = page.GetComponent<DungeonPage>();
+            if (view == null) view = DungeonPageBuilder.Build(page);
+            view.Bind(_meta, OpenDailyPuzzle, OpenEndless);
+        }
+
+        // 通关第二章之前，底栏「副本」一直锁着，点了只提示条件，不切页。
+        void PaintDungeonLock()
+        {
+            if (_tabs == null || _tabs.Length <= TabDungeon || _tabs[TabDungeon] == null) return;
+            bool locked = !_meta.EndlessOpen;
+            Transform btn = _tabs[TabDungeon].transform;
+            var icon = btn.Find("icon")?.GetComponent<Image>();
+            if (icon != null) icon.color = locked ? new Color(0.62f, 0.62f, 0.62f, 1f) : Color.white;
+            Transform mark = icon != null ? icon.transform.Find("lock") : null;
+            if (locked && mark == null && icon != null)
+            {
+                var img = UiKit.Icon(icon.transform, InkSprites.Load("icon_lock"), Vector2.zero, 48f);
+                img.gameObject.name = "lock";
+                mark = img.transform;
+            }
+            if (mark != null) mark.gameObject.SetActive(locked);
+            var label = btn.Find("t")?.GetComponent<Text>();
+            if (label != null)
+                label.color = locked ? InkTheme.TextDim : (_tab == TabDungeon ? InkTheme.Seal : InkTheme.TextMid);
+        }
+
+        // 每日副本或无尽副本还有今日次数时，底栏「副本」挂红点。没开放时不挂。
+        void DungeonTabDot()
+        {
+            if (_tabs == null || _tabs.Length <= TabDungeon || _tabs[TabDungeon] == null) return;
+            Transform btn = _tabs[TabDungeon].transform;
+            bool on = _meta.EndlessOpen && DungeonPage.HasPlay(_meta);
+            Transform dot = btn.Find("dot");
+            if (dot == null)
+            {
+                if (!on) return;
+                var ring = UiKit.Icon(btn, UiSprites.Disc(), new Vector2(42f, 88f), 28f);
+                ring.gameObject.name = "dot";
+                ring.color = InkTheme.CardFace;
+                UiKit.Icon(ring.transform, UiSprites.Disc(), Vector2.zero, 22f).color = InkTheme.Seal;
+                dot = ring.transform;
+            }
+            dot.gameObject.SetActive(on);
         }
 
         // 有刚解锁、还没看过的词条时，底栏「炮台」的牌匾右上角挂红点。
@@ -1310,8 +1410,6 @@ namespace InkLine
         const int SideCodex = 3;
         const int SideRank = 4;
         const int SideEvent = 5;
-        const int SideEndless = 6;
-        const int SideDaily = 7;
 
         void BindSeal(HomeSealCell slot, int index)
         {

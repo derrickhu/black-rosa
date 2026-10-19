@@ -64,7 +64,7 @@ namespace InkLine
         public ShotMods DoomBy;
         // 击退的冲击波把它一路顶回去，顶完这段才接着走。
         public float KnockLeft;
-        // 魔化词缀（重描、魔化词缀局）：见 DemonKind。Ward 是它自己带的减伤比例，和魔气护体相加。
+        // 魔化词缀（精英、魔化词缀局）：见 DemonKind。Ward 是它自己带的减伤比例，和魔气护体相加。
         public DemonKind Demon;
         public float Ward;
 
@@ -353,7 +353,7 @@ namespace InkLine
         public int BestCombo;
         readonly bool[] _pairLit = new bool[SignaturePairs.All.Length];
 
-        // 魔化：魔速快这么多；魔护体减这么多伤；关底在重描里带的魔护体轻一点。
+        // 魔化：魔速快这么多；魔护体减这么多伤；关底在精英里带的魔护体轻一点。
         const float DemonSpeed = 1.25f;
         const float DemonWard = 0.15f;
         const float DemonBossWard = 0.12f;
@@ -1000,7 +1000,7 @@ namespace InkLine
             return e;
         }
 
-        // 重描里关底一律魔护体；杂兵按概率挑一条。墨粒（裂出来的、墨群）太小，不挂。
+        // 精英里关底一律魔护体；杂兵按概率挑一条。墨粒（裂出来的、墨群）太小，不挂。
         void Demonize(EnemyActor e, EnemyId id)
         {
             if (PreviewFill || Stage.DemonChance <= 0f || id == EnemyId.Swarm) return;

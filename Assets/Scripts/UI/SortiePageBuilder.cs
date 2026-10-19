@@ -277,11 +277,11 @@ namespace InkLine
             return btn;
         }
 
-        // 侧边贴纸：左列签到、游戏圈、新手礼包、每日（最下），右列排行榜（最上）、图鉴、招财进宝、无尽（最下）。
-        // 下标见 HomeScreen.Side*。新手礼包领完就消失，每日没开也不露面。
-        public const int SideCount = 8;
+        // 侧边贴纸：左列签到、游戏圈、新手礼包，右列排行榜（最上）、图鉴、招财进宝。
+        // 无尽和每日残局在底栏「副本」页。每日功课先下线。下标见 HomeScreen.Side*。新手礼包领完就消失。
+        public const int SideCount = 6;
 
-        static bool LeftSide(int i) => i < 3 || i == 7;
+        static bool LeftSide(int i) => i < 3;
 
         // 老的 Home.prefab 里烘的是四个贴纸，数量对不上就当场重建。数量够了也按现在的位置排一次，
         // 预制里烘过的坐标不会自己跟着改。
@@ -310,15 +310,14 @@ namespace InkLine
             float y1 = CardTop + CardH * 0.40f;
             float y2 = CardTop + CardH * 0.68f;
             float y0 = y1 - (y2 - y1);
-            float y3 = y2 + (y2 - y1);
-            return new[] { y2, y1, y0, y1, y0, y2, y3, y3 };
+            return new[] { y2, y1, y0, y1, y0, y2 };
         }
 
         static Button[] BuildSides(RectTransform page)
         {
             // 合稿上的贴纸尺寸，含一圈白边。锚在页面左右边，外沿贴屏幕。
-            string[] labels = { "新手礼包", "游戏圈", "签到", "图鉴", "排行榜", EventCatalog.Title, "无尽模式", "每日" };
-            string[] icons = { "act_event", "act_circle", "act_checkin", "act_codex", "act_rank", "skin_lucky", "act_endless", "act_daily" };
+            string[] labels = { "新手礼包", "游戏圈", "签到", "图鉴", "排行榜", EventCatalog.Title };
+            string[] icons = { "act_event", "act_circle", "act_checkin", "act_codex", "act_rank", "skin_lucky" };
             Vector2[] iconSize =
             {
                 new Vector2(96f, 96f),
@@ -327,8 +326,6 @@ namespace InkLine
                 new Vector2(86f, 106f),
                 new Vector2(112f, 102f),
                 new Vector2(100f, 100f),
-                new Vector2(104f, 112f),
-                new Vector2(102f, 102f),
             };
             float[] ys = SideYs();
             var buttons = new Button[SideCount];

@@ -690,7 +690,7 @@ namespace InkLine
             BeginBattle(StageCatalog.Get(index));
         }
 
-        // 重描：体力和主线一样收，章内按顺序开。
+        // 精英：体力和主线一样收，章内按顺序开。
         void StartHard(int index)
         {
             _meta.StorePending();
@@ -707,7 +707,7 @@ namespace InkLine
             _hard = true;
             _teachAim = false;
             BeginBattle(StageCatalog.HardStage(index));
-            _world.ShowToast("重描：怪更硬，洋红色的带魔化词缀", 2.4f);
+            _world.ShowToast("精英：怪更硬，洋红色的带魔化词缀", 2.4f);
         }
 
         // 每日残局：扣当天次数，不扣体力。全服同一局。
@@ -770,7 +770,7 @@ namespace InkLine
             _world.ShowToast("本周词缀 · " + rule.Name + "：" + rule.Desc + best, 3f);
         }
 
-        // 埋点里的关卡号。主线是正数，活动是 -1~-3，无尽、每日各一个，重描在主线号上加 1000。
+        // 埋点里的关卡号。主线是正数，活动是 -1~-3，无尽、每日各一个，精英在主线号上加 1000。
         const int EndlessLevelId = -100;
         const int DailyLevelId = -101;
         const int HardLevelBase = 1000;
@@ -1609,11 +1609,11 @@ namespace InkLine
                 },
                 Rank = () =>
                 {
-                    ShowHome();
+                    ShowHome(HomeScreen.TabDungeon);
                     if (_screen == Screen.Lobby && _layer != null)
                         RankPanel.Show(_layer, _meta, daily ? RankService.BoardDaily : RankService.BoardWeekly);
                 },
-                Home = ShowHome
+                Home = () => ShowHome(HomeScreen.TabDungeon)
             });
             _overlay = panel.Root;
         }

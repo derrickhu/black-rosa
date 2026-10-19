@@ -21,7 +21,7 @@ namespace InkLine
         public int StarChest;       // 章下标
         public int[] NewLines;      // 这次过关新亮相的词条下标，结算页逐张弹解锁卡
         public int[] NewSkins;      // 这次过关新开放（可以买了）的皮肤
-        public bool Hard;           // 重描关的结算
+        public bool Hard;           // 精英关的结算
     }
 
     // 通关评星。三星要自己守住七成血；看过广告续命，最多两星。

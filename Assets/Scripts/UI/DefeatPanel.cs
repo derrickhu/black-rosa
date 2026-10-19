@@ -46,7 +46,7 @@ namespace InkLine
         {
             int pct = Mathf.Clamp(Mathf.RoundToInt(a.Progress * 100f), 1, 99);
 
-            var sub = UiKit.Label(stage, "sub", (a.Hard ? "重描 · " : "") + $"第 {a.Stage + 1} 关", 28,
+            var sub = UiKit.Label(stage, "sub", (a.Hard ? "精英 · " : "") + $"第 {a.Stage + 1} 关", 28,
                 new Vector2(0f, 70f), new Vector2(560f, 40f));
             sub.color = InkTheme.Hex("D8CFC4");
             _anim.Fade(sub, at - 0.3f, 0.3f, 0f, 1f);

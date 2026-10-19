@@ -421,9 +421,9 @@ namespace InkLine
         public const float TabBarH = 236f;   // 卷轴按原图比例铺，不再压成一条
         const float TabBarW = 720f;
         public const float DockH = 220f;
-        // 卷轴两头是卷杆，三个页签不能按 720 均分，否则两边的图标压在杆上。
+        // 卷轴两头是卷杆，页签不能按 720 均分，否则两边的图标压在杆上。四个页签时最外侧方牌外沿约 ±266，仍在宣纸里。
         // 选中框比图标大一圈，但要给下面的字留出宣纸，不能把字顶到下沿木轴上。
-        const float TabStep = 180f;
+        public static float TabStep(int count) => count >= 4 ? 140f : 180f;
         const float TabIconOn = 96f;
         const float TabIconOff = 80f;
         const float TabPlaque = 112f;
@@ -447,8 +447,8 @@ namespace InkLine
                 go.transform.SetParent(bar, false);
                 var rt = go.GetComponent<RectTransform>();
                 rt.anchorMin = rt.anchorMax = rt.pivot = new Vector2(0.5f, 0.5f);
-                rt.anchoredPosition = new Vector2((i - (n - 1) * 0.5f) * TabStep, 12f);
-                rt.sizeDelta = new Vector2(TabStep - 8f, DockH - 16f);
+                rt.anchoredPosition = new Vector2((i - (n - 1) * 0.5f) * TabStep(n), 12f);
+                rt.sizeDelta = new Vector2(TabStep(n) - 8f, DockH - 16f);
 
                 var glow = go.GetComponent<Image>();
                 glow.color = Color.clear;
@@ -520,7 +520,11 @@ namespace InkLine
                 bool on = i == active;
                 var root = tabs[i].GetComponent<RectTransform>();
                 if (root != null)
-                    root.anchoredPosition = new Vector2((i - (tabs.Length - 1) * 0.5f) * TabStep, root.anchoredPosition.y);
+                {
+                    float step = TabStep(tabs.Length);
+                    root.anchoredPosition = new Vector2((i - (tabs.Length - 1) * 0.5f) * step, root.anchoredPosition.y);
+                    root.sizeDelta = new Vector2(step - 8f, root.sizeDelta.y);
+                }
                 Transform plaque = tabs[i].transform.Find("plaque");
                 if (plaque != null)
                 {
