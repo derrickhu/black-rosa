@@ -53,6 +53,7 @@ VO = [
     (25.7, "墨字防线，微信搜一下，马上开玩！"),
 ]
 VO_DIR = OUT_DIR / "vo_04"
+OUT_NAME = "gameplay_promo_04_shuang_vo_1080x1920.mp4"
 VIDU_AUDIO = Path.home() / ".cursor/skills/vidu-video-gen/scripts/vidu_audio.py"
 BGM_GAIN = 0.42
 # 录屏音效约 -8.6 LUFS、TTS 约 -24 LUFS，不先拉平人声会被炮声盖住
@@ -301,7 +302,7 @@ def main():
     fc.append("[bed][key]sidechaincompress=threshold=0.03:ratio=8:attack=15:release=350:makeup=1[duck]")
     fc.append("[duck][vox]amix=inputs=2:normalize=0,alimiter=limit=0.95,"
               "loudnorm=I=-14:TP=-1.5:LRA=11[a]")
-    out = OUT_DIR / "gameplay_promo_04_shuang_vo_1080x1920.mp4"
+    out = OUT_DIR / OUT_NAME
     run(["ffmpeg", "-y", "-v", "error", *inputs, "-filter_complex", ";".join(fc),
          "-map", prev, "-map", "[a]", "-t", f"{total:.3f}",
          "-c:v", "libx264", "-profile:v", "high", "-level", "4.2", "-preset", "slow", "-crf", "20",

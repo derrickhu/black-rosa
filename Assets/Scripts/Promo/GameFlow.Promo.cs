@@ -8,6 +8,10 @@ namespace InkLine
     // 买量视频的自动演示：满级存档直接进关，机器人拖炮排、挑改装、放字，录到通关页为止。
     // 命令行：-promoOut 帧目录 [-promoStage 关下标] [-promoGold 金币倍数] [-promoSeconds 最长秒数]
     //         [-promoSkin 皮肤] [-promoWarm 预热秒数] [-promoSeed 随机种子]
+    //         [-promoScene stage|frost|boss|endless] [-promoWave 从第几波（从 0 数）开打]
+    //         [-promoForce 字,字…] [-promoForceAt 秒,秒…]：到点白送一次改装，三张里塞进指定的字。
+    // frost：两排盘，第一排摆满三星冰，等着塞火凑霜火。boss：直接打这关最后一波，盘面满配。
+    // endless：魔化词缀的无尽，从 -promoWave 开打，三排满配。
     public sealed partial class GameFlow
     {
         sealed class PromoPlan
@@ -22,6 +26,10 @@ namespace InkLine
             public int Seed = 7;
             // 开打后这几个时间点各加一门炮，演示「加一门炮」。
             public float[] GunAt = { 5f, 13f };
+            public string Scene = "stage";
+            public int Wave = -1;
+            public CardId[] Force = new CardId[0];
+            public float[] ForceAt = new float[0];
         }
 
         PromoPlan _plan;
@@ -45,6 +53,8 @@ namespace InkLine
         Vector2 _pHandFrom;
         float _pPress;
         bool _pQuit;
+        int _pForce;
+        int _pForced = -1;
 
         static string PromoArg(string key)
         {
@@ -66,6 +76,24 @@ namespace InkLine
             if (int.TryParse(PromoArg("-promoSkin"), out int skin)) _plan.Skin = skin;
             if (float.TryParse(PromoArg("-promoWarm"), out float warm)) _plan.Warm = warm;
             if (int.TryParse(PromoArg("-promoSeed"), out int seed)) _plan.Seed = seed;
+            if (!string.IsNullOrEmpty(PromoArg("-promoScene"))) _plan.Scene = PromoArg("-promoScene");
+            if (int.TryParse(PromoArg("-promoWave"), out int wave)) _plan.Wave = wave;
+            string force = PromoArg("-promoForce");
+            string forceAt = PromoArg("-promoForceAt");
+            if (!string.IsNullOrEmpty(force) && !string.IsNullOrEmpty(forceAt))
+            {
+                string[] ids = force.Split(',');
+                string[] ats = forceAt.Split(',');
+                int n = Mathf.Min(ids.Length, ats.Length);
+                _plan.Force = new CardId[n];
+                _plan.ForceAt = new float[n];
+                for (int i = 0; i < n; i++)
+                {
+                    Enum.TryParse(ids[i].Trim(), out _plan.Force[i]);
+                    float.TryParse(ats[i].Trim(), out _plan.ForceAt[i]);
+                }
+            }
+            if (_plan.Scene != "stage") _plan.GunAt = new float[0];
             took = true;
             Application.runInBackground = true;
             // captureFramerate 只管游戏时间，界面动画和音效间隔走真实时间。
@@ -97,7 +125,89 @@ namespace InkLine
             AudioBus.Unlock();
             BattleWorld.GmGoldMul = _plan.GoldMul;
             _pReal = Time.realtimeSinceStartup;
-            StartStage(_plan.Stage);
+            PromoEnter();
+        }
+
+        void PromoEnter()
+        {
+            _pForce = 0;
+            if (_plan.Scene == "stage")
+            {
+                StartStage(_plan.Stage);
+                return;
+            }
+            _guide = false;
+            _teach = 0;
+            _teachAim = false;
+            _eventTier = -1;
+            _daily = false;
+            _hard = false;
+            _pickStage = _plan.Stage;
+            StageDef s;
+            if (_plan.Scene == "endless")
+            {
+                _endless = true;
+                s = PromoClone(StageCatalog.EndlessStage(_meta.EventPool(), StageRules.Get(5)));
+                s.Mask = new[] { "XXXXXX", "XXXXXX", "XXXXXX" };
+                s.WaveCells = null;
+                s.DarkShout = -1;
+                s.Preset = PromoFullBoard();
+            }
+            else if (_plan.Scene == "boss")
+            {
+                _endless = false;
+                s = PromoClone(StageCatalog.Get(_plan.Stage));
+                s.Mask = new[] { "XXXXXX", "XXXXXX", "XXXXXX" };
+                s.Preset = PromoFullBoard();
+                if (_plan.Wave < 0) _plan.Wave = s.Waves.Length - 1;
+            }
+            else
+            {
+                _endless = false;
+                s = PromoClone(StageCatalog.Get(_plan.Stage));
+                s.Mask = new[] { "XXXXXX", "XXXXXX" };
+                s.Preset = new[]
+                {
+                    new PresetGlyph(0, 0, CardId.Split, 2),
+                    new PresetGlyph(1, 0, CardId.Ice, 3),
+                    new PresetGlyph(2, 0, CardId.Ice, 3),
+                    new PresetGlyph(3, 0, CardId.Ice, 3),
+                    new PresetGlyph(4, 0, CardId.Ice, 3),
+                    new PresetGlyph(5, 0, CardId.Pierce, 2),
+                    new PresetGlyph(0, 1, CardId.Track, 2),
+                    new PresetGlyph(5, 1, CardId.Split, 2),
+                };
+            }
+            BeginBattle(s);
+            if (_plan.Wave > 0) _world.WaveIndex = Mathf.Min(_plan.Wave, s.Waves.Length - 1);
+            while (_world.EmitterCount < GameConstants.AdEmitterCap) _world.AddEmitter();
+        }
+
+        static StageDef PromoClone(StageDef s)
+        {
+            var m = typeof(object).GetMethod("MemberwiseClone",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+            return (StageDef)m.Invoke(s, null);
+        }
+
+        // 三排满配：万箭、秒杀两个词，冰火、霰雷、烈爆三组招牌两两，全三星。
+        static PresetGlyph[] PromoFullBoard()
+        {
+            CardId[,] g =
+            {
+                { CardId.Myriad, CardId.Arrow, CardId.Pierce },
+                { CardId.Ice, CardId.Fire, CardId.Split },
+                { CardId.Sec, CardId.Kill, CardId.Explode },
+                { CardId.Fire, CardId.Thunder, CardId.Track },
+                { CardId.Ice, CardId.Thunder, CardId.Pierce },
+                { CardId.Explode, CardId.Fire, CardId.Split },
+            };
+            var list = new PresetGlyph[GameConstants.Columns * 3];
+            int k = 0;
+            for (int c = 0; c < GameConstants.Columns; c++)
+            for (int r = 0; r < 3; r++)
+                list[k++] = new PresetGlyph(c, r, g[c, r], GameConstants.MaxStar);
+            return list;
         }
 
         partial void PromoTick()
@@ -117,7 +227,7 @@ namespace InkLine
                 if (Time.realtimeSinceStartup - _pReal < _plan.Warm) return;
                 UnityEngine.Random.InitState(_plan.Seed);
                 _meta.FillStamina();
-                StartStage(_plan.Stage);
+                PromoEnter();
                 _rec = PromoRecorder.Begin(_plan.Out);
                 _pPhase = 1;
                 _pClock = 0f;
@@ -218,9 +328,24 @@ namespace InkLine
                 _pGun++;
                 if (_world.EmitterCount < GameConstants.AdEmitterCap) _world.AddEmitter();
             }
-            // 格子满了不会自动弹改装，演示里接着点开，把字升星。
             bool busy = _world.ItemResolving || (_hud != null && _hud.ItemShow);
-            if (_world.BoardFull && _world.CanDraft && !busy)
+            if (_pForce < _plan.Force.Length && _pClock >= _plan.ForceAt[_pForce] && !busy)
+            {
+                CardId want = _plan.Force[_pForce++];
+                _world.Gold = Mathf.Max(_world.Gold, _world.DraftCost);
+                RollOffer();
+                _pForced = Mathf.Min(1, _offer.Length - 1);
+                for (int i = 0; i < _offer.Length; i++)
+                    if (_offer[i] == want) _offer[i] = _offer[_pForced];
+                _offer[_pForced] = want;
+                _offerKept = true;
+                _rerolled = false;
+                OpenDraft();
+                return;
+            }
+            // 格子满了不会自动弹改装，演示里接着点开，把字升星。满配盘不点，免得一直停在改装页。
+            bool full = _plan.Scene == "boss" || _plan.Scene == "endless";
+            if (!full && _world.BoardFull && _world.CanDraft && !busy)
             {
                 _pIdle += dt;
                 if (_pIdle > 1.2f)
@@ -261,6 +386,13 @@ namespace InkLine
         {
             var view = _overlay != null ? _overlay.GetComponent<DraftView>() : null;
             if (view == null || view.Cards == null || _offer == null) return;
+            if (_pCard < 0 && _pForced >= 0 && _pForced < _offer.Length)
+            {
+                _pCard = _pForced;
+                _pCellSet = true;
+                PromoBestCell(_offer[_pCard], out _pCol, out _pRow, out _pOverwrite);
+            }
+            _pForced = -1;
             if (_pCard < 0) _pCard = PromoChooseCard();
             if (_pCard < 0 || _pCard >= view.Cards.Length || view.Cards[_pCard] == null) return;
             Vector2 to = RewardFly.Local(_layer, view.Cards[_pCard].transform) + new Vector2(-6f, -18f);
@@ -317,6 +449,16 @@ namespace InkLine
             return pick;
         }
 
+        static bool PromoPairs(CardId a, CardId b)
+        {
+            for (int i = 0; i < SignaturePairs.All.Length; i++)
+            {
+                SignaturePair p = SignaturePairs.All[i];
+                if ((p.A == a && p.B == b) || (p.A == b && p.B == a)) return true;
+            }
+            return false;
+        }
+
         // 能升星先升星；成词字往搭档那一列放；其它放空格，偏中间、偏少字的列。
         // 实在没空位就覆盖星最低的一格。
         float PromoBestCell(CardId id, out int col, out int row, out bool overwrite)
@@ -335,6 +477,7 @@ namespace InkLine
                 {
                     if (_world.Grid[c, r].HasValue) filled++;
                     if (mate != CardId.None && _world.Grid[c, r] == mate) hasMate = true;
+                    if (_world.Grid[c, r].HasValue && PromoPairs(id, _world.Grid[c, r].Value)) hasMate = true;
                 }
                 for (int r = 0; r < GameConstants.Rows; r++)
                 {
