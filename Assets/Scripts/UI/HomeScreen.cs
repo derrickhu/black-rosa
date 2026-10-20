@@ -858,10 +858,15 @@ namespace InkLine
             CdnAssets.Prefetch("Ui/chapter_" + _chapter);
             CdnAssets.Prefetch("Ui/chapter_" + (_chapter + 2));
             CdnAssets.Prefetch("Bg/battle_bg_" + (_chapter + 1));
-            bool hardOpen = _meta.HardOpen(_chapter);
-            if (!hardOpen) _hardView = false;
+            if (_hardView && !_meta.HardOpen(_chapter))
+            {
+                int open = LatestHardChapter();
+                if (open < 0) _hardView = false;
+                else _chapter = open;
+            }
             if (_hardView) _hardChapter = _chapter;
-            BindHardToggle(board, hardOpen);
+            HideHardToggle(board);
+            BindModeTabs(board);
             if (board.Title != null)
             {
                 // 飘带只放得下六七个字，精英时去掉章名只留「第几章」。
@@ -870,7 +875,11 @@ namespace InkLine
                     : SortiePageBuilder.ChapterTitle(_chapter);
             }
             BindStarChest(board);
-            if (board.StarChest != null) board.StarChest.gameObject.SetActive(!_hardView);
+            if (board.StarChest != null)
+            {
+                board.StarChest.gameObject.SetActive(true);
+                board.StarChest.transform.SetAsLastSibling();
+            }
             int count = Mathf.Min(SortiePageBuilder.PerChapter,
                 GameConstants.StageCount - _chapter * SortiePageBuilder.PerChapter);
             if (board.Route != null)
@@ -901,10 +910,12 @@ namespace InkLine
                     board.Dots[i].color = i == _chapter ? InkTheme.Cta : InkTheme.LineDim;
                 }
             }
-            bool prevOk = _chapter > 0;
-            bool nextOk = _chapter + 1 < SortiePageBuilder.ChapterCount && ChapterOpen(_chapter + 1);
-            if (board.Prev != null) board.Prev.gameObject.SetActive(prevOk);
-            if (board.PrevLabel != null) board.PrevLabel.color = InkTheme.TextMid;
+            bool prevShown = _chapter > 0;
+            bool prevOk = prevShown && CanShift(_chapter - 1);
+            bool nextOk = _chapter + 1 < SortiePageBuilder.ChapterCount && CanShift(_chapter + 1);
+            if (board.Prev != null) board.Prev.gameObject.SetActive(prevShown);
+            if (board.PrevLabel != null)
+                board.PrevLabel.color = prevOk ? InkTheme.TextMid : InkTheme.TextDim;
             if (board.NextLabel != null)
                 board.NextLabel.color = nextOk ? InkTheme.TextDark : InkTheme.TextDim;
             var swipe = board.GetComponent<ChapterSwipe>();
@@ -922,8 +933,9 @@ namespace InkLine
         }
 
         // ---------- 精英 ----------
-        // 本章三星全满后，章节卡左上角多一颗「精英」键，点了整张卡换成精英的节点：
-        // 路线和节点压一层洋红，星按精英算，点节点走 StartHard。翻到没开精英的章自动切回。
+        // 章节卡上沿两枚画好的小页签：普通、精英。精英开局锁着，一章九关都三星后
+        // 这一章的精英才开。选了标签，翻页看到的都是这一边的内容；
+        // 下一章的精英没开，就不能点下一章。炮台宝箱普通和精英各领一次。
 
         static readonly Color HardInk = InkTheme.Hex("8A2C77");
         static readonly Color HardPlate = InkTheme.Hex("F2B8E4");
@@ -934,40 +946,154 @@ namespace InkLine
 
         public Action<int> StartHard;
 
-        void BindHardToggle(HomeChapterBoard board, bool open)
+        const float ModeTabW = 112f;
+        const float ModeTabDip = 4f;
+
+        void HideHardToggle(HomeChapterBoard board)
         {
             Transform old = board.transform.Find("hardtog");
             Transform oldSh = board.transform.Find("hardtog_sh");
-            if (!open)
-            {
-                if (old != null) old.gameObject.SetActive(false);
-                if (oldSh != null) oldSh.gameObject.SetActive(false);
-                return;
-            }
-            Button btn = old != null ? old.GetComponent<Button>() : null;
-            if (btn == null)
-            {
-                btn = UiKit.Btn(board.transform, "hardtog", "精英", new Vector2(16f, 16f), new Vector2(112f, 56f),
-                    ToggleHard, false, Pin.TopLeft);
-                oldSh = board.transform.Find("hardtog_sh");
-            }
-            btn.gameObject.SetActive(true);
-            if (oldSh != null) oldSh.gameObject.SetActive(true);
-            btn.onClick.RemoveAllListeners();
-            btn.onClick.AddListener(ToggleHard);
-            PanelKit.SetText(btn, _hardView ? "回普通" : "精英");
-            if (_hardView) UiKit.PaintBtn(btn, HardInk, InkTheme.Hex("5E1D51"), InkTheme.CardFace);
-            else UiKit.PaintBtn(btn, InkTheme.Plain, InkTheme.PlainDeep, HardInk);
-            RedDot(btn, !_hardView && _meta.HardCleared(_chapter) == 0);
+            if (old != null) old.gameObject.SetActive(false);
+            if (oldSh != null) oldSh.gameObject.SetActive(false);
         }
 
-        void ToggleHard()
+        void BindModeTabs(HomeChapterBoard board)
         {
+            var page = board.transform.parent as RectTransform;
+            if (page == null) return;
+            float cardTop = 80f;
+            var boardRt = board.transform as RectTransform;
+            if (boardRt != null) cardTop = -boardRt.anchoredPosition.y;
+            bool eliteOpen = _meta.AnyHardOpen;
+            PaintModeTab(page, "modetab0", "普通", -60f, cardTop, !_hardView, false, false, () => SelectMode(false));
+            bool fresh = false;
+            if (eliteOpen && !_hardView)
+            {
+                for (int c = 0; c < SortiePageBuilder.ChapterCount; c++)
+                    if (_meta.HardOpen(c) && _meta.HardCleared(c) == 0) { fresh = true; break; }
+            }
+            PaintModeTab(page, "modetab1", "精英", 60f, cardTop, _hardView, !eliteOpen, fresh, () => SelectMode(true));
+            Transform back = page.Find(_hardView ? "modetab0" : "modetab1");
+            Transform front = page.Find(_hardView ? "modetab1" : "modetab0");
+            if (back != null) back.SetAsLastSibling();
+            if (front != null) front.SetAsLastSibling();
+        }
+
+        void PaintModeTab(RectTransform page, string name, string label, float x, float cardTop, bool on, bool locked, bool dot, UnityEngine.Events.UnityAction click)
+        {
+            Transform found = page.Find(name);
+            if (found != null && found.Find("face") != null)
+            {
+                found.name = name + "_old";
+                UnityEngine.Object.Destroy(found.gameObject);
+                found = null;
+            }
+            Button btn = found != null ? found.GetComponent<Button>() : null;
+            if (btn == null)
+            {
+                var go = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(Button));
+                go.transform.SetParent(page, false);
+                var made = go.GetComponent<RectTransform>();
+                made.anchorMin = made.anchorMax = new Vector2(0.5f, 1f);
+                made.pivot = new Vector2(0.5f, 1f);
+                var plate0 = go.GetComponent<Image>();
+                plate0.preserveAspect = true;
+                plate0.type = Image.Type.Simple;
+                btn = go.GetComponent<Button>();
+                btn.targetGraphic = plate0;
+                btn.transition = Selectable.Transition.None;
+                UiKit.Bold(UiKit.Label(go.transform, "t", label, 20, new Vector2(0f, -4f), new Vector2(96f, 28f)));
+            }
+            Sprite spr = InkSprites.Load(on ? "Ui/sortie_tab_on" : "Ui/sortie_tab_off");
+            float h = ModeTabW * 0.52f;
+            if (spr != null && spr.rect.width > 1f)
+                h = ModeTabW * spr.rect.height / spr.rect.width;
+            var rt = (RectTransform)btn.transform;
+            rt.sizeDelta = new Vector2(ModeTabW, h);
+            rt.anchoredPosition = new Vector2(x, -(cardTop - h + (on ? ModeTabDip : 0f)));
+            var plate = btn.GetComponent<Image>();
+            if (plate != null)
+            {
+                if (spr != null) plate.sprite = spr;
+                plate.preserveAspect = true;
+                plate.type = Image.Type.Simple;
+                plate.color = locked ? new Color(0.72f, 0.72f, 0.72f, 1f) : Color.white;
+            }
+            var text = btn.transform.Find("t")?.GetComponent<Text>();
+            if (text != null)
+            {
+                text.color = on ? InkTheme.CardFace : locked ? InkTheme.TextDim : InkTheme.TextDark;
+                text.rectTransform.anchoredPosition = new Vector2(locked ? -16f : 0f, -4f);
+            }
+            Transform mark = btn.transform.Find("lock");
+            if (locked && mark == null)
+            {
+                var icon = UiKit.Icon(btn.transform, InkSprites.Load("icon_lock"), new Vector2(30f, -2f), 32f);
+                icon.gameObject.name = "lock";
+                mark = icon.transform;
+            }
+            if (mark != null)
+            {
+                mark.gameObject.SetActive(locked);
+                var markRt = mark as RectTransform;
+                if (markRt != null)
+                {
+                    markRt.sizeDelta = new Vector2(32f, 32f);
+                    markRt.anchoredPosition = new Vector2(30f, -2f);
+                }
+            }
+            Transform badge = btn.transform.Find("dot");
+            if (dot && badge == null)
+            {
+                var ring = UiKit.Icon(btn.transform, UiSprites.Disc(), Vector2.zero, 18f);
+                ring.gameObject.name = "dot";
+                ring.color = InkTheme.CardFace;
+                UiKit.Icon(ring.transform, UiSprites.Disc(), Vector2.zero, 12f).color = InkTheme.Seal;
+                badge = ring.transform;
+            }
+            if (badge != null)
+            {
+                badge.gameObject.SetActive(dot);
+                var badgeRt = badge as RectTransform;
+                if (badgeRt != null)
+                {
+                    badgeRt.anchorMin = badgeRt.anchorMax = new Vector2(1f, 1f);
+                    badgeRt.pivot = new Vector2(0.5f, 0.5f);
+                    badgeRt.sizeDelta = new Vector2(18f, 18f);
+                    badgeRt.anchoredPosition = new Vector2(-8f, -18f);
+                    var inner = badgeRt.Find("icon") as RectTransform;
+                    if (inner != null) inner.sizeDelta = new Vector2(12f, 12f);
+                }
+            }
+            btn.onClick.RemoveAllListeners();
+            btn.onClick.AddListener(click);
+        }
+
+        void SelectMode(bool hard)
+        {
+            if (hard == _hardView) return;
+            if (hard && !_meta.AnyHardOpen)
+            {
+                AudioBus.Deny();
+                InkToast.Show(_layer, "一章九关都三星，才开这一章的精英");
+                return;
+            }
             AudioBus.Tap();
-            _hardView = !_hardView;
-            if (_hardView)
-                InkToast.Show(_layer, $"精英：怪更硬、带魔化词缀，首通给钻石（关底 {GameConstants.HardDiamondBoss}）");
+            _hardView = hard;
+            if (hard && !_meta.HardOpen(_chapter))
+            {
+                int open = LatestHardChapter();
+                if (open >= 0) _chapter = open;
+            }
+            if (hard) _hardChapter = _chapter;
             BindChapter(NextStage());
+        }
+
+        int LatestHardChapter()
+        {
+            for (int c = SortiePageBuilder.ChapterCount - 1; c >= 0; c--)
+                if (_meta.HardOpen(c)) return c;
+            return -1;
         }
 
         void BindHardNode(HomeSealCell slot, int index)
@@ -1095,14 +1221,23 @@ namespace InkLine
         {
             int to = _chapter + dir;
             if (to < 0 || to >= SortiePageBuilder.ChapterCount) return;
-            if (dir > 0 && !ChapterOpen(to))
+            if (!CanShift(to))
             {
                 AudioBus.Deny();
                 return;
             }
             AudioBus.Tap();
             _chapter = to;
+            if (_hardView) _hardChapter = _chapter;
             BindChapter(NextStage());
+        }
+
+        // 普通：往后必须这章已开，往前随便翻。精英：这一章的精英没开就不能翻过去。
+        bool CanShift(int chapter)
+        {
+            if (chapter < 0 || chapter >= SortiePageBuilder.ChapterCount) return false;
+            if (_hardView) return _meta.HardOpen(chapter);
+            return chapter <= _chapter || ChapterOpen(chapter);
         }
 
         bool ChapterOpen(int chapter)
