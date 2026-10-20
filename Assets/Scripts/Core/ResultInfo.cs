@@ -17,7 +17,7 @@ namespace InkLine
         public int HpLeft;          // 结算时防线还剩几格
         public int HpMax;
         public bool Revived;        // 这局看过广告续命
-        public bool HasStarChest;   // 这一章刚凑满三星，结算页当场开炮台宝箱
+        public bool HasStarChest;   // 普通满星，或精英整章三星，结算页当场开炮台宝箱
         public int StarChest;       // 章下标
         public int[] NewLines;      // 这次过关新亮相的词条下标，结算页逐张弹解锁卡
         public int[] NewSkins;      // 这次过关新开放（可以买了）的皮肤

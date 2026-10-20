@@ -9,6 +9,7 @@ namespace InkLine
     // 第 20 波约 6.3，第 30 波约 9.3，第 40 波约 12.3，第 50 波停在 14 倍
     // （大约第八章关底的三倍）。薄皮杂兵另有下限。满盘面打得过第 50 波，不再是墙。
     // 只数跟着每波的总血涨，封顶 EndlessBodyCap，后期不至于卡。
+    // 再打个只数折扣：前 10 波少约一成；第 11 波起再收，到第 30 波大约剩四分之三。
     // 盘面开局一排；第 10 波起每 3 波随机开一格，先第二排后第三排，第 43 波开满。
     // 第 10 波起魔气从上往下渗到第 40 波，怪的减伤跟着涨到 12%。
     // 每周换一条魔气词缀（StageRules），血、速、钱、怪量跟着词缀乘。
@@ -117,6 +118,15 @@ namespace InkLine
 
         public static float EndlessDrop(int wave) => Mathf.Pow(Mathf.Max(0.1f, EndlessHp(wave)), EndlessDropPow);
 
+        // 前 10 波少约一成。第 11 波起再往下收，第 30 波起到底是四分之三。词缀的怪量倍率叠在这上面。
+        static float EndlessCrowd(int wave)
+        {
+            const int knee = 9;
+            if (wave <= knee) return 0.90f;
+            float k = Mathf.Clamp01((wave - knee) / 20f);
+            return Mathf.Lerp(0.86f, 0.75f, k);
+        }
+
         public static StageDef EndlessStage(CardId[] pool, StageRule rule)
         {
             float countMul = rule != null ? rule.CountMul : 1f;
@@ -133,7 +143,7 @@ namespace InkLine
                 EnemyId? boss = EndlessBossWave(w)
                     ? EndlessBosses[Mathf.Clamp((w + 1) / EndlessBossEvery - 1, 0, EndlessBosses.Length - 1)]
                     : (EnemyId?)null;
-                SurvivalWave(w, boss, new System.Random(7919 + w * 131), countMul, w, out waves[w], out bodies[w]);
+                SurvivalWave(w, boss, new System.Random(7919 + w * 131), countMul * EndlessCrowd(w), w, out waves[w], out bodies[w]);
                 hp[w] = EndlessHp(w);
                 gold[w] = EndlessDrop(w);
                 speed[w] = EndlessSpeed(w);

@@ -300,6 +300,8 @@ namespace InkLine
             if (skin == SkinCatalog.Flame) return InkSprites.Load("shot_flame");
             if (skin == SkinCatalog.Lucky) return InkSprites.Load("shot_coin");
             if (skin == SkinCatalog.Frost) return InkSprites.Load("shot_frost");
+            if (skin == SkinCatalog.Tide) return InkSprites.Load("shot_tide");
+            if (skin == SkinCatalog.Bolt) return InkSprites.Load("shot_bolt");
             return null;
         }
 
@@ -325,7 +327,7 @@ namespace InkLine
                 sink = 0.20f;
                 wobble = 0f;
             }
-            else if (skin == SkinCatalog.Frost)
+            else if (skin == SkinCatalog.Frost || skin == SkinCatalog.Tide || skin == SkinCatalog.Bolt)
             {
                 size = 0.82f;
                 sink = 0.16f;
@@ -391,6 +393,38 @@ namespace InkLine
                     Tail = InkTheme.Ice,
                     Width = 0.10f,
                     Time = 0.11f
+                };
+            }
+            if (skin == SkinCatalog.Tide)
+            {
+                return new NakedShot
+                {
+                    Pellet = Color.clear,
+                    PelletScale = 0.2f,
+                    Glow = Fade(InkTheme.Hex("3CB4F5"), 0.30f),
+                    GlowScale = 0.76f,
+                    Hot = Color.clear,
+                    HotScale = 0.1f,
+                    Head = InkTheme.WaterHi,
+                    Tail = InkTheme.Hex("3CB4F5"),
+                    Width = 0.11f,
+                    Time = 0.10f
+                };
+            }
+            if (skin == SkinCatalog.Bolt)
+            {
+                return new NakedShot
+                {
+                    Pellet = Color.clear,
+                    PelletScale = 0.2f,
+                    Glow = Fade(InkTheme.Hex("4C6BFF"), 0.32f),
+                    GlowScale = 0.72f,
+                    Hot = Fade(Color.white, 0.55f),
+                    HotScale = 0.16f,
+                    Head = InkTheme.Hex("E8F2FF"),
+                    Tail = InkTheme.Hex("4C6BFF"),
+                    Width = 0.08f,
+                    Time = 0.08f
                 };
             }
             if (skin == 3)

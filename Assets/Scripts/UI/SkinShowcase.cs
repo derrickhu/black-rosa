@@ -118,7 +118,7 @@ namespace InkLine
             _rank = UiKit.Label(_rankTag, "t", "", 16, Vector2.zero, new Vector2(54f, 26f));
             _rank.color = Color.white;
             UiKit.Bold(_rank);
-            _perk = UiKit.Label(_root, "perk", "", 19, new Vector2(0f, PerkY), new Vector2(320f, 28f));
+            _perk = UiKit.Label(_root, "perk", "", 19, new Vector2(0f, PerkY), new Vector2(520f, 28f));
             _perk.color = InkTheme.Seal;
             UiKit.Bold(_perk);
 
@@ -150,23 +150,8 @@ namespace InkLine
             _faces = new Image[n];
             _used = new RectTransform[n];
             _dots = new RectTransform[n];
-            float span = (n - 1) * AvatarStep;
-            for (int i = 0; i < n; i++)
-            {
-                var pos = new Vector2(-span * 0.5f + i * AvatarStep, ShelfY);
-                var cell = UiKit.Art(_root, "av" + i, "Ui/skin_frame", pos, new Vector2(62f, 74f));
-                _frames[i] = cell.GetComponent<Image>();
-                _frames[i].preserveAspect = false;
-                var btn = cell.gameObject.AddComponent<Button>();
-                btn.targetGraphic = _frames[i];
-                btn.transition = Selectable.Transition.None;
-                int idx = i;
-                btn.onClick.AddListener(() => Show(idx, 0, true));
-                _faces[i] = UiKit.Icon(cell, null, new Vector2(0f, 5f), 54f);
-                _faces[i].gameObject.name = "face";
-                _used[i] = Seal(cell, "used", "用", new Vector2(22f, 28f), 26f, InkTheme.Seal);
-                _dots[i] = Seal(cell, "dot", "", new Vector2(24f, 30f), 16f, InkTheme.Rose);
-            }
+            for (int i = 0; i < n; i++) MakeAvatar(i);
+            LayAvatars();
             BuildFx();
         }
 
@@ -253,6 +238,33 @@ namespace InkLine
             }
         }
 
+        RectTransform MakeAvatar(int i)
+        {
+            var cell = UiKit.Art(_root, "av" + i, "Ui/skin_frame", Vector2.zero, new Vector2(62f, 74f));
+            _frames[i] = cell.GetComponent<Image>();
+            _frames[i].preserveAspect = false;
+            var btn = cell.gameObject.AddComponent<Button>();
+            btn.targetGraphic = _frames[i];
+            btn.transition = Selectable.Transition.None;
+            int idx = i;
+            btn.onClick.AddListener(() => Show(idx, 0, true));
+            _faces[i] = UiKit.Icon(cell, null, new Vector2(0f, 5f), 54f);
+            _faces[i].gameObject.name = "face";
+            _used[i] = Seal(cell, "used", "用", new Vector2(22f, 28f), 26f, InkTheme.Seal);
+            _dots[i] = Seal(cell, "dot", "", new Vector2(24f, 30f), 16f, InkTheme.Rose);
+            return cell;
+        }
+
+        // 九门炮挤在原来的托条上，间距收一档，左右还落在展台里面。
+        void LayAvatars()
+        {
+            int n = _frames.Length;
+            float step = n >= 9 ? 64f : AvatarStep;
+            float span = (n - 1) * step;
+            for (int i = 0; i < n; i++)
+                _frames[i].rectTransform.anchoredPosition = new Vector2(-span * 0.5f + i * step, ShelfY);
+        }
+
         static float GunCenter => GunFoot + GunSize * 0.5f - GunSize * GunPad;
 
         void Arrow(string name, int dir)
@@ -291,13 +303,18 @@ namespace InkLine
             for (int i = 0; i < n; i++)
             {
                 Transform cell = _root.Find("av" + i);
-                if (cell == null) return false;
+                if (cell == null)
+                {
+                    MakeAvatar(i);
+                    continue;
+                }
                 _frames[i] = cell.GetComponent<Image>();
                 _faces[i] = cell.Find("face")?.GetComponent<Image>();
                 _used[i] = cell.Find("used") as RectTransform;
                 _dots[i] = cell.Find("dot") as RectTransform;
                 if (_frames[i] == null || _faces[i] == null || _used[i] == null || _dots[i] == null) return false;
             }
+            LayAvatars();
             _fxName = new Text[FxSlots];
             _fxVal = new Text[FxSlots];
             for (int i = 0; i < FxSlots; i++)
@@ -316,6 +333,7 @@ namespace InkLine
                 _rankBg.sprite = UiSprites.Fill(8);
                 _rankBg.type = Image.Type.Sliced;
             }
+            if (_perk != null) _perk.rectTransform.sizeDelta = new Vector2(520f, 28f);
             for (int i = 0; i < _used.Length; i++)
             {
                 RepairDisc(_used[i]);
@@ -430,8 +448,7 @@ namespace InkLine
             _motion.Alpha = _gun.color.a;
             _motion.SlideIn(dir);
 
-            int line = SkinCatalog.LineOf(i);
-            bool plain = line < 0 && d.DamageAdd <= 0.01f && d.GoldAdd <= 0;
+            bool plain = SkinCatalog.PerkOf(i) == "无特殊效果";
             _perk.gameObject.SetActive(!plain);
             _perk.text = SkinCatalog.PerkOf(i);
 

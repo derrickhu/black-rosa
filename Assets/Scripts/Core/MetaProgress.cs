@@ -30,6 +30,8 @@ namespace InkLine
         public int[] SkinShards = new int[SkinCatalog.Count];
         // 章节满星宝箱领过没有。位下标是章。
         public int ChapterChest;
+        // 精英整章三星另给的一只炮台宝箱，和上面那只分开领。
+        public int HardChapterChest;
         // 道具：等级 0 是还没解锁；卡是攒着的、还没花掉的张数。
         public int[] ItemLevel = new int[ItemCatalog.Count];
         public int[] ItemCards = new int[ItemCatalog.Count];
@@ -249,6 +251,7 @@ namespace InkLine
             for (int i = 0; i < SkinShards.Length; i++)
                 SkinShards[i] = Mathf.Max(0, SkinShards[i]);
             ChapterChest &= (1 << GameConstants.Chapters) - 1;
+            HardChapterChest &= (1 << GameConstants.Chapters) - 1;
             SkinOwned[0] = true;
             bool rulesChanged = false;
             if (!ItemStarterDone)
@@ -1096,11 +1099,38 @@ namespace InkLine
         public bool ChapterFullStars(int chapter) =>
             chapter >= 0 && chapter < GameConstants.Chapters && ChapterStarGaps(chapter) == 0;
 
+        public bool HardChapterChestClaimed(int chapter) =>
+            chapter >= 0 && (HardChapterChest & (1 << chapter)) != 0;
+
+        // 这一章还差几关精英三星。没打过的也算差。
+        public int HardChapterGaps(int chapter)
+        {
+            if (chapter < 0 || chapter >= GameConstants.Chapters) return GameConstants.ChapterSize;
+            int n = GameConstants.ChapterSize;
+            int start = chapter * n;
+            int end = Mathf.Min(start + n, HardStars == null ? 0 : HardStars.Length);
+            int gaps = 0;
+            for (int i = start; i < end; i++)
+                if (HardStars[i] < GameConstants.MaxStar) gaps++;
+            return start >= end ? n : gaps;
+        }
+
+        public bool HardChapterCleared(int chapter) =>
+            chapter >= 0 && chapter < GameConstants.Chapters && HardChapterGaps(chapter) == 0;
+
         // 章节满星送一只炮台宝箱，当场开。已经有这门炮时，碎片换成墨。集满就直接到手。
         public ChestLoot ClaimStarChest(int chapter)
         {
             if (!ChapterFullStars(chapter) || ChapterChestClaimed(chapter)) return null;
             ChapterChest |= 1 << chapter;
+            return OpenCannonChest();
+        }
+
+        // 精英整章三星再送一只，不占用普通满星那只。
+        public ChestLoot ClaimHardChest(int chapter)
+        {
+            if (!HardChapterCleared(chapter) || HardChapterChestClaimed(chapter)) return null;
+            HardChapterChest |= 1 << chapter;
             return OpenCannonChest();
         }
 
@@ -1150,7 +1180,8 @@ namespace InkLine
             return GrantSkin(i);
         }
 
-        // 精英走同一条：星记在 HardStars，首通钻石另一档，章节满星宝箱不重复给。
+        // 精英走同一条：星记在 HardStars，首通钻石另一档。
+        // 普通满星给一只炮台宝箱；精英九关都三星再给一只，两只分开领。
         public ResultInfo ApplyResult(int stage, int collected, int stars, int hpLeft, int hpMax, bool revived,
             bool hard = false)
         {
@@ -1186,7 +1217,9 @@ namespace InkLine
             if (r.NewBest) book[stage] = stars;
             int chapter = stage / GameConstants.ChapterSize;
             r.StarChest = chapter;
-            r.HasStarChest = !hard && ChapterFullStars(chapter) && !ChapterChestClaimed(chapter);
+            r.HasStarChest = hard
+                ? HardChapterCleared(chapter) && !HardChapterChestClaimed(chapter)
+                : ChapterFullStars(chapter) && !ChapterChestClaimed(chapter);
             r.NewLines = TakeForgeReveals();
             r.NewSkins = TakeSkinReveals();
             int ink = Mathf.Max(0, collected);

@@ -181,7 +181,7 @@ namespace InkLine
     }
 
     // 这一下伤害是哪来的。域和连斩不再走斩杀，也不再触发新的域。
-    public enum HitSource { Direct, Cleave, Area, Arrow }
+    public enum HitSource { Direct, Cleave, Area, Arrow, Echo }
 
     // 命中三层的投递单：底层永远是墨溅，Kind 是唯一那个元素层，
     // Event 是斩杀 / 晕 / 位移这类事件层，被压掉的元素退化成 Dots 个色点。
@@ -372,6 +372,7 @@ namespace InkLine
         // 局外升级只改这两个系数和开局条件，结算骨架一步都不动。
         float _damageMul = 1f;
         float _skinDamage;
+        float _skinInterval = 1f;
         int _skinId;
         float _intervalMul = 1f;
 
@@ -504,6 +505,7 @@ namespace InkLine
             SkinDef d = SkinCatalog.Get(skin);
             _skinId = skin;
             _skinDamage = d.DamageAdd;
+            _skinInterval = d.RateAdd > 0.001f ? Mathf.Max(0.75f, 1f - d.RateAdd) : 1f;
             if (d.GoldAdd != 0) Gold += d.GoldAdd;
         }
 
@@ -1091,7 +1093,7 @@ namespace InkLine
             for (int i = 0; i < EmitterCount; i++)
             {
                 int col = FieldLayout.ColumnAtX(RailX + i * GameConstants.CellWidth);
-                float interval = GameConstants.BaseFireInterval * _intervalMul;
+                float interval = GameConstants.BaseFireInterval * _intervalMul * _skinInterval;
                 if (RushTime > 0f) interval *= RushInterval;
                 ShotAge[i] += dt;
                 _fireCd[i] -= dt;
@@ -1543,6 +1545,7 @@ namespace InkLine
                 _cleaveFrom = b.Pos - dir * 1.1f;
                 _cleaveStep = 0;
                 ResolveHit(e, b.Mods, b, HitSource.Direct);
+                SkinEcho(e, b);
                 while (b.Mods.CleaveLeft > 0) Cleave(b);
                 if (b.Mods.ExplodeR > 0f) Explode(b.Pos, b.Mods, b);
                 if (b.Mods.Pierce > 0) { b.Mods.Pierce--; b.Mods.Decay *= b.Mods.PierceDecay; }
@@ -1553,6 +1556,58 @@ namespace InkLine
                 }
             }
             if (!b.Dead && HitChests(b)) b.Dead = true;
+        }
+
+        // 海浪：命中时把四成伤害溅到身边的怪。闪电：再电最近的一只，伤害五成半。
+        // 只从本体命中长出来，回响自己不再往外跳。
+        void SkinEcho(EnemyActor hit, BulletActor b)
+        {
+            if (hit == null || b == null) return;
+            ShotMods m = b.Mods;
+            float flat = m.BaseDamage * m.Decay * m.FinalMul;
+            if (_skinId == SkinCatalog.Tide)
+            {
+                hit.Slow = Mathf.Min(hit.Slow, SkinCatalog.TideSlow);
+                hit.SlowTime = Mathf.Max(hit.SlowTime, SkinCatalog.TideSlowTime);
+                Bursts.Add(new FxBurst
+                {
+                    Pos = hit.Pos, Kind = HitFx.Water, Tint = InkTheme.WaterHi, Scale = 0.95f
+                });
+                float reach0 = 0.95f;
+                for (int i = 0; i < Enemies.Count; i++)
+                {
+                    EnemyActor e = Enemies[i];
+                    if (e.Dead || e.Doom > 0f || e.Id == hit.Id || b.HitIds.Contains(e.Id)) continue;
+                    float reach = reach0 + e.Radius;
+                    if ((e.Pos - hit.Pos).sqrMagnitude > reach * reach) continue;
+                    b.HitIds.Add(e.Id);
+                    ResolveHit(e, m, b, HitSource.Echo, flat * 0.40f);
+                    Bursts.Add(new FxBurst
+                    {
+                        Pos = e.Pos, Kind = HitFx.Water, Tint = InkTheme.WaterHi, Scale = 0.7f
+                    });
+                }
+                return;
+            }
+            if (_skinId != SkinCatalog.Bolt) return;
+            EnemyActor best = null;
+            float bestD = 2.3f * 2.3f;
+            for (int i = 0; i < Enemies.Count; i++)
+            {
+                EnemyActor e = Enemies[i];
+                if (e.Dead || e.Doom > 0f || e.Id == hit.Id || b.HitIds.Contains(e.Id)) continue;
+                float d = (e.Pos - hit.Pos).sqrMagnitude;
+                if (d < bestD) { bestD = d; best = e; }
+            }
+            if (best == null) return;
+            b.HitIds.Add(best.Id);
+            Arcs.Add(new ArcFx { A = hit.Pos, B = best.Pos, Tint = InkTheme.Hex("7EB6FF") });
+            Bursts.Add(new FxBurst
+            {
+                Pos = best.Pos, Kind = HitFx.Thunder, Tint = InkTheme.ThunderHi, Scale = 0.85f
+            });
+            AudioBus.Zap();
+            ResolveHit(best, m, b, HitSource.Echo, flat * 0.55f);
         }
 
         // 连斩光效从哪一只跳到哪一只，ResolveHit 里按它投递。
@@ -1634,9 +1689,11 @@ namespace InkLine
             }
 
             // 落箭的 flat 已经是「这一发普通炮弹 × 星级份额」，这里不再乘第二遍。
+            // 皮肤回响同样把份额算好再送进来，不再乘爆炸分担。
             bool arrowPriced = from == HitSource.Arrow && flat >= 0f;
+            bool echo = from == HitSource.Echo && flat >= 0f;
             float dmg;
-            if (arrowPriced)
+            if (arrowPriced || echo)
             {
                 dmg = flat;
                 if (m.Shatter && e.Frozen) dmg *= 1.4f;
@@ -1681,19 +1738,20 @@ namespace InkLine
                 ShowFloat(e.Pos + Vector2.up * 0.32f, e.IsBoss ? "创" : "斩", InkTheme.Heart, 1.35f);
             }
 
-            // 5 木：按真正吃进去的量记吸血池
-            if (m.Leech > 0f) PourLeech(Mathf.Min(dmg, e.Hp) * m.Leech, m.LeechCap);
+            // 5 木：按真正吃进去的量记吸血池。回响不再吸一次，免得一发弹吸两口。
+            if (m.Leech > 0f && !echo) PourLeech(Mathf.Min(dmg, e.Hp) * m.Leech, m.LeechCap);
 
             // 6 扣血
             e.Hp -= dmg;
             bool heavy = m.Has(CardId.Heavy);
             e.HitFlash = heavy || execute ? 0.2f : 0.16f;
 
-            // 7 状族
-            ApplyStatusSet(e, m);
-
-            // 8 位族
-            ApplyPush(e, m);
+            // 7 状族、8 位族。回响只补伤害，不把灼烧和击退再铺一圈。
+            if (!echo)
+            {
+                ApplyStatusSet(e, m);
+                ApplyPush(e, m);
+            }
 
             if (from == HitSource.Arrow)
             {
@@ -1725,9 +1783,12 @@ namespace InkLine
                         _cleaveStep++;
                     }
                 }
-                else Bursts.Add(BuildBurst(e.Pos, m, execute));
-                PlayHit(m, execute);
-                PulseHitStop(HitStopOf(m, execute));
+                else if (!echo) Bursts.Add(BuildBurst(e.Pos, m, execute));
+                if (!echo)
+                {
+                    PlayHit(m, execute);
+                    PulseHitStop(HitStopOf(m, execute));
+                }
             }
             // 挨打往炮弹来的方向顿一下。本体命中才推，域伤害不推 ——
             // 一圈爆炸把周围的怪全推歪，看着像是被吹散而不是被炸到。
@@ -2041,6 +2102,8 @@ namespace InkLine
                 case 3: return 0.9f;
                 case SkinCatalog.Flame: return 0.84f;
                 case SkinCatalog.Lucky: return 1.16f;
+                case SkinCatalog.Tide: return 1.06f;
+                case SkinCatalog.Bolt: return 1.14f;
                 default: return 1f;
             }
         }

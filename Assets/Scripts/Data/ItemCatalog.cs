@@ -224,13 +224,22 @@ namespace InkLine
         public float DamageAdd;
         // 加在开局金币上，之后金币改装照旧再加。
         public int GoldAdd;
+        // 开火更快的比例。0.06 是间隔缩短 6%，锻射击速线照旧再乘。
+        public float RateAdd;
+        // 装着就生效的炮弹加成。有这句时，和上面的数值加成写在一起。
+        public string Bonus;
 
         public string Perk
         {
             get
             {
-                if (DamageAdd > 0.01f) return "炮弹伤害 +" + Mathf.RoundToInt(DamageAdd);
-                if (GoldAdd > 0) return "开局金币 +" + GoldAdd;
+                string stat = "";
+                if (DamageAdd > 0.01f) stat = "炮弹伤害 +" + Mathf.RoundToInt(DamageAdd);
+                else if (GoldAdd > 0) stat = "开局金币 +" + GoldAdd;
+                else if (RateAdd > 0.001f) stat = "射速 +" + Mathf.RoundToInt(RateAdd * 100f) + "%";
+                if (stat.Length > 0 && !string.IsNullOrEmpty(Bonus)) return stat + "，" + Bonus;
+                if (stat.Length > 0) return stat;
+                if (!string.IsNullOrEmpty(Bonus)) return Bonus;
                 return "无特殊效果";
             }
         }
@@ -248,18 +257,26 @@ namespace InkLine
 
     public enum SkinRarity { Common, Advanced, Rare }
 
-    // 钢珠、糖果是普通。机甲、黄金、霜晶是高级。赤焰、福袋是稀有。
-    // 黄金、霜晶、赤焰靠炮台宝箱的碎片集齐。机甲第一周签到，福袋活动送。
+    // 钢珠、糖果是普通。机甲、黄金、霜晶、海浪、闪电是高级。赤焰、福袋是稀有。
+    // 黄金、霜晶、赤焰、海浪、闪电靠炮台宝箱的碎片集齐。机甲第一周签到，福袋活动送。
     // 赤焰、福袋各带一条专属词条，只在装着时生效。
+    // 海浪打中的怪会慢一小会儿，并溅到旁边。闪电射速快一截，命中后再电一只。
     // 每加一门皮肤，没吃字时的裸弹都要有自己的样子：色球写在 InkShot.NakedOf，
     // 专属弹体贴图写在 InkShot.SkinShot（Resources/Art/shot_<key>.png）。
     public static class SkinCatalog
     {
-        public const int Count = 7;
+        public const int Count = 9;
         public const int Gilt = 3;
         public const int Flame = 4;
         public const int Lucky = 5;
         public const int Frost = 6;
+        public const int Tide = 7;
+        public const int Bolt = 8;
+        // 海浪：打中的那只移速降到这个比例，持续这么久。比一星「水」更短。
+        public const float TideSlow = 0.85f;
+        public const float TideSlowTime = 0.8f;
+        // 闪电：开火间隔缩短的比例。锻射击速是每级 8%，这里只给一点点。
+        public const float BoltRate = 0.06f;
 
         static readonly SkinDef[] All =
         {
@@ -302,6 +319,20 @@ namespace InkLine
                 Name = "霜晶", Key = "frost", Price = 0, Way = SkinWay.Shard,
                 Rarity = SkinRarity.Advanced, Shards = 6,
                 Tint = InkTheme.Hex("7ED0E8"), Note = "炮口结着冰晶，打出去带着霜。", Shot = "冰晶弹", DamageAdd = 2f
+            },
+            new SkinDef
+            {
+                Name = "海浪", Key = "tide", Price = 0, Way = SkinWay.Shard,
+                Rarity = SkinRarity.Advanced, Shards = 6,
+                Tint = InkTheme.Hex("3CB4F5"), Note = "炮管是泳池那种蓝，坐在一朵卷起来的浪上。",
+                Shot = "水滴弹", Bonus = "打中的怪慢 0.8 秒，并溅到旁边"
+            },
+            new SkinDef
+            {
+                Name = "闪电", Key = "bolt", Price = 0, Way = SkinWay.Shard,
+                Rarity = SkinRarity.Advanced, Shards = 6,
+                Tint = InkTheme.Hex("4C6BFF"), Note = "炮管是蓝宝石那种蓝，身上一道闪电，坐在一小团雷云上。",
+                Shot = "电光弹", RateAdd = BoltRate, Bonus = "命中后再电最近一只"
             }
         };
 

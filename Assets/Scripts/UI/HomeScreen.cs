@@ -1031,8 +1031,10 @@ namespace InkLine
                 board.StarLabel = UiKit.Label(host.transform, "t", "", 16, new Vector2(0f, -36f), new Vector2(112f, 24f));
                 UiKit.Bold(board.StarLabel);
             }
-            bool claimed = _meta.ChapterChestClaimed(_chapter);
-            bool full = _meta.ChapterFullStars(_chapter);
+            bool hard = _hardView;
+            bool claimed = hard ? _meta.HardChapterChestClaimed(_chapter) : _meta.ChapterChestClaimed(_chapter);
+            bool full = hard ? _meta.HardChapterCleared(_chapter) : _meta.ChapterFullStars(_chapter);
+            int gaps = hard ? _meta.HardChapterGaps(_chapter) : _meta.ChapterStarGaps(_chapter);
             string key = "chest_" + ChestCatalog.CannonArt + (claimed ? "_open" : "");
             Sprite art = InkSprites.Load("Ui/" + key);
             if (art == null) art = InkSprites.Load(claimed ? "Ui/chest_royal_open" : "Ui/chest_royal");
@@ -1043,7 +1045,7 @@ namespace InkLine
             }
             if (board.StarLabel != null)
             {
-                board.StarLabel.text = claimed ? "已领" : full ? "领取" : "差" + _meta.ChapterStarGaps(_chapter) + "关";
+                board.StarLabel.text = claimed ? "已领" : full ? "领取" : "差" + gaps + "关";
                 board.StarLabel.color = full && !claimed ? InkTheme.Seal : InkTheme.TextMid;
             }
             board.StarChest.onClick.RemoveAllListeners();
@@ -1053,6 +1055,25 @@ namespace InkLine
         void OnStarChest()
         {
             int chapter = _chapter;
+            if (_hardView)
+            {
+                if (_meta.HardChapterChestClaimed(chapter))
+                {
+                    InkToast.Show(_layer, "这章的精英" + ChestCatalog.CannonName + "已经领过");
+                    return;
+                }
+                if (!_meta.HardChapterCleared(chapter))
+                {
+                    AudioBus.Deny();
+                    InkToast.Show(_layer, "精英九关都三星，送一只" + ChestCatalog.CannonName);
+                    return;
+                }
+                ChestLoot hardLoot = _meta.ClaimHardChest(chapter);
+                if (hardLoot == null) return;
+                AudioBus.Tap();
+                ChestOpenView.Show(_layer, _meta, hardLoot, () => BindChapter(NextStage()));
+                return;
+            }
             if (_meta.ChapterChestClaimed(chapter))
             {
                 InkToast.Show(_layer, "这章的" + ChestCatalog.CannonName + "已经领过");

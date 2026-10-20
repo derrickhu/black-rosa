@@ -1358,7 +1358,9 @@ namespace InkLine
                 Home = ShowHome,
                 OpenStarChest = preview || !info.HasStarChest ? null : () =>
                 {
-                    ChestLoot loot = _meta.ClaimStarChest(info.StarChest);
+                    ChestLoot loot = info.Hard
+                        ? _meta.ClaimHardChest(info.StarChest)
+                        : _meta.ClaimStarChest(info.StarChest);
                     if (loot == null) return;
                     ChestOpenView.Show(_layer, _meta, loot, null);
                 },
