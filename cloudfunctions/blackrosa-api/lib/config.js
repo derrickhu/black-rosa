@@ -56,6 +56,19 @@ function getPlatformCredential(platform, field) {
   return readEnvPrefer(`${upper}_${platformUpper}_${field}`);
 }
 
+// 微信后台「消息推送配置」的 Token。控制台只允许英文和数字，所以对外用没有下划线的那条。
+function getWechatPushTokens() {
+  const gameKey = getGameKey();
+  const gk = gameKeyUpper();
+  const compact = gameKey.replace(/[^a-z0-9]/g, '');
+  const list = [
+    readEnvPrefer(`${gk}_WECHAT_PUSH_TOKEN`, `${gk}_GIFT_TOKEN`),
+    `${compact}gift2026`,
+    `${gameKey}_gift_2026`,
+  ];
+  return Array.from(new Set(list.map((v) => String(v || '').trim()).filter(Boolean)));
+}
+
 module.exports = {
   getGameKey,
   gameKeyUpper,
@@ -65,4 +78,5 @@ module.exports = {
   getTtlSec,
   getMaxBytes,
   getPlatformCredential,
+  getWechatPushTokens,
 };

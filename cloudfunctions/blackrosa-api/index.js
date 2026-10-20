@@ -8,6 +8,9 @@
  *   /rank/submit 上报已通关关数和无尽最好波数（都只升不降），顺带更新昵称头像
  *   /rank/list   board=stage 通关榜 / board=endless 无尽榜，前 N 名 + 自己的名次
  *   /gameclub/daily  解密 wx.getGameClubData，回当天游戏圈发帖数
+ *   /giftDeliver 微信后台消息推送：GET 验证 URL，POST 收明文 JSON/XML
+ *   /wechat-gift/queryPending  当前用户待领的微信礼包
+ *   /wechat-gift/markGranted   客户端入账后销单
  *   /health      健康检查
  *
  * 环境变量：
@@ -17,6 +20,7 @@
  *   BLACKROSA_SAVE_MAX_BYTES / BLACKROSA_TOKEN_TTL_SEC   可选
  *   BLACKROSA_RANK_MAX_CLEARED（默认 72）/ BLACKROSA_RANK_MAX_ENDLESS（默认 50）
  *   BLACKROSA_RANK_BLOCKED_UIDS（逗号分隔）   可选
+ *   BLACKROSA_WECHAT_PUSH_TOKEN  可选，默认 blackrosagift2026
  *
  * 集合：blackrosa_playerData（userId 唯一索引）
  *       blackrosa_rankings（userId 唯一索引；cleared desc + reachedAt asc；endless desc + endlessAt asc）
@@ -27,6 +31,12 @@ const { handleLogin } = require('./lib/auth');
 const { handlePull, handlePush } = require('./lib/save');
 const { handleSubmit, handleList } = require('./lib/rank');
 const { handleDailyPost } = require('./lib/game-club');
+const {
+  handleWechatPushVerify,
+  handleWechatPushCallback,
+  handleQueryPendingWechatGifts,
+  handleMarkWechatGiftsGranted,
+} = require('./lib/wechatPush');
 const { respond, parseEvent, preflight } = require('./lib/http');
 
 const ROUTES = {
@@ -38,6 +48,10 @@ const ROUTES = {
   'POST /rank/submit': handleSubmit,
   'POST /rank/list': handleList,
   'POST /gameclub/daily': handleDailyPost,
+  'GET /giftDeliver': handleWechatPushVerify,
+  'POST /giftDeliver': handleWechatPushCallback,
+  'POST /wechat-gift/queryPending': handleQueryPendingWechatGifts,
+  'POST /wechat-gift/markGranted': handleMarkWechatGiftsGranted,
 };
 
 exports.main = async (event, context) => {

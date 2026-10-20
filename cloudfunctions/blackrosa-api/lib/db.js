@@ -23,9 +23,14 @@ function getRankingCollection() {
   return getDb().collection(getCollectionName('rankings'));
 }
 
+function collection(suffix) {
+  return getDb().collection(getCollectionName(suffix));
+}
+
 module.exports = {
   getApp,
   getDb,
   getCollection,
   getRankingCollection,
+  collection,
 };

@@ -132,6 +132,7 @@ namespace InkLine
             }
             else Enter();
             _loadingCover = 2;
+            StartCoroutine(WechatGift.Sync(_meta, _layer, RefreshHomeWallet));
         }
 
         // 新玩家不看首页，直接进第一关；指引走到一半杀进程的，回到对应那一步。
@@ -249,6 +250,7 @@ namespace InkLine
 
         void NoteBack()
         {
+            StartCoroutine(WechatGift.Sync(_meta, _layer, RefreshHomeWallet));
             if (_holdForShare || Time.realtimeSinceStartup < _shareSettleUntil)
             {
                 bool finish = _holdForShare;
@@ -260,6 +262,11 @@ namespace InkLine
             }
             if (_holdForAd) return;
             _leftGame = true;
+        }
+
+        void RefreshHomeWallet()
+        {
+            if (_home != null) _home.RefreshWallet();
         }
 
         void PauseForReturn()

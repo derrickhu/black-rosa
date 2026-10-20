@@ -15,6 +15,9 @@ namespace InkLine
         public const string RankSubmitPath = Prefix + "/rank/submit";
         public const string RankListPath = Prefix + "/rank/list";
         public const string GameClubDailyPath = Prefix + "/gameclub/daily";
+        public const string WechatGiftQueryPath = Prefix + "/wechat-gift/queryPending";
+        public const string WechatGiftMarkPath = Prefix + "/wechat-gift/markGranted";
+        public const string WechatGiftGrantedKey = GameKey + "_wechat_gift_granted_ids";
         public const int RankListLimit = 50;
 
         public const int RequestTimeoutSec = 10;

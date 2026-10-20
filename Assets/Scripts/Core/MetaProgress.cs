@@ -1993,6 +1993,29 @@ namespace InkLine
             Save();
         }
 
+        // 微信礼包一次入账，只存一次。体力可以超过上限。箱子走和签到一样的格子，满了就寄着。
+        public void GrantWechatGift(int ink, int stamina, int diamond, int wood, int silver, int gold, int royal, int cannon)
+        {
+            if (ink <= 0 && stamina <= 0 && diamond <= 0
+                && wood <= 0 && silver <= 0 && gold <= 0 && royal <= 0 && cannon <= 0) return;
+            if (ink > 0) Ink += ink;
+            if (stamina > 0) Stamina += stamina;
+            if (diamond > 0) Diamond += diamond;
+            GrantWechatChests(ChestTier.Wood, wood);
+            GrantWechatChests(ChestTier.Silver, silver);
+            GrantWechatChests(ChestTier.Gold, gold);
+            GrantWechatChests(ChestTier.Royal, royal);
+            int drops = Mathf.Clamp(cannon, 0, 20);
+            for (int i = 0; i < drops; i++) OpenCannonChest();
+            if (drops <= 0) Save();
+        }
+
+        void GrantWechatChests(ChestTier tier, int count)
+        {
+            int n = Mathf.Clamp(count, 0, 20);
+            for (int i = 0; i < n; i++) GrantChest(tier);
+        }
+
         public bool SpendDiamond(int n)
         {
             if (n <= 0) return true;
