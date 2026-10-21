@@ -46,11 +46,11 @@ namespace InkLine
             if (done != null) done();
         }
 
-        public static IEnumerator Claim(MetaProgress meta, string[] ids, Action<bool> done)
+        public static IEnumerator Claim(MetaProgress meta, string[] ids, Action<bool, GiftGrant> done)
         {
             if (meta == null || ids == null || ids.Length == 0)
             {
-                if (done != null) done(false);
+                if (done != null) done(false, null);
                 yield break;
             }
             CloudReply reply = null;
@@ -63,7 +63,7 @@ namespace InkLine
             });
             if (err != null || reply == null || reply.data == null)
             {
-                if (done != null) done(false);
+                if (done != null) done(false, null);
                 yield break;
             }
             MailRow[] got = reply.data.mails ?? new MailRow[0];
@@ -82,10 +82,11 @@ namespace InkLine
                 cannon += row.cannon;
                 Drop(row.id);
             }
+            GiftGrant grant = null;
             if (ink > 0 || stamina > 0 || diamond > 0 || wood > 0 || silver > 0 || gold > 0 || royal > 0 || cannon > 0)
-                meta.GrantWechatGift(ink, stamina, diamond, wood, silver, gold, royal, cannon);
+                grant = meta.GrantWechatGift(ink, stamina, diamond, wood, silver, gold, royal, cannon);
             Pending = Rows.Length;
-            if (done != null) done(true);
+            if (done != null) done(true, grant);
         }
 
         static void Drop(string id)

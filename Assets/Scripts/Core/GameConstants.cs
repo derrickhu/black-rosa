@@ -8,7 +8,7 @@ namespace InkLine
         public const int MaxEmitters = 4;
         // 局里看广告加炮的上限，和列数对齐。局外锻造仍然停在 MaxEmitters。
         public const int AdEmitterCap = 6;
-        // 无尽里看广告加的炮单独封顶，续命送的那门也算。主线和每日残局仍走到 AdEmitterCap。
+        // 无尽和每日残局里看广告加的炮单独封顶，续命送的那门也算。主线仍走到 AdEmitterCap。
         public const int EndlessAdEmitters = 2;
         public const int BaseHp = 3;
         public const int MaxRevives = 2;

@@ -48,9 +48,13 @@ namespace InkLine
             };
 
         // 从 from 依次弹出，再飞向各自的落点。飞的东西挂在界面层上，面板刷新不会把它清掉。
-        public static void Play(RectTransform layer, Vector2 from, Piece[] pieces)
+        public static void Play(RectTransform layer, Vector2 from, Piece[] pieces, System.Action done = null)
         {
-            if (layer == null || pieces == null || pieces.Length == 0) return;
+            if (layer == null || pieces == null || pieces.Length == 0)
+            {
+                if (done != null) done();
+                return;
+            }
             var go = new GameObject("reward_fly", typeof(RectTransform));
             var host = go.GetComponent<RectTransform>();
             host.SetParent(layer, false);
@@ -80,6 +84,7 @@ namespace InkLine
             anim.At(0.4f + (n - 1) * 0.09f + 0.7f, () =>
             {
                 if (go != null) Object.Destroy(go);
+                if (done != null) done();
             });
         }
 

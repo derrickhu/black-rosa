@@ -76,6 +76,7 @@ namespace InkLine
         public string id;
         public string title;
         public string body;
+        public long expireAt;
         public int ink;
         public int stamina;
         public int diamond;

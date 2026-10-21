@@ -6,6 +6,22 @@ namespace InkLine
 {
     public enum ChestState { Empty, Locked, Timing, Ready }
 
+    public struct GrantedChest
+    {
+        public ChestTier Tier;
+        public int Slot;
+    }
+
+    // 一封礼包入账之后，界面拿去飞奖励、再把炮台宝箱演开。
+    public sealed class GiftGrant
+    {
+        public int Ink;
+        public int Stamina;
+        public int Diamond;
+        public readonly List<GrantedChest> Chests = new List<GrantedChest>();
+        public readonly List<ChestLoot> Cannons = new List<ChestLoot>();
+    }
+
     [Serializable]
     public sealed class MetaProgress
     {
@@ -1993,27 +2009,44 @@ namespace InkLine
             Save();
         }
 
-        // 微信礼包一次入账，只存一次。体力可以超过上限。箱子走和签到一样的格子，满了就寄着。
-        public void GrantWechatGift(int ink, int stamina, int diamond, int wood, int silver, int gold, int royal, int cannon)
+        // 微信礼包和邮件一次入账，只存一次。体力可以超过上限。
+        // 木箱这些进宝箱位，满了就寄着。炮台宝箱当场开掉，战利品交回去给开箱演出。
+        public GiftGrant GrantWechatGift(int ink, int stamina, int diamond, int wood, int silver, int gold, int royal, int cannon)
         {
-            if (ink <= 0 && stamina <= 0 && diamond <= 0
-                && wood <= 0 && silver <= 0 && gold <= 0 && royal <= 0 && cannon <= 0) return;
-            if (ink > 0) Ink += ink;
-            if (stamina > 0) Stamina += stamina;
-            if (diamond > 0) Diamond += diamond;
-            GrantWechatChests(ChestTier.Wood, wood);
-            GrantWechatChests(ChestTier.Silver, silver);
-            GrantWechatChests(ChestTier.Gold, gold);
-            GrantWechatChests(ChestTier.Royal, royal);
+            var grant = new GiftGrant
+            {
+                Ink = Mathf.Max(0, ink),
+                Stamina = Mathf.Max(0, stamina),
+                Diamond = Mathf.Max(0, diamond)
+            };
+            if (grant.Ink <= 0 && grant.Stamina <= 0 && grant.Diamond <= 0
+                && wood <= 0 && silver <= 0 && gold <= 0 && royal <= 0 && cannon <= 0) return grant;
+            if (grant.Ink > 0) Ink += grant.Ink;
+            if (grant.Stamina > 0) Stamina += grant.Stamina;
+            if (grant.Diamond > 0) Diamond += grant.Diamond;
+            GrantWechatChests(grant, ChestTier.Wood, wood);
+            GrantWechatChests(grant, ChestTier.Silver, silver);
+            GrantWechatChests(grant, ChestTier.Gold, gold);
+            GrantWechatChests(grant, ChestTier.Royal, royal);
             int drops = Mathf.Clamp(cannon, 0, 20);
-            for (int i = 0; i < drops; i++) OpenCannonChest();
+            for (int i = 0; i < drops; i++)
+            {
+                ChestLoot loot = OpenCannonChest();
+                if (loot != null) grant.Cannons.Add(loot);
+            }
             if (drops <= 0) Save();
+            return grant;
         }
 
-        void GrantWechatChests(ChestTier tier, int count)
+        void GrantWechatChests(GiftGrant grant, ChestTier tier, int count)
         {
             int n = Mathf.Clamp(count, 0, 20);
-            for (int i = 0; i < n; i++) GrantChest(tier);
+            for (int i = 0; i < n; i++)
+            {
+                int slot = GrantChest(tier);
+                if (slot == -3) grant.Ink += ChestCatalog.InkAvg(tier);
+                else grant.Chests.Add(new GrantedChest { Tier = tier, Slot = slot });
+            }
         }
 
         public bool SpendDiamond(int n)

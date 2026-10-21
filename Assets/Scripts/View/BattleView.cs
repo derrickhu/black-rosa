@@ -819,6 +819,26 @@ namespace InkLine
             return sr;
         }
 
+        // 拿着铲子时，没开的格子淡淡亮出来，好让人点。
+        public void ShowClosedCells(BattleWorld w)
+        {
+            float pulse = 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * 7.4f);
+            int i = 0;
+            for (int c = 0; c < GameConstants.Columns; c++)
+            for (int r = 0; r < GameConstants.Rows; r++, i++)
+            {
+                if (w.IsOpen(c, r)) continue;
+                _grid[i].enabled = true;
+                _grid[i].color = new Color(1f, 1f, 1f, Mathf.Lerp(0.32f, 0.7f, pulse));
+                var hint = _hints[i];
+                hint.enabled = true;
+                hint.transform.position = _grid[i].transform.position;
+                float s = GameConstants.CellWidth * (1f + 0.08f * pulse);
+                hint.transform.localScale = new Vector3(s, s, 1f);
+                hint.color = new Color(1f, 1f, 1f, 0.35f + 0.45f * pulse);
+            }
+        }
+
         // 手里拿着字时，每个能放的格子外圈黑框一起闪，空格闪得更明显。
         public void HighlightCell(int col, int row, bool empty)
         {

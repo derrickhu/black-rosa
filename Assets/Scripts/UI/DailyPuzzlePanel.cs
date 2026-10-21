@@ -4,7 +4,7 @@ using UnityEngine.UI;
 
 namespace InkLine
 {
-    // 每日副本的开局页：全服同一局残局（词缀、开局摆好的字、禁用的字、今日最好），点「开始」才扣次数。
+    // 每日副本的开局页：全服同一局残局（词缀、开局留几格、禁用的字、今日最好），点「开始」才扣次数。
     // 从副本页的每日卡点进来。看广告加次数之后整块重画。
     public sealed class DailyPuzzlePanel : MonoBehaviour
     {
@@ -70,7 +70,7 @@ namespace InkLine
             BuildGo();
         }
 
-        // 今日词缀、开局已经摆上的字、今天不能用的字。
+        // 今日词缀、铲子说明、今天不能用的字。
         void BuildBoard()
         {
             StageDef s = StageCatalog.DailyStage(DayClock.Today, DayClock.Week);
@@ -89,10 +89,14 @@ namespace InkLine
                 TextAnchor.MiddleLeft);
             desc.color = JadeDeep;
 
-            Caption(card, "开局已摆好", new Vector2(-CardW * 0.5f + 28f, top - 96f));
-            int n = s.Preset != null ? s.Preset.Length : 0;
-            for (int i = 0; i < n; i++)
-                Glyph(card, s.Preset[i].Id, s.Preset[i].Star, new Vector2(-CardW * 0.5f + 64f + i * (Tile + 18f), top - 148f), false);
+            const float MechW = 320f;
+            float mechX = -CardW * 0.5f + 28f + MechW * 0.5f;
+            var mech = UiKit.Label(card, "mech", "特殊机制：铲子可以挖开一格", 20,
+                new Vector2(mechX, top - 100f), new Vector2(MechW, 32f), TextAnchor.MiddleLeft);
+            mech.color = InkTheme.TextMid;
+            UiKit.Bold(mech);
+            var shovel = UiKit.Icon(card, InkArt.Shovel(160), new Vector2(-CardW * 0.5f + 76f, top - 168f), 96f);
+            shovel.raycastTarget = false;
 
             Caption(card, "今日禁用", new Vector2(CardW * 0.5f - 200f, top - 96f));
             int b = s.Banned != null ? s.Banned.Length : 0;

@@ -50,6 +50,43 @@ namespace InkLine
 
         // 字牌图，但不套墨底盘。放进 UiKit 的卡面里用 —— 外面已经有一圈描边了，
         // 再叠 DrawCardPlate 那圈就是框中框。
+        // 每日残局改装里的铲子。和字牌同一张 1:1 图，三选一里直接换上。
+        public static Sprite Shovel(int size = 160)
+        {
+            Sprite art = InkSprites.Load("tool_shovel");
+            if (art != null) return art;
+            string key = "tool:shovel:" + size;
+            if (Cache.TryGetValue(key, out Sprite s)) return s;
+            s = Bake(size, DrawShovel);
+            Cache[key] = s;
+            return s;
+        }
+
+        static void DrawShovel(Color[] px, int n)
+        {
+            Color wood = InkTheme.Hex("8A5A32");
+            Color woodHi = InkTheme.Hex("C4894E");
+            Color iron = InkTheme.Hex("4A4E55");
+            Color ironHi = InkTheme.Hex("E4E7EC");
+            for (int y = 0; y < n; y++)
+            for (int x = 0; x < n; x++)
+            {
+                float u = (x + 0.5f) / n * 2f - 1f;
+                float v = (y + 0.5f) / n * 2f - 1f;
+                const float hx = -0.42f, hy = 0.72f, tx = 0.16f, ty = -0.02f;
+                float dx = tx - hx, dy = ty - hy;
+                float t = Mathf.Clamp01(((u - hx) * dx + (v - hy) * dy) / (dx * dx + dy * dy));
+                float pxh = hx + dx * t, pyh = hy + dy * t;
+                float dh = (u - pxh) * (u - pxh) + (v - pyh) * (v - pyh);
+                bool handle = dh < 0.014f;
+                float bx = (u - 0.30f) / 0.40f;
+                float by = (v + 0.46f) / 0.30f;
+                bool blade = bx * bx + by * by < 1f;
+                if (!handle && !blade) continue;
+                px[y * n + x] = blade ? (by < -0.2f ? ironHi : iron) : dh < 0.004f ? woodHi : wood;
+            }
+        }
+
         public static Sprite Glyph(CardId id, int size = 96)
         {
             Sprite art = InkSprites.Heap(id, 1);

@@ -247,18 +247,21 @@ namespace InkLine
             row >= 0 && row < GameConstants.Rows && Open[col, row];
 
         // 能放字的格子都有字了。还能点同字升星，但不再自动弹改装。
+        // 一格都没开不算满，改装照旧弹，好先挖出格子。
         public bool BoardFull
         {
             get
             {
                 if (Grid == null) return false;
+                bool any = false;
                 for (int c = 0; c < GameConstants.Columns; c++)
                 for (int r = 0; r < GameConstants.Rows; r++)
                 {
                     if (!IsOpen(c, r)) continue;
+                    any = true;
                     if (!Grid[c, r].HasValue) return false;
                 }
-                return true;
+                return any;
             }
         }
 
@@ -523,9 +526,9 @@ namespace InkLine
             for (int c = 0; c < GameConstants.Columns; c++) RefreshCol(c);
         }
 
-        // 这局还能加到几门炮。无尽只允许多看两次广告（续命附赠的一门也占名额）。
+        // 这局还能加到几门炮。无尽和每日残局只允许多看两次广告（续命附赠的一门也占名额）。
         public int EmitterCap =>
-            Stage != null && Stage.Endless && !Stage.Daily
+            Stage != null && Stage.Endless
                 ? Mathf.Min(GameConstants.AdEmitterCap, _emitterBase + GameConstants.EndlessAdEmitters)
                 : GameConstants.AdEmitterCap;
 
@@ -883,7 +886,8 @@ namespace InkLine
             int picked = column < 0 ? col : -1;
             col = Mathf.Clamp(col + Fan(ordinal), 0, GameConstants.Columns - 1);
             // 随机挑中的空列已经是按份额给的，不再挪；指定列和铺开落进空列的才挪。
-            if (!boss && col != picked) col = SteerColumn(col);
+            // 每日残局格子要自己挖，怪按原列分散走。再把空列并到有格子的那一列，整波会挤成一队。
+            if (!boss && col != picked && (Stage == null || !Stage.Daily)) col = SteerColumn(col);
             float y = GameConstants.SpawnY + UnityEngine.Random.Range(0f, 0.12f);
             if (stack) y += ordinal / 3 * 0.62f;
             var at = new Vector2(FieldLayout.ColumnX(col) + UnityEngine.Random.Range(-0.1f, 0.1f), y);
@@ -1347,6 +1351,18 @@ namespace InkLine
         void Beat(CellBeat beat, int col, int row) => Pulses.Add(Pulse(beat, col, row));
 
         public void DenyCell(int col, int row) => Beat(CellBeat.Deny, col, row);
+
+        // 铲子挖开一格。指定位置，不要求和已开的格子相连。
+        public bool Dig(int col, int row)
+        {
+            if (col < 0 || col >= GameConstants.Columns || row < 0 || row >= GameConstants.Rows) return false;
+            if (Open[col, row]) return false;
+            Open[col, row] = true;
+            OpenRows = Mathf.Max(OpenRows, row + 1);
+            Beat(CellBeat.Unlock, col, row);
+            AudioBus.CellUpgrade(2);
+            return true;
+        }
 
         // 单支 = 这一发普通炮弹（暴击和甲之前）× 星级份额。
         // 蓄满发生在进列的时候，上面几格的常驻字还没走到，这里补进同一发里，

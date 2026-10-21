@@ -29,6 +29,7 @@ function flatten(row) {
     id: row._id || '',
     title: row.title || '',
     body: row.body || '',
+    expireAt: Number(row.expireAt) || 0,
   };
   GOODS.forEach((key) => {
     out[key] = Number(rewards[key]) || 0;

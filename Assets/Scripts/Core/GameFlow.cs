@@ -35,6 +35,9 @@ namespace InkLine
         ResultInfo _result;
         bool _inkDoubled;
         CardId[] _offer = new CardId[3];
+        // 和 _offer 对齐。真表示这一张是铲子，不是字。
+        bool[] _offerDig = new bool[3];
+        bool _digging;
         CardId _held;
         bool _rerolled;
         // 关掉改装没选，这组牌留着。再开还是这三张，只有看广告重刷才换。
@@ -401,6 +404,7 @@ namespace InkLine
             _home.StartHard = StartHard;
             AudioBus.Music("bgm_home");
             AudioBus.Warm("bgm_battle");
+            if (_meta.DailyOpen) AudioBus.Warm("bgm_daily");
             if (_meta.EndlessOpen) AudioBus.Warm("bgm_endless");
             _home.TabPicked += OnHomeTab;
             _home.ForgeBought += OnHomeForge;
@@ -818,9 +822,11 @@ namespace InkLine
             _autoWait = 0f;
             _autoMute = 0f;
             _offerKept = false;
+            _digging = false;
             _rerolled = false;
             _dragging = false;
-            AudioBus.Music(stage.Endless ? "bgm_endless" : "bgm_battle");
+            // 每日关也标着 Endless。先看每日，不然会和无限播同一首。
+            AudioBus.Music(stage.Daily ? "bgm_daily" : stage.Endless ? "bgm_endless" : "bgm_battle");
             if (BattleWorld.PreviewFill)
             {
                 _screen = Screen.Battle;
@@ -1008,13 +1014,32 @@ namespace InkLine
                 weight.Add(OfferWeight(pool[i]));
             int n = Mathf.Min(3, pool.Count);
             if (_offer == null || _offer.Length != n) _offer = new CardId[n];
+            if (_offerDig == null || _offerDig.Length != n) _offerDig = new bool[n];
             for (int i = 0; i < n; i++)
             {
                 int pick = WeightedIndex(pool, weight);
                 _offer[i] = pool[pick];
+                _offerDig[i] = false;
                 pool.RemoveAt(pick);
                 weight.RemoveAt(pick);
             }
+            if (OfferShovel(n))
+                _offerDig[Random.Range(0, n)] = true;
+        }
+
+        // 只有每日残局把三选一里的一张换成铲子。格子挖满了就不再出。
+        // 盘上一个格子都没有时这一抽必有，否则大约一半的改装会刷到。
+        bool OfferShovel(int slots)
+        {
+            if (slots <= 0 || _world == null || _world.Stage == null || !_world.Stage.Daily) return false;
+            int open = 0;
+            for (int c = 0; c < GameConstants.Columns; c++)
+            for (int r = 0; r < GameConstants.Rows; r++)
+                if (_world.IsOpen(c, r)) open++;
+            int all = GameConstants.Columns * GameConstants.Rows;
+            if (open >= all) return false;
+            if (open == 0) return true;
+            return Random.value < StageCatalog.DailyShovelChance;
         }
 
         // 后期牌池有二十多个字，均匀抽几乎凑不出同字升星，也很难第一时间摸到本关的新字。
@@ -1060,7 +1085,10 @@ namespace InkLine
         void ShowDraftPanel()
         {
             DropOverlay();
-            string title = _offer != null && _offer.Length <= 1 ? "点下面的字" : "";
+            bool shovel = false;
+            if (_offerDig != null)
+                for (int i = 0; i < _offerDig.Length; i++) shovel |= _offerDig[i];
+            string title = shovel ? "铲子可以挖开一格" : _offer != null && _offer.Length <= 1 ? "点下面的字" : "";
             System.Action reroll = () =>
             {
                 AdStub.Reward("reroll", () =>
@@ -1070,14 +1098,17 @@ namespace InkLine
                     ShowDraftPanel();
                 });
             };
-            _overlay = DraftPanel.Show(_layer, title, _offer, _rerolled, Pick,
+            _overlay = DraftPanel.Show(_layer, title, _offer, _offerDig, _rerolled, PickSlot,
                 _guide ? null : reroll, _guide ? null : (System.Action)CloseDraft);
             int pick = 0;
             if (_teach == 0 && _guide && !_taughtUp && _offer != null)
             {
                 pick = -1;
                 for (int i = 0; i < _offer.Length && pick < 0; i++)
+                {
+                    if (_offerDig != null && i < _offerDig.Length && _offerDig[i]) continue;
                     if (HasSameOnBoard(_offer[i])) pick = i;
+                }
                 if (pick >= 0) _teach = 4;
             }
             if (_teach != 1 && _teach != 4) return;
@@ -1147,9 +1178,41 @@ namespace InkLine
             AudioBus.Back();
         }
 
+        void PickSlot(int slot)
+        {
+            bool dig = _offerDig != null && slot >= 0 && slot < _offerDig.Length && _offerDig[slot];
+            if (!dig && OpenCellCount() == 0)
+            {
+                _world.ShowToast("先用铲子挖开一格");
+                return;
+            }
+            if (dig)
+            {
+                _offerKept = false;
+                _digging = true;
+                _held = CardId.None;
+                _tip = "点没开的格子挖开。";
+                _screen = Screen.Place;
+                DropOverlay();
+                return;
+            }
+            if (_offer == null || slot < 0 || slot >= _offer.Length) return;
+            Pick(_offer[slot]);
+        }
+
+        int OpenCellCount()
+        {
+            int n = 0;
+            for (int c = 0; c < GameConstants.Columns; c++)
+            for (int r = 0; r < GameConstants.Rows; r++)
+                if (_world.IsOpen(c, r)) n++;
+            return n;
+        }
+
         void Pick(CardId id)
         {
             _offerKept = false;
+            _digging = false;
             _held = id;
             if (_world.Stage.TeachStar && !_taughtStar && HasSameOnBoard(id))
             {
@@ -1204,6 +1267,19 @@ namespace InkLine
         {
             if (!InkPointer.Down || Camera.main == null) return;
             Vector3 w = InkPointer.WorldOnPlane();
+            if (_digging)
+            {
+                if (!FieldLayout.TryCellAt(w, GameConstants.Rows, out int digCol, out int digRow)) return;
+                if (_world.IsOpen(digCol, digRow))
+                {
+                    _world.ShowToast("这格已经开了");
+                    return;
+                }
+                if (!_world.Dig(digCol, digRow)) return;
+                _digging = false;
+                AfterPlace();
+                return;
+            }
             if (!FieldLayout.TryCellAt(w, _world.OpenRows, out int col, out int row)) return;
             var result = _world.PeekPlace(_held, col, row);
             // 同一排里没开的格子也点得到（TryCellAt 只按行卡范围），得在这儿拦下来，
@@ -1246,6 +1322,11 @@ namespace InkLine
 
         void PaintPlaceHighlights()
         {
+            if (_digging)
+            {
+                _view.ShowClosedCells(_world);
+                return;
+            }
             for (int c = 0; c < GameConstants.Columns; c++)
             for (int r = 0; r < GameConstants.Rows; r++)
             {
@@ -1259,6 +1340,7 @@ namespace InkLine
 
         void AfterPlace()
         {
+            _digging = false;
             _tip = _teachAim ? AimTip : "";
             ResumeBattle();
             if (_teach == 2)

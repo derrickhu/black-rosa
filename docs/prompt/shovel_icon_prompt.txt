@@ -1,0 +1,7 @@
+A single square game icon, 1:1. One garden spade standing straight up, centered, filling most of the square the way a large brush-written character fills a tile.
+
+The spade is vertical: a small D-shaped grip at the top, a short straight shaft, a broad blade at the bottom. Thick closed outline in #1C1916 around every edge. Flat ink-toy drawing with two hard color steps and rounded forms, the same language as a paper-and-ink mobile game tile.
+
+Shaft and grip filled with #8A5A32, one highlight stripe of #C4894E along the shaft. Blade is a wide spade: rounded shoulders, a gentle point at the bottom tip. Blade fill #4A4E55, one bright rim of #E4E7EC along the top edge of the blade. A short collar joins the shaft to the blade.
+
+The field behind the spade is one flat solid #F4EFE4, warm paper, edge to edge. Even light, solid colors, clean closed edges. The spade is the only object in the frame.

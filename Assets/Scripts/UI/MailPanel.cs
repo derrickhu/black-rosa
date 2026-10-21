@@ -140,6 +140,13 @@ namespace InkLine
             var head = UiKit.Label(card, "title", title, 28, new Vector2(-70f, 16f), new Vector2(400f, 40f), TextAnchor.MiddleLeft, Pin.Top);
             head.color = InkTheme.TextDark;
             UiKit.Bold(head);
+            string left = DaysLeft(row.expireAt);
+            if (!string.IsNullOrEmpty(left))
+            {
+                var exp = UiKit.Label(card, "exp", left, 18, new Vector2(RowW * 0.5f - 225f, 20f),
+                    new Vector2(150f, 28f), TextAnchor.MiddleRight, Pin.Top);
+                exp.color = InkTheme.Seal;
+            }
             var sub = UiKit.Label(card, "body", body, 20, new Vector2(-70f, 52f), new Vector2(400f, 30f), TextAnchor.MiddleLeft, Pin.Top);
             sub.color = InkTheme.TextMid;
 
@@ -157,8 +164,9 @@ namespace InkLine
 
             string id = row.id;
             bool goods = shown > 0;
-            UiKit.Btn(card, "take", goods ? "领取" : "知道了", new Vector2(RowW * 0.5f - 78f, 0f), new Vector2(132f, 64f),
-                () => StartCoroutine(Claim(new[] { id }, goods)), goods);
+            Button take = null;
+            take = UiKit.Btn(card, "take", goods ? "领取" : "知道了", new Vector2(RowW * 0.5f - 78f, 0f), new Vector2(132f, 64f),
+                () => StartCoroutine(Claim(new[] { id }, take.transform)), goods);
         }
 
         void ClaimAll()
@@ -167,33 +175,76 @@ namespace InkLine
             AudioBus.Tap();
             MailRow[] rows = Mailbox.Rows ?? new MailRow[0];
             var ids = new List<string>();
-            bool goods = false;
             for (int i = 0; i < rows.Length; i++)
             {
                 if (rows[i] == null || string.IsNullOrEmpty(rows[i].id)) continue;
                 ids.Add(rows[i].id);
-                if (HasGoods(rows[i])) goods = true;
             }
             if (ids.Count == 0) return;
-            StartCoroutine(Claim(ids.ToArray(), goods));
+            StartCoroutine(Claim(ids.ToArray(), _all != null ? _all.transform : transform));
         }
 
-        IEnumerator Claim(string[] ids, bool goods)
+        IEnumerator Claim(string[] ids, Transform origin)
         {
             if (_busy) yield break;
             _busy = true;
+            var layer = transform.parent as RectTransform;
+            Vector2 from = RewardFly.Local(layer, origin);
             bool ok = false;
-            yield return Mailbox.Claim(_meta, ids, v => ok = v);
+            GiftGrant grant = null;
+            yield return Mailbox.Claim(_meta, ids, (v, g) => { ok = v; grant = g; });
             _busy = false;
             if (this == null) yield break;
             if (!ok)
             {
-                InkToast.Show((RectTransform)transform.parent, "打不开，点重试");
+                InkToast.Show(layer, "打不开，点重试");
                 yield break;
             }
-            if (goods) InkToast.Show((RectTransform)transform.parent, "邮件已领");
             if (_changed != null) _changed();
             Paint();
+            Reveal(layer, _meta, grant, from, _changed);
+        }
+
+        // 墨、体力、钻石和普通宝箱先飞到账。飞完再开炮台宝箱，一只接一只。
+        static void Reveal(RectTransform layer, MetaProgress meta, GiftGrant grant, Vector2 from, Action changed)
+        {
+            if (layer == null || meta == null || grant == null) return;
+            var pieces = new List<RewardFly.Piece>();
+            if (grant.Ink > 0) pieces.Add(RewardFly.Ink(layer, grant.Ink));
+            if (grant.Stamina > 0) pieces.Add(RewardFly.Stamina(layer, grant.Stamina));
+            if (grant.Diamond > 0) pieces.Add(RewardFly.Diamond(layer, grant.Diamond));
+            bool overflow = false;
+            for (int i = 0; i < grant.Chests.Count; i++)
+            {
+                GrantedChest chest = grant.Chests[i];
+                if (chest.Slot >= 0) pieces.Add(RewardFly.Chest(layer, chest.Tier, chest.Slot));
+                else if (chest.Slot == -1) overflow = true;
+            }
+            Action next = () => AfterFly(layer, meta, grant, overflow, changed);
+            if (pieces.Count > 0) RewardFly.Play(layer, from, pieces.ToArray(), next);
+            else next();
+        }
+
+        static void AfterFly(RectTransform layer, MetaProgress meta, GiftGrant grant, bool overflow, Action changed)
+        {
+            if (overflow)
+            {
+                ChestOverflowView.Show(layer, meta, changed, () => OpenCannon(layer, meta, grant, 0));
+                return;
+            }
+            OpenCannon(layer, meta, grant, 0);
+        }
+
+        static void OpenCannon(RectTransform layer, MetaProgress meta, GiftGrant grant, int index)
+        {
+            if (grant.Cannons == null || index >= grant.Cannons.Count) return;
+            ChestLoot loot = grant.Cannons[index];
+            if (loot == null)
+            {
+                OpenCannon(layer, meta, grant, index + 1);
+                return;
+            }
+            ChestOpenView.Show(layer, meta, loot, () => OpenCannon(layer, meta, grant, index + 1));
         }
 
         static void Show(Button btn, bool on)
@@ -204,11 +255,13 @@ namespace InkLine
             if (sh != null) sh.gameObject.SetActive(on);
         }
 
-        static bool HasGoods(MailRow row)
+        static string DaysLeft(long expireAt)
         {
-            for (int i = 0; i < Icons.Length; i++)
-                if (Count(row, i) > 0) return true;
-            return false;
+            if (expireAt <= 0) return "";
+            long left = expireAt - DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            if (left <= 0) return "今天内领取";
+            int days = (int)((left + 86400000L - 1L) / 86400000L);
+            return days <= 1 ? "还剩 1 天" : "还剩 " + days + " 天";
         }
 
         static int Count(MailRow row, int i)

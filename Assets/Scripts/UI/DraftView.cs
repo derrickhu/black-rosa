@@ -25,7 +25,7 @@ namespace InkLine
             RescueCards();
         }
 
-        public void Bind(string title, CardId[] offer, bool rerolled, Action<CardId> pick, Action reroll, Action close)
+        public void Bind(string title, CardId[] offer, bool[] shovel, bool rerolled, Action<int> pick, Action reroll, Action close)
         {
             RescueCards();
             if (Title != null)
@@ -54,22 +54,25 @@ namespace InkLine
                     continue;
                 }
                 card.gameObject.SetActive(true);
+                bool dig = shovel != null && i < shovel.Length && shovel[i];
                 CardDef def = CardCatalog.Get(offer[i]);
                 if (card.Star != null) card.Star.enabled = false;
                 if (card.Name != null) card.Name.text = "";
                 if (card.Desc != null) card.Desc.text = "";
                 if (card.Heap != null)
                 {
-                    card.Heap.sprite = InkArt.Glyph(def.Id, 160);
+                    card.Heap.sprite = dig ? InkArt.Shovel(160) : InkArt.Glyph(def.Id, 160);
                     card.Heap.preserveAspect = true;
+                    card.Heap.color = Color.white;
                     card.Heap.enabled = card.Heap.sprite != null;
                 }
-                if (card.WordTag != null) card.WordTag.SetActive(def.Wake == CardWake.WordPart);
+                if (card.WordTag != null) card.WordTag.SetActive(!dig && def.Wake == CardWake.WordPart);
+                MarkShovel(card, dig);
                 if (card.Button != null)
                 {
-                    CardId id = def.Id;
+                    int slot = i;
                     card.Button.onClick.RemoveAllListeners();
-                    card.Button.onClick.AddListener(() => pick(id));
+                    card.Button.onClick.AddListener(() => pick(slot));
                 }
             }
 
@@ -91,6 +94,27 @@ namespace InkLine
                 Close.onClick.RemoveAllListeners();
                 if (close != null) Close.onClick.AddListener(() => close());
             }
+        }
+
+        static void MarkShovel(DraftCardView card, bool on)
+        {
+            Transform tag = card.transform.Find("shovel");
+            if (!on)
+            {
+                if (tag != null) tag.gameObject.SetActive(false);
+                return;
+            }
+            if (tag == null)
+            {
+                var rt = card.GetComponent<RectTransform>();
+                float h = rt != null ? rt.sizeDelta.y : 160f;
+                var t = UiKit.Label(card.transform, "shovel", "铲子", 22, new Vector2(0f, -h * 0.5f + 22f),
+                    new Vector2(120f, 32f));
+                t.color = InkTheme.TextDark;
+                UiKit.Bold(t);
+                return;
+            }
+            tag.gameObject.SetActive(true);
         }
 
         static void Show(Button btn, bool on)

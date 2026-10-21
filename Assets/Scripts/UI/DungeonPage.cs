@@ -30,7 +30,7 @@ namespace InkLine
             CdnAssets.Bind(c.Art, "Ui/dungeon_daily");
             if (!meta.DailyOpen)
             {
-                Locked(c, "全服每天同一局，开局摆好字、禁掉两个字",
+                Locked(c, "全服每天同一局，开局只留几格，禁掉两个字",
                     "通关第" + ChapterName(GameConstants.DailyOpenChapter) + "章开放");
             }
             else
