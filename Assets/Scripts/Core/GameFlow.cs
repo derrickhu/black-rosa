@@ -27,7 +27,7 @@ namespace InkLine
         // 正在打的活动档位，主线关是 -1。
         int _eventTier = -1;
         bool _endless;
-        // 每日残局也走闯波那一套（_endless 同时为真），结算、次数、榜单另算。
+        // 每日残局也走闯波那一套（_endless 同时为真），结算和次数另算，不上榜。
         bool _daily;
         bool _hard;
         // 这一局的功课已经记过了。赢、输、撤退各走各的路，只记一次。
@@ -1700,11 +1700,11 @@ namespace InkLine
                     }
                     StartEndless();
                 },
-                Rank = () =>
+                Rank = daily ? null : () =>
                 {
                     ShowHome(HomeScreen.TabDungeon);
                     if (_screen == Screen.Lobby && _layer != null)
-                        RankPanel.Show(_layer, _meta, daily ? RankService.BoardDaily : RankService.BoardWeekly);
+                        RankPanel.Show(_layer, _meta, RankService.BoardWeekly);
                 },
                 Home = () => ShowHome(HomeScreen.TabDungeon)
             });

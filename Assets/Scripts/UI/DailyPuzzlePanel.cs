@@ -167,8 +167,7 @@ namespace InkLine
 
         void BuildGo()
         {
-            UiKit.Btn(_body, "rank", "排行", new Vector2(-176f, Y(GoY)), new Vector2(148f, 88f), OnRank, false);
-            var go = UiKit.Btn(_body, "go", "开始", new Vector2(78f, Y(GoY)), new Vector2(300f, 96f), OnStart, true);
+            var go = UiKit.Btn(_body, "go", "开始", new Vector2(0f, Y(GoY)), new Vector2(400f, 96f), OnStart, true);
             if (_meta.DailyPlaysLeft <= 0) PanelKit.Dim(go, true);
             else
             {
@@ -217,12 +216,6 @@ namespace InkLine
                 _changed?.Invoke();
                 Refresh();
             });
-        }
-
-        void OnRank()
-        {
-            AudioBus.Tap();
-            RankPanel.Show(_layer, _meta, RankService.BoardDaily);
         }
 
         void OnStart()

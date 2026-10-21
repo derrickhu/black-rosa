@@ -43,19 +43,24 @@ function stillPending(row, now) {
   return true;
 }
 
-// 微信礼包和以后的活动都走这里。同一来源单号只落一封。
-async function sendMail(input) {
+function duplicateMail(error) {
+  const text = String((error && (error.code || error.message)) || error || '');
+  return /dup|E11000|already exists|唯一/i.test(text);
+}
+
+// 同一来源单号只落一封。返回 sent / dup；写库失败会抛出去，方便结算重试。
+async function sendMailOnce(input) {
   const userId = String((input && input.userId) || '').trim();
   const source = String((input && input.source) || 'ops');
   const sourceId = String((input && input.sourceId) || '').trim();
-  if (!userId || !sourceId) return false;
+  if (!userId || !sourceId) return 'dup';
   const rewards = packRewards(input.rewards);
-  if (Object.keys(rewards).length === 0) return false;
+  if (Object.keys(rewards).length === 0) return 'dup';
   const dedupeKey = `${source}:${sourceId}`;
   const col = collection(COLLECTION);
   try {
     const existed = await col.where({ dedupeKey }).limit(1).get();
-    if (existed && Array.isArray(existed.data) && existed.data.length > 0) return false;
+    if (existed && Array.isArray(existed.data) && existed.data.length > 0) return 'dup';
   } catch (error) {
     console.warn('[mail] dedupe query failed:', error && error.message ? error.message : error);
   }
@@ -72,7 +77,17 @@ async function sendMail(input) {
       createdAt: now,
       expireAt: now + EXPIRE_MS,
     });
-    return true;
+    return 'sent';
+  } catch (error) {
+    if (duplicateMail(error)) return 'dup';
+    throw error;
+  }
+}
+
+// 微信礼包和以后的活动都走这里。失败只记一笔，不把调用方拖垮。
+async function sendMail(input) {
+  try {
+    return (await sendMailOnce(input)) === 'sent';
   } catch (error) {
     console.warn('[mail] add failed:', error && error.message ? error.message : error);
     return false;
@@ -114,6 +129,7 @@ async function handleClaimMail(req) {
 
 module.exports = {
   sendMail,
+  sendMailOnce,
   handleListMail,
   handleClaimMail,
 };

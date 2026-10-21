@@ -95,7 +95,7 @@ namespace InkLine
         // 这一波（从 0 数）进场时喊「魔气入侵」，-1 不喊。
         public int DarkShout = -1;
 
-        // 每日残局：全服同一套波次、同一个开局盘面，成绩上「每日」榜。
+        // 每日残局：全服同一套波次、同一个开局盘面。不上榜。
         public bool Daily;
         public int DailyDay;
         public PresetGlyph[] Preset;

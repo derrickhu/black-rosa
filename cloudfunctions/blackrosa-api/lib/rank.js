@@ -25,9 +25,10 @@
 
 const crypto = require('crypto');
 const { requireUser } = require('./auth');
-const { getDb, getRankingCollection } = require('./db');
+const { getDb, getRankingCollection, collection } = require('./db');
 const { httpError } = require('./http');
 const { readEnvPrefer, gameKeyUpper } = require('./config');
+const { sendMailOnce } = require('./mail');
 
 const DEFAULT_MAX_CLEARED = 90;
 const DEFAULT_MAX_ENDLESS = 70;
@@ -185,12 +186,167 @@ async function findMine(col, userId, platform, board, now) {
   const score = Number(doc[board.score]);
   const at = Number(doc[board.at]) || 0;
   const scope = { ...audience(platform), ...period };
+  // 周榜按波数分档：同一波都是同一个名次，和发奖一致。先到的人仍排在这一档前面。
+  if (board.key === 'week') {
+    const rank = await denseRank(col, scope, board, score);
+    return { rank, doc };
+  }
   const [ahead, tied] = await Promise.all([
     col.where({ ...scope, [board.score]: _.gt(score) }).count(),
     col.where({ ...scope, [board.score]: score, [board.at]: _.lt(at) }).count(),
   ]);
   const rank = (Number(ahead && ahead.total) || 0) + (Number(tied && tied.total) || 0) + 1;
   return { rank, doc };
+}
+
+async function denseRank(col, scope, board, score) {
+  const _ = getDb().command;
+  const seen = new Set();
+  let skip = 0;
+  while (skip < 500) {
+    const res = await col
+      .where({ ...scope, [board.score]: _.gt(score) })
+      .orderBy(board.score, 'desc')
+      .skip(skip)
+      .limit(100)
+      .get();
+    const batch = (res && Array.isArray(res.data) && res.data) || [];
+    for (const row of batch) seen.add(Math.floor(Number(row[board.score]) || 0));
+    if (batch.length < 100) break;
+    skip += batch.length;
+  }
+  return seen.size + 1;
+}
+
+function rankRows(rows, userId, board) {
+  if (board.key !== 'week') return rows.map((doc, i) => publicRecord(doc, userId, i + 1));
+  let rank = 0;
+  let prev = null;
+  return rows.map((doc) => {
+    const score = Math.floor(Number(doc.weekly) || 0);
+    if (prev === null || score !== prev) {
+      rank += 1;
+      prev = score;
+    }
+    return publicRecord(doc, userId, rank);
+  });
+}
+
+// 无尽周榜奖励。按波数从高到低取前三档，同一波的人算同一名，都发这一档。
+// 第一名炮台宝箱，第二名皇家宝箱，第三名金宝箱。编辑器账号不占名次。
+const WEEKLY_PRIZES = [
+  { name: '第一名', chest: '炮台宝箱', rewards: { cannon: 1 } },
+  { name: '第二名', chest: '皇家宝箱', rewards: { royal: 1 } },
+  { name: '第三名', chest: '金宝箱', rewards: { gold: 1 } },
+];
+
+function awardGroups(rows) {
+  const blocked = blockedUsers();
+  const groups = [];
+  for (const doc of rows || []) {
+    if (!doc || doc.platform === 'anon' || !doc.userId || blocked.has(doc.userId)) continue;
+    const score = Math.floor(Number(doc.weekly) || 0);
+    if (score <= 0) continue;
+    const last = groups[groups.length - 1];
+    if (last && last.score === score) {
+      last.users.push(doc);
+      continue;
+    }
+    if (groups.length >= WEEKLY_PRIZES.length) break;
+    groups.push({ score, users: [doc] });
+  }
+  return groups;
+}
+
+async function loadAwardRows(week) {
+  const col = getRankingCollection();
+  const _ = getDb().command;
+  const rows = [];
+  const page = 100;
+  let skip = 0;
+  while (groupsComplete(rows) === false) {
+    const res = await col
+      .where({ week, weekly: _.gt(0) })
+      .orderBy('weekly', 'desc')
+      .orderBy('weeklyAt', 'asc')
+      .skip(skip)
+      .limit(page)
+      .get();
+    const batch = (res && Array.isArray(res.data) && res.data) || [];
+    rows.push(...batch);
+    if (batch.length < page) break;
+    skip += batch.length;
+    if (skip >= 2000) break;
+  }
+  return rows;
+}
+
+function groupsComplete(rows) {
+  const groups = awardGroups(rows);
+  if (groups.length < WEEKLY_PRIZES.length) return false;
+  const last = groups[groups.length - 1];
+  const tail = rows[rows.length - 1];
+  // 最后一档可能被分页切开，下一批还是同一波就得接着读。
+  return !tail || Math.floor(Number(tail.weekly) || 0) !== last.score;
+}
+
+async function awardWeek(week, now) {
+  const groups = awardGroups(await loadAwardRows(week));
+  let sent = 0;
+  for (let i = 0; i < groups.length; i++) {
+    const prize = WEEKLY_PRIZES[i];
+    const tied = groups[i].users.length > 1;
+    const title = tied ? `无尽周榜并列${prize.name}` : `无尽周榜${prize.name}`;
+    const body = tied
+      ? `上周无尽榜并列${prize.name}，${prize.chest}附上。`
+      : `上周无尽榜${prize.name}，${prize.chest}附上。`;
+    for (const doc of groups[i].users) {
+      const state = await sendMailOnce({
+        userId: doc.userId,
+        source: 'rank',
+        sourceId: `weekly:${week}:${doc.userId}`,
+        title,
+        body,
+        rewards: prize.rewards,
+        now,
+      });
+      if (state === 'sent') sent += 1;
+    }
+  }
+  console.log('[rank] weekly award', week, 'tiers', groups.map((g) => g.users.length).join(','), 'sent', sent);
+  return { week, tiers: groups.length, sent };
+}
+
+// 周一零点换周后发上一周。第一次跑只记下「从本周开始」，不补发更早的榜。
+async function settleWeeklyAwards(now) {
+  const due = serverPeriod(now || Date.now()).week - 1;
+  if (due < 0) return { ok: true, skipped: 'none' };
+  const col = collection('jobs');
+  const res = await col.where({ kind: 'weekly-rank' }).limit(1).get();
+  const mark = (res && Array.isArray(res.data) && res.data[0]) || null;
+  if (!mark) {
+    try {
+      await col.add({ kind: 'weekly-rank', settledWeek: due, updatedAt: Date.now(), note: 'start' });
+    } catch (error) {
+      if (!/dup|E11000|already exists|唯一/i.test(String((error && error.message) || error))) throw error;
+    }
+    return { ok: true, primed: due };
+  }
+  const settled = Number(mark.settledWeek) || 0;
+  if (settled >= due) return { ok: true, settledWeek: settled };
+  const from = Math.max(settled + 1, due - 3);
+  const weeks = [];
+  for (let week = from; week <= due; week++) weeks.push(await awardWeek(week, now || Date.now()));
+  await col.doc(mark._id).update({ settledWeek: due, updatedAt: Date.now() });
+  return { ok: true, settledWeek: due, weeks };
+}
+
+async function settleWeeklyQuietly(now) {
+  try {
+    await settleWeeklyAwards(now);
+  } catch (error) {
+    console.warn('[rank] weekly award skipped:', error && error.message ? error.message : error);
+  }
 }
 
 async function handleSubmit(req) {
@@ -211,6 +367,7 @@ async function handleSubmit(req) {
   if (blockedUsers().has(userId)) {
     return { updated: false, reason: 'BLOCKED', record: null };
   }
+  await settleWeeklyQuietly(now);
 
   const col = getRankingCollection();
   const res = await col.where({ userId }).limit(1).get();
@@ -292,6 +449,7 @@ async function handleList(req) {
   const limit = normalizeLimit(body.limit);
   const board = normalizeBoard(body.board);
   const now = Date.now();
+  await settleWeeklyQuietly(now);
   const col = getRankingCollection();
   const res = await col
     .where({ ...audience(platform), ...periodScope(board, now), [board.score]: getDb().command.gt(0) })
@@ -300,7 +458,7 @@ async function handleList(req) {
     .limit(limit)
     .get();
   const rows = res && Array.isArray(res.data) ? res.data : [];
-  const list = rows.map((doc, i) => publicRecord(doc, userId, i + 1));
+  const list = rankRows(rows, userId, board);
   const mine = await findMine(col, userId, platform, board, now);
   return { list, mine: mine ? publicRecord(mine.doc, userId, mine.rank) : null };
 }
@@ -308,4 +466,6 @@ async function handleList(req) {
 module.exports = {
   handleSubmit,
   handleList,
+  awardGroups,
+  settleWeeklyAwards,
 };

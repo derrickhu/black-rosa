@@ -14,6 +14,7 @@
  *   /mail/list   未领邮件
  *   /mail/claim  领取邮件，领过的不再返回
  *   /health      健康检查
+ *   定时器 weeklyRankAward  每周一 00:05（北京时间）发上一周无尽榜前三名的奖励邮件
  *
  * 环境变量：
  *   GAME_KEY=blackrosa
@@ -31,7 +32,7 @@
 
 const { handleLogin } = require('./lib/auth');
 const { handlePull, handlePush } = require('./lib/save');
-const { handleSubmit, handleList } = require('./lib/rank');
+const { handleSubmit, handleList, settleWeeklyAwards } = require('./lib/rank');
 const { handleDailyPost } = require('./lib/game-club');
 const {
   handleWechatPushVerify,
@@ -59,8 +60,19 @@ const ROUTES = {
   'POST /mail/claim': handleClaimMail,
 };
 
+function isWeeklyAwardTimer(event) {
+  if (!event || event.httpMethod) return false;
+  const type = String(event.Type || event.type || '');
+  if (type.toLowerCase() === 'timer') return true;
+  return String(event.TriggerName || event.triggerName || '') === 'weeklyRankAward';
+}
+
 exports.main = async (event, context) => {
   try {
+    if (isWeeklyAwardTimer(event)) {
+      const result = await settleWeeklyAwards(Date.now());
+      return respond(200, { ok: true, data: result });
+    }
     if (event && event.httpMethod === 'OPTIONS') {
       return preflight();
     }

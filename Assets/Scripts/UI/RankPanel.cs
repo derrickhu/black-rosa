@@ -5,7 +5,7 @@ using UnityEngine.UI;
 
 namespace InkLine
 {
-    // 排行榜：通关 / 无尽周榜 / 每日残局三张榜。宣纸卡面 + 朱红飘带标题，前三名挂金银铜牌，
+    // 排行榜：通关、无尽周榜。宣纸卡面 + 朱红飘带标题，前三名挂金银铜牌，
     // 自己那一行钉在底部，列表滚到哪都看得见。
     public sealed class RankPanel : MonoBehaviour
     {
@@ -14,20 +14,20 @@ namespace InkLine
         const float RowH = 92f;
         const float RowStep = 102f;
         const float TabY = 62f;
-        const float TabW = 188f;
+        const float TabW = 248f;
         const float TabH = 62f;
         const float SubY = 134f;
         const float ListTop = 172f;
+        const float WeeklyListTop = 214f;
         const float AuthH = 76f;
 
         // 无尽总榜还在收分（老包也在报），面板上只摆本周榜，每周一清零大家重新抢。
-        static readonly string[] BoardIds = { RankService.BoardStage, RankService.BoardWeekly, RankService.BoardDaily };
-        static readonly string[] BoardNames = { "通关榜", "无尽周榜", "每日残局" };
+        static readonly string[] BoardIds = { RankService.BoardStage, RankService.BoardWeekly };
+        static readonly string[] BoardNames = { "通关榜", "无尽周榜" };
         static readonly string[] BoardSubs =
         {
             "按通关关数排名 · 同关数先到者居前",
-            "本周无尽最好波数 · 每周一零点清榜",
-            "今日残局撑过的波数 · 全服同一局",
+            "每周一零点发上周奖励，同波并列都发\n第一名炮台宝箱，第二名皇家宝箱，第三名金宝箱",
         };
 
         static readonly Color[] Podium = { InkTheme.Hex("FFF1C9"), InkTheme.Hex("EEF0F4"), InkTheme.Hex("FBE3CE") };
@@ -59,7 +59,6 @@ namespace InkLine
             switch (BoardId)
             {
                 case RankService.BoardWeekly: return r.weekly;
-                case RankService.BoardDaily: return r.daily;
                 case RankService.BoardEndless: return r.endless;
                 default: return r.cleared;
             }
@@ -103,9 +102,11 @@ namespace InkLine
                 _tabs[i] = UiKit.Btn(_board, "tab" + i, BoardNames[i], new Vector2(x, TabY),
                     new Vector2(TabW, TabH), () => Pick(ix), false, Pin.Top);
             }
-            _sub = UiKit.Label(_board, "sub", "", 22,
-                new Vector2(0f, SubY), new Vector2(BoardW - 60f, 30f), TextAnchor.MiddleCenter, Pin.Top);
+            _sub = UiKit.Label(_board, "sub", "", 20,
+                new Vector2(0f, SubY), new Vector2(BoardW - 48f, 32f), TextAnchor.UpperCenter, Pin.Top);
             _sub.color = InkTheme.TextMid;
+            _sub.horizontalOverflow = HorizontalWrapMode.Wrap;
+            _sub.lineSpacing = 0.85f;
             PaintTabs();
 
             bool askProfile = WxBridge.CanAskProfile && !RankService.HasProfile;
@@ -126,6 +127,7 @@ namespace InkLine
             }
 
             BuildList(footerH);
+            PaintTabs();
             SetStatus("排行榜加载中…", false);
             // iPhone 上微信不给系统字体，回调也不会回来。先用游戏字体把榜画出来，字体到了再换。
             _nameFont = UiKit.Font;
@@ -232,7 +234,12 @@ namespace InkLine
                 UiKit.PaintBtn(_tabs[i], on ? InkTheme.Cta : InkTheme.Plain, on ? InkTheme.CtaDeep : InkTheme.PlainDeep,
                     on ? InkTheme.CardFace : InkTheme.TextDark);
             }
+            bool weekly = BoardId == RankService.BoardWeekly;
+            _sub.fontSize = weekly ? 20 : 22;
+            _sub.rectTransform.sizeDelta = new Vector2(BoardW - 48f, weekly ? 72f : 32f);
             _sub.text = BoardSubs[_boardIx];
+            if (_viewport != null)
+                _viewport.offsetMax = new Vector2(-16f, -(weekly ? WeeklyListTop : ListTop));
         }
 
         void Reload()
@@ -339,8 +346,10 @@ namespace InkLine
             Badge(root, r.rank, new Vector2(left + 52f, 0f));
             Avatar(root, r, new Vector2(left + 140f, 0f));
 
-            var name = UiKit.Label(root, "name", Clip(r.displayName, 8), 28, new Vector2(left + 188f + 130f, 0f),
-                new Vector2(260f, 40f), TextAnchor.MiddleLeft);
+            string chest = WeeklyChest(r.rank);
+            float nameW = chest != null ? 176f : 260f;
+            var name = UiKit.Label(root, "name", Clip(r.displayName, chest != null ? 6 : 8), 28,
+                new Vector2(left + 188f + nameW * 0.5f, 0f), new Vector2(nameW, 40f), TextAnchor.MiddleLeft);
             name.font = _nameFont;
             name.color = InkTheme.TextDark;
             int score = ScoreOf(r);
@@ -348,7 +357,6 @@ namespace InkLine
             {
                 name.rectTransform.anchoredPosition = new Vector2(left + 188f + 130f, 14f);
                 string hint = score > 0 ? "上榜中，稍后再看"
-                    : BoardId == RankService.BoardDaily ? "打一局今日残局即可上榜"
                     : Waves ? "本周无尽打完一波即可上榜" : "通关第一关即可上榜";
                 var tip = UiKit.Label(root, "tip", hint, 20,
                     new Vector2(left + 188f + 130f, -20f), new Vector2(260f, 28f), TextAnchor.MiddleLeft);
@@ -361,9 +369,21 @@ namespace InkLine
             UiKit.Bold(num);
             var unit = UiKit.Label(root, "u", Waves ? "波" : "关", 24, new Vector2(RowW * 0.5f - 38f, -2f), new Vector2(40f, 36f));
             unit.color = InkTheme.TextMid;
+            if (chest != null)
+                UiKit.Icon(root, InkSprites.Load(chest), new Vector2(RowW * 0.5f - 176f, 2f), 72f);
 
             if (r.isMe) Stamp(root);
             return root;
+        }
+
+        // 只有无尽周榜的前三档有奖。同一波名次相同，箱子也相同。
+        string WeeklyChest(int rank)
+        {
+            if (BoardId != RankService.BoardWeekly) return null;
+            if (rank == 1) return "Ui/chest_cannon";
+            if (rank == 2) return "Ui/chest_royal";
+            if (rank == 3) return "Ui/chest_gold";
+            return null;
         }
 
         static void Badge(Transform row, int rank, Vector2 pos)

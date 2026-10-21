@@ -218,6 +218,7 @@ namespace InkLine
 
         void BuildButtons(RectTransform stage, float at)
         {
+            float lift = _a.Rank != null ? 0f : RankY - DoubleY;
             if (_a.Rank != null)
             {
                 var rank = ResultKit.Group(stage, "rank", new Vector2(0f, RankY), new Vector2(300f, 72f));
@@ -227,14 +228,14 @@ namespace InkLine
 
             if (_a.Double != null)
             {
-                var dbl = ResultKit.Group(stage, "double", new Vector2(0f, DoubleY), new Vector2(320f, 84f));
+                var dbl = ResultKit.Group(stage, "double", new Vector2(0f, DoubleY + lift), new Vector2(320f, 84f));
                 _double = UiKit.Btn(dbl, "b", "墨翻倍", Vector2.zero, new Vector2(320f, 84f), () => _a.Double());
                 ResultKit.AdMark(_double, 34f);
                 _anim.Pop(dbl, at + 0.08f, 0.3f);
             }
 
             int left = _a.Daily ? _meta.DailyPlaysLeft : _meta.EndlessPlaysLeft;
-            var row = ResultKit.Group(stage, "row", new Vector2(0f, AgainY), new Vector2(500f, 88f));
+            var row = ResultKit.Group(stage, "row", new Vector2(0f, AgainY + lift), new Vector2(500f, 88f));
             var again = UiKit.Btn(row, "again", $"再来一局（剩 {left}）", new Vector2(-128f, 0f), new Vector2(248f, 84f),
                 () => _a.Again?.Invoke(), _double == null);
             if (left <= 0) PanelKit.Dim(again, true);
