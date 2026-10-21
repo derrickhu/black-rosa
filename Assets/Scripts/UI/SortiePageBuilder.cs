@@ -153,25 +153,7 @@ namespace InkLine
             }
             chapter.Nodes = nodes;
 
-            int chapters = ChapterCount;
-            var dots = new Image[chapters];
-            float span = (chapters - 1) * 22f;
-            for (int i = 0; i < chapters; i++)
-            {
-                var dot = new GameObject("dot" + i, typeof(RectTransform), typeof(Image));
-                dot.transform.SetParent(boardRt, false);
-                var dr = dot.GetComponent<RectTransform>();
-                dr.anchorMin = dr.anchorMax = new Vector2(0.5f, 0f);
-                dr.pivot = new Vector2(0.5f, 0f);
-                dr.anchoredPosition = new Vector2(-span * 0.5f + i * 22f, 22f);
-                dr.sizeDelta = new Vector2(12f, 12f);
-                var di = dot.GetComponent<Image>();
-                di.sprite = UiSprites.Fill(8);
-                di.type = Image.Type.Sliced;
-                di.raycastTarget = false;
-                dots[i] = di;
-            }
-            chapter.Dots = dots;
+            chapter.Dots = BuildDots(boardRt);
 
             chapter.Prev = MakeTab(boardRt, "prev", "上一章", false, cardW, out chapter.PrevLabel);
             chapter.Next = MakeTab(boardRt, "next", "下一章", true, cardW, out chapter.NextLabel);
@@ -223,10 +205,51 @@ namespace InkLine
             UiKit.Bold(chapter.StarLabel);
         }
 
+        static Image[] BuildDots(RectTransform boardRt)
+        {
+            int chapters = ChapterCount;
+            var dots = new Image[chapters];
+            float span = (chapters - 1) * 22f;
+            for (int i = 0; i < chapters; i++)
+            {
+                var dot = new GameObject("dot" + i, typeof(RectTransform), typeof(Image));
+                dot.transform.SetParent(boardRt, false);
+                var dr = dot.GetComponent<RectTransform>();
+                dr.anchorMin = dr.anchorMax = new Vector2(0.5f, 0f);
+                dr.pivot = new Vector2(0.5f, 0f);
+                dr.anchoredPosition = new Vector2(-span * 0.5f + i * 22f, 22f);
+                dr.sizeDelta = new Vector2(12f, 12f);
+                var di = dot.GetComponent<Image>();
+                di.sprite = UiSprites.Fill(8);
+                di.type = Image.Type.Sliced;
+                di.raycastTarget = false;
+                dots[i] = di;
+            }
+            return dots;
+        }
+
+        // 预制里烘的是当时的章数（八章八个点）。加章后点数对不上就当场重排，不必重烘预制。
+        static void FitDots(HomeChapterBoard board)
+        {
+            if (board.Dots != null && board.Dots.Length == ChapterCount) return;
+            RectTransform host = null;
+            if (board.Dots != null)
+                for (int i = 0; i < board.Dots.Length; i++)
+                {
+                    if (board.Dots[i] == null) continue;
+                    if (host == null) host = board.Dots[i].transform.parent as RectTransform;
+                    UnityEngine.Object.Destroy(board.Dots[i].gameObject);
+                }
+            if (host == null) host = board.Prev != null ? board.Prev.transform.parent as RectTransform : null;
+            if (host == null) return;
+            board.Dots = BuildDots(host);
+        }
+
         // 翻页圆点和章节小票的圆角图存不进预制，进游戏时补。
         public static void RepairChrome(HomeChapterBoard board)
         {
             if (board == null) return;
+            FitDots(board);
             if (board.Dots != null)
                 for (int i = 0; i < board.Dots.Length; i++)
                     UiKit.RepairSlice(board.Dots[i], UiSprites.Fill(8));
@@ -277,14 +300,15 @@ namespace InkLine
             return btn;
         }
 
-        // 侧边贴纸：左列签到、游戏圈、新手礼包，右列排行榜（最上）、图鉴、招财进宝。
-        // 无尽和每日残局在底栏「副本」页。每日功课先下线。下标见 HomeScreen.Side*。新手礼包领完就消失。
-        public const int SideCount = 6;
+        // 侧边贴纸：左列从上到下是签到、游戏圈、邮箱、新手礼包。邮箱占原来礼包的位置，礼包再往下挪一格。
+        // 右列排行榜（最上）、图鉴、招财进宝。无尽和每日残局在底栏「副本」页。下标见 HomeScreen.Side*。
+        public const int SideCount = 7;
 
-        static bool LeftSide(int i) => i < 3;
+        static bool LeftSide(int i) => i < 3 || i == 6;
 
-        // 老的 Home.prefab 里烘的是四个贴纸，数量对不上就当场重建。数量够了也按现在的位置排一次，
-        // 预制里烘过的坐标不会自己跟着改。
+        // 老的 Home.prefab 里烘过的贴纸数量对不上就当场重建。数量够了也要把左右、
+        // 图标和文案对齐到下面这套：预制里第 7 颗烘在右边、文案还是「每日任务」，
+        // 只改 Y 会和招财进宝叠在一起，邮箱图标就看不见。
         public static void EnsureSides(HomeView view, RectTransform page)
         {
             if (view == null || page == null) return;
@@ -296,12 +320,53 @@ namespace InkLine
                 view.SideActs = BuildSides(page);
                 return;
             }
-            float[] ys = SideYs();
-            for (int i = 0; i < view.SideActs.Length && i < ys.Length; i++)
+            for (int i = 0; i < view.SideActs.Length; i++)
+                FitSide(view.SideActs[i], i);
+        }
+
+        static void FitSide(Button btn, int i)
+        {
+            if (btn == null) return;
+            SideLook(i, out string label, out string iconKey, out Vector2 iconSize);
+            var rt = (RectTransform)btn.transform;
+            float edge = LeftSide(i) ? 0f : 1f;
+            rt.anchorMin = rt.anchorMax = new Vector2(edge, 1f);
+            rt.pivot = new Vector2(edge, 0.5f);
+            rt.sizeDelta = new Vector2(iconSize.x, iconSize.y + 72f);
+            rt.anchoredPosition = new Vector2(0f, -SideYs()[i]);
+            var icon = btn.transform.Find("icon") as RectTransform;
+            if (icon != null)
             {
-                if (view.SideActs[i] == null) continue;
-                var rt = (RectTransform)view.SideActs[i].transform;
-                rt.anchoredPosition = new Vector2(rt.anchoredPosition.x, -ys[i]);
+                icon.anchoredPosition = Vector2.zero;
+                icon.sizeDelta = iconSize;
+                var img = icon.GetComponent<Image>();
+                if (img != null)
+                {
+                    Sprite s = Ico(iconKey);
+                    if (s != null) img.sprite = s;
+                }
+            }
+            var capRt = btn.transform.Find("t") as RectTransform;
+            if (capRt != null)
+            {
+                capRt.anchoredPosition = new Vector2(0f, -(iconSize.y * 0.5f + 22f));
+                capRt.sizeDelta = new Vector2(iconSize.x, 32f);
+                var cap = capRt.GetComponent<Text>();
+                if (cap != null) cap.text = label;
+            }
+        }
+
+        static void SideLook(int i, out string label, out string icon, out Vector2 size)
+        {
+            switch (i)
+            {
+                case 0: label = "新手礼包"; icon = "act_event"; size = new Vector2(96f, 96f); return;
+                case 1: label = "游戏圈"; icon = "act_circle"; size = new Vector2(112f, 94f); return;
+                case 2: label = "签到"; icon = "act_checkin"; size = new Vector2(96f, 100f); return;
+                case 3: label = "图鉴"; icon = "act_codex"; size = new Vector2(86f, 106f); return;
+                case 4: label = "排行榜"; icon = "act_rank"; size = new Vector2(112f, 102f); return;
+                case 5: label = EventCatalog.Title; icon = "skin_lucky"; size = new Vector2(100f, 100f); return;
+                default: label = "邮箱"; icon = "act_mail"; size = new Vector2(96f, 96f); return;
             }
         }
 
@@ -310,30 +375,22 @@ namespace InkLine
             float y1 = CardTop + CardH * 0.40f;
             float y2 = CardTop + CardH * 0.68f;
             float y0 = y1 - (y2 - y1);
-            return new[] { y2, y1, y0, y1, y0, y2 };
+            float y3 = y2 + (y2 - y1);
+            // 0 礼包下移，1 游戏圈，2 签到，3 图鉴，4 排行榜，5 招财进宝，6 邮箱占原礼包位。
+            return new[] { y3, y1, y0, y1, y0, y2, y2 };
         }
 
         static Button[] BuildSides(RectTransform page)
         {
             // 合稿上的贴纸尺寸，含一圈白边。锚在页面左右边，外沿贴屏幕。
-            string[] labels = { "新手礼包", "游戏圈", "签到", "图鉴", "排行榜", EventCatalog.Title };
-            string[] icons = { "act_event", "act_circle", "act_checkin", "act_codex", "act_rank", "skin_lucky" };
-            Vector2[] iconSize =
-            {
-                new Vector2(96f, 96f),
-                new Vector2(112f, 94f),
-                new Vector2(96f, 100f),
-                new Vector2(86f, 106f),
-                new Vector2(112f, 102f),
-                new Vector2(100f, 100f),
-            };
             float[] ys = SideYs();
             var buttons = new Button[SideCount];
             for (int i = 0; i < SideCount; i++)
             {
+                SideLook(i, out string label, out string iconKey, out Vector2 iconSize);
                 bool left = LeftSide(i);
-                float iw = iconSize[i].x;
-                float ih = iconSize[i].y;
+                float iw = iconSize.x;
+                float ih = iconSize.y;
                 var go = new GameObject("act" + i, typeof(RectTransform), typeof(Image), typeof(Button));
                 go.transform.SetParent(page, false);
                 var rt = go.GetComponent<RectTransform>();
@@ -347,9 +404,9 @@ namespace InkLine
                 var btn = go.GetComponent<Button>();
                 btn.targetGraphic = hit;
                 btn.transition = Selectable.Transition.None;
-                var icon = UiKit.Icon(go.transform, Ico(icons[i]), Vector2.zero, Mathf.Max(iw, ih));
+                var icon = UiKit.Icon(go.transform, Ico(iconKey), Vector2.zero, Mathf.Max(iw, ih));
                 icon.rectTransform.sizeDelta = new Vector2(iw, ih);
-                var cap = UiKit.Label(go.transform, "t", labels[i], 22,
+                var cap = UiKit.Label(go.transform, "t", label, 22,
                     new Vector2(0f, -(ih * 0.5f + 22f)), new Vector2(iw, 32f));
                 cap.color = InkTheme.TextDark;
                 buttons[i] = btn;

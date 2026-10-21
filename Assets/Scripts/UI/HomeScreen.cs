@@ -1324,6 +1324,7 @@ namespace InkLine
                 if (i == SideEvent) btn.onClick.AddListener(OpenEvent);
                 else btn.onClick.AddListener(() => AudioBus.Tap());
                 if (i == SideGift) btn.onClick.AddListener(() => StarterGiftPanel.Show(_layer, _meta, AfterReward));
+                else if (i == SideMail) btn.onClick.AddListener(() => MailPanel.Show(_layer, _meta, AfterReward));
                 else if (i == SideClub) btn.onClick.AddListener(() => GameClubPanel.Show(_layer, _meta, AfterReward));
                 else if (i == SideCheckIn) btn.onClick.AddListener(() => CheckInPanel.Show(_layer, _meta, AfterReward));
                 else if (i == SideCodex) btn.onClick.AddListener(() => CodexPanel.Show(_layer, _meta, AfterReward));
@@ -1333,6 +1334,7 @@ namespace InkLine
             Button gift = _view.SideActs[SideGift];
             if (gift != null) gift.gameObject.SetActive(!_meta.GiftClaimed);
             RedDot(gift, !_meta.GiftClaimed);
+            RedDot(_view.SideActs[SideMail], Mailbox.Pending > 0);
             RedDot(_view.SideActs[SideClub], !_meta.ClubClaimedToday);
             RedDot(_view.SideActs[SideCheckIn], !_meta.CheckedToday);
             RedDot(_view.SideActs[SideCodex], _meta.CodexHasNew);
@@ -1566,6 +1568,7 @@ namespace InkLine
         const int SideCodex = 3;
         const int SideRank = 4;
         const int SideEvent = 5;
+        const int SideMail = 6;
 
         void BindSeal(HomeSealCell slot, int index)
         {

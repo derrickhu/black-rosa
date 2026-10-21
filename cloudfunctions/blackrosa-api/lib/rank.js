@@ -29,8 +29,8 @@ const { getDb, getRankingCollection } = require('./db');
 const { httpError } = require('./http');
 const { readEnvPrefer, gameKeyUpper } = require('./config');
 
-const DEFAULT_MAX_CLEARED = 72;
-const DEFAULT_MAX_ENDLESS = 50;
+const DEFAULT_MAX_CLEARED = 90;
+const DEFAULT_MAX_ENDLESS = 70;
 const DEFAULT_MAX_DAILY = 20;
 const DEFAULT_LIST_LIMIT = 50;
 const MAX_LIST_LIMIT = 100;

@@ -99,6 +99,11 @@ namespace InkLine
                 case CardId.Thunder:
                 case CardId.Poison:
                 case CardId.Confuse:
+                case CardId.Break:
+                case CardId.Gather:
+                case CardId.Rebound:
+                case CardId.Qian:
+                case CardId.Jun:
                     return true;
                 default:
                     return false;
@@ -410,6 +415,11 @@ namespace InkLine
                 case CardId.Thunder:
                 case CardId.Poison:
                 case CardId.Confuse:
+                case CardId.Break:
+                case CardId.Gather:
+                case CardId.Rebound:
+                case CardId.Qian:
+                case CardId.Jun:
                     DrawShaped(px, n, CardCatalog.Get(id).Shape, InkTheme.Accent(id));
                     return;
                 default:

@@ -1,0 +1,9 @@
+Two game upgrade icons side by side on a pure flat solid magenta background (#FF00FF), one in the left half and one in the right half, each centred in its half with wide empty magenta all around it.
+
+Draw them in exactly the same icon style as the attached row of existing icons: chunky flat cartoon shapes, a thick dark chocolate brown outline (#4A2E1E) around every shape, flat fills with one soft lighter highlight band, warm cheerful colours, slightly tilted playful pose.
+
+Left icon — "cheaper upgrades": a price tag of light kraft paper brown (#D9A86C) with a round hole and a short loop of red string at its top, tilted to the left, and a big bold arrow pointing straight down in grass green (#3CB86A) sitting in front of the tag's lower corner.
+
+Right icon — "faster cooldown": a sturdy hourglass with a warm honey wood frame (#B9783A) and clear glass bulbs filled with bright sky blue sand (#4FB3E8), with three short orange speed streaks (#F08A24) trailing from its left side, matching the speed streaks on the attached stopwatch icon.
+
+The picture contains only these two icons on one perfectly uniform flat magenta background.

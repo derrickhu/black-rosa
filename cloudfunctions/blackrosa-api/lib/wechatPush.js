@@ -3,6 +3,7 @@ const { collection } = require('./db');
 const { requireUser } = require('./auth');
 const { respond } = require('./http');
 const { getWechatPushTokens } = require('./config');
+const { sendMail } = require('./mail');
 
 const SUCCESS = { ErrCode: 0, ErrMsg: 'Success' };
 const PENDING_GIFT_COLLECTION = 'pendingWechatGifts';
@@ -119,24 +120,19 @@ async function recordDeliverGoods(mini, now) {
 
   const openId = String(mini.ToUserOpenid || '').trim();
   const rewards = normalizeGoodsList(mini.GoodsList || []);
-  if (Object.keys(rewards).length === 0) {
+  if (!openId || Object.keys(rewards).length === 0) {
     console.warn('[wechatPush] gift has no known goods:', orderId);
     return;
   }
-  const pendingDoc = {
-    orderId,
-    userId: openId ? `wx:${openId}` : '',
+  await sendMail({
+    userId: `wx:${openId}`,
+    source: 'wechat',
+    sourceId: orderId,
+    title: '微信礼包',
+    body: '礼包已送到，打开领取',
     rewards,
-    status: 'pending',
-    isPreview: mini.IsPreview || 0,
-    createdAt: now,
-  };
-  if (mini.GiftId) pendingDoc.giftId = mini.GiftId;
-  try {
-    await col.add(pendingDoc);
-  } catch (error) {
-    console.warn('[wechatPush] record gift failed:', error && error.message ? error.message : error);
-  }
+    now,
+  });
 }
 
 function normalizeGoodsList(goodsList) {

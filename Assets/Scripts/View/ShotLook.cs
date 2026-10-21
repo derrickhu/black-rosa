@@ -47,9 +47,9 @@ namespace InkLine
             CardId.Earth, CardId.Thunder, CardId.Wind, CardId.Pierce
         };
 
-        static readonly CardId[] TrailRank = { CardId.Accel, CardId.Track, CardId.Wind };
-        static readonly CardId[] HaloRank = { CardId.Thunder, CardId.Stun, CardId.Gold };
-        static readonly CardId[] OrbitRank = { CardId.Wind, CardId.Wood };
+        static readonly CardId[] TrailRank = { CardId.Accel, CardId.Track, CardId.Rebound, CardId.Wind };
+        static readonly CardId[] HaloRank = { CardId.Thunder, CardId.Stun, CardId.Break, CardId.Gold };
+        static readonly CardId[] OrbitRank = { CardId.Wind, CardId.Gather, CardId.Wood };
         static readonly CardId[] BloomRank = { CardId.Gold };
 
         // 参与「颜色可混」的元素字。道族不带色，免得把弹体搅浑。
@@ -94,6 +94,7 @@ namespace InkLine
             // 招牌两两抢体槽，并记下它把哪两个元素画进图里了。
             CardId pairA = CardId.None, pairB = CardId.None;
             ShotFx pair = Signature(m, ref pairA, ref pairB);
+            if (pair != ShotFx.None && !InkVfx.Flat(pair, out _) && !GlowShot.HasBody(pair)) pair = Fallback(pair);
             if (pair != ShotFx.None)
                 v.Form = new SlotLook
                 {
@@ -165,10 +166,17 @@ namespace InkLine
             return ShotFx.None;
         }
 
-        // 体槽现在全员有图（元素 6 + 道族词组 5 + 招牌两两 12），所以这张退化表空了。
-        // 原来它把 12 对招牌退回各自的主元素、把水/毒/土退回冰和击退，只为不开天窗
-        // —— 代价是毒退成一颗蓝水滴这种明显的读错。留着这个入口，是因为以后新增
-        // 招牌对时，图没画完的那几天还得靠它兜底。
-        public static ShotFx Fallback(ShotFx fx) => ShotFx.None;
+        // 第一幕的体槽全员有图，这张退化表只给第二幕的四对招牌兜底：
+        // 图没画出来时退回对里那个有图的字；崩山两边都没有体图，就让体槽照常抢位。
+        public static ShotFx Fallback(ShotFx fx)
+        {
+            switch (fx)
+            {
+                case ShotFx.FormCollapse: return ShotFx.FormExplode;
+                case ShotFx.FormWhirl: return ShotFx.FormWind;
+                case ShotFx.FormRiposte: return ShotFx.FormPierce;
+                default: return ShotFx.None;
+            }
+        }
     }
 }

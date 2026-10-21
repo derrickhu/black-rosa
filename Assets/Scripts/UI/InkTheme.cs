@@ -46,6 +46,13 @@ namespace InkLine
         public static readonly Color PoisonHi = Hex("A8D84B");
         public static readonly Color Confuse = Hex("B5479B");
         public static readonly Color ConfuseHi = Hex("EFB6E2");
+        // 破：砖红；聚：靛青；返：青铜绿
+        public static readonly Color Break = Hex("C8442A");
+        public static readonly Color BreakHi = Hex("F4A07A");
+        public static readonly Color Gather = Hex("2F5D9E");
+        public static readonly Color GatherHi = Hex("9EC2F0");
+        public static readonly Color Rebound = Hex("2E9C8C");
+        public static readonly Color ReboundHi = Hex("A6E6DA");
         // ---- 界面层调色板（休闲卡片风）----
         // 只给 UiKit / 各屏用。上面那批墨色还在给战场表现和字牌用，别混。
         public static readonly Color Outline = Hex("3A2A20");     // 统一深描边
@@ -97,6 +104,11 @@ namespace InkLine
                 case CardId.Thunder: return Thunder;
                 case CardId.Poison: return Poison;
                 case CardId.Confuse: return Confuse;
+                case CardId.Break: return Break;
+                case CardId.Gather: return Gather;
+                case CardId.Rebound: return Rebound;
+                case CardId.Qian:
+                case CardId.Jun:
                 case CardId.Sec:
                 case CardId.Kill:
                 case CardId.Myriad:

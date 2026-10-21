@@ -234,6 +234,8 @@ namespace InkLine
                 case ForgeLine.Emitters: return InkTheme.Hex("1C8C8C");
                 case ForgeLine.Crit: return InkTheme.Hex("7A3EC8");
                 case ForgeLine.GoldGain: return InkTheme.Hex("B86E12");
+                case ForgeLine.DraftCut: return InkTheme.Hex("2F5D9E");
+                case ForgeLine.ItemCd: return InkTheme.Hex("2E9C8C");
                 default: return InkTheme.TextDark;
             }
         }

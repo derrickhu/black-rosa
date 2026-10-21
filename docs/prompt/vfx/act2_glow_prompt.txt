@@ -1,0 +1,74 @@
+第二幕新字 / 新秘卷的发光弹，照成词光效（word_glow_prompt.txt）那一路：黑底、白热芯、饱和色光往黑里散。
+切图沿用 docs/prompt/runtime/word_glow_slice.py 的「按光去底」。参考图只给画法：现有六张词光效拼成一排（秒杀红刀、十字爆、连斩蓝剑、斩痕、击退紫波、涟漪）。
+
+==== 样张 1：破（break_glow）====
+
+A sprite sheet of three glowing magic effect layers for a cartoon mobile game. Three equal square cells side by side. The background of every cell and every gap is pure black #000000. Each cell holds one separate element, centered, filling about 70 percent of the cell, with its glow fading smoothly into the black.
+
+The attached image shows the target look: glowing blades, slashes and shockwaves from the same game. Match their soft saturated glow, their white-hot centres and their clean cartoon build. Use only their way of painting light; the shapes come from the list below.
+
+Cell 1, left: the "break" projectile, flying upward. A sharp jagged drill-head of light, pointed at the top and widening downward like an arrowhead carved from cracked crystal, its edges broken into small zigzag teeth. The core is a white-hot sliver. Around it the light runs in bands: bright gold #FFD23F next to the core, then hot orange #FF7A1A, then an outer glow of hot pink #FF2E88. Three small sharp crystal shards float beside the head, glowing gold with pink edges. Below the head a short tapering tail of orange and pink light fades into the black.
+
+Cell 2, middle: the "break" impact. A shattering burst seen face-on: a bright white-hot flash in the centre, around it a ring of light cracked into jagged pieces like a shield breaking apart, the pieces glowing gold #FFD23F and hot orange #FF7A1A and flying outward, with long thin sharp rays of hot pink #FF2E88 between them and a scatter of tiny cyan #4FE3FF and gold sparks at the outer edge.
+
+Cell 3, right: a cluster of five separate broken shards of light, each a small sharp triangle or splinter, white-hot at the centre with gold and orange glow and a thin hot pink rim, spaced apart so each one stands alone.
+
+Clean cartoon game-effect style, smooth gradients, bright saturated glow, rich mix of gold, orange, hot pink and a touch of cyan. The image contains only these three glowing shapes on black.
+
+定稿：破 v1，聚 v2（v1 的锥形收成了树），返 v2（v1 的命中收成了交叉斩），千钧 v3（v2 收成了金币），崩山 v2，坍缩 v1，旋风 v1，回锋 v1。
+
+==== 聚（gather_glow）====
+
+Left column: the "gather" projectile, flying upward. A vortex cone of light, wide and open at the bottom, tightening to a white-hot point at the top. Three long ribbon arms spiral inward toward that point. The arms band from electric blue #3D7EFF at the outer edge, through violet #7A4DFF, to magenta #FF4AD8 near the core, with a cyan #3EFFF2 edge on one arm. Small round beads of cyan and magenta light sit on the ribbons, pulled toward the tip.
+
+Middle column: the "gather" impact, seen face-on. A round swirl collapsing inward: three curved arms of electric blue #3D7EFF, violet #7A4DFF and magenta #FF4AD8 curling into a small white-hot centre, with a thin cyan #3EFFF2 ring just outside the centre and a few loose beads still falling inward.
+
+Right column: six separate round beads of light, spaced apart, three cyan #3EFFF2 and three magenta #FF4AD8, each with a white-hot centre.
+
+==== 返（rebound_glow）====
+
+Left column: the "rebound" projectile, flying upward. One smooth hook of light: a sharp white-hot point at the top, the body sweeping down and curling back upward at the bottom into a hooked tail, like a boomerang standing on its end. Bands run peacock teal #2EE6C7 along the outer curve, gold #FFE14A along the inner curve, and a thin coral #FF5A7A rim. A small four-point glint sits on the tip.
+
+Middle column: the "rebound" impact. One large hooked slash of light crossing the cell, thick in the middle and sharp at both ends, the lower end curling back on itself. White-hot core, peacock teal #2EE6C7 body, gold #FFE14A inner edge, coral #FF5A7A outer haze, with a short spray of gold sparks at the curl.
+
+Right column: three separate small crescent hooks of light, each a short curved barb, white-hot core with peacock teal #2EE6C7 and gold #FFE14A glow, spaced apart.
+
+==== 千钧（crush_glow）====
+
+Left column: the "crush" projectile, flying upward. Two large round orbs of light stacked on a short thick bar, the upper orb smaller and pointed with a white-hot glint, the lower orb bigger and heavier. Both orbs have a white-hot core, an antique-gold #FFC83A body, an amber #FF8A1E band, and a deep crimson #FF2A3C outer glow. The bar between them glows white-hot with a gold edge. A short crimson tail fades below the lower orb.
+
+Middle column: the "crush" impact. A wide low arc of light bowing upward across the cell, thick in the middle, white-hot leading edge, antique-gold #FFC83A body, crimson #FF2A3C underside, and a vertical pillar of white-gold light rising from the centre of the arc, with amber sparks along the arc.
+
+Right column: four separate round orbs of light, two large and two small, antique gold #FFC83A cores with crimson #FF2A3C rims, spaced apart.
+
+==== 崩山（crumble_glow）====
+
+Left column: the "crumble" projectile, flying upward. A broad heavy wedge of light, much wider than a needle, split down the middle by a bright white-hot crack. The two halves are jagged like a cliff face pulled apart. Inner faces glow molten gold #FFD056, outer faces burn vermilion #FF3B1F, with a copper #E8893A rim and a white-hot edge along the crack. A short thick tail of vermilion light fades below.
+
+Middle column: the "crumble" impact. A tall vertical fissure of white-hot light, narrow at the top and bottom and brightest in the middle, with chunks of gold #FFD056 and vermilion #FF3B1F light bursting sideways to the left and right, and a copper #E8893A haze along the crack.
+
+Right column: five separate chunky fragments of light, each an angular rock-like splinter, white-hot centre, gold #FFD056 body, vermilion #FF3B1F rim, spaced apart.
+
+==== 坍缩（collapse_glow）====
+
+Left column: the "collapse" projectile, flying upward. A dense round orb of light with four short curved streaks spiraling inward onto its surface, the streaks ending on the orb. The orb core is white-hot, wrapped in violet #9B4DFF, then magenta #FF3FA0, with one cyan #4DFFF0 streak among the inward arms. A faint violet haze sits just outside the orb.
+
+Middle column: the "collapse" impact. A tight nova: a small blinding white centre, a thin cyan #4DFFF0 ring close around it, then short thick rays of violet #9B4DFF and magenta #FF3FA0 pointing outward, the rays shorter than the cell so the burst stays compact, with a few cyan sparks beyond the rays.
+
+Right column: four separate short inward-curving streaks of light, two violet #9B4DFF and two magenta #FF3FA0, each with a white-hot tip, spaced apart and each one curved as if falling toward a shared centre.
+
+==== 旋风（whirl_glow）====
+
+Left column: the "whirl" projectile, flying upward. A twisting column of three spiral bands of light wrapping around a white-hot vertical core. The bands are spring green #7DFF4A, cyan #3EE0FF and gold #FFD84A, each band a clean ribbon with a bright edge, the whole column wider in the middle and tapered at the top and bottom. Tiny gold sparks ride the green band.
+
+Middle column: the "whirl" impact, seen face-on. A spinning ring of light, a thick torus with a black hollow centre, the ring braided from spring green #7DFF4A and cyan #3EE0FF with a gold #FFD84A highlight on the near edge and a white-hot inner rim. Two small green crescents orbit just outside the ring.
+
+Right column: four separate curved wind-ribbons of light, two spring green #7DFF4A and two cyan #3EE0FF, each a short arc with a gold #FFD84A edge, spaced apart.
+
+==== 回锋（riposte_glow）====
+
+Left column: the "riposte" projectile, flying upward. A long slim needle of light, white-hot core with an electric-blue #4D8CFF edge and a teal #2EE0C0 outer glow, pointed at the top. Behind the needle, slightly lower, a separate hooked crescent of gold #FFD25A light curls back downward, its tip pointing toward the tail, so the needle and the returning hook read as two parts of one shot. A small glint sits on the needle point.
+
+Middle column: the "riposte" impact. A straight vertical streak of white-hot and electric-blue #4D8CFF light through the centre, crossed near the top by one gold #FFD25A hooked crescent whose tail curls back down, with a teal #2EE0C0 haze around the crossing and a few gold sparks at the hook tip.
+
+Right column: three separate slim needle sparks of light, each a short straight streak, white-hot core, electric blue #4D8CFF body, teal #2EE0C0 glow, spaced apart and standing upright.

@@ -53,6 +53,7 @@ namespace InkLine
         ShotMods _m;
         bool _flat;
         InkVfx.FlatBody _fb;
+        Sprite _glow;
         int _star;
         Unit[] _units;
         static float _k;
@@ -102,7 +103,8 @@ namespace InkLine
             _m = m;
             _star = star;
             _v = ShotLook.Resolve(m);
-            _flat = InkVfx.Flat(_v.Form.Fx, out _fb);
+            _glow = GlowShot.BodyOf(m, _v, out GlowShot.Look glow) ? GlowShot.Art(glow.Key + "_shot") : null;
+            _flat = _glow == null && InkVfx.Flat(_v.Form.Fx, out _fb);
             _ornSets = ShotTrail.Ornaments(m, _orn);
             _trail.Reset();
 
@@ -144,7 +146,7 @@ namespace InkLine
 
             // 尾槽（速 / 瞄）一串渐小的圆点，平涂体自带尾巴就不再补墨尾。
             if (_v.Trail.On) Trail(u.Root, Color.Lerp(_v.Trail.Tint, Color.white, 0.2f), _v.Trail.Tint, 8, 34f);
-            else if (!_flat)
+            else if (!_flat && _glow == null)
             {
                 Color head = heavyTrail ? Color.Lerp(ShotTrail.GlowOf(CardId.Heavy), Color.white, 0.28f) : Head();
                 Color tail = heavyTrail ? ShotTrail.GlowOf(CardId.Heavy) : Tail();
@@ -176,7 +178,16 @@ namespace InkLine
             u.Orn = new Image[total * 2];
             BuildOrn(u, 0, bright);
 
-            if (_flat)
+            if (_glow != null)
+            {
+                // 发光弹体：普通混合整张贴，和战场上同一张图。
+                u.Body = Img(u.Root, _glow, Vector2.zero, 10f, Color.white);
+                float h = 190f;
+                float w = h * _glow.rect.width / Mathf.Max(1f, _glow.rect.height);
+                u.Body.rectTransform.sizeDelta = new Vector2(w, h);
+                u.Body.rectTransform.anchoredPosition = new Vector2(0f, h * 0.06f);
+            }
+            else if (_flat)
             {
                 Sprite first = InkVfx.FlatFrame(_fb, _star, index);
                 u.Body = Img(u.Root, first, Vector2.zero, 10f, Color.white);

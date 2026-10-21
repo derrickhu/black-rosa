@@ -81,6 +81,11 @@ namespace InkLine
                 case EnemyId.BossThunder: return "boss_thunder";
                 case EnemyId.BossMedic: return "boss_medic";
                 case EnemyId.BossKing: return "boss_king";
+                case EnemyId.Shade: return "shade";
+                case EnemyId.Monk: return "monk";
+                case EnemyId.Phantom: return "phantom";
+                case EnemyId.BossShade: return "boss_shade";
+                case EnemyId.BossBell: return "boss_bell";
                 default: return "walker";
             }
         }
@@ -115,6 +120,11 @@ namespace InkLine
                 case CardId.Thunder: return "thunder";
                 case CardId.Poison: return "poison";
                 case CardId.Confuse: return "confuse";
+                case CardId.Break: return "break";
+                case CardId.Gather: return "gather";
+                case CardId.Rebound: return "rebound";
+                case CardId.Qian: return "qian";
+                case CardId.Jun: return "jun";
                 default: return "fire";
             }
         }

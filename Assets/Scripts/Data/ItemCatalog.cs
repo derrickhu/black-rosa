@@ -92,8 +92,10 @@ namespace InkLine
             new[] { 5, 8, 12, 18, 26 }
         };
 
-        static readonly float[] InkMul = { 1f, 1.6f, 2.6f };
+        // 普通 / 高级 / 稀有。第一级普通仍是底数，后面的品质和等级拉开。
+        static readonly float[] InkMul = { 1f, 1.9f, 3.1f };
         const int InkBase = 190;
+        const float InkGrow = 0.9f;
 
         // 满级之后再开到的卡折成墨。
         static readonly int[] SpareInk = { 2, 6, 20 };
@@ -104,11 +106,11 @@ namespace InkLine
             return CardNeed[(int)d.Quality][Mathf.Max(0, level)];
         }
 
-        // 解锁只要卡，升级才花墨。每级比上一级贵六成五的底数。
+        // 解锁只要卡，升级才花墨。每级在底数上再加九成，高级和稀有再乘品质。
         public static int NextPrice(ItemDef d, int level)
         {
             if (level <= 0 || level >= MaxLevel) return 0;
-            float raw = InkBase * InkMul[(int)d.Quality] * (1f + 0.65f * (level - 1));
+            float raw = InkBase * InkMul[(int)d.Quality] * (1f + InkGrow * (level - 1));
             return Mathf.RoundToInt(raw / 5f) * 5;
         }
 
@@ -371,7 +373,7 @@ namespace InkLine
 
         static string ChapterNo(int chapter)
         {
-            const string n = "一二三四五六七八";
+            const string n = "一二三四五六七八九十";
             if (chapter < 0 || chapter >= n.Length) return (chapter + 1).ToString();
             return n[chapter].ToString();
         }

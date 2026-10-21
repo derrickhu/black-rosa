@@ -41,6 +41,8 @@ namespace InkLine
                 Blank();
                 return;
             }
+            // 体槽由 GlowShot 画发光体时，这里只让出体槽，尾、环、绕和别的字的粒子照常叠。
+            bool glowBody = GlowShot.BodyOf(m, v, out _);
 
             float ang = Mathf.Atan2(b.Vel.y, b.Vel.x) * Mathf.Rad2Deg - 90f;
             transform.SetPositionAndRotation(new Vector3(b.Pos.x, b.Pos.y, 0f), Quaternion.Euler(0f, 0f, ang));
@@ -61,14 +63,17 @@ namespace InkLine
             _core.enabled = false;
 
             // 体槽亮着就不要再露出底下那颗墨点，否则就是「彩色包黑心」。
-            bool flat = InkVfx.Flat(v.Form.Fx, out InkVfx.FlatBody body);
+            InkVfx.FlatBody body = default;
+            bool flat = !glowBody && InkVfx.Flat(v.Form.Fx, out body);
             Sprite formSprite = flat ? InkVfx.FlatFrame(body, v.Form.Star, b.Id) : null;
-            if (formSprite == null)
+            if (formSprite == null && !glowBody)
             {
                 flat = false;
                 formSprite = InkVfx.Shot(v.Form.Fx);
             }
-            bool hasBody = formSprite != null;
+            // 发光体和平涂体一样自带完整配色，不再垫柔光、不露墨点。
+            bool hasBody = formSprite != null || glowBody;
+            if (glowBody) flat = true;
             // 没吃字的弹按炮台皮肤走。钢珠是黑铁球，糖果是粉红糖球，机甲是青蓝能量球，黄金才用紫芯金边。
             // 赤焰、福袋、霜晶换成画好的弹体贴图。新皮肤也要在 SkinShot / NakedOf 各补一条。
             bool naked = !hasBody && v.Elements == 0 && !v.Form.On && !v.Trail.On && !v.Halo.On && !v.Orbit.On && !v.Bloom.On;

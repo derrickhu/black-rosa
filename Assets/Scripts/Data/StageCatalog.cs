@@ -169,7 +169,7 @@ namespace InkLine
     {
         public static readonly string[] ChapterNames =
         {
-            "草地", "土路", "石院", "沙漠", "森林", "河滩", "雪原", "火山"
+            "草地", "土路", "石院", "沙漠", "森林", "河滩", "雪原", "火山", "竹林", "古寺"
         };
 
         static readonly string[] CnNum = { "一", "二", "三", "四", "五", "六", "七", "八", "九", "十" };
@@ -182,7 +182,8 @@ namespace InkLine
 
         // 章底数。章内每关再加 5%，章底额外 ×1.15。
         // 格子逐章慢开、第三排留给以后的章节，前几章盘面小，血量跟着压低；后面靠星级、词条和道具补上差距。
-        static readonly float[] ChapterHp = { 1.15f, 1.3f, 1.52f, 1.76f, 1.85f, 2.2f, 2.5f, 2.8f };
+        // 第二幕（九、十章）第三排整排开满，火力上一个台阶，血量跟着抬。
+        static readonly float[] ChapterHp = { 1.15f, 1.3f, 1.52f, 1.76f, 1.85f, 2.2f, 2.5f, 2.8f, 3.1f, 3.5f };
         const float SlotHpStep = 0.05f;
         const float FinaleHp = 1.15f;
 
@@ -193,14 +194,14 @@ namespace InkLine
         }
 
         // 怪的移速章节系数。前两章格子少、字少，怪慢一点玩家才来得及看清字在干什么。
-        static readonly float[] ChapterSpeed = { 0.75f, 0.85f, 0.92f, 1f, 1f, 1.04f, 1.07f, 1.1f };
+        static readonly float[] ChapterSpeed = { 0.75f, 0.85f, 0.92f, 1f, 1f, 1.04f, 1.07f, 1.1f, 1.12f, 1.14f };
 
         public static float SpeedOf(int chapter) =>
             ChapterSpeed[Mathf.Clamp(chapter, 0, ChapterSpeed.Length - 1)];
 
         // 每只怪掉墨的章节系数，把每章首通的墨收入钉在锻造和道具定价对应的那条线上。
         // 前两章一局的怪多、局也长，系数反而要压低；改波次或只数之后跑 check_stages 重新对一遍。
-        static readonly float[] ChapterInk = { 1.55f, 0.82f, 1.08f, 1.26f, 1.41f, 1.05f, 1.09f, 1.07f };
+        static readonly float[] ChapterInk = { 1.55f, 0.82f, 1.08f, 1.26f, 1.41f, 1.05f, 1.09f, 1.07f, 0.78f, 0.94f };
 
         public static float InkOf(int chapter) =>
             ChapterInk[Mathf.Clamp(chapter, 0, ChapterInk.Length - 1)];
@@ -291,10 +292,10 @@ namespace InkLine
 
         // 每章非关底波的目标时长。一局要够走完「铺满棋盘 → 升星 → 顶住最后一波」这条弧，
         // 前两章也不能太短，否则格子还空着关就过了。以后加章只往这张表后面加一个数。
-        static readonly float[] ChapterWaveSpan = { 16f, 18f, 19f, 20f, 22f, 22f, 23f, 23f };
+        static readonly float[] ChapterWaveSpan = { 16f, 18f, 19f, 20f, 22f, 22f, 23f, 23f, 24f, 24f };
         // 第三章起每波再留的秒数。平铺经常已经比目标时长更长，只抬目标时长补不上，
         // 所以直接加在每波收尾上。格子从这里铺开，一波要打得更久。
-        static readonly float[] ChapterWavePad = { 0f, 0f, 4f, 4f, 5f, 5f, 6f, 6f };
+        static readonly float[] ChapterWavePad = { 0f, 0f, 4f, 4f, 5f, 5f, 6f, 6f, 6f, 7f };
         // 最后一波多留的几秒。改装变贵后，铺满棋盘的那一抽常常落在最后一波里，
         // 多留一段，钱到了关卡还没被判结束。
         const float LastWaveHold = 28f;
@@ -364,13 +365,13 @@ namespace InkLine
 
         // 每章杂兵只数。钱跟着怪走，抽牌价由钱袋反推。
         // 第三章起和波长一起抬：第五、六章原来还打着折，这里补回到和其他章差不多。
-        static readonly float[] ChapterBodies = { 1f, 1f, 1.22f, 1.18f, 1.10f, 1.08f, 1.12f, 1.06f };
+        static readonly float[] ChapterBodies = { 1f, 1f, 1.22f, 1.18f, 1.10f, 1.08f, 1.12f, 1.06f, 1.06f, 1.06f };
         // 第三章起，最后一波的密度不动。第一波少刷一点，中间几波加厚。
         // 格子变多的关靠中段的怪把变贵的改装买满，开局那一波凑不满。
-        static readonly float[] ChapterMidBodies = { 1f, 1f, 1.15f, 1.18f, 1.22f, 1.12f, 1.22f, 1.30f };
+        static readonly float[] ChapterMidBodies = { 1f, 1f, 1.15f, 1.18f, 1.22f, 1.12f, 1.22f, 1.30f, 1.30f, 1.30f };
         // 第一波少刷一点。开局金币来得慢，改装不会进关就弹；少掉的怪补在中间几波。
         // 第六章起不再砍第一波：后面按血摊，镇守和精英一拨常常只剩一只。
-        static readonly float[] ChapterOpenBodies = { 1f, 1f, 0.72f, 0.70f, 0.68f, 1f, 1f, 1f };
+        static readonly float[] ChapterOpenBodies = { 1f, 1f, 0.72f, 0.70f, 0.68f, 1f, 1f, 1f, 1f, 1f };
         // 第一章头三关：新手引导、刚学升星、刚学冰火，怪再少一截。
         static readonly float[] FirstChapterEase = { 0.6f, 0.75f, 0.9f };
 
@@ -583,6 +584,8 @@ namespace InkLine
             Chapter6(plans);
             Chapter7(plans);
             Chapter8(plans);
+            Chapter9(plans);
+            Chapter10(plans);
 
             var have = new List<CardId>();
             var s = new StageDef[GameConstants.StageCount];
@@ -602,7 +605,7 @@ namespace InkLine
                     Title = p.Title,
                     Name = ChapterLabel(ch) + " · " + p.Title,
                     Mask = p.Mask,
-                    Pool = have.ToArray(),
+                    Pool = ch >= Act2Chapter ? CappedPool(ch, have, p.Gives) : have.ToArray(),
                     Fresh = p.Gives,
                     Waves = Pace(p.Waves, ch),
                     TeachDraft = p.TeachDraft,
@@ -616,6 +619,35 @@ namespace InkLine
                 Price(s[i]);
             }
             return s;
+        }
+
+        // 第二幕起字池封顶：六个底字 + 本章的主题字，约 16 张。
+        // 一直往池里堆，到第十章就是 30 张，三选一里想要的那张几乎抽不到。
+        public const int Act2Chapter = 8;
+        public static readonly CardId[] Act2Base =
+        {
+            CardId.Split, CardId.Fire, CardId.Ice, CardId.Pierce, CardId.Explode, CardId.Heavy
+        };
+        static readonly CardId[][] Act2Theme =
+        {
+            new[] { CardId.Break, CardId.Qian, CardId.Jun, CardId.Wind, CardId.Poison, CardId.Track,
+                CardId.Accel, CardId.Sec, CardId.Kill, CardId.Gold },
+            new[] { CardId.Gather, CardId.Rebound, CardId.Thunder, CardId.Water, CardId.Stun, CardId.Earth,
+                CardId.Myriad, CardId.Arrow, CardId.Wood, CardId.Confuse }
+        };
+
+        static CardId[] CappedPool(int ch, List<CardId> have, CardId[] fresh)
+        {
+            var pool = new List<CardId>();
+            void Add(CardId id)
+            {
+                if (have.Contains(id) && !pool.Contains(id)) pool.Add(id);
+            }
+            for (int i = 0; i < Act2Base.Length; i++) Add(Act2Base[i]);
+            CardId[] theme = Act2Theme[Mathf.Clamp(ch - Act2Chapter, 0, Act2Theme.Length - 1)];
+            for (int i = 0; i < theme.Length; i++) Add(theme[i]);
+            for (int i = 0; i < fresh.Length; i++) Add(fresh[i]);
+            return pool.ToArray();
         }
 
         // 宝箱：普通怪的掉落率、黄箱占比。BattleWorld 掉箱和这里算期望用的是同一组数。

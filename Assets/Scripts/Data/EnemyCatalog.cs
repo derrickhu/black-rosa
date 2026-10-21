@@ -38,11 +38,22 @@ namespace InkLine
         // 死后在原地裂出几只墨粒。惩罚无脑范围清场，奖励单点集火。
         public readonly int SplitCount;
 
+        // 第二幕的四条。
+        // 隐身：炸圈、电弧、水圈、落箭、追踪都找不到它，只有炮弹本体打中才显形。惩罚纯范围流。
+        public readonly bool Stealth;
+        // 每隔几秒给身边没盾的同伴各挂一层「挡一发」，0 表示不挂。惩罚慢慢磨。
+        public readonly float ShieldAura;
+        // 每隔几秒敲一次钟，全场都挂上一层盾，0 表示不敲。
+        public readonly float Bell;
+        // 半血时分出几只幻影。
+        public readonly int Phantoms;
+
         public EnemyDef(EnemyId id, float hp, float speed, int gold, float ink, float radius,
             bool shield = false, bool strafe = false, bool preferEmpty = false,
             bool boss = false, bool colorPhase = false, float armor = 0f,
             float rageSpeed = 1f, bool stunImmune = false, bool noKnock = false,
-            float healAura = 0f, int splitCount = 0)
+            float healAura = 0f, int splitCount = 0, bool stealth = false,
+            float shieldAura = 0f, float bell = 0f, int phantoms = 0)
         {
             Id = id;
             Hp = hp;
@@ -61,6 +72,10 @@ namespace InkLine
             NoKnock = noKnock;
             HealAura = healAura;
             SplitCount = splitCount;
+            Stealth = stealth;
+            ShieldAura = shieldAura;
+            Bell = bell;
+            Phantoms = phantoms;
         }
 
         // 套上关卡倍率。血按 t 走，掉落按缓得多的 dropMul 走，甲也按 t 走 ——
@@ -85,6 +100,10 @@ namespace InkLine
             NoKnock = s.NoKnock;
             HealAura = s.HealAura;
             SplitCount = s.SplitCount;
+            Stealth = s.Stealth;
+            ShieldAura = s.ShieldAura;
+            Bell = s.Bell;
+            Phantoms = s.Phantoms;
         }
 
         public EnemyDef Scale(float t, float dropMul) => new EnemyDef(this, t, dropMul);
@@ -95,7 +114,7 @@ namespace InkLine
     public static class EnemyCatalog
     {
         // 给按 EnemyId 索引的数组用，加怪时跟着枚举一起长。
-        public const int IdCount = (int)EnemyId.BossKing + 1;
+        public const int IdCount = (int)EnemyId.BossBell + 1;
 
         public static string Name(EnemyId id)
         {
@@ -126,6 +145,11 @@ namespace InkLine
                 case EnemyId.BossThunder: return "奔雷";
                 case EnemyId.BossMedic: return "墨医";
                 case EnemyId.BossKing: return "墨王";
+                case EnemyId.Shade: return "墨影";
+                case EnemyId.Monk: return "墨僧";
+                case EnemyId.Phantom: return "幻影";
+                case EnemyId.BossShade: return "影姬";
+                case EnemyId.BossBell: return "钟魔";
                 default: return "墨丁";
             }
         }
@@ -158,7 +182,12 @@ namespace InkLine
                 case EnemyId.BossWarden: return "章底。免定身，还奶周围。控制流到这里要换思路。";
                 case EnemyId.BossThunder: return "章底。半血速度翻倍，专走空列。收尾慢了就漏。";
                 case EnemyId.BossMedic: return "章底。群奶又挡一发。先杀谁，这一课考到这里。";
-                case EnemyId.BossKing: return "章底。前面七关的规矩各来一点，是整本墨谱的最后一页。";
+                case EnemyId.BossKing: return "章底。前面七关的规矩各来一点，是第一幕墨谱的最后一页。";
+                case EnemyId.Shade: return "身子是虚的。炸圈、电弧、落箭都找不着它，炮弹本体打中一下才显形。";
+                case EnemyId.Monk: return "每隔几秒给身边的同伴各挂一层盾。先拆它，或者带上能连打的字。";
+                case EnemyId.Phantom: return "影姬分出来的影子。和墨影一样，得用炮弹本体先打显形。";
+                case EnemyId.BossShade: return "章底。打到半血分出两只幻影，三个一起往下压。范围清不掉影子。";
+                case EnemyId.BossBell: return "章底。每 8 秒敲一次钟，全场都挂上一层盾。破的三星、穿和分专门拆盾。";
                 default: return "一团墨。";
             }
         }
@@ -177,6 +206,10 @@ namespace InkLine
             if (d.NoKnock) parts.Add("推不动");
             if (d.HealAura > 0f) parts.Add("给周围回血");
             if (d.SplitCount > 0) parts.Add("死后裂成 " + d.SplitCount + " 只");
+            if (d.Stealth) parts.Add("隐身");
+            if (d.ShieldAura > 0f) parts.Add("给周围加盾");
+            if (d.Bell > 0f) parts.Add("每 " + d.Bell.ToString("0") + " 秒全场加盾");
+            if (d.Phantoms > 0) parts.Add("半血分出 " + d.Phantoms + " 只幻影");
             return parts.Count == 0 ? "没有特别的本事" : string.Join(" · ", parts);
         }
 
@@ -207,6 +240,7 @@ namespace InkLine
                 case EnemyId.Crawler:
                 case EnemyId.Sprinter:
                 case EnemyId.Splitter:
+                case EnemyId.Shade:
                     return 2;
                 default:
                     return 1;
@@ -316,6 +350,20 @@ namespace InkLine
                     return new EnemyDef(id, 260f, 0.20f, 32, 8.0f, 0.72f,
                         boss: true, colorPhase: true, shield: true, armor: 1f,
                         stunImmune: true, rageSpeed: 1.5f);
+
+                // 第二幕的兵和章底。见 docs/第二幕规划.md。
+                case EnemyId.Shade:     // 墨影 T2：隐身，惩罚纯范围流
+                    return new EnemyDef(id, 9f, 0.58f, 4, 0.33f, 0.25f, stealth: true);
+                case EnemyId.Monk:      // 墨僧 T3：每 5 秒给身边同伴挂盾，惩罚慢慢磨
+                    return new EnemyDef(id, 15f, 0.36f, 6, 0.42f, 0.30f, shieldAura: 5f);
+                case EnemyId.Phantom:   // 幻影：影姬半血分出来，隐身、横移
+                    return new EnemyDef(id, 45f, 0.34f, 3, 0.5f, 0.46f, strafe: true, stealth: true);
+                case EnemyId.BossShade:     // 九关 · 影姬：横移 + 半血分出两只幻影，考单点和找影子
+                    return new EnemyDef(id, 300f, 0.22f, 34, 8.5f, 0.66f,
+                        boss: true, strafe: true, phantoms: 2);
+                case EnemyId.BossBell:      // 十关 · 钟魔：每 8 秒全场加盾 + 甲 + 推不动，考拆盾
+                    return new EnemyDef(id, 320f, 0.17f, 36, 9.0f, 0.74f,
+                        boss: true, armor: 1f, noKnock: true, bell: 8f);
 
                 default:
                     return new EnemyDef(EnemyId.Walker, 4.5f, 0.62f, 2, 0.18f, 0.26f);

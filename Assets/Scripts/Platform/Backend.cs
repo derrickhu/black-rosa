@@ -51,6 +51,7 @@ namespace InkLine
         public RankRow mine;
         public int postCount;
         public WechatGiftRow[] gifts;
+        public MailRow[] mails;
         public int updated;
     }
 
@@ -59,6 +60,22 @@ namespace InkLine
     {
         public string id;
         public string orderId;
+        public int ink;
+        public int stamina;
+        public int diamond;
+        public int wood;
+        public int silver;
+        public int gold;
+        public int royal;
+        public int cannon;
+    }
+
+    [Serializable]
+    public sealed class MailRow
+    {
+        public string id;
+        public string title;
+        public string body;
         public int ink;
         public int stamina;
         public int diamond;

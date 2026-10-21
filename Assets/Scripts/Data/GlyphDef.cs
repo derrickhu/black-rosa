@@ -15,10 +15,11 @@ namespace InkLine
 
     // 软状态（灼烧 / 中毒 / 缓）随便叠，同名取强；
     // 硬控（冻 / 晕 / 惑）同时只生效一个，优先级见 GlyphTable.HardRank。
-    public enum StatusKind { None, Burn, Poison, Slow, Freeze, Stun, Confuse }
+    // 破（易伤）是软状态：同名取强，不占硬控位。
+    public enum StatusKind { None, Burn, Poison, Slow, Freeze, Stun, Confuse, Break }
 
-    // 位族的位移轴：同轴取最大，异轴都执行。
-    public enum MoveAxis { None, Column, Lateral }
+    // 位族的位移轴：同轴取最大，异轴都执行。Center 是聚：把身边的往命中点拉。
+    public enum MoveAxis { None, Column, Lateral, Center }
 
     // 炮弹五槽。同槽只亮优先级最高的一个形，颜色可以混；异槽全亮。
     // 招牌两两只替换「体」槽那一张，所以 12 张图就够覆盖组合。
@@ -42,7 +43,10 @@ namespace InkLine
         // 晕光
         BloomHeavy, BloomGold,
         // 体 · 重的秤砣。后补的，接在最后不挪前面的值
-        FormHeavy
+        FormHeavy,
+        // 第二幕：破的环、聚的绕、返的尾、千钧的体，和四对新招牌
+        HaloBreak, OrbitGather, TrailRebound, FormCrush,
+        FormCrumble, FormCollapse, FormWhirl, FormRiposte
     }
 
     // 三档数值。星只放大数字，★3 才允许加新动词。
@@ -123,6 +127,7 @@ namespace InkLine
         public Tri Count;       // 分路数 / 穿透数 / 雷连带数
         public Tri Decay;       // 每多打一个目标的伤害衰减
         public Tri Size;        // 视觉放大，不动碰撞半径
+        public Tri Rebound;     // 返：折回那一程的伤害系数
 
         // 表现
         public ShotFx Form;
@@ -228,6 +233,13 @@ namespace InkLine
                 Power = new Tri(0.30f), // 对头目无效，只降这么多输出
                 Hit = HitFx.Confuse
             },
+            // 破：易伤，之后所有伤害（含灼烧、中毒）按这个比例放大。★3 打中直接拆掉一层盾。
+            new GlyphDef
+            {
+                Id = CardId.Break, Family = GlyphFamily.Status, Status = StatusKind.Break,
+                Power = new Tri(0.15f, 0.25f, 0.35f), Time = new Tri(3f),
+                Halo = ShotFx.HaloBreak, Hit = HitFx.Heavy
+            },
 
             // ---- 位族 ----
             new GlyphDef
@@ -241,6 +253,14 @@ namespace InkLine
                 Id = CardId.Wind, Family = GlyphFamily.Move, Axis = MoveAxis.Lateral,
                 Move = new Tri(1f, 2f, 2f), Time = new Tri(0f, 0f, 0.3f),
                 Form = ShotFx.FormWind, Hit = HitFx.Wind
+            },
+            // 聚：命中点半径内的敌人往中心拉，★3 拉完定住一下。头目和推不动的不拉。
+            new GlyphDef
+            {
+                Id = CardId.Gather, Family = GlyphFamily.Move, Axis = MoveAxis.Center,
+                Radius = new Tri(0.6f, 0.8f, 1.0f), Move = new Tri(0.3f, 0.45f, 0.6f),
+                Time = new Tri(0f, 0f, 0.3f),
+                Orbit = ShotFx.OrbitGather, Hit = HitFx.Wind
             },
 
             // ---- 道族 ----
@@ -268,6 +288,13 @@ namespace InkLine
                 Count = new Tri(1f, 2f, 3f), Decay = new Tri(0.92f),
                 Form = ShotFx.FormPierce
             },
+            // 返：飞到场顶（或穿透用完）折回来往下再打一遍，回程伤害按这个系数。
+            new GlyphDef
+            {
+                Id = CardId.Rebound, Family = GlyphFamily.Ballistic,
+                Rebound = new Tri(0.6f, 0.75f, 0.9f),
+                Trail = ShotFx.TrailRebound
+            },
 
             // ---- 域族 ----
             new GlyphDef
@@ -286,7 +313,9 @@ namespace InkLine
             new GlyphDef { Id = CardId.Strike, Form = ShotFx.FormKnock, Hit = HitFx.Knock },
             new GlyphDef { Id = CardId.Back, Form = ShotFx.FormKnock, Hit = HitFx.Knock },
             new GlyphDef { Id = CardId.Link, Form = ShotFx.FormCleave, Hit = HitFx.Cleave },
-            new GlyphDef { Id = CardId.Slash, Form = ShotFx.FormCleave, Hit = HitFx.Cleave }
+            new GlyphDef { Id = CardId.Slash, Form = ShotFx.FormCleave, Hit = HitFx.Cleave },
+            new GlyphDef { Id = CardId.Qian, Form = ShotFx.FormCrush, Hit = HitFx.Heavy },
+            new GlyphDef { Id = CardId.Jun, Form = ShotFx.FormCrush, Hit = HitFx.Heavy }
         };
 
         static readonly WordDef[] Words =
@@ -319,6 +348,14 @@ namespace InkLine
                 Count = new Tri(1f, 2f, 3f),
                 Decay = new Tri(0.84f),
                 Form = ShotFx.FormCleave, Hit = HitFx.Cleave
+            },
+            // 千钧：按目标**当前**生命的比例追加一截，头目减半。只算炮弹本体那一下。
+            // 越肉越疼 —— 专拆第二幕的高血关底，打残血的就不如秒杀。
+            new WordDef
+            {
+                Id = WordId.Crush, Charge = 3,
+                Damage = new Tri(0.08f, 0.12f, 0.16f),
+                Form = ShotFx.FormCrush, Hit = HitFx.Heavy
             }
         };
 

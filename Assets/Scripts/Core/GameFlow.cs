@@ -133,6 +133,7 @@ namespace InkLine
             else Enter();
             _loadingCover = 2;
             StartCoroutine(WechatGift.Sync(_meta, _layer, RefreshHomeWallet));
+            StartCoroutine(Mailbox.Refresh(RefreshHomeWallet));
         }
 
         // 新玩家不看首页，直接进第一关；指引走到一半杀进程的，回到对应那一步。
@@ -251,6 +252,7 @@ namespace InkLine
         void NoteBack()
         {
             StartCoroutine(WechatGift.Sync(_meta, _layer, RefreshHomeWallet));
+            StartCoroutine(Mailbox.Refresh(RefreshHomeWallet));
             if (_holdForShare || Time.realtimeSinceStartup < _shareSettleUntil)
             {
                 bool finish = _holdForShare;
@@ -904,7 +906,7 @@ namespace InkLine
             }, () =>
             {
                 if (_screen != Screen.Battle || _world == null || _holdForAd) return;
-                if (_world.EmitterCount >= GameConstants.AdEmitterCap) return;
+                if (_world.EmitterCount >= _world.EmitterCap) return;
                 bool wasPaused = _world.Paused;
                 _world.Paused = true;
                 _holdForAd = true;
@@ -1000,7 +1002,7 @@ namespace InkLine
         // 会发出重复项。
         void RollOffer()
         {
-            List<CardId> pool = new List<CardId>(_world.Stage.Pool);
+            var pool = new List<CardId>(_world.Stage.Pool);
             var weight = new List<int>();
             for (int i = 0; i < pool.Count; i++)
                 weight.Add(OfferWeight(pool[i]));
@@ -1399,7 +1401,7 @@ namespace InkLine
         {
             DropOverlay();
             int left = (_endless ? GameConstants.EndlessRevives : GameConstants.MaxRevives) - _world.RevivesUsed;
-            bool gun = _world.EmitterCount < GameConstants.AdEmitterCap;
+            bool gun = _world.EmitterCount < _world.EmitterCap;
             bool share = _meta.ShareReviveReady;
             float progress = _endless ? _world.WavesCleared / (float)_world.Stage.Waves.Length : _world.Progress;
             string done = _endless ? "已撑过 " + _world.WavesCleared + " 波" : null;
@@ -1557,7 +1559,7 @@ namespace InkLine
             _overlay = panel.Root;
         }
 
-        // 无尽结算只算一次：阵亡（续过命或不续）、撤退、打完 50 波都走这里。
+        // 无尽结算只算一次：阵亡（续过命或不续）、撤退、打完全部波次都走这里。
         void SettleEndless(bool win)
         {
             _screen = Screen.Result;

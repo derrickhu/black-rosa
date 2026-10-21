@@ -311,7 +311,12 @@ namespace InkLine
 
         public static Sprite PairFrame(int pair)
         {
-            if (!InkVfx.Flat(SignaturePairs.All[pair].Form, out InkVfx.FlatBody body)) return null;
+            ShotFx form = SignaturePairs.All[pair].Form;
+            if (!InkVfx.Flat(form, out InkVfx.FlatBody body))
+            {
+                string key = GlowShot.FormKey(form);
+                return key != null ? GlowShot.Art(key + "_shot") : null;
+            }
             Sprite[] frames = InkVfx.Frames(body.Frames, body.Count);
             return frames != null && frames.Length > 0 ? frames[0] : null;
         }

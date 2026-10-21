@@ -94,7 +94,8 @@ bad_mask = [tag(r) for r in rows
             if not 1 <= len(r["mask"]) <= 3 or any(len(x) != 6 or set(x) - {"X", "."} for x in r["mask"])
             or "X" not in r["mask"][-1]]
 check(not bad_mask, "形状都是 1~3 行 × 6 列、最上一排有格子" + ("" if not bad_mask else ": " + ", ".join(bad_mask)))
-cell_range = {0: (2, 7), 1: (7, 9), 2: (9, 11), 3: (10, 12), 4: (11, 12), 5: (11, 13), 6: (12, 14), 7: (13, 15)}
+cell_range = {0: (2, 7), 1: (7, 9), 2: (9, 11), 3: (10, 12), 4: (11, 12), 5: (11, 13), 6: (12, 14), 7: (13, 15),
+              8: (15, 18), 9: (16, 18)}
 row_cap = {0: 2, 1: 2, 2: 2, 3: 2}
 for ch in range(chapters):
     part = [r for r in rows if r["ch"] == ch]
@@ -105,8 +106,9 @@ for ch in range(chapters):
     tall = [tag(r) for r in part if len(r["mask"]) > cap]
     if tall:
         check(False, f"第 {ch + 1} 章最多开 {cap} 排: {tall}")
-third = max(sum(1 for c in r["mask"][2] if c == "X") for r in rows if len(r["mask"]) == 3)
-check(third <= 4, f"第三排最多开 {third} 格（要 ≤4，三排全开留给以后的章节）")
+# 第二幕（第九章起）第三排全开，只核前八章。
+third = max(sum(1 for c in r["mask"][2] if c == "X") for r in rows if len(r["mask"]) == 3 and r["ch"] < 8)
+check(third <= 4, f"前八章第三排最多开 {third} 格（要 ≤4，三排全开留给第二幕）")
 avg = [sum(len(open_cells(r)) for r in rows if r["ch"] == ch) / size for ch in range(chapters)]
 back = [f"第 {k + 1} 章" for k in range(1, chapters) if avg[k] <= avg[k - 1]]
 check(not back, "章均格数逐章上升: " + " / ".join(f"{x:.1f}" for x in avg))
@@ -122,7 +124,7 @@ dup = sorted({c for c in given if given.count(c) > 1})
 check(not dup, "每个字只发一次" + ("" if not dup else ": 重复 " + str(dup)))
 missing = [c for c in all_cards if c not in given]
 check(not missing, f"{len(all_cards)} 个字全部进池" + ("" if not missing else ": 缺 " + str(missing)))
-pairs = [("Sec", "Kill"), ("Myriad", "Arrow"), ("Strike", "Back"), ("Link", "Slash")]
+pairs = [("Sec", "Kill"), ("Myriad", "Arrow"), ("Strike", "Back"), ("Link", "Slash"), ("Qian", "Jun")]
 split = [f"{a}{b}" for a, b in pairs
          if any((a in r["give"]) != (b in r["give"]) for r in rows)]
 check(not split, "成词的两个字同关给" + ("" if not split else ": " + str(split)))
@@ -134,7 +136,8 @@ check(not dry, "每章都有新字或新词" + ("" if not dry else ": " + ", ".j
 
 # ---------- 关底 ----------
 print("\n关底")
-order = ["BossDrum", "BossInkbag", "BossIron", "BossTwin", "BossWarden", "BossThunder", "BossMedic", "BossKing"]
+order = ["BossDrum", "BossInkbag", "BossIron", "BossTwin", "BossWarden", "BossThunder", "BossMedic", "BossKing",
+         "BossShade", "BossBell"]
 finales = [r for r in rows if r["slot"] == size - 1]
 check([r["main"] for r in finales] == order[:chapters],
       "章底按顺序是 " + " / ".join(o.replace("Boss", "") for o in order[:chapters]))
@@ -147,7 +150,7 @@ check(not early, "第一章前 8 关没有 boss")
 base = {}
 for m in re.finditer(r"case EnemyId\.(Boss\w+):[^\n]*\n\s*return new EnemyDef\(id,\s*([\d.]+)f,", enemy_src):
     base[m.group(1)] = float(m.group(2))
-check(len(base) == 8, f"从 EnemyCatalog 抓到八只 boss 的基础血: {len(base)}")
+check(len(base) == len(order), f"从 EnemyCatalog 抓到 {len(order)} 只 boss 的基础血: {len(base)}")
 
 
 def boss_hp(r):
@@ -175,6 +178,8 @@ plan = {
     3: {"Mender", "Bulwark"},
     4: {"Elite"},
     5: {"Warden"},
+    8: {"Shade"},
+    9: {"Monk"},
 }
 first = {}
 for r in rows:
@@ -183,8 +188,8 @@ for r in rows:
 for ch, names in plan.items():
     got = {e for e, r in first.items() if r["ch"] == ch}
     check(got == names, f"第 {ch + 1} 章新兵 {sorted(got)}" + ("" if got == names else f"，应为 {sorted(names)}"))
-late = {e for e, r in first.items() if r["ch"] > 5}
-check(not late, "第七章起不再引入新兵")
+late = {e for e, r in first.items() if r["ch"] > 5 and r["ch"] not in plan}
+check(not late, "第七、八章不引入新兵；第二幕每章一只")
 
 # ---------- 新鲜感 ----------
 print("\n每关都有新东西（新字 / 新兵 / 格子变化 / 关底）")
@@ -681,11 +686,12 @@ forge_cost = sum(int(x) for grp in re.findall(r"Cost = new\[\] \{([^}]*)\}", for
 # 道具：解锁只要卡，2~满级每级花墨，复刻 ItemCatalog.NextPrice。
 max_lv = int(re.search(r"MaxLevel = (\d+)", item_src).group(1))
 ink_base = int(re.search(r"InkBase = (\d+)", item_src).group(1))
+ink_grow = float(re.search(r"InkGrow\s*=\s*([\d.]+)f", item_src).group(1))
 ink_mul = [float(x) for x in re.search(r"InkMul = \{([^}]*)\}", item_src).group(1).replace("f", "").split(",")]
 q_of = {"Green": 0, "Blue": 1, "Purple": 2}
 quals = [q_of[q] for q in re.findall(r"Quality = ItemQuality\.(\w+), Cooldown", item_src)]
 check(len(quals) == 10, f"道具 10 件，读到 {len(quals)} 件")
-item_cost = sum(round(ink_base * ink_mul[q] * (1 + 0.65 * (lv - 1)) / 5) * 5
+item_cost = sum(round(ink_base * ink_mul[q] * (1 + ink_grow * (lv - 1)) / 5) * 5
                 for q in quals for lv in range(1, max_lv))
 skin_cost = sum(int(x) for x in re.findall(r"Name = \"[^\"]+\",[^\n]*Price = (\d+)", item_src))
 sink = forge_cost + item_cost + skin_cost
@@ -729,8 +735,12 @@ for m in re.finditer(r'Name = "([^"]+)", Stat[^\n]*\n[^\n]*Reveal = (\d+)[^\n]*\
     name, reveal = m.group(1), int(m.group(2))
     cost = [int(x) for x in re.findall(r"\d+", m.group(3))]
     gate = [int(x) for x in re.findall(r"\d+", m.group(4))]
+    # 写了 LockNote 的线可以先挂上以后章节的门槛，玩家看到的是「后续章节开放」。
+    # 第一幕的线按第一幕 72 关看「最后一级留到后几章」，不因为加章就判失败。
+    future = "LockNote" in m.group(0)
     ok = (len(cost) == len(gate) and gate == sorted(gate) and cost == sorted(cost)
-          and gate[-1] <= stage_total and gate[0] == reveal and gate[-1] >= stage_total * 0.55)
+          and (gate[-1] <= stage_total or future) and gate[0] == reveal
+          and gate[-1] >= min(stage_total, 72) * 0.55)
     check(ok, f"炮台 {name}：门槛 {gate}  墨价 {cost}")
 for ch in range(chapters):
     part = [(e, r) for e, r in zip(eco, rows) if r["ch"] == ch]

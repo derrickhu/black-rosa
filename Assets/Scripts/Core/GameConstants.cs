@@ -8,6 +8,8 @@ namespace InkLine
         public const int MaxEmitters = 4;
         // 局里看广告加炮的上限，和列数对齐。局外锻造仍然停在 MaxEmitters。
         public const int AdEmitterCap = 6;
+        // 无尽里看广告加的炮单独封顶，续命送的那门也算。主线和每日残局仍走到 AdEmitterCap。
+        public const int EndlessAdEmitters = 2;
         public const int BaseHp = 3;
         public const int MaxRevives = 2;
         // 无尽模式只给续一次命。
@@ -33,11 +35,11 @@ namespace InkLine
         // 改装起价的下限。开局有 6 金币，低于这个数按钮一进关就亮。
         public const int FirstDraftCost = 10;
         public const int DraftCostStep = 2;
-        // 八章，每章九关，第九关是章底。
+        // 十章，每章九关，第九关是章底。前八章是第一幕，九、十章是第二幕。
         // MetaProgress.Normalize 里的 Fit() 会把旧存档的星数组补齐到新长度，
         // 改这个数字不会打坏已有存档。
         public const int ChapterSize = 9;
-        public const int Chapters = 8;
+        public const int Chapters = 10;
         public const int StageCount = ChapterSize * Chapters;
 
         // 局外：体力。每关进关都收 2 点，章末关也一样，失败不退。见 MetaProgress.StageCost。

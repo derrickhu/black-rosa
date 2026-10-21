@@ -496,7 +496,7 @@ namespace InkLine
         void PlaceAdGun(BattleWorld world, bool inBattle)
         {
             if (_adGun == null) return;
-            bool show = inBattle && !Guided && world.EmitterCount < GameConstants.AdEmitterCap;
+            bool show = inBattle && !Guided && world.EmitterCount < world.EmitterCap;
             _adGun.gameObject.SetActive(show);
             var sh = _adGun.parent != null ? _adGun.parent.Find("adgun_sh") : null;
             if (sh != null) sh.gameObject.SetActive(show);

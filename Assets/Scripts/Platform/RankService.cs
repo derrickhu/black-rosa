@@ -95,8 +95,8 @@ namespace InkLine
             }
         }
 
-        // 开发者工具里有 GM 一键全通关，报上去就挂榜首了。编辑器走 anon 身份，服务端不给真机玩家看。
-        static bool Muted => WxBridge.IsSimulator && !Application.isEditor;
+        // 编辑器和微信开发者工具都不上报。开发者工具有 GM 一键全通关，编辑器试玩也会把关数写进榜。
+        static bool Muted => WxBridge.IsSimulator;
 
         public static bool HasProfile => !string.IsNullOrEmpty(LoadProfile().nick);
         public static string Nick => LoadProfile().nick ?? "";

@@ -172,6 +172,7 @@ namespace InkLine
                 case WordId.ArrowRain: return new[] { CardId.Myriad, CardId.Arrow };
                 case WordId.Knockback: return new[] { CardId.Strike, CardId.Back };
                 case WordId.Cleave: return new[] { CardId.Link, CardId.Slash };
+                case WordId.Crush: return new[] { CardId.Qian, CardId.Jun };
                 default: return new CardId[0];
             }
         }
@@ -302,6 +303,9 @@ namespace InkLine
                 case CardId.Accel: return "炮弹穿过后飞得更快。";
                 case CardId.Pierce: return "这一列蓄满的那一发能穿过敌人继续往前飞，每穿一个伤害略减。";
                 case CardId.Explode: return "这一列蓄满的那一发命中时爆开，爆圈里的敌人都吃一部分伤害。";
+                case CardId.Break: return "命中让敌人破防，之后挨的每一下都更痛，灼烧和中毒也算。3 星打中带盾的敌人，盾碎了这一发照样打进去。";
+                case CardId.Gather: return "命中把身边一圈敌人往中间拉，攒成一团好让炸和斩一起吃。头目和推不动的拉不动。";
+                case CardId.Rebound: return "炮弹飞到头（或穿透用完）会折回来往下再打一遍，回程伤害打折。";
                 default: return CardCatalog.Get(id).Desc;
             }
         }
@@ -346,6 +350,13 @@ namespace InkLine
                     return $"穿透 {g.Count.IntAt(s)} 个，每穿一个伤害 ×{F(g.Decay.At(s))}";
                 case CardId.Explode:
                     return $"爆圈半径 {F(g.Radius.At(s))}，圈内吃 {P(g.Decay.At(s))} 伤害";
+                case CardId.Break:
+                    return $"破防 {F(g.Time.At(s))} 秒，受到伤害 +{P(g.Power.At(s))}" + (s >= 3 ? "；打碎盾后继续结算" : "");
+                case CardId.Gather:
+                    return $"半径 {F(g.Radius.At(s))} 内往中间拉 {F(g.Move.At(s))} 格"
+                           + (g.Time.At(s) > 0f ? $"；拉完定住 {F(g.Time.At(s))} 秒" : "");
+                case CardId.Rebound:
+                    return $"折返一次，回程伤害 ×{F(g.Rebound.At(s))}";
                 default:
                     return "";
             }
@@ -362,6 +373,7 @@ namespace InkLine
                 case WordId.ArrowRain: return pair + "蓄满的那一发化成满屏落下的发光箭雨，场上每只敌人挨一箭。单支从这一发普通炮弹的一半起，星级升高后逐步提到一整发。1 星每 4 发；两个字都升到 2 星后冷却减 1，都到 3 星再减 1。";
                 case WordId.Knockback: return pair + $"每 {need} 发蓄满一次，那一发把敌人远远击退。";
                 case WordId.Cleave: return pair + $"每 {need} 发蓄满一次，那一发命中后接连斩向身边的敌人。";
+                case WordId.Crush: return pair + $"每 {need} 发蓄满一次，那一发按敌人眼下的血量再砸掉一截，越肉越疼；头目减半。";
                 default: return pair;
             }
         }
@@ -375,6 +387,7 @@ namespace InkLine
                 case WordId.ArrowRain: return $"满屏箭雨，每支是这一发普通炮弹的 {P(w.Damage.At(s))}";
                 case WordId.Knockback: return $"击退 {F(w.Move.At(s))} 格";
                 case WordId.Cleave: return $"连斩 {w.Count.IntAt(s)} 次，每跳伤害 ×{F(w.Decay.At(s))}";
+                case WordId.Crush: return $"追加目标当前血量的 {P(w.Damage.At(s))}；头目 {P(w.Damage.At(s) * 0.5f)}";
                 default: return "";
             }
         }

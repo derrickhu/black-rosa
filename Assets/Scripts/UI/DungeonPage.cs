@@ -4,7 +4,7 @@ using UnityEngine.UI;
 
 namespace InkLine
 {
-    // 副本页：每日副本（全服同一局残局）和无尽副本（50 波冲层）两张卡。
+    // 副本页：每日副本（全服同一局残局）和无尽副本（冲层）两张卡。
     // 卡上只放一眼要看的：换新倒计时、词缀、最好成绩、次数。点「进入」才打开详情弹窗开打。
     public sealed class DungeonPage : MonoBehaviour
     {

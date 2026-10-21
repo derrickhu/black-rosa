@@ -180,7 +180,7 @@ namespace InkLine
             }
             BeginBattle(s);
             if (_plan.Wave > 0) _world.WaveIndex = Mathf.Min(_plan.Wave, s.Waves.Length - 1);
-            while (_world.EmitterCount < GameConstants.AdEmitterCap) _world.AddEmitter();
+            while (_world.EmitterCount < _world.EmitterCap) _world.AddEmitter();
         }
 
         static StageDef PromoClone(StageDef s)
@@ -326,7 +326,7 @@ namespace InkLine
             if (_pGun < _plan.GunAt.Length && _pClock >= _plan.GunAt[_pGun])
             {
                 _pGun++;
-                if (_world.EmitterCount < GameConstants.AdEmitterCap) _world.AddEmitter();
+                if (_world.EmitterCount < _world.EmitterCap) _world.AddEmitter();
             }
             bool busy = _world.ItemResolving || (_hud != null && _hud.ItemShow);
             if (_pForce < _plan.Force.Length && _pClock >= _plan.ForceAt[_pForce] && !busy)

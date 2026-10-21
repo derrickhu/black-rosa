@@ -1,0 +1,7 @@
+Match the drawing treatment of the reference sticker exactly: flat solid colours, thick even soy-sauce-brown outline, chunky rounded shapes, a thick white sticker rim hugging the whole silhouette, warm casual mini-game look. The reference only provides the drawing style.
+
+One single flat sticker icon centered on a pure solid magenta background (#FF00FF). The magenta is only the background, with a wide magenta margin around the icon.
+
+RENDERING: flat solid colour, hard crisp edges, uniform thick outline the colour of soy sauce (#3A2A20), straight-on, chunky shapes, at most three flat tones per colour, a white sticker rim hugging the outline.
+
+SUBJECT: one chubby closed envelope, paper the colour of a steamed bun. A triangular flap folds down over the front. In the middle of the flap sits a round wax seal the red of a red envelope, with a tiny cream highlight. The envelope, flap and seal all sit inside one sticker, and the white rim follows that silhouette.

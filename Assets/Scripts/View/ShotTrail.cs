@@ -75,7 +75,7 @@ namespace InkLine
         static readonly Color ThunderCore = InkTheme.Hex("EDEBFF");
 
         enum Slot { Fire, Thunder, Wind, Stun, Explode, Ice, Water, Poison, Earth, Pierce,
-            Gold, Heavy, Wood, Confuse, Split, Accel, Track, Word, Count }
+            Gold, Heavy, Wood, Confuse, Split, Accel, Track, Word, Break, Gather, Rebound, Count }
 
         readonly float[] _acc = new float[(int)Slot.Count];
         int _n;
@@ -101,7 +101,7 @@ namespace InkLine
 
             // 一颗弹同时挂好几个字时每种都稀一点，总量按根号涨，不然三四个字叠起来就是一团。
             int k = 0;
-            for (int i = 1; i <= (int)CardId.Confuse; i++)
+            for (int i = 1; i < CardCatalog.IdCount; i++)
                 if (m.Star((CardId)i) > 0) k++;
             if (_word != WordId.None) k++;
             _rate = (ShotSparks.Bright ? 1.5f : 1f) / Mathf.Sqrt(Mathf.Max(1, k));
@@ -123,6 +123,9 @@ namespace InkLine
             Run(m.Star(CardId.Split), Slot.Split, 0.18f, d);
             Run(m.Star(CardId.Accel), Slot.Accel, 0.06f, d);
             Run(m.Star(CardId.Track), Slot.Track, 0.18f, d);
+            Run(m.Star(CardId.Break), Slot.Break, 0.13f, d);
+            Run(m.Star(CardId.Gather), Slot.Gather, 0.14f, d);
+            Run(m.Star(CardId.Rebound), Slot.Rebound, 0.09f, d);
             Run(_word != WordId.None ? 1 : 0, Slot.Word, _word == WordId.Knockback ? 0.30f : 0.12f, d);
         }
 
@@ -183,6 +186,9 @@ namespace InkLine
                 case Slot.Accel: Accel(s); break;
                 case Slot.Track: Track(s); break;
                 case Slot.Word: Word(_word); break;
+                case Slot.Break: Break(s); break;
+                case Slot.Gather: Gather(s); break;
+                case Slot.Rebound: Rebound(s); break;
             }
         }
 
@@ -283,7 +289,41 @@ namespace InkLine
                     E(SparkKind.Crescent, Back(0.08f, 0.10f), _side * R(-0.6f, 0.6f) - _dir * 0.4f, 0.26f, 0.18f,
                         WordHi, InkTheme.Word, (_n % 2 == 0 ? -1f : 1f) * 900f, 2f);
                     break;
+                case WordId.Crush:
+                    if (GlowShot.ArtReady("crush_shot")) break;
+                    // 千钧：往下砸的金色碎块，个头大、掉得快。
+                    E(SparkKind.Shard, Back(0.10f, 0.12f), -_dir * R(0.4f, 0.8f) + _side * R(-0.8f, 0.8f), 0.34f, 0.15f,
+                        WordHi, InkTheme.Word, R(-400f, 400f), 2f, false, 7f, 0);
+                    break;
             }
+        }
+
+        // 破：砖红碎片往两边崩。有发光弹体之后这一层不再掉，免得和光效叠成两套。
+        void Break(int s)
+        {
+            if (GlowShot.ArtReady("break_shot")) return;
+            Vector2 at = Back(0.10f, 0.06f);
+            float side = _n % 2 == 0 ? 1f : -1f;
+            E(SparkKind.Shard, at, _side * side * R(0.8f, 1.4f) - _dir * 0.3f, 0.30f, 0.10f + 0.015f * s,
+                InkTheme.BreakHi, InkTheme.Break, R(-500f, 500f), 2.5f, false, 3f, 0);
+        }
+
+        // 聚：靛青小珠从两侧往弹心收。有发光弹体之后这一层不再掉。
+        void Gather(int s)
+        {
+            if (GlowShot.ArtReady("gather_shot")) return;
+            float side = _n % 2 == 0 ? 1f : -1f;
+            Vector2 at = _pos + _side * side * (0.30f + 0.04f * s) - _dir * 0.05f;
+            E(SparkKind.Bubble, at, -_side * side * 1.6f - _dir * 0.2f, 0.18f, 0.08f + 0.01f * s,
+                InkTheme.GatherHi, InkTheme.Gather, 0f, 1f);
+        }
+
+        // 返：青铜绿的回旋弯刃。有发光弹体之后这一层不再掉。
+        void Rebound(int s)
+        {
+            if (GlowShot.ArtReady("rebound_shot")) return;
+            E(SparkKind.Crescent, Back(0.06f, 0.10f), _dir * R(0.2f, 0.5f) + _side * R(-0.5f, 0.5f), 0.22f,
+                0.13f + 0.02f * s, InkTheme.ReboundHi, InkTheme.Rebound, (_n % 2 == 0 ? -1f : 1f) * 720f, 3f);
         }
 
         // ---- 实心类 ----
@@ -380,6 +420,7 @@ namespace InkLine
             if (m.Has(CardId.Myriad) || m.Has(CardId.Arrow)) return WordId.ArrowRain;
             if (m.Has(CardId.Strike) || m.Has(CardId.Back)) return WordId.Knockback;
             if (m.Has(CardId.Link) || m.Has(CardId.Slash)) return WordId.Cleave;
+            if (m.Has(CardId.Qian) || m.Has(CardId.Jun)) return WordId.Crush;
             return WordId.None;
         }
 
@@ -422,6 +463,20 @@ namespace InkLine
                 {
                     Kind = SparkKind.Swirl, Count = 2, Rx = 0.54f, Ry = 0.54f, Speed = -3f, Size = 0.24f,
                     Spin = 300f, Tint = InkTheme.ConfuseHi
+                };
+            // 破：两片裂开的砖红碎甲夹着弹体抖。发光弹体自己带碎晶，这里让开。
+            if (m.Has(CardId.Break) && n < into.Length && !GlowShot.ArtReady("break_shot"))
+                into[n++] = new Ornament
+                {
+                    Kind = SparkKind.Shard, Count = 2, Rx = 0.40f, Ry = 0.40f, Size = 0.24f, Jitter = true,
+                    Tint = InkTheme.Break
+                };
+            // 聚：三颗靛青小珠贴着弹体快速收拢地转。发光弹体自己带着旋臂，这里让开。
+            if (m.Has(CardId.Gather) && n < into.Length && !GlowShot.ArtReady("gather_shot"))
+                into[n++] = new Ornament
+                {
+                    Kind = SparkKind.Bubble, Count = 3, Rx = 0.46f, Ry = 0.46f, Speed = -5.5f, Size = 0.18f,
+                    Twinkle = 5f, Tint = InkTheme.GatherHi
                 };
             return n;
         }
@@ -490,7 +545,7 @@ namespace InkLine
         {
             CardId.Explode, CardId.Fire, CardId.Ice, CardId.Water, CardId.Poison, CardId.Earth,
             CardId.Thunder, CardId.Wind, CardId.Stun, CardId.Gold, CardId.Wood, CardId.Confuse,
-            CardId.Pierce, CardId.Accel, CardId.Track, CardId.Split
+            CardId.Break, CardId.Gather, CardId.Pierce, CardId.Accel, CardId.Track, CardId.Rebound, CardId.Split
         };
 
         public static Color Tone(ShotMods m, ShotView v)

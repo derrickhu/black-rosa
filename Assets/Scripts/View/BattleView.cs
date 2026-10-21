@@ -343,6 +343,9 @@ namespace InkLine
                 if (e.Frozen) tint = Color.Lerp(Color.white, InkTheme.Ice, 0.20f);
                 else if (e.BurnTime > 0f) tint = Color.Lerp(Color.white, InkTheme.Fire, 0.22f);
                 else if (e.PoisonTime > 0f) tint = Color.Lerp(Color.white, InkTheme.Poison, 0.18f);
+                else if (e.VulnTime > 0f) tint = Color.Lerp(Color.white, InkTheme.Break, 0.22f);
+                // 隐身的只留一层淡影，轻轻闪，让人知道那里有东西但范围打不着。
+                if (e.Hidden) tint.a = 0.26f + 0.08f * Mathf.Sin(Time.unscaledTime * 6f + e.Id);
                 Sprite body = InkArt.Person(e.Type, Color.clear);
                 float baseScale = e.Radius * 2.6f;
                 // 墨粒半径最小，三只小粒和活动关的老鼠按贴图高度缩完只有旁边兵的一半，脸看不清。
@@ -376,6 +379,7 @@ namespace InkLine
                 if (dots == null) dots = sr.gameObject.AddComponent<InkDot>();
                 dots.Sync(e, 5, w.HaltAura > 0f);
                 PaintHitFlash(sr, e);
+                PaintWard(sr, e, sx);
                 var bar = sr.GetComponent<InkBar>();
                 if (bar == null) bar = sr.gameObject.AddComponent<InkBar>();
                 // 16 起步：压在命中特效（9~15）之上、飘字（19/20）之下。
@@ -392,18 +396,37 @@ namespace InkLine
                 if (layer == null) layer = shot.gameObject.AddComponent<InkShot>();
                 layer.Present(b, EmitterSkin);
                 var glow = shot.GetComponent<WordGlow>();
+                var neo = shot.GetComponent<GlowShot>();
                 if (WordGlow.Owns(b.Mods))
                 {
                     if (glow == null) glow = shot.gameObject.AddComponent<WordGlow>();
                     glow.Sync(b);
+                    if (neo != null) neo.Hide();
                 }
-                else if (glow != null) glow.Hide();
+                else if (GlowShot.Wants(b.Mods))
+                {
+                    if (glow != null) glow.Hide();
+                    if (neo == null) neo = shot.gameObject.AddComponent<GlowShot>();
+                    neo.Sync(b);
+                }
+                else
+                {
+                    if (glow != null) glow.Hide();
+                    if (neo != null) neo.Hide();
+                }
             }
             WordFx.Bind(_root);
             for (int n = 0; n < w.WordHits.Count; n++) WordFx.Hit(w.WordHits[n]);
             w.WordHits.Clear();
 
-            for (int n = 0; n < w.Bursts.Count; n++) InkVfx.SpawnHit(w.Bursts[n]);
+            for (int n = 0; n < w.Bursts.Count; n++)
+            {
+                FxBurst fx = w.Bursts[n];
+                bool glowHit = !string.IsNullOrEmpty(fx.GlowArt) && GlowShot.ArtReady(fx.GlowArt);
+                if (!glowHit || fx.GlowOverlay) InkVfx.SpawnHit(fx);
+                if (glowHit) GlowShot.PlayHit(fx);
+            }
+            GlowShot.TickHits();
             w.Bursts.Clear();
             for (int n = 0; n < w.Deaths.Count; n++) InkSpill.Play(w.Deaths[n]);
             w.Deaths.Clear();
@@ -446,6 +469,37 @@ namespace InkLine
 
         public const float DartScale = 0.64f;
         static readonly Color DemonTint = InkTheme.Hex("E040B8");
+        static readonly Color WardTint = new Color(0.62f, 0.78f, 0.95f, 0.75f);
+
+        // 别人挂上去的盾（墨僧、钟魔、魔化）：一圈淡蓝罩子，挨一发就碎。
+        // 盾兵自己那面盾画在贴图里，不再罩。
+        static void PaintWard(SpriteRenderer host, EnemyActor e, float parentScale)
+        {
+            Transform t = host.transform.Find("ward");
+            SpriteRenderer sr = t != null ? t.GetComponent<SpriteRenderer>() : null;
+            bool on = e.Shield && e.ShieldGiven;
+            if (!on)
+            {
+                if (sr != null) sr.enabled = false;
+                return;
+            }
+            if (sr == null)
+            {
+                var go = new GameObject("ward");
+                go.transform.SetParent(host.transform, false);
+                sr = go.AddComponent<SpriteRenderer>();
+                sr.sprite = InkArt.Heap(InkShape.Ring, Color.white, 96);
+            }
+            sr.enabled = true;
+            sr.sortingOrder = host.sortingOrder + 1;
+            Color c = WardTint;
+            c.a *= e.Hidden ? 0.4f : 1f;
+            sr.color = c;
+            float w = sr.sprite != null ? Mathf.Max(0.01f, sr.sprite.bounds.size.x) : 1f;
+            float k = e.Radius * 2.5f / (w * Mathf.Max(0.01f, parentScale));
+            sr.transform.localScale = new Vector3(k, k, 1f);
+            sr.transform.localPosition = Vector3.zero;
+        }
 
         // 命中白闪。原来是整只换成纯白剪影，射速快的时候敌人大半时间都是一团白，
         // 既看不出是什么怪，也看不出血条打到哪了 —— 白闪反而把最该看的东西盖了。

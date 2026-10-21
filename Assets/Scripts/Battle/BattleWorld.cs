@@ -67,6 +67,16 @@ namespace InkLine
         // 魔化词缀（精英、魔化词缀局）：见 DemonKind。Ward 是它自己带的减伤比例，和魔气护体相加。
         public DemonKind Demon;
         public float Ward;
+        // 第二幕。Vuln 是破的易伤比例；Hidden 是墨影 / 幻影还没被炮弹本体打中显形。
+        public float Vuln;
+        public float VulnTime;
+        public bool Hidden;
+        public float ShieldAura;
+        public float Bell;
+        public float AuraCd;
+        public int Phantoms;
+        // 盾是别人挂上去的（墨僧、钟魔、魔化），视图要另画一圈罩子。
+        public bool ShieldGiven;
 
         public bool Held => HardTime > 0f && (Hard == StatusKind.Freeze || Hard == StatusKind.Stun);
         public bool Confused => HardTime > 0f && Hard == StatusKind.Confuse;
@@ -85,6 +95,7 @@ namespace InkLine
         public int NextRow;
         public bool Dead;
         public bool Mother = true;
+        public bool Returning;     // 返：已经折回来往下飞
         public int ChargedMask;
         public int SplitMask;
         public readonly ShotMods Mods = new ShotMods();
@@ -195,6 +206,12 @@ namespace InkLine
         public Color Dot1;
         public int Dots;
         public float Scale;
+        // 第二幕发光命中。GlowOverlay 为假时整张换成发光爆点；
+        // 为真时命中层归了别的字，墨溅照播，发光爆点缩小叠在上面。
+        public string GlowArt;
+        public string GlowShards;
+        public Color GlowHalo;
+        public bool GlowOverlay;
     }
 
     // 万箭蓄满后的一支落箭。同一波共用 Claimed，每只敌人只挨一箭。
@@ -246,6 +263,8 @@ namespace InkLine
         }
 
         public int EmitterCount = 2;
+        // 进局时锻造给的炮数。无尽的广告加炮按这个数往上加，不加在已经加过的上面。
+        int _emitterBase = 2;
         public float RailX;
         public bool Victory;
         public bool Defeat;
@@ -366,7 +385,7 @@ namespace InkLine
         // 图鉴：炮弹第一次真的带上某个字 / 词 / 招牌两两时报一次，一局内同一条只报一回。
         public System.Action<CodexKind, int> CodexHit;
         readonly bool[] _codexGlyph = new bool[CardCatalog.IdCount];
-        readonly bool[] _codexWord = new bool[(int)WordId.Cleave + 1];
+        readonly bool[] _codexWord = new bool[CardCatalog.WordCount];
         readonly bool[] _codexPair = new bool[SignaturePairs.All.Length];
 
         // 局外升级只改这两个系数和开局条件，结算骨架一步都不动。
@@ -411,8 +430,10 @@ namespace InkLine
         int[] _stunStar;
 
         public int DraftCost => Stage != null
-            ? Stage.DraftCostAt(DraftCount)
+            ? Mathf.Max(1, Mathf.RoundToInt(Stage.DraftCostAt(DraftCount) * _draftMul))
             : GameConstants.FirstDraftCost + DraftCount * GameConstants.DraftCostStep;
+        float _draftMul = 1f;
+        float _itemCdMul = 1f;
         public bool CanDraft => Gold >= DraftCost && !Victory && !Defeat;
         public int AliveEnemies
         {
@@ -447,6 +468,8 @@ namespace InkLine
             _damageMul = Mathf.Max(0.1f, forge.DamageMul);
             _intervalMul = Mathf.Clamp(forge.IntervalMul, 0.3f, 2f);
             _critChance = Mathf.Clamp01(forge.CritChance);
+            _draftMul = forge.DraftMul > 0f ? Mathf.Clamp(forge.DraftMul, 0.5f, 1f) : 1f;
+            _itemCdMul = forge.ItemCdMul > 0f ? Mathf.Clamp(forge.ItemCdMul, 0.5f, 1f) : 1f;
             _goldGain = Mathf.Max(1f, forge.GoldMul);
             if (stage.Endless) _goldGain = 1f + (_goldGain - 1f) * StageCatalog.EndlessGainBoost;
             _goldFrac = 0f;
@@ -496,8 +519,15 @@ namespace InkLine
                 RailX = FieldLayout.ColumnX(0);
             }
             ClampRail();
+            _emitterBase = EmitterCount;
             for (int c = 0; c < GameConstants.Columns; c++) RefreshCol(c);
         }
+
+        // 这局还能加到几门炮。无尽只允许多看两次广告（续命附赠的一门也占名额）。
+        public int EmitterCap =>
+            Stage != null && Stage.Endless && !Stage.Daily
+                ? Mathf.Min(GameConstants.AdEmitterCap, _emitterBase + GameConstants.EndlessAdEmitters)
+                : GameConstants.AdEmitterCap;
 
         // 进关之后再套皮肤：默认弹伤和开局金币加上去，改装的乘算、加算照旧。
         public void ApplySkin(int skin)
@@ -995,8 +1025,13 @@ namespace InkLine
                 NoKnock = def.NoKnock,
                 HealAura = def.HealAura,
                 SplitCount = def.SplitCount,
-                Wave = wave
+                Wave = wave,
+                Hidden = def.Stealth && !PreviewFill,
+                ShieldAura = def.ShieldAura,
+                Bell = def.Bell,
+                Phantoms = def.Phantoms
             };
+            e.AuraCd = def.Bell > 0f ? BellFirst : def.ShieldAura * UnityEngine.Random.Range(0.4f, 0.8f);
             if (e.IsBoss) BossSpawned = true;
             Demonize(e, id);
             return e;
@@ -1020,6 +1055,7 @@ namespace InkLine
             {
                 e.Demon = DemonKind.Shield;
                 e.Shield = true;
+                e.ShieldGiven = true;
             }
             else if (roll == 1)
             {
@@ -1078,7 +1114,7 @@ namespace InkLine
 
         public bool AddEmitter(bool toast = true)
         {
-            if (EmitterCount >= GameConstants.AdEmitterCap) return false;
+            if (EmitterCount >= EmitterCap) return false;
             int i = EmitterCount;
             EmitterCount++;
             if (i >= 0 && i < _fireCd.Length) _fireCd[i] = 0.15f;
@@ -1134,7 +1170,8 @@ namespace InkLine
                     Steer(b, dt);
                 b.Pos += b.Vel * dt;
                 ApplyRows(b);
-                if (b.Pos.y > GameConstants.WorldHalfHeight + 1f)
+                if (b.Mods.Rebound > 0f && !b.Returning && b.Pos.y > ReboundTop) Turn(b, null);
+                if (b.Pos.y > GameConstants.WorldHalfHeight + 1f || (b.Returning && b.Pos.y < ReboundFloor))
                     b.Dead = true;
                 else
                     HitTest(b);
@@ -1151,7 +1188,7 @@ namespace InkLine
             for (int i = 0; i < Enemies.Count; i++)
             {
                 EnemyActor e = Enemies[i];
-                if (e.Dead) continue;
+                if (e.Dead || e.Hidden) continue;
                 float d = (e.Pos - b.Pos).sqrMagnitude;
                 if (d < bestD) { bestD = d; best = e; }
             }
@@ -1250,6 +1287,11 @@ namespace InkLine
                     case WordId.Cleave:
                         m.CleaveLeft = Mathf.Max(m.CleaveLeft, w.Count.IntAt(ws));
                         m.CleaveDecay = w.Decay.At(ws);
+                        break;
+                    case WordId.Crush:
+                        m.Mark(CardId.Qian, ws);
+                        m.Mark(CardId.Jun, ws);
+                        m.Crush = Mathf.Max(m.Crush, w.Damage.At(ws));
                         break;
                 }
             }
@@ -1381,7 +1423,7 @@ namespace InkLine
             for (int i = 0; i < Enemies.Count; i++)
             {
                 EnemyActor e = Enemies[i];
-                if (e.Dead || a.Claimed.Contains(e.Id)) continue;
+                if (e.Dead || e.Hidden || a.Claimed.Contains(e.Id)) continue;
                 if (Mathf.Abs(e.Pos.x - a.Pos.x) > band) continue;
                 // 这一帧箭尖扫过的那段。怪身和这段重叠才算打中，避免从怪身上穿过去没结算。
                 if (e.Pos.y > y0 + e.Radius) continue;
@@ -1440,6 +1482,12 @@ namespace InkLine
                                 Time = g.Time.At(star)
                             });
                     }
+                    else if (g.Axis == MoveAxis.Center)
+                    {
+                        m.GatherR = Mathf.Max(m.GatherR, g.Radius.At(star));
+                        m.GatherPull = Mathf.Max(m.GatherPull, g.Move.At(star));
+                        m.GatherHold = Mathf.Max(m.GatherHold, g.Time.At(star));
+                    }
                     break;
                 case GlyphFamily.Ballistic:
                     if (id == CardId.Track) m.Homing = Mathf.Max(m.Homing, g.Ballistic.At(star));
@@ -1454,6 +1502,7 @@ namespace InkLine
                             Split(b, star);
                         }
                     }
+                    else if (id == CardId.Rebound) m.Rebound = Mathf.Max(m.Rebound, g.Rebound.At(star));
                     break;
             }
             PaintBodyColor(m);
@@ -1547,8 +1596,14 @@ namespace InkLine
                 ResolveHit(e, b.Mods, b, HitSource.Direct);
                 SkinEcho(e, b);
                 while (b.Mods.CleaveLeft > 0) Cleave(b);
+                if (b.Mods.GatherR > 0f) Gather(b, e);
                 if (b.Mods.ExplodeR > 0f) Explode(b.Pos, b.Mods, b);
                 if (b.Mods.Pierce > 0) { b.Mods.Pierce--; b.Mods.Decay *= b.Mods.PierceDecay; }
+                else if (b.Mods.Rebound > 0f && !b.Returning)
+                {
+                    Turn(b, e);
+                    break;
+                }
                 else
                 {
                     b.Dead = true;
@@ -1577,7 +1632,7 @@ namespace InkLine
                 for (int i = 0; i < Enemies.Count; i++)
                 {
                     EnemyActor e = Enemies[i];
-                    if (e.Dead || e.Doom > 0f || e.Id == hit.Id || b.HitIds.Contains(e.Id)) continue;
+                    if (e.Dead || e.Doom > 0f || e.Hidden || e.Id == hit.Id || b.HitIds.Contains(e.Id)) continue;
                     float reach = reach0 + e.Radius;
                     if ((e.Pos - hit.Pos).sqrMagnitude > reach * reach) continue;
                     b.HitIds.Add(e.Id);
@@ -1595,7 +1650,7 @@ namespace InkLine
             for (int i = 0; i < Enemies.Count; i++)
             {
                 EnemyActor e = Enemies[i];
-                if (e.Dead || e.Doom > 0f || e.Id == hit.Id || b.HitIds.Contains(e.Id)) continue;
+                if (e.Dead || e.Doom > 0f || e.Hidden || e.Id == hit.Id || b.HitIds.Contains(e.Id)) continue;
                 float d = (e.Pos - hit.Pos).sqrMagnitude;
                 if (d < bestD) { bestD = d; best = e; }
             }
@@ -1621,7 +1676,7 @@ namespace InkLine
             for (int i = 0; i < Enemies.Count; i++)
             {
                 EnemyActor e = Enemies[i];
-                if (e.Dead || e.Doom > 0f || b.HitIds.Contains(e.Id)) continue;
+                if (e.Dead || e.Doom > 0f || e.Hidden || b.HitIds.Contains(e.Id)) continue;
                 float d = (e.Pos - b.Pos).sqrMagnitude;
                 if (d < bestD) { bestD = d; best = e; }
             }
@@ -1648,7 +1703,7 @@ namespace InkLine
             for (int i = 0; i < Enemies.Count; i++)
             {
                 EnemyActor e = Enemies[i];
-                if (e.Dead || e.Doom > 0f) continue;
+                if (e.Dead || e.Doom > 0f || e.Hidden) continue;
                 // 量到怪身边缘：大个子半个身子在圈里就该挨炸。
                 float reach = r + e.Radius;
                 if ((e.Pos - pos).sqrMagnitude > reach * reach) continue;
@@ -1674,14 +1729,23 @@ namespace InkLine
             // 斩杀只在本体命中时生效，域伤害不再走斩杀
             bool execute = m.InstantKill && from == HitSource.Direct;
 
-            // 0 盾：普通弹只破盾；斩杀破盾后继续
+            // -1 隐身：只有炮弹本体打得着，打中就显形，这一下照常结算。
+            if (e.Hidden)
+            {
+                if (from != HitSource.Direct) return;
+                Reveal(e);
+            }
+
+            // 0 盾：普通弹只破盾；斩杀破盾后继续；破 ★3 拆盾后也继续
             if (e.Shield)
             {
                 e.Shield = false;
+                e.ShieldGiven = false;
                 e.HitFlash = 0.16f;
                 PulseHitStop(0.06f);
-                ShowFloat(e.Pos + Vector2.up * 0.18f, "挡", InkTheme.Ink, 0.92f);
-                if (!execute)
+                bool breaker = from == HitSource.Direct && m.Star(CardId.Break) >= 3;
+                ShowFloat(e.Pos + Vector2.up * 0.18f, breaker ? "破" : "挡", breaker ? InkTheme.Break : InkTheme.Ink, 0.92f);
+                if (!execute && !breaker)
                 {
                     AudioBus.Hit();
                     return;
@@ -1716,11 +1780,15 @@ namespace InkLine
             // 4.3 暴击词条，同样乘整发
             bool crit = _critChance > 0f && UnityEngine.Random.value < _critChance;
             if (crit) dmg *= ForgeCatalog.CritMul;
+            // 4.4 破：易伤放大整发，排在甲前面，甲照样按固定值削。
+            if (e.VulnTime > 0f) dmg *= 1f + e.Vuln;
 
             // 4.5 甲：每发固定减伤，放在乘算之后、斩杀之前。
             // 放这里有两个原因：一是减伤要吃满所有增伤，不然重击流被削两次；
             // 二是斩杀靠 Max 抬伤害，排在甲后面才不会被甲削掉。
-            if (e.Armor > 0f && dmg > 0f) dmg = Mathf.Max(1f, dmg - e.Armor);
+            // 崩山：带重的弹打在已破防的目标上无视甲。
+            bool crumble = m.Crumble && e.VulnTime > 0f;
+            if (e.Armor > 0f && dmg > 0f && !crumble) dmg = Mathf.Max(1f, dmg - e.Armor);
 
             // 4.6 魔气护体：无尽按侵染进度减伤，满了是 12%；魔化的怪再加自己那份。排在斩杀前面，
             // 斩和秒杀仍把伤害抬回去，不会被这层削掉。
@@ -1728,6 +1796,13 @@ namespace InkLine
             {
                 float ward = Mathf.Min(WardCap, WardPercent * 0.01f + e.Ward);
                 if (ward > 0f) dmg = Mathf.Max(1f, dmg * (1f - ward));
+            }
+
+            // 4.7 千钧：按目标当前生命追加一截，头目减半。排在甲和护体之后，不被削。
+            if (m.Crush > 0f && from == HitSource.Direct && e.Hp > 0f)
+            {
+                dmg += e.Hp * m.Crush * (e.IsBoss ? 0.5f : 1f);
+                ShowFloat(e.Pos + Vector2.up * 0.32f, "钧", InkTheme.Word, 1.3f);
             }
 
             // 1 斩杀优先级最高：只会把伤害抬上去，不会被别的字压低
@@ -1848,7 +1923,7 @@ namespace InkLine
             for (int i = 0; i < Enemies.Count; i++)
             {
                 EnemyActor e = Enemies[i];
-                if (e.Dead || e.Id == hit.Id) continue;
+                if (e.Dead || e.Hidden || e.Id == hit.Id) continue;
                 float reach = s.Radius + e.Radius;
                 if ((e.Pos - hit.Pos).sqrMagnitude > reach * reach) continue;
                 _spread.Add(e);
@@ -1907,6 +1982,11 @@ namespace InkLine
                 case StatusKind.Slow:
                     e.Slow = Mathf.Min(e.Slow, s.Power);
                     e.SlowTime = Mathf.Max(e.SlowTime, time);
+                    break;
+                case StatusKind.Break:
+                    if (e.VulnTime <= 0f) ShowFloat(e.Pos + Vector2.left * 0.14f, "破", InkTheme.Break, 0.95f);
+                    e.Vuln = e.VulnTime > 0f ? Mathf.Max(e.Vuln, s.Power) : s.Power;
+                    e.VulnTime = Mathf.Max(e.VulnTime, time);
                     break;
             }
         }
@@ -2025,7 +2105,7 @@ namespace InkLine
         {
             CardId.Explode, CardId.Heavy, CardId.Thunder, CardId.Stun, CardId.Fire,
             CardId.Ice, CardId.Water, CardId.Poison, CardId.Earth, CardId.Wind,
-            CardId.Gold, CardId.Wood, CardId.Confuse
+            CardId.Gold, CardId.Wood, CardId.Confuse, CardId.Break, CardId.Gather
         };
 
         static FxBurst BuildBurst(Vector2 pos, ShotMods m, bool execute)
@@ -2051,7 +2131,26 @@ namespace InkLine
                 else fx.Dot1 = c;
                 fx.Dots++;
             }
+            if (!execute && GlowShot.HitOf(m, HitWinner(m), out GlowShot.Look look, out bool overlay))
+            {
+                fx.GlowArt = look.Key + "_burst";
+                fx.GlowShards = look.Key + "_shards";
+                fx.GlowHalo = look.Halo;
+                fx.GlowOverlay = overlay;
+            }
             return fx;
+        }
+
+        // 赢下命中层的那个字。词组 / 火冰这类专属命中也算被别人赢走。
+        static CardId HitWinner(ShotMods m)
+        {
+            if (m.Word == WordId.Cleave || m.WordLook == WordId.Cleave || m.PushColumn > 0f
+                || m.WordLook == WordId.Knockback || m.WordLook == WordId.ArrowRain)
+                return CardId.Split;
+            if (m.Has(CardId.Fire) && m.Has(CardId.Ice)) return CardId.Fire;
+            for (int i = 0; i < HitOrder.Length; i++)
+                if (HitOrder[i] != CardId.Explode && m.Has(HitOrder[i])) return HitOrder[i];
+            return CardId.None;
         }
 
         static int HitEventOf(ShotMods m, bool execute)
@@ -2417,10 +2516,12 @@ namespace InkLine
                 if (e.StunGuard > 0f) e.StunGuard -= dt;
                 if (e.ColorPhase && e.Hp <= e.MaxHp * 0.5f) e.Colored = true;
                 if (e.HealAura > 0f) TickHealAura(e, dt);
+                TickAct2(e, dt);
+                float vuln = e.VulnTime > 0f ? 1f + e.Vuln : 1f;
                 if (e.BurnTime > 0f)
                 {
                     e.BurnTime -= dt;
-                    float burn = e.BurnDps * dt;
+                    float burn = e.BurnDps * vuln * dt;
                     e.Hp -= burn;
                     e.BurnShown += burn;
                     if (e.Hp <= 0f) { FlushDot(e); Kill(e, null); continue; }
@@ -2428,7 +2529,7 @@ namespace InkLine
                 if (e.PoisonTime > 0f)
                 {
                     e.PoisonTime -= dt;
-                    float tick = e.PoisonDps * e.PoisonStacks * dt;
+                    float tick = e.PoisonDps * e.PoisonStacks * vuln * dt;
                     e.Hp -= tick;
                     e.PoisonShown += tick;
                     // 蚀生：毒造成的伤害全额进吸血池
@@ -2623,7 +2724,9 @@ namespace InkLine
 
         public bool TryRevive()
         {
-            if (RevivesUsed >= GameConstants.MaxRevives || (!Defeat && BaseHp > 0)) return false;
+            // 无尽和每日残局一局只续一次。主线仍是两次。结算页按这个次数决定出不出续命页，这里再挡一次。
+            int cap = Stage != null && Stage.Endless ? GameConstants.EndlessRevives : GameConstants.MaxRevives;
+            if (RevivesUsed >= cap || (!Defeat && BaseHp > 0)) return false;
             RevivesUsed++;
             Defeat = false;
             // 只回一半，奇数往上进。三格血回两格，四格回两格。
@@ -2814,6 +2917,8 @@ namespace InkLine
             _stunStar[col] = 0;
             bool sec = false, kill = false, myriad = false, arrow = false, strike = false, back = false, link = false, slash = false;
             int secS = 0, killS = 0, myriadS = 0, arrowS = 0, strikeS = 0, backS = 0, linkS = 0, slashS = 0;
+            bool qian = false, jun = false;
+            int qianS = 0, junS = 0;
             for (int r = 0; r < OpenRows; r++)
             {
                 if (!Grid[col, r].HasValue) continue;
@@ -2831,6 +2936,8 @@ namespace InkLine
                 if (id == CardId.Back) { back = true; backS = star; }
                 if (id == CardId.Link) { link = true; linkS = star; }
                 if (id == CardId.Slash) { slash = true; slashS = star; }
+                if (id == CardId.Qian) { qian = true; qianS = star; }
+                if (id == CardId.Jun) { jun = true; junS = star; }
             }
             if (sec && kill) { _word[col] = WordId.InstantKill; _wordStar[col] = Mathf.Max(secS, killS); }
             else if (myriad && arrow)
@@ -2841,6 +2948,7 @@ namespace InkLine
             }
             else if (strike && back) { _word[col] = WordId.Knockback; _wordStar[col] = Mathf.Max(strikeS, backS); }
             else if (link && slash) { _word[col] = WordId.Cleave; _wordStar[col] = Mathf.Max(linkS, slashS); }
+            else if (qian && jun) { _word[col] = WordId.Crush; _wordStar[col] = Mathf.Max(qianS, junS); }
         }
 
         public bool CellAsleep(int col, int row)

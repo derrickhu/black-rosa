@@ -40,7 +40,16 @@ namespace InkLine
             new SignaturePair { A = CardId.Explode, B = CardId.Fire, Name = "烈爆",
                 Form = ShotFx.FormBlaze, Note = "爆圈内留 1.5s 火地，持续 DPS 50%" },
             new SignaturePair { A = CardId.Slash, B = CardId.Thunder, Name = "雷决",
-                Form = ShotFx.FormThunderCut, Note = "斩杀阈值 +8%" }
+                Form = ShotFx.FormThunderCut, Note = "斩杀阈值 +8%" },
+            // 第二幕。图鉴按下标记位，只能往后接。
+            new SignaturePair { A = CardId.Break, B = CardId.Heavy, Name = "崩山",
+                Form = ShotFx.FormCrumble, Note = "打在已破防的目标上无视甲" },
+            new SignaturePair { A = CardId.Gather, B = CardId.Explode, Name = "坍缩",
+                Form = ShotFx.FormCollapse, Note = "爆圈半径 +30%" },
+            new SignaturePair { A = CardId.Wind, B = CardId.Gather, Name = "旋风",
+                Form = ShotFx.FormWhirl, Note = "聚过来的整团一起贴到命中点那一列" },
+            new SignaturePair { A = CardId.Rebound, B = CardId.Pierce, Name = "回锋",
+                Form = ShotFx.FormRiposte, Note = "折返时多穿一个，回程不衰减" }
         };
 
         public static bool Lit(ShotMods m, int index)
@@ -85,6 +94,14 @@ namespace InkLine
                 m.ExecuteHp += 0.08f;
                 m.ExecuteBoss += 0.08f;
             }
+            if (Lit(m, CardId.Break, CardId.Heavy))                 // 崩山
+                m.Crumble = true;
+            if (Lit(m, CardId.Gather, CardId.Explode))              // 坍缩
+                m.ExplodeR *= 1.3f;
+            if (Lit(m, CardId.Wind, CardId.Gather))                 // 旋风
+                m.Whirl = true;
+            if (Lit(m, CardId.Rebound, CardId.Pierce))              // 回锋
+                m.Riposte = true;
         }
     }
 }

@@ -11,6 +11,8 @@
  *   /giftDeliver 微信后台消息推送：GET 验证 URL，POST 收明文 JSON/XML
  *   /wechat-gift/queryPending  当前用户待领的微信礼包
  *   /wechat-gift/markGranted   客户端入账后销单
+ *   /mail/list   未领邮件
+ *   /mail/claim  领取邮件，领过的不再返回
  *   /health      健康检查
  *
  * 环境变量：
@@ -18,7 +20,7 @@
  *   BLACKROSA_JWT_SECRET            必填
  *   BLACKROSA_WX_APPID / BLACKROSA_WX_SECRET   微信 code2session
  *   BLACKROSA_SAVE_MAX_BYTES / BLACKROSA_TOKEN_TTL_SEC   可选
- *   BLACKROSA_RANK_MAX_CLEARED（默认 72）/ BLACKROSA_RANK_MAX_ENDLESS（默认 50）
+ *   BLACKROSA_RANK_MAX_CLEARED（默认 90）/ BLACKROSA_RANK_MAX_ENDLESS（默认 70）
  *   BLACKROSA_RANK_BLOCKED_UIDS（逗号分隔）   可选
  *   BLACKROSA_WECHAT_PUSH_TOKEN  可选，默认 blackrosagift2026
  *
@@ -37,6 +39,7 @@ const {
   handleQueryPendingWechatGifts,
   handleMarkWechatGiftsGranted,
 } = require('./lib/wechatPush');
+const { handleListMail, handleClaimMail } = require('./lib/mail');
 const { respond, parseEvent, preflight } = require('./lib/http');
 
 const ROUTES = {
@@ -52,6 +55,8 @@ const ROUTES = {
   'POST /giftDeliver': handleWechatPushCallback,
   'POST /wechat-gift/queryPending': handleQueryPendingWechatGifts,
   'POST /wechat-gift/markGranted': handleMarkWechatGiftsGranted,
+  'POST /mail/list': handleListMail,
+  'POST /mail/claim': handleClaimMail,
 };
 
 exports.main = async (event, context) => {

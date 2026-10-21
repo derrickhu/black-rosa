@@ -4,22 +4,27 @@ using static InkLine.EnemyId;
 
 namespace InkLine
 {
-    // 无尽模式：一局 50 波，越打越硬，看能撑到第几波。成绩上排行榜的「无尽」页（按周清榜）。
-    // 血量每波一个倍率，前段抬得快、后段收平：第 1 波 2.3 倍，第 10 波约 3.9，
-    // 第 20 波约 6.3，第 30 波约 9.3，第 40 波约 12.3，第 50 波停在 14 倍
-    // （大约第八章关底的三倍）。薄皮杂兵另有下限。满盘面打得过第 50 波，不再是墙。
+    // 无尽模式：一局 70 波，越打越硬，看能撑到第几波。成绩上排行榜的「无尽」页（按周清榜）。
+    // 前 50 波的血量曲线不动，免得已有的波数成绩和每日残局一起漂：
+    // 第 1 波 2.3 倍，第 10 波约 3.9，第 20 波约 6.3，第 30 波约 9.3，第 40 波约 12.3，
+    // 第 50 波 14 倍（第十章关底 3.5 × 1.4 × 1.15 ≈ 5.6 倍，这里约是它的 2.5 倍）。
+    // 第 51 波起才是第二幕加出来的尾段，血量缓升到第 70 波的 17.5 倍，约章底的 3.1 倍。
+    // 薄皮杂兵另有下限。满盘面打得过第 50 波，不再是墙。
     // 只数跟着每波的总血涨，封顶 EndlessBodyCap，后期不至于卡。
     // 再打个只数折扣：前 10 波少约一成；第 11 波起再收，到第 30 波大约剩四分之三。
     // 盘面开局一排；第 10 波起每 3 波随机开一格，先第二排后第三排，第 43 波开满。
     // 第 10 波起魔气从上往下渗到第 40 波，怪的减伤跟着涨到 12%。
     // 每周换一条魔气词缀（StageRules），血、速、钱、怪量跟着词缀乘。
     // 金币掉得比主线吝啬、抽牌越抽越贵，钱永远不够花。
-    // 兵种分四段解锁，第 10、20、30、40、50 波各压一只关底。
+    // 兵种分四段解锁。第 10、20、30、40、50 波是原来的五只关底，
+    // 第 60 波影姬、第 70 波钟魔，接在魔气铺满之后。
     // 每波用固定种子排，所有人打的是同一套，排行榜才公平。
-    // 不进 72 关的表，也不进 check_stages 的主线曲线。
+    // 不进主线关卡表，也不进 check_stages 的主线曲线。
     public static partial class StageCatalog
     {
-        public const int EndlessWaves = 50;
+        public const int EndlessWaves = 70;
+        // 血量和移速收到这一波为止，和加尾段之前的 50 波完全一样。每日残局也读这条曲线。
+        const int EndlessPaceWaves = 50;
         public const int EndlessBossEvery = 10;
         public const string EndlessBackdrop = "Bg/battle_bg_endless";
         // 同布局的魔化莲池。第 10 波开始从上往下渗，第 40 波整张换掉。
@@ -33,6 +38,8 @@ namespace InkLine
         const int EndlessPace = 3;
         const float EndlessHpOpen = 2.3f;
         const float EndlessHpTop = 14f;
+        // 第 70 波。从第 50 波的 14 倍线性接到这里，一波大约加 0.18 倍。
+        const float EndlessHpTail = 17.5f;
         // 大于 1：同样的终点，进度前段走得快，后段变平。
         const float EndlessHpEase = 1.65f;
         // 基础血低于这个数的杂兵先抬到这里再乘倍率，免得跑得快的那几种两三下就没了。
@@ -46,8 +53,9 @@ namespace InkLine
         // 每波多长。出场摊在前面，最后留几秒给场上的怪走完。后期只数涨得比时长快，越往后越密。
         const float EndlessSpanOpen = 14f;
         const float EndlessSpanStep = 0.1f;
-        // 第 50 波比第 1 波快这么多。
+        // 第 50 波比第 1 波快这么多。尾段再收到 EndlessSpeedTail。
         const float EndlessSpeedTop = 1.22f;
+        const float EndlessSpeedTail = 1.28f;
 
         // 开局只有第一排。第 EndlessCellFrom 波（从 1 数）起每 EndlessCellEvery 波开一格：
         // 先在第二排随机挑，第二排满了再随机开第三排。挑哪格每局不同，只数和时机人人一样。
@@ -69,17 +77,28 @@ namespace InkLine
             new[] { Walker, Chubby, Tall, Ball, BigHead },
             new[] { Runner, Shield, Swarm, Strafer, Belt },
             new[] { Crawler, Splitter, Mender, Elite, Sprinter },
-            new[] { Bulwark, Warden },
+            new[] { Bulwark, Warden, Shade, Monk },
         };
         static readonly int[] EndlessTierFrom = { 0, 5, 15, 30 };
-        static readonly EnemyId[] EndlessBosses = { BossInkbag, BossTwin, BossThunder, BossMedic, BossKing };
+        static readonly EnemyId[] EndlessBosses =
+        {
+            BossInkbag, BossTwin, BossThunder, BossMedic, BossKing, BossShade, BossBell
+        };
 
         public static float EndlessHp(int wave)
         {
-            float k = Mathf.Clamp01(wave / (float)(EndlessWaves - 1));
-            float u = 1f - Mathf.Pow(1f - k, EndlessHpEase);
-            return EndlessHpOpen * Mathf.Pow(EndlessHpTop / EndlessHpOpen, u);
+            float k = wave / (float)(EndlessPaceWaves - 1);
+            if (k <= 1f)
+            {
+                float u = 1f - Mathf.Pow(1f - Mathf.Clamp01(k), EndlessHpEase);
+                return EndlessHpOpen * Mathf.Pow(EndlessHpTop / EndlessHpOpen, u);
+            }
+            return Mathf.Lerp(EndlessHpTop, EndlessHpTail, Tail(k));
         }
+
+        // 第 50 波之后的进度，第 70 波正好是 1。
+        static float Tail(float k) =>
+            Mathf.Clamp01((k - 1f) / ((EndlessWaves - 1f) / (EndlessPaceWaves - 1f) - 1f));
 
         // 闯波类关卡里这一只的血：关底吃满倍率；杂兵基础血先托到 EndlessThinHp。mul 是当波倍率（含词缀）。
         public static float SurvivalHpOf(EnemyId id, float mul)
@@ -91,8 +110,12 @@ namespace InkLine
 
         public static bool EndlessBossWave(int wave) => (wave + 1) % EndlessBossEvery == 0;
 
-        public static float EndlessSpeed(int wave) =>
-            Mathf.Lerp(1f, EndlessSpeedTop, Mathf.Clamp01(wave / (float)(EndlessWaves - 1)));
+        public static float EndlessSpeed(int wave)
+        {
+            float k = wave / (float)(EndlessPaceWaves - 1);
+            if (k <= 1f) return Mathf.Lerp(1f, EndlessSpeedTop, Mathf.Clamp01(k));
+            return Mathf.Lerp(EndlessSpeedTop, EndlessSpeedTail, Tail(k));
+        }
 
         // 打到第 wave 波（从 0 数）时第一排以外一共该开几格。
         public static int EndlessCellsAt(int wave) =>
@@ -305,6 +328,8 @@ namespace InkLine
                 case Elite: return 1 + w / 12;
                 case Bulwark: return 1 + w / 12;
                 case Warden: return 1 + w / 15;
+                case Shade: return 2 + w / 10;
+                case Monk: return 1 + w / 20;
                 default: return -1;
             }
         }

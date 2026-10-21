@@ -30,11 +30,16 @@ namespace InkLine
             new CardDef(CardId.Wind, "风", "把敌人吹到别列", InkShape.Arc),
             new CardDef(CardId.Thunder, "雷", "命中处一圈短晕", InkShape.Burst),
             new CardDef(CardId.Poison, "毒", "可叠层的长毒", InkShape.Triangle),
-            new CardDef(CardId.Confuse, "惑", "让敌人打自己人", InkShape.Ring)
+            new CardDef(CardId.Confuse, "惑", "让敌人打自己人", InkShape.Ring),
+            new CardDef(CardId.Break, "破", "破防：挨打更痛", InkShape.Burst),
+            new CardDef(CardId.Gather, "聚", "把身边的敌人拉成一团", InkShape.Circle),
+            new CardDef(CardId.Rebound, "返", "飞到头折返再打一遍", InkShape.Arrow),
+            new CardDef(CardId.Qian, "千", "和「钧」同列才醒", InkShape.Square, CardWake.WordPart, WordId.Crush, 3),
+            new CardDef(CardId.Jun, "钧", "和「千」同列才醒", InkShape.Square, CardWake.WordPart, WordId.Crush, 3)
         };
 
         // 给按 CardId 索引的数组用，加字时跟着枚举一起长。
-        public const int IdCount = (int)CardId.Confuse + 1;
+        public const int IdCount = (int)CardId.Jun + 1;
 
         public static CardDef Get(CardId id)
         {
@@ -57,6 +62,8 @@ namespace InkLine
                 case CardId.Back: return CardId.Strike;
                 case CardId.Link: return CardId.Slash;
                 case CardId.Slash: return CardId.Link;
+                case CardId.Qian: return CardId.Jun;
+                case CardId.Jun: return CardId.Qian;
                 default: return CardId.None;
             }
         }
@@ -69,6 +76,7 @@ namespace InkLine
                 case WordId.ArrowRain: return "万箭";
                 case WordId.Knockback: return "击退";
                 case WordId.Cleave: return "连斩";
+                case WordId.Crush: return "千钧";
                 default: return "";
             }
         }
@@ -107,5 +115,8 @@ namespace InkLine
         public static float ArrowDamage(int star) => GlyphTable.Word(WordId.ArrowRain).Damage.At(star);
         public static float Knock(int star) => GlyphTable.Word(WordId.Knockback).Move.At(star);
         public static int CleaveJumps(int star) => GlyphTable.Word(WordId.Cleave).Count.IntAt(star);
+
+        // 词的种数，给按 WordId 索引的数组用。
+        public const int WordCount = (int)WordId.Crush + 1;
     }
 }

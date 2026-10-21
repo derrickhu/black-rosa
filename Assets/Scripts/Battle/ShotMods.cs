@@ -68,6 +68,16 @@ namespace InkLine
         public float PoisonLeech;      // 蚀生：毒伤全额入吸血池，值是每波上限
         public float Shock;            // 焦雷：晕结束时补的那一下
 
+        // 第二幕
+        public float GatherR;          // 聚：拉多大一圈
+        public float GatherPull;       // 聚：每只拉多远
+        public float GatherHold;       // 聚 ★3：拉完定住多久
+        public float Rebound;          // 返：折回那一程的伤害系数，0 表示不返
+        public float Crush;            // 千钧：按目标当前生命追加的比例
+        public bool Crumble;           // 崩山：破防目标无视甲
+        public bool Whirl;             // 旋风：聚过来的整团贴到命中点那一列
+        public bool Riposte;           // 回锋：折返时补一层穿，回程不衰减
+
         public IReadOnlyList<StatusHit> Status => _status;
 
         public int Star(CardId id) => _star[(int)id];
@@ -187,6 +197,14 @@ namespace InkLine
             BlazeGround = src.BlazeGround;
             PoisonLeech = src.PoisonLeech;
             Shock = src.Shock;
+            GatherR = src.GatherR;
+            GatherPull = src.GatherPull;
+            GatherHold = src.GatherHold;
+            Rebound = src.Rebound;
+            Crush = src.Crush;
+            Crumble = src.Crumble;
+            Whirl = src.Whirl;
+            Riposte = src.Riposte;
         }
     }
 }

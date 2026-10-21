@@ -18,6 +18,8 @@ namespace InkLine
         public const string WechatGiftQueryPath = Prefix + "/wechat-gift/queryPending";
         public const string WechatGiftMarkPath = Prefix + "/wechat-gift/markGranted";
         public const string WechatGiftGrantedKey = GameKey + "_wechat_gift_granted_ids";
+        public const string MailListPath = Prefix + "/mail/list";
+        public const string MailClaimPath = Prefix + "/mail/claim";
         public const int RankListLimit = 50;
 
         public const int RequestTimeoutSec = 10;

@@ -1477,7 +1477,7 @@ namespace InkLine
         {
             for (int i = 1; i < CardCatalog.IdCount; i++)
                 if (CardCatalog.Get((CardId)i).Wake != CardWake.WordPart) CodexLearn(CodexKind.Glyph, i);
-            for (int i = (int)WordId.InstantKill; i <= (int)WordId.Cleave; i++) CodexLearn(CodexKind.Word, i);
+            for (int i = (int)WordId.InstantKill; i < CardCatalog.WordCount; i++) CodexLearn(CodexKind.Word, i);
             for (int i = 0; i < SignaturePairs.All.Length; i++) CodexLearn(CodexKind.Pair, i);
             for (int i = 0; i < EnemyCatalog.IdCount; i++) CodexLearn(CodexKind.Enemy, i);
         }

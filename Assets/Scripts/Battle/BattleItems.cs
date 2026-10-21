@@ -128,7 +128,7 @@ namespace InkLine
             {
                 int id = equipped != null && i < equipped.Length ? equipped[i] : -1;
                 _slots[i] = id >= 0 && id < ItemCatalog.Count ? id : -1;
-                float cd = _slots[i] >= 0 ? ItemCatalog.CooldownAt(ItemCatalog.Get(_slots[i]), RankOf(_slots[i])) : 0f;
+                float cd = _slots[i] >= 0 ? ItemCatalog.CooldownAt(ItemCatalog.Get(_slots[i]), RankOf(_slots[i])) * _itemCdMul : 0f;
                 _itemCdMax[i] = cd;
                 _itemCd[i] = cd * OpeningCd;
                 ItemFlash[i] = 0f;

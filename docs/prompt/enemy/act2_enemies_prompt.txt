@@ -1,0 +1,38 @@
+A 2 by 2 grid of 4 full-body game enemy characters on a pure solid magenta background (#FF00FF).
+
+Match the attached reference image's character style exactly. That reference shows the existing enemies of this game. Copy its drawing language precisely:
+- Body is a chunky rounded blob-person made of dark charcoal grey ink (about #3F423C), with a slightly lighter grey sheen along the top of the head, shoulders and limbs.
+- Very thick solid black outline around the whole silhouette and around every limb.
+- The head is a rounded charcoal ball sitting clearly above the shoulders, showing only two eyes. The two eyes are pure bright white (#FFFFFF), two simple soft rounded ovals exactly like the reference.
+- Mitten hands and simple rounded feet.
+- One or two stitched cross-shaped patch marks on the charcoal skin.
+- A few small solid black ink droplets and specks scattered in the air around the character.
+- Cartoonish, cute, round, friendly-but-spooky, standing front-facing full body.
+
+On every one of these four the head, the arms and the legs are bare charcoal ink skin, smooth and plainly visible, with the two white oval eyes clearly showing. Each one wears only the items listed for him.
+
+Top-left — "Ink Shade", a small sneaky minion:
+A slim, light blob-person creeping forward on tiptoe, knees bent, one mitten hand raised to his chest. His two items:
+1. A long thin scarf the deep purple of a ripe eggplant skin wound once around his neck, its long tail trailing behind him and breaking up into soft wisps of smoke curls at the end.
+2. A narrow eggplant purple wrap around each ankle.
+
+Top-right — "Ink Monk", a small sturdy minion:
+A round, calm blob-person standing with both mitten hands pressed together in front of his chest in a polite prayer pose. His two items:
+1. A simple monk's robe the bright orange of a ripe mandarin orange, draped diagonally over one shoulder and wrapped around his belly, leaving his other shoulder, both arms and both legs bare charcoal.
+2. A string of big round prayer beads the warm brown of polished walnut shells hanging around his neck.
+
+Bottom-left — "Shadow Princess", a boss, noticeably larger than the two minions:
+A tall, graceful, elegant blob-lady standing in a proud pose, one mitten hand holding a folded fan up beside her face. Her items:
+1. A tall glossy black ink hair bun on top of her round head, held by a long hairpin of shiny silver like a new silver spoon, with a small pink peach blossom at its end.
+2. A long flowing silk shawl draped over both shoulders and floating out behind her in a wide curve, coloured deep eggplant purple on the outside and the pale lilac of lavender flowers on the inside.
+3. The folded fan in her hand is the pale lilac of lavender flowers with a thin silver edge.
+
+Bottom-right — "Bell Demon", a boss, the biggest and heaviest of the four:
+A massive, wide, heavy blob-person standing planted with both feet apart, thick arms and thick legs. His items:
+1. A huge temple bell strapped onto his back like a heavy pack, its dome rising above his shoulders behind his head, coloured the blue-green of an old bronze coin with patina, with a warm copper band around its rim.
+2. A thick rope the vivid red of a Chinese New Year red envelope tied across his chest holding the bell in place.
+3. In one mitten hand he carries a short round wooden bell-striking log the warm brown of a tree trunk.
+
+Layout: exactly 2 columns and 2 rows, 4 characters. Each character stands centred in its own quadrant, completely inside that quadrant, with the top of its head and the bottom of its feet well within the quadrant and a wide band of empty magenta all around it. Every character is separated from the others by plenty of empty magenta.
+
+The picture contains only these four characters and their small ink specks, on one perfectly uniform flat solid magenta background.
