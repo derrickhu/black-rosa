@@ -888,7 +888,7 @@ namespace InkLine
             // 左右翻页和点「出征」都不用等图：相邻两章的章节图和本章战场先拉。
             CdnAssets.Prefetch("Ui/chapter_" + _chapter);
             CdnAssets.Prefetch("Ui/chapter_" + (_chapter + 2));
-            CdnAssets.Prefetch("Bg/battle_bg_" + (_chapter + 1));
+            CdnAssets.Prefetch(StageCatalog.BattleBackdrop(_chapter));
             if (_hardView && !_meta.HardOpen(_chapter))
             {
                 int open = LatestHardChapter();

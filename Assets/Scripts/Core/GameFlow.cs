@@ -701,6 +701,8 @@ namespace InkLine
             _hard = false;
             _teachAim = index == 0 && !guide;
             BeginBattle(StageCatalog.Get(index));
+            if (_world != null && _world.Stage.Dig)
+                _world.ShowToast("格子埋着，改装里的铲子能挖开", 2.4f);
         }
 
         // 精英：体力和主线一样收，章内按顺序开。
@@ -720,7 +722,9 @@ namespace InkLine
             _hard = true;
             _teachAim = false;
             BeginBattle(StageCatalog.HardStage(index));
-            _world.ShowToast("精英：怪更硬，洋红色的带魔化词缀", 2.4f);
+            _world.ShowToast(_world.Stage.Dig
+                ? "精英：怪更硬。格子埋着，铲子能挖开"
+                : "精英：怪更硬，洋红色的带魔化词缀", 2.4f);
         }
 
         // 每日残局：扣当天次数，不扣体力。全服同一局。
@@ -1029,11 +1033,12 @@ namespace InkLine
                 _offerDig[Random.Range(0, n)] = true;
         }
 
-        // 只有每日残局把三选一里的一张换成铲子。格子挖满了就不再出。
+        // 每日残局和十一、十二章把三选一里的一张换成铲子。格子挖满了就不再出。
         // 盘上一个格子都没有时这一抽必有，否则大约一半的改装会刷到。
         bool OfferShovel(int slots)
         {
-            if (slots <= 0 || _world == null || _world.Stage == null || !_world.Stage.Daily) return false;
+            if (slots <= 0 || _world == null || _world.Stage == null) return false;
+            if (!_world.Stage.Daily && !_world.Stage.Dig) return false;
             int open = 0;
             for (int c = 0; c < GameConstants.Columns; c++)
             for (int r = 0; r < GameConstants.Rows; r++)
@@ -1041,7 +1046,8 @@ namespace InkLine
             int all = GameConstants.Columns * GameConstants.Rows;
             if (open >= all) return false;
             if (open == 0) return true;
-            return Random.value < StageCatalog.DailyShovelChance;
+            float chance = _world.Stage.Daily ? StageCatalog.DailyShovelChance : StageCatalog.DigShovelChance;
+            return Random.value < chance;
         }
 
         // 后期牌池有二十多个字，均匀抽几乎凑不出同字升星，也很难第一时间摸到本关的新字。

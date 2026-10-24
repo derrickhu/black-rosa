@@ -22,6 +22,7 @@ namespace InkLine
         List<CodexEntry> _list;
         int _at;
         UiAnim _anim;
+        float _busyUntil;
 
         public static void Show(RectTransform layer, MetaProgress meta, List<CodexEntry> list, int at, Action closed)
         {
@@ -127,6 +128,7 @@ namespace InkLine
             {
                 Vector2 at = new Vector2((i - (StudyCatalog.MaxLevel - 1) * 0.5f) * step, -50f);
                 var ring = UiKit.Icon(box, UiSprites.Disc(), at, 34f);
+                ring.name = "dot" + i;
                 ring.color = i < cap ? InkTheme.Outline : InkTheme.LineDim;
                 var fill = UiKit.Icon(ring.transform, UiSprites.Disc(), Vector2.zero, 26f);
                 fill.color = i < lv ? StudyCatalog.TierColor(StudyCatalog.TierOf(i + 1))
@@ -186,6 +188,7 @@ namespace InkLine
 
         void Step(int d)
         {
+            if (Time.unscaledTime < _busyUntil) return;
             AudioBus.Tap();
             _at = (_at + d + _list.Count) % _list.Count;
             _anim.Clear();
@@ -194,6 +197,8 @@ namespace InkLine
 
         void Upgrade()
         {
+            // 蓄力那 0.3 秒里旧卡还在，连点或翻页会让爆点落到别的卡上。
+            if (Time.unscaledTime < _busyUntil) return;
             CodexEntry e = Cur;
             MetaProgress.StudyBlock block = _meta.UpgradeBlock(e);
             if (block != MetaProgress.StudyBlock.None)
@@ -202,13 +207,40 @@ namespace InkLine
                 InkToast.Show(_layer, BlockTip(block));
                 return;
             }
+            int was = _meta.StudyLevel(e);
             if (!_meta.UpgradeStudy(e)) return;
-            AudioBus.UnlockSting();
+            int lv = _meta.StudyLevel(e);
+            _busyUntil = Time.unscaledTime + StudyUpFx.Hit + 0.05f;
+            AudioBus.StudyUp();
             _anim.Clear();
+            var up = _body.Find("up");
+            if (up != null) up.localScale = Vector3.one;
+            bool tierUp = StudyCatalog.TierOf(lv) != StudyCatalog.TierOf(was);
+            StudyUpFx.Play(_board, Vector2.zero, _body.Find("c") as RectTransform, _body.Find("cost/icon") as RectTransform,
+                lv, tierUp, () => Reveal(lv));
+        }
+
+        // 爆点那一下换成新卡面，加成数字和新点亮的那颗等级点跟着跳。
+        RectTransform Reveal(int lv)
+        {
             Paint();
-            var card = _body.Find("c");
-            if (card != null) _anim.Punch(card, 0f, 0.22f, 0.36f);
-            UiConfetti.Sparks(_body, new Vector2(0f, BoardH * 0.5f - CardY - CardSize.y * 0.5f), InkTheme.GoldHi, 18, 620f);
+            Transform bonus = _body.Find("bonus");
+            if (bonus != null)
+            {
+                Transform num = bonus.Find(lv >= StudyCatalog.MaxLevel ? "v" : "a");
+                if (num != null) _anim.Punch(num, 0.05f, 0.3f, 0.4f);
+                if (bonus.Find("dot" + (lv - 1)) is RectTransform dot)
+                {
+                    _anim.Pop(dot, 0.12f, 0.42f, 0.2f);
+                    _anim.At(0.12f, () =>
+                    {
+                        if (dot == null) return;
+                        UiConfetti.Sparks(_body, StudyUpFx.Local(_body, dot),
+                            StudyCatalog.TierColor(StudyCatalog.TierOf(lv)), 8, 300f);
+                    });
+                }
+            }
+            return _body.Find("c") as RectTransform;
         }
 
         string BlockTip(MetaProgress.StudyBlock block)

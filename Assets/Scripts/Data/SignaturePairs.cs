@@ -38,7 +38,7 @@ namespace InkLine
             new SignaturePair { A = CardId.Wind, B = CardId.Ice, Name = "寒风",
                 Form = ShotFx.FormColdWind, Note = "横移后附带缓" },
             new SignaturePair { A = CardId.Explode, B = CardId.Fire, Name = "烈爆",
-                Form = ShotFx.FormBlaze, Note = "爆圈内留 1.5s 火地，持续 DPS 50%" },
+                Form = ShotFx.FormBlaze, Note = "爆圈内留 2 秒火地，走进来的也烧，DPS 50%" },
             new SignaturePair { A = CardId.Slash, B = CardId.Thunder, Name = "雷决",
                 Form = ShotFx.FormThunderCut, Note = "斩杀阈值 +8%" },
             // 第二幕。图鉴按下标记位，只能往后接。
@@ -67,37 +67,60 @@ namespace InkLine
             if (m.Tuned) return;
             m.Tuned = true;
 
+            // 三种火色按这个顺序后写覆盖前写：熔金 > 燎毒 > 霜火。
             if (Lit(m, CardId.Fire, CardId.Ice))                    // 霜火
+            {
                 m.ScaleStatus(StatusKind.Burn, 1.25f);
+                m.BurnLook = BurnLooks.Frost;
+            }
             if (Lit(m, CardId.Fire, CardId.Thunder))                // 焦雷
                 m.Shock = m.StatusPower(StatusKind.Burn) * 2f;
             if (Lit(m, CardId.Ice, CardId.Thunder))                 // 霰雷
                 m.Shatter = true;
             if (Lit(m, CardId.Fire, CardId.Poison))                 // 燎毒
+            {
                 m.BumpStacks(StatusKind.Poison, 1);
+                m.BurnLook = BurnLooks.Blight;
+            }
             if (Lit(m, CardId.Water, CardId.Thunder))               // 导电
+            {
                 m.WidenStatus(StatusKind.Stun, 1, 1.3f);
+                m.Conduct = true;
+            }
             if (Lit(m, CardId.Gold, CardId.Fire))                   // 熔金
+            {
                 m.BurnByMaxHp = true;
+                m.BurnLook = BurnLooks.Molten;
+            }
             if (Lit(m, CardId.Gold, CardId.Heavy))                  // 镇金
                 m.GoldRidesMul = true;
             if (Lit(m, CardId.Wood, CardId.Poison))                 // 蚀生
                 m.PoisonLeech = Mathf.Max(1f, m.LeechCap);
             if (Lit(m, CardId.Earth, CardId.Heavy))                 // 夯土
+            {
                 m.PushColumn *= 1.5f;
+                m.RamEarth = true;
+            }
             if (Lit(m, CardId.Wind, CardId.Ice))                    // 寒风
+            {
                 m.AddStatus(new StatusHit { Kind = StatusKind.Slow, Power = 0.7f, Time = 1.2f });
+                m.ColdWind = true;
+            }
             if (Lit(m, CardId.Explode, CardId.Fire))                // 烈爆
                 m.BlazeGround = true;
             if (Lit(m, CardId.Slash, CardId.Thunder))               // 雷决
             {
                 m.ExecuteHp += 0.08f;
                 m.ExecuteBoss += 0.08f;
+                m.ThunderCut = true;
             }
             if (Lit(m, CardId.Break, CardId.Heavy))                 // 崩山
                 m.Crumble = true;
             if (Lit(m, CardId.Gather, CardId.Explode))              // 坍缩
+            {
                 m.ExplodeR *= 1.3f;
+                m.Collapse = true;
+            }
             if (Lit(m, CardId.Wind, CardId.Gather))                 // 旋风
                 m.Whirl = true;
             if (Lit(m, CardId.Rebound, CardId.Pierce))              // 回锋

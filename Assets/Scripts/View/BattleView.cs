@@ -373,7 +373,7 @@ namespace InkLine
                 // 压那么狠会把怪糊成一块色板，图层的硬边反而看不出来。
                 // 同时挂多个状态时也只能染一种色，越浓越容易误导。
                 if (e.Frozen) tint = Color.Lerp(Color.white, InkTheme.Ice, 0.20f);
-                else if (e.BurnTime > 0f) tint = Color.Lerp(Color.white, InkTheme.Fire, 0.22f);
+                else if (e.BurnTime > 0f) tint = Color.Lerp(Color.white, BurnLooks.Number(e.BurnLook), 0.22f);
                 else if (e.PoisonTime > 0f) tint = Color.Lerp(Color.white, InkTheme.Poison, 0.18f);
                 else if (e.VulnTime > 0f) tint = Color.Lerp(Color.white, InkTheme.Break, 0.22f);
                 // 隐身的只留一层淡影，轻轻闪，让人知道那里有东西但范围打不着。
@@ -465,6 +465,10 @@ namespace InkLine
             w.Deaths.Clear();
             for (int n = 0; n < w.Arcs.Count; n++) InkArc.Play(w.Arcs[n]);
             w.Arcs.Clear();
+            PairFxView.Bind(_root);
+            for (int n = 0; n < w.PairFxs.Count; n++) PairFxView.Play(w.PairFxs[n]);
+            w.PairFxs.Clear();
+            PairFxView.SyncFields(w.Fields);
             if (w.ShakeWanted > 0f)
             {
                 InkShake.Kick(Camera.main, w.ShakeWanted);

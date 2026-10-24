@@ -54,6 +54,8 @@ namespace InkLine
         public float ConfuseBite;
         public float PoisonLeech;  // 蚀生：毒伤入吸血池的每波上限，0 表示不入
         public float Shock;        // 焦雷：晕结束时要补的那一下
+        public int BurnLook;       // 身上这把火是哪种秘卷火，见 BurnLooks
+        public float LeechFxCd;
         public float StrafeDir = 1f;
         public float HitFlash;
         // 挨打时往后一顿。纯表现，不进碰撞，由视图加到绘制位置上。
@@ -247,16 +249,18 @@ namespace InkLine
             row >= 0 && row < GameConstants.Rows && Open[col, row];
 
         // 能放字的格子都有字了。还能点同字升星，但不再自动弹改装。
-        // 一格都没开不算满，改装照旧弹，好先挖出格子。
+        // 铲子关还有没挖开的格子时不算满，改装照旧弹，好继续挖。
         public bool BoardFull
         {
             get
             {
                 if (Grid == null) return false;
+                bool dig = Stage != null && (Stage.Dig || Stage.Daily);
                 bool any = false;
                 for (int c = 0; c < GameConstants.Columns; c++)
                 for (int r = 0; r < GameConstants.Rows; r++)
                 {
+                    if (dig && !IsOpen(c, r)) return false;
                     if (!IsOpen(c, r)) continue;
                     any = true;
                     if (!Grid[c, r].HasValue) return false;
@@ -532,6 +536,8 @@ namespace InkLine
             WordHits.Clear();
             Pulses.Clear();
             Rain.Clear();
+            PairFxs.Clear();
+            Fields.Clear();
             Shouts.Clear();
             if (StudyTrialGlyph > 0)
                 ShowToast("今日试用 · " + CardCatalog.Get((CardId)StudyTrialGlyph).Name + " +" + StudyCatalog.TrialBonus + " 级", 2.2f);
@@ -715,6 +721,7 @@ namespace InkLine
             TickWaves(dt);
             TickEmitters(dt);
             TickBullets(dt);
+            TickFields(dt);
             TickEnemies(dt);
             TickItems(dt);
             TickChests(dt);
@@ -1754,6 +1761,7 @@ namespace InkLine
         void Explode(Vector2 pos, ShotMods m, BulletActor src)
         {
             float r = m.ExplodeR;
+            if (m.Collapse) PairPop(PairFx.Collapse, pos, r);
             // 火球只在爆心炸一次，烟圈正好盖住伤害范围；圈里的怪各自只播普通命中。
             Bursts.Add(new FxBurst { Pos = pos, Kind = HitFx.Explode, Tint = InkTheme.Explode, Scale = r * BlastScale });
             AudioBus.Boom();
@@ -1771,11 +1779,9 @@ namespace InkLine
                     src.HitIds.Add(e.Id);
                     ResolveHit(e, m, src, HitSource.Area);
                 }
-                // 烈爆：爆圈里再补一层半程灼烧，等效于地上留了 1.5s 的火
-                if (!m.BlazeGround) continue;
-                e.BurnDps = Mathf.Max(e.BurnDps, m.StatusPower(StatusKind.Burn) * 0.5f);
-                e.BurnTime = Mathf.Max(e.BurnTime, 1.5f);
             }
+            // 烈爆：爆圈里留一片火地，圈里的、之后走进来的都按半程灼烧烧。
+            if (m.BlazeGround) LightField(pos, r, m.StatusPower(StatusKind.Burn) * 0.5f, m.BurnLook);
             BlastChests(pos, r, m, src);
         }
 
@@ -1848,6 +1854,11 @@ namespace InkLine
             // 崩山：带重的弹打在已破防的目标上无视甲。
             bool crumble = m.Crumble && e.VulnTime > 0f;
             if (e.Armor > 0f && dmg > 0f && !crumble) dmg = Mathf.Max(1f, dmg - e.Armor);
+            if (crumble && e.Armor > 0f && !echo)
+            {
+                PairPop(PairFx.Crumble, e.Pos, e.Radius);
+                ShowFloat(e.Pos + Vector2.up * 0.42f, "崩", InkTheme.Break, 1.25f);
+            }
 
             // 4.6 魔气护体：无尽按侵染进度减伤，满了是 12%；魔化的怪再加自己那份。排在斩杀前面，
             // 斩和秒杀仍把伤害抬回去，不会被这层削掉。
@@ -1869,15 +1880,24 @@ namespace InkLine
             {
                 if (e.IsBoss) dmg = Mathf.Max(dmg, e.MaxHp * m.ExecuteBoss);
                 else if (e.Hp <= e.MaxHp * m.ExecuteHp) dmg = Mathf.Max(dmg, e.Hp);
-                ShowFloat(e.Pos + Vector2.up * 0.32f, e.IsBoss ? "创" : "斩", InkTheme.Heart, 1.35f);
+                if (m.ThunderCut && (e.IsBoss || dmg >= e.Hp)) ThunderCutStrike(e);
+                else ShowFloat(e.Pos + Vector2.up * 0.32f, e.IsBoss ? "创" : "斩", InkTheme.Heart, 1.35f);
             }
+            bool heavy = m.Has(CardId.Heavy);
+            if (!echo && m.Shatter && e.Frozen)
+            {
+                PairPop(PairFx.Shatter, e.Pos, e.Radius);
+                ShowFloat(e.Pos + Vector2.up * 0.4f, "碎", InkTheme.Ice, 1.2f);
+                AudioBus.HitIce();
+            }
+            if (from == HitSource.Direct && m.GoldRidesMul && heavy && m.AddDamage > 0f)
+                PairPop(PairFx.WardGold, e.Pos, e.Radius);
 
             // 5 木：按真正吃进去的量记吸血池。回响不再吸一次，免得一发弹吸两口。
             if (m.Leech > 0f && !echo) PourLeech(Mathf.Min(dmg, e.Hp) * m.Leech, m.LeechCap);
 
             // 6 扣血
             e.Hp -= dmg;
-            bool heavy = m.Has(CardId.Heavy);
             e.HitFlash = heavy || execute ? 0.2f : 0.16f;
 
             // 7 状族、8 位族。回响只补伤害，不把灼烧和击退再铺一圈。
@@ -1968,6 +1988,7 @@ namespace InkLine
             {
                 StatusHit s = list[i];
                 ApplyStatus(e, s, m);
+                if (m.Conduct && s.Kind == StatusKind.Stun) ConductRing(e.Pos, Mathf.Max(s.Radius, 0.9f));
                 if (s.Radius > 0f) SpreadStatus(e, s, m);
             }
         }
@@ -2030,6 +2051,7 @@ namespace InkLine
                     float dps = m.BurnByMaxHp ? Mathf.Max(s.Power, e.MaxHp * 0.01f) : s.Power;
                     e.BurnDps = Mathf.Max(e.BurnDps, dps);
                     e.BurnTime = Mathf.Max(e.BurnTime, time);
+                    if (m.BurnLook != BurnLooks.Plain) e.BurnLook = m.BurnLook;
                     break;
                 case StatusKind.Poison:
                     // 毒是唯一可叠层的，层数吃字的上限
@@ -2110,6 +2132,7 @@ namespace InkLine
                     ShowFloat(e.Pos, "稳", InkTheme.GraphiteHi, 0.9f);
                 return;
             }
+            Vector2 was = e.Pos;
             if (m.PushColumn > 0f)
             {
                 float top = GameConstants.SpawnY - 0.35f;
@@ -2120,6 +2143,12 @@ namespace InkLine
                     e.Pos.y = Mathf.Min(top, e.Pos.y + m.PushColumn);
                 if (m.PushHold > 0f) e.HoldTime = Mathf.Max(e.HoldTime, m.PushHold);
                 ShowFloat(e.Pos, "退", InkTheme.GraphiteHi, 0.9f);
+                if (m.RamEarth)
+                {
+                    float land = Mathf.Min(top, was.y + m.PushColumn);
+                    PairPop(PairFx.RamEarth, was, new Vector2(was.x, land), e.Radius);
+                    AddShake(0.12f);
+                }
             }
             if (m.PushLateral > 0)
             {
@@ -2128,7 +2157,8 @@ namespace InkLine
                 if (UnityEngine.Random.value < 0.5f) step = -step;
                 int to = Mathf.Clamp(col + step, 0, GameConstants.Columns - 1);
                 e.Pos.x = FieldLayout.ColumnX(to);
-                ShowFloat(e.Pos, "风", InkTheme.Wind, 0.9f);
+                if (m.ColdWind) PairPop(PairFx.ColdWind, was, e.Pos, e.Radius);
+                ShowFloat(e.Pos, m.ColdWind ? "寒" : "风", m.ColdWind ? InkTheme.Ice : InkTheme.Wind, 0.9f);
             }
         }
 
@@ -2513,14 +2543,14 @@ namespace InkLine
             e.DotClock -= dt;
             if (e.DotClock > 0f) return;
             e.DotClock = DotPopGap;
-            PopDot(e, ref e.BurnShown, InkTheme.Fire, TagBurn, 1f);
+            PopDot(e, ref e.BurnShown, BurnLooks.Number(e.BurnLook), TagBurn, 1f);
             PopDot(e, ref e.PoisonShown, InkTheme.Poison, TagPoison, 1f);
         }
 
         // 被烧死、毒死的那一下，零头也飘出来，不然最后那口伤害看不见。
         void FlushDot(EnemyActor e)
         {
-            PopDot(e, ref e.BurnShown, InkTheme.Fire, TagBurn, 0.3f);
+            PopDot(e, ref e.BurnShown, BurnLooks.Number(e.BurnLook), TagBurn, 0.3f);
             PopDot(e, ref e.PoisonShown, InkTheme.Poison, TagPoison, 0.3f);
         }
 
@@ -2584,6 +2614,7 @@ namespace InkLine
                     e.Hp -= burn;
                     e.BurnShown += burn;
                     if (e.Hp <= 0f) { FlushDot(e); Kill(e, null); continue; }
+                    if (e.BurnTime <= 0f) e.BurnLook = BurnLooks.Plain;
                 }
                 if (e.PoisonTime > 0f)
                 {
@@ -2592,7 +2623,11 @@ namespace InkLine
                     e.Hp -= tick;
                     e.PoisonShown += tick;
                     // 蚀生：毒造成的伤害全额进吸血池
-                    if (e.PoisonLeech > 0f) PourLeech(tick, e.PoisonLeech);
+                    if (e.PoisonLeech > 0f)
+                    {
+                        PourLeech(tick, e.PoisonLeech);
+                        if (BaseHp < MaxBaseHp) TickLeechFx(e, dt);
+                    }
                     if (e.PoisonTime <= 0f) { e.PoisonStacks = 0; e.PoisonLeech = 0f; }
                     if (e.Hp <= 0f) { FlushDot(e); Kill(e, null); continue; }
                 }
@@ -2608,8 +2643,9 @@ namespace InkLine
                         if (wasStun && e.Shock > 0f)
                         {
                             e.Hp -= e.Shock;
-                            e.HitFlash = 0.16f;
-                            ShowDamage(e, e.Shock, InkTheme.ThunderHi, 1.1f, false);
+                            e.HitFlash = 0.22f;
+                            ScorchStrike(e);
+                            ShowDamage(e, e.Shock, InkTheme.ThunderHi, 1.35f, true);
                             e.Shock = 0f;
                             if (e.Hp <= 0f) { Kill(e, null); continue; }
                         }

@@ -26,9 +26,12 @@ namespace InkLine
 
         public static string ChapterName(int chapter)
         {
-            const string n = "一二三四五六七八九十";
+            string[] n =
+            {
+                "一", "二", "三", "四", "五", "六", "七", "八", "九", "十", "十一", "十二"
+            };
             if (chapter < 0 || chapter >= n.Length) return (chapter + 1).ToString();
-            return n[chapter].ToString();
+            return n[chapter];
         }
         public const int DailyPlaysPerDay = 1;
         public const int DailyAdPlays = 1;
@@ -43,11 +46,12 @@ namespace InkLine
         // 改装起价的下限。开局有 6 金币，低于这个数按钮一进关就亮。
         public const int FirstDraftCost = 10;
         public const int DraftCostStep = 2;
-        // 十章，每章九关，第九关是章底。前八章是第一幕，九、十章是第二幕。
+        // 十二章，每章九关，第九关是章底。前八章是第一幕，九、十章是第二幕。
+        // 十一、十二章不新增字，开局格子少，靠铲子挖开。
         // MetaProgress.Normalize 里的 Fit() 会把旧存档的星数组补齐到新长度，
         // 改这个数字不会打坏已有存档。
         public const int ChapterSize = 9;
-        public const int Chapters = 10;
+        public const int Chapters = 12;
         public const int StageCount = ChapterSize * Chapters;
 
         // 局外：体力。每关进关都收 2 点，章末关也一样，失败不退。见 MetaProgress.StageCost。

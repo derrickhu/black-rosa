@@ -106,7 +106,7 @@ namespace InkLine
                 Daily = true,
                 DailyDay = day,
                 Banned = banned.ToArray(),
-                Backdrop = "Bg/battle_bg_" + (1 + DayClock.Hash(day, 31) % GameConstants.Chapters),
+                Backdrop = "Bg/battle_bg_" + (1 + DayClock.Hash(day, 31) % 10),
             };
             ApplyRule(s, rule);
             PriceSurvival(s, DailyPriceWaves);

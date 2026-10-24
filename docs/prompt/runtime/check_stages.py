@@ -42,6 +42,8 @@ want = size * chapters
 hp_c = [float(x) for x in re.findall(r"[\d.]+", re.search(r"ChapterHp\s*=\s*\{([^}]*)\}", core_src).group(1))]
 slot_step = float(re.search(r"SlotHpStep\s*=\s*([\d.]+)f", core_src).group(1))
 finale_mul = float(re.search(r"FinaleHp\s*=\s*([\d.]+)f", core_src).group(1))
+dig_from = int(re.search(r"DigChapter\s*=\s*(\d+)", core_src).group(1))
+dig_cells = int(re.search(r"DigDraftCells\s*=\s*(\d+)", core_src).group(1))
 
 
 def hp_of(ch, slot):
@@ -67,7 +69,8 @@ for ch in range(chapters):
         bosses = re.findall(r"\b(Boss[A-Z]\w+)\b", b)
         enemies = [e for e in re.findall(r"S\([\d.]+f,\s*(\w+)", b) if not e.startswith("Boss")]
         rows.append(dict(i=len(rows), ch=ch, slot=k, title=title, mask=mask, give=give,
-                         waves=waves, main=main, bosses=bosses, enemies=enemies))
+                         waves=waves, main=main, bosses=bosses, enemies=enemies,
+                         dig=".DigBoard()" in b))
 
 print("关卡数")
 check(len(rows) == want, f"{chapters} 章 × {size} 关 = {want}，实到 {len(rows)}")
@@ -95,7 +98,7 @@ bad_mask = [tag(r) for r in rows
             or "X" not in r["mask"][-1]]
 check(not bad_mask, "形状都是 1~3 行 × 6 列、最上一排有格子" + ("" if not bad_mask else ": " + ", ".join(bad_mask)))
 cell_range = {0: (2, 7), 1: (7, 9), 2: (9, 11), 3: (10, 12), 4: (11, 12), 5: (11, 13), 6: (12, 14), 7: (13, 15),
-              8: (15, 18), 9: (16, 18)}
+              8: (15, 18), 9: (16, 18), 10: (4, 4), 11: (5, 5)}
 row_cap = {0: 2, 1: 2, 2: 2, 3: 2}
 for ch in range(chapters):
     part = [r for r in rows if r["ch"] == ch]
@@ -110,8 +113,12 @@ for ch in range(chapters):
 third = max(sum(1 for c in r["mask"][2] if c == "X") for r in rows if len(r["mask"]) == 3 and r["ch"] < 8)
 check(third <= 4, f"前八章第三排最多开 {third} 格（要 ≤4，三排全开留给第二幕）")
 avg = [sum(len(open_cells(r)) for r in rows if r["ch"] == ch) / size for ch in range(chapters)]
-back = [f"第 {k + 1} 章" for k in range(1, chapters) if avg[k] <= avg[k - 1]]
-check(not back, "章均格数逐章上升: " + " / ".join(f"{x:.1f}" for x in avg))
+back = [f"第 {k + 1} 章" for k in range(1, min(chapters, dig_from)) if avg[k] <= avg[k - 1]]
+check(not back, "第十章为止章均格数逐章上升: " + " / ".join(f"{x:.1f}" for x in avg))
+dug = [tag(r) for r in rows if (r["ch"] >= dig_from) != r["dig"]]
+check(not dug, "第十一章起每关挖格子，前面的关不挖" + ("" if not dug else ": " + ", ".join(dug)))
+fat = [f"第 {ch + 1} 章 {avg[ch]:.1f}" for ch in range(dig_from, chapters) if avg[ch] >= 8]
+check(not fat, "铲子章开局平均不到 8 格" + ("" if not fat else ": " + ", ".join(fat)))
 same = [tag(rows[k]) for k in range(1, len(rows)) if rows[k]["mask"] == rows[k - 1]["mask"] and not rows[k]["bosses"]]
 check(not same, "相邻两关形状不同（关底除外）" + ("" if not same else ": " + ", ".join(same)))
 
@@ -131,13 +138,15 @@ check(not split, "成词的两个字同关给" + ("" if not split else ": " + st
 multi = [f"{r['ch'] + 1}-{r['slot'] + 1}" for r in rows
          if len(r["give"]) > 2 or (len(r["give"]) == 2 and tuple(r["give"]) not in pairs)]
 check(not multi, "一关最多给一个字（成词对算一个）")
-dry = [f"第 {ch + 1} 章" for ch in range(chapters) if not any(r["give"] for r in rows if r["ch"] == ch)]
-check(not dry, "每章都有新字或新词" + ("" if not dry else ": " + ", ".join(dry)))
+dry = [f"第 {ch + 1} 章" for ch in range(min(chapters, dig_from)) if not any(r["give"] for r in rows if r["ch"] == ch)]
+check(not dry, "第十章为止每章都有新字或新词" + ("" if not dry else ": " + ", ".join(dry)))
+extra = [f"{tag(r)} {r['give']}" for r in rows if r["ch"] >= dig_from and r["give"]]
+check(not extra, "铲子章不发新字" + ("" if not extra else ": " + ", ".join(extra)))
 
 # ---------- 关底 ----------
 print("\n关底")
 order = ["BossDrum", "BossInkbag", "BossIron", "BossTwin", "BossWarden", "BossThunder", "BossMedic", "BossKing",
-         "BossShade", "BossBell"]
+         "BossShade", "BossBell", "BossBell", "BossKing"]
 finales = [r for r in rows if r["slot"] == size - 1]
 check([r["main"] for r in finales] == order[:chapters],
       "章底按顺序是 " + " / ".join(o.replace("Boss", "") for o in order[:chapters]))
@@ -150,7 +159,7 @@ check(not early, "第一章前 8 关没有 boss")
 base = {}
 for m in re.finditer(r"case EnemyId\.(Boss\w+):[^\n]*\n\s*return new EnemyDef\(id,\s*([\d.]+)f,", enemy_src):
     base[m.group(1)] = float(m.group(2))
-check(len(base) == len(order), f"从 EnemyCatalog 抓到 {len(order)} 只 boss 的基础血: {len(base)}")
+check(len(base) == len(set(order)), f"从 EnemyCatalog 抓到 {len(set(order))} 只 boss 的基础血: {len(base)}")
 
 
 def boss_hp(r):
@@ -537,7 +546,7 @@ def econ(r):
     chests = kills * chest_chance + (1 if r["bosses"] else 0)
     purse_all = gold + round(chests * chest_gold_share * cg)
 
-    open_n = max(1, len(open_cells(r)))
+    open_n = dig_cells if r["ch"] >= dig_from else max(1, len(open_cells(r)))
     if r["ch"] == 0:
         n_want = max(open_n + 1, round(open_n * first_picks_per_cell))
     elif r["ch"] == 1:

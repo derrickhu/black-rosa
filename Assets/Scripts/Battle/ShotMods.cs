@@ -67,6 +67,13 @@ namespace InkLine
         public bool BlazeGround;       // 烈爆：爆圈内追加半程灼烧
         public float PoisonLeech;      // 蚀生：毒伤全额入吸血池，值是每波上限
         public float Shock;            // 焦雷：晕结束时补的那一下
+        // 下面几条只管表现：数值另有出处，开关告诉世界这一下要不要投秘卷特效。
+        public int BurnLook;           // 灼烧火色：BurnLooks
+        public bool Conduct;           // 导电
+        public bool RamEarth;          // 夯土
+        public bool ColdWind;          // 寒风
+        public bool ThunderCut;        // 雷决
+        public bool Collapse;          // 坍缩
 
         // 第二幕
         public float GatherR;          // 聚：拉多大一圈
@@ -197,6 +204,12 @@ namespace InkLine
             BlazeGround = src.BlazeGround;
             PoisonLeech = src.PoisonLeech;
             Shock = src.Shock;
+            BurnLook = src.BurnLook;
+            Conduct = src.Conduct;
+            RamEarth = src.RamEarth;
+            ColdWind = src.ColdWind;
+            ThunderCut = src.ThunderCut;
+            Collapse = src.Collapse;
             GatherR = src.GatherR;
             GatherPull = src.GatherPull;
             GatherHold = src.GatherHold;

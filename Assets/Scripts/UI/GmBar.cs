@@ -10,6 +10,7 @@ namespace InkLine
         const int InkGrant = 200;
         const int CardGrant = 20;
         const int DiamondGrant = 100;
+        const int FoilGrant = 100;
         const int EventBankGrant = 1000;
 
         // 预览结算页：0 通关，1 续命，2 失败。GameFlow 启动时挂上。
@@ -52,6 +53,7 @@ namespace InkLine
                 ("墨 +200", () => meta.AddInk(InkGrant)),
                 ("体力补满", () => meta.FillStamina()),
                 ("钻石 +100", () => meta.AddDiamond(DiamondGrant)),
+                ("金箔 +100", () => meta.AddFoil(FoilGrant)),
                 ("道具卡 +20", () => meta.GrantCards(CardGrant)),
                 ("发金宝箱", () =>
                 {

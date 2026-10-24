@@ -399,6 +399,22 @@
       "duration": 0.9,
       "output": "../../../Assets/Resources/Audio/dart_end.mp3",
       "notes": "回旋镖光球时间到消散"
+    },
+    {
+      "name": "study_up",
+      "text": "a quick rising shimmer of thin gold leaf sheets being sucked inward for a third of a second, then one punchy bright brass gong tap with a crisp ceramic ping on top that rings out and fades all the way to silence, close, short room, no music, no voice",
+      "duration": 1.1,
+      "prompt_influence": 0.55,
+      "output": "../../../Assets/Resources/Audio/study_up.mp3",
+      "notes": "字卡升一级：金箔吸进卡里 → 爆一下。0.3 秒处是爆点，和画面对齐"
+    },
+    {
+      "name": "study_tier",
+      "text": "a triumphant reward reveal that finishes completely: a deep warm drum hit, then five bright bell and glockenspiel notes rising fast into a big sparkling shimmer that rings out and fades all the way to silence, joyful and grand, short room, no voice",
+      "duration": 1.8,
+      "prompt_influence": 0.55,
+      "output": "../../../Assets/Resources/Audio/study_tier.mp3",
+      "notes": "字卡品质提升（1 / 4 / 7 / 10 级），叠在 study_up 爆点后面"
     }
   ]
 }

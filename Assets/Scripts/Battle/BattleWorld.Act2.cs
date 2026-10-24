@@ -31,6 +31,11 @@ namespace InkLine
             b.Vel = new Vector2(b.Vel.x * 0.3f, -Mathf.Max(0.5f, Mathf.Abs(b.Vel.y))).normalized * speed;
             b.HitIds.Clear();
             if (last != null) b.HitIds.Add(last.Id);
+            if (m.Riposte)
+            {
+                PairPop(PairFx.Riposte, b.Pos, b.Pos + b.Vel.normalized, 1f);
+                ShowFloat(b.Pos + Vector2.up * 0.2f, "回锋", InkTheme.GraphiteHi, 1.05f);
+            }
         }
 
         // 聚：命中点一圈里的敌人往中心拉。头目、推不动的、还隐着身的不拉。
@@ -61,7 +66,8 @@ namespace InkLine
             {
                 Pos = c, Kind = HitFx.Wind, Tint = InkTheme.GatherHi, Scale = 0.9f + m.GatherR
             });
-            ShowFloat(c + Vector2.up * 0.22f, m.Whirl ? "旋" : "聚", InkTheme.Gather, 0.95f);
+            if (m.Whirl) PairPop(PairFx.Whirl, c, m.GatherR);
+            ShowFloat(c + Vector2.up * 0.22f, m.Whirl ? "旋" : "聚", InkTheme.Gather, m.Whirl ? 1.2f : 0.95f);
         }
 
         void Reveal(EnemyActor e)

@@ -46,7 +46,7 @@ namespace InkLine
         }
 
         // 第 ch 章（从 0 数）打完时，常用的几个字大致升到几级。第五章（下标 4）起才有。
-        static readonly int[] Expected = { 0, 0, 0, 0, 1, 2, 3, 4, 5, 6 };
+        static readonly int[] Expected = { 0, 0, 0, 0, 1, 2, 3, 4, 5, 6, 9, 10 };
         // 怪血补满预期加成：后期本来就偏松，升到预期的人难度持平，没升的人吃亏。
         const float HpShare = 1f;
 
@@ -54,7 +54,7 @@ namespace InkLine
 
         public static int CostOf(int level) => level >= 0 && level < Cost.Length ? Cost[level] : 0;
 
-        // 每多通一章，上限 +1。刚开放是 4，十章全通是 10。
+        // 每多通一章，上限 +1。刚开放是 4，十章全通是 10，后面两章不再加。
         public static int CapOf(int cleared)
         {
             if (!IsOpen(cleared)) return 0;

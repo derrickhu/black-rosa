@@ -16,6 +16,8 @@ namespace InkLine
                 { "Audio/bgm_endless", ("Audio/bgm_endless_23762b406ce1c32cec8a6aa1ba09e58c.mp3", "Audio/bgm_endless.mp3") },
                 { "Bg/battle_bg_1", ("Bg/battle_bg_1_184971bb69c3716cdd2ecd200a5fac00.jpg", "Bg/battle_bg_1.png") },
                 { "Bg/battle_bg_10", ("Bg/battle_bg_10_3c2411f3ee276a01e6c25e5bb9aa820d.jpg", "Bg/battle_bg_10.png") },
+                { "Bg/battle_bg_11", ("Bg/battle_bg_11_bf511483c141cb481cb4899ed618a334.jpg", "Bg/battle_bg_11.png") },
+                { "Bg/battle_bg_12", ("Bg/battle_bg_12_418172be64a00f11ddf005c4adf2507b.jpg", "Bg/battle_bg_12.png") },
                 { "Bg/battle_bg_2", ("Bg/battle_bg_2_e100de608c3b86b76a8f28686e8f9e80.jpg", "Bg/battle_bg_2.png") },
                 { "Bg/battle_bg_3", ("Bg/battle_bg_3_a8bda397b8e0c6f198b886c1b462a54a.jpg", "Bg/battle_bg_3.png") },
                 { "Bg/battle_bg_4", ("Bg/battle_bg_4_dae7ca5c1fcc006db91f250d72049b4d.jpg", "Bg/battle_bg_4.png") },

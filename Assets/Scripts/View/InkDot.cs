@@ -100,7 +100,8 @@ namespace InkLine
             // 灼烧：一簇平涂火焰从脚下窜上来，火头到胸口。
             // 火头不再盖过头顶 —— 上半区要留给冰壳，霜火那对才能同时读出来。
             bool burn = e.BurnTime > 0f;
-            Sprite blaze = Loop("burn_body", t * 12f + e.Id * 1.7f);
+            Sprite blaze = Loop(BurnLooks.Frames(e.BurnLook), t * 12f + e.Id * 1.7f);
+            if (blaze == null) blaze = Loop("burn_body", t * 12f + e.Id * 1.7f);
             if (blaze != null)
                 Mark(_burn, burn, blaze, new Vector3(0f, Foot + 0.5f * BurnH * blaze.bounds.size.y, 0f),
                     BurnH, Fade(Color.white, 0.9f), 0f, true);

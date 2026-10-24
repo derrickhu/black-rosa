@@ -154,6 +154,10 @@ namespace InkLine
         public static void Crumble() => CueOr("res_crumble", "boom", 0.9f, 0.3f, 0.85f);
         public static void UnlockSting() => CueOr("res_unlock", "chime", 0.9f, 0.3f, 1f);
 
+        // 字卡升级。study_up 的爆点在 0.3 秒，和 StudyUpFx.Hit 对齐；品质提升再叠一条。
+        public static void StudyUp() => CueOr("study_up", "res_unlock", 1f, 0.12f, 1f);
+        public static void StudyTier() => CueOr("study_tier", "card_rare", 1f, 0.4f, 1f);
+
         static void CueOr(string name, string fallback, float volume, float gap, float pitch)
         {
             Cue(Clip(name) != null ? name : fallback, volume, gap, 0f, pitch);

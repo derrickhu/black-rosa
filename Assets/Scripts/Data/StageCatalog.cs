@@ -109,6 +109,8 @@ namespace InkLine
 
         // 本局词缀。无尽按周换，每日残局按天换；主线是 null。
         public StageRule Rule;
+        // 十一、十二章：开局只留 Mask 里那几格，其余靠改装里的铲子挖。
+        public bool Dig;
         // 战场底图，空着按章节取。
         public string Backdrop;
 
@@ -169,21 +171,18 @@ namespace InkLine
     {
         public static readonly string[] ChapterNames =
         {
-            "草地", "土路", "石院", "沙漠", "森林", "河滩", "雪原", "火山", "竹林", "古寺"
+            "草地", "土路", "石院", "沙漠", "森林", "河滩", "雪原", "火山", "竹林", "古寺", "墨窟", "地宫"
         };
 
-        static readonly string[] CnNum = { "一", "二", "三", "四", "五", "六", "七", "八", "九", "十" };
+        public static string ChapterLabel(int chapter) => "第" + GameConstants.ChapterName(chapter) + "章";
 
-        public static string ChapterLabel(int chapter)
-        {
-            int n = chapter + 1;
-            return n >= 1 && n <= CnNum.Length ? "第" + CnNum[n - 1] + "章" : "第" + n + "章";
-        }
+        public static string BattleBackdrop(int chapter) => "Bg/battle_bg_" + (chapter + 1);
 
         // 章底数。章内每关再加 5%，章底额外 ×1.15。
         // 格子逐章慢开、第三排留给以后的章节，前几章盘面小，血量跟着压低；后面靠星级、词条和道具补上差距。
         // 第二幕（九、十章）第三排整排开满，火力上一个台阶，血量跟着抬。
-        static readonly float[] ChapterHp = { 1.15f, 1.3f, 1.52f, 1.76f, 1.85f, 2.2f, 2.5f, 2.8f, 3.1f, 3.5f };
+        // 十一、十二章开局格子少。出怪血按字卡升到 9、10 级来定，升满的人比第十章略紧，没升的人明显吃力。
+        static readonly float[] ChapterHp = { 1.15f, 1.3f, 1.52f, 1.76f, 1.85f, 2.2f, 2.5f, 2.8f, 3.1f, 3.5f, 3.75f, 4.0f };
         const float SlotHpStep = 0.05f;
         const float FinaleHp = 1.15f;
 
@@ -194,14 +193,14 @@ namespace InkLine
         }
 
         // 怪的移速章节系数。前两章格子少、字少，怪慢一点玩家才来得及看清字在干什么。
-        static readonly float[] ChapterSpeed = { 0.75f, 0.85f, 0.92f, 1f, 1f, 1.04f, 1.07f, 1.1f, 1.12f, 1.14f };
+        static readonly float[] ChapterSpeed = { 0.75f, 0.85f, 0.92f, 1f, 1f, 1.04f, 1.07f, 1.1f, 1.12f, 1.14f, 1.16f, 1.18f };
 
         public static float SpeedOf(int chapter) =>
             ChapterSpeed[Mathf.Clamp(chapter, 0, ChapterSpeed.Length - 1)];
 
         // 每只怪掉墨的章节系数，把每章首通的墨收入钉在锻造和道具定价对应的那条线上。
         // 前两章一局的怪多、局也长，系数反而要压低；改波次或只数之后跑 check_stages 重新对一遍。
-        static readonly float[] ChapterInk = { 1.55f, 0.82f, 1.08f, 1.26f, 1.41f, 1.05f, 1.09f, 1.07f, 0.78f, 0.94f };
+        static readonly float[] ChapterInk = { 1.55f, 0.82f, 1.08f, 1.26f, 1.41f, 1.05f, 1.09f, 1.07f, 0.78f, 0.94f, 0.92f, 0.88f };
 
         public static float InkOf(int chapter) =>
             ChapterInk[Mathf.Clamp(chapter, 0, ChapterInk.Length - 1)];
@@ -209,7 +208,7 @@ namespace InkLine
         // 后期怪血补强。锻造在后几章涨得比血快，第十章裕度一度是第二章的两倍，
         // 通关玩家几乎全三星。只乘在出怪那一下，掉落、关卡定价、boss 表都还按 ChapterHp 算，
         // 所以墨和金币收入不跟着涨。精英吃主线这一份再乘 HardHp。
-        static readonly float[] ChapterLateHp = { 1f, 1f, 1f, 1f, 1f, 1.14f, 1.05f, 1.18f, 1.28f, 1.42f };
+        static readonly float[] ChapterLateHp = { 1f, 1f, 1f, 1f, 1f, 1.14f, 1.05f, 1.18f, 1.28f, 1.42f, 1.62f, 1.72f };
 
         public static float LateHpOf(StageDef s)
         {
@@ -263,9 +262,11 @@ namespace InkLine
             public WaveDef[] Waves;
             public bool TeachDraft;
             public bool TeachStar;
+            public bool Dig;
 
             public Plan Give(params CardId[] ids) { Gives = ids; return this; }
             public Plan Teach(bool draft, bool star) { TeachDraft = draft; TeachStar = star; return this; }
+            public Plan DigBoard() { Dig = true; return this; }
         }
 
         static Plan P(string title, string[] shape, params WaveDef[] waves) =>
@@ -303,10 +304,10 @@ namespace InkLine
 
         // 每章非关底波的目标时长。一局要够走完「铺满棋盘 → 升星 → 顶住最后一波」这条弧，
         // 前两章也不能太短，否则格子还空着关就过了。以后加章只往这张表后面加一个数。
-        static readonly float[] ChapterWaveSpan = { 16f, 18f, 19f, 20f, 22f, 22f, 23f, 23f, 24f, 24f };
+        static readonly float[] ChapterWaveSpan = { 16f, 18f, 19f, 20f, 22f, 22f, 23f, 23f, 24f, 24f, 26f, 26f };
         // 第三章起每波再留的秒数。平铺经常已经比目标时长更长，只抬目标时长补不上，
         // 所以直接加在每波收尾上。格子从这里铺开，一波要打得更久。
-        static readonly float[] ChapterWavePad = { 0f, 0f, 4f, 4f, 5f, 5f, 6f, 6f, 6f, 7f };
+        static readonly float[] ChapterWavePad = { 0f, 0f, 4f, 4f, 5f, 5f, 6f, 6f, 6f, 7f, 8f, 8f };
         // 最后一波多留的几秒。改装变贵后，铺满棋盘的那一抽常常落在最后一波里，
         // 多留一段，钱到了关卡还没被判结束。
         const float LastWaveHold = 28f;
@@ -376,13 +377,13 @@ namespace InkLine
 
         // 每章杂兵只数。钱跟着怪走，抽牌价由钱袋反推。
         // 第三章起和波长一起抬：第五、六章原来还打着折，这里补回到和其他章差不多。
-        static readonly float[] ChapterBodies = { 1f, 1f, 1.22f, 1.18f, 1.10f, 1.08f, 1.12f, 1.06f, 1.06f, 1.06f };
+        static readonly float[] ChapterBodies = { 1f, 1f, 1.22f, 1.18f, 1.10f, 1.08f, 1.12f, 1.06f, 1.06f, 1.06f, 1.06f, 1.06f };
         // 第三章起，最后一波的密度不动。第一波少刷一点，中间几波加厚。
         // 格子变多的关靠中段的怪把变贵的改装买满，开局那一波凑不满。
-        static readonly float[] ChapterMidBodies = { 1f, 1f, 1.15f, 1.18f, 1.22f, 1.12f, 1.22f, 1.30f, 1.30f, 1.30f };
+        static readonly float[] ChapterMidBodies = { 1f, 1f, 1.15f, 1.18f, 1.22f, 1.12f, 1.22f, 1.30f, 1.30f, 1.30f, 1.30f, 1.30f };
         // 第一波少刷一点。开局金币来得慢，改装不会进关就弹；少掉的怪补在中间几波。
         // 第六章起不再砍第一波：后面按血摊，镇守和精英一拨常常只剩一只。
-        static readonly float[] ChapterOpenBodies = { 1f, 1f, 0.72f, 0.70f, 0.68f, 1f, 1f, 1f, 1f, 1f };
+        static readonly float[] ChapterOpenBodies = { 1f, 1f, 0.72f, 0.70f, 0.68f, 1f, 1f, 1f, 1f, 1f, 1f, 1f };
         // 第一章头三关：新手引导、刚学升星、刚学冰火，怪再少一截。
         static readonly float[] FirstChapterEase = { 0.6f, 0.75f, 0.9f };
 
@@ -597,6 +598,8 @@ namespace InkLine
             Chapter8(plans);
             Chapter9(plans);
             Chapter10(plans);
+            Chapter11(plans);
+            Chapter12(plans);
 
             var have = new List<CardId>();
             var s = new StageDef[GameConstants.StageCount];
@@ -621,6 +624,8 @@ namespace InkLine
                     Waves = Pace(p.Waves, ch),
                     TeachDraft = p.TeachDraft,
                     TeachStar = p.TeachStar,
+                    Dig = p.Dig,
+                    Backdrop = p.Dig ? BattleBackdrop(ch) : null,
                     Hp = HpOf(ch, slot, finale),
                     Finale = finale,
                     Mini = slot == 4 && ch > 0,
@@ -664,6 +669,12 @@ namespace InkLine
         // 宝箱：普通怪的掉落率、黄箱占比。BattleWorld 掉箱和这里算期望用的是同一组数。
         public const float ChestChance = 0.08f;
         public const float ChestGoldShare = 0.7f;
+        // 十一章起整章都用铲子。开局格数故意少，抽牌仍按挖开之后的盘面来定价，
+        // 不然几格就把钱花完，铲子和字都买不起。
+        public const int DigChapter = 10;
+        public const int DigDraftCells = 12;
+        public const float DigShovelChance = 0.5f;
+
         // 一局的目标抽牌数：先把开放格子铺满，再把大半格子顶到二三星。
         // 抽牌费用由它反推，所以以后加章、改棋盘大小都自动对得上，不用手调。
         // 格子收紧之后每格多给几抽，一局的总抽牌数和以前差不多，火力从铺宽换成了叠星。
@@ -711,7 +722,7 @@ namespace InkLine
             float chests = kills * ChestChance + (s.HasBoss ? 1f : 0f);
             s.GoldPurse = s.KillGold + Mathf.RoundToInt(chests * ChestGoldShare * s.ChestGold);
 
-            int open = Mathf.Max(1, s.OpenCount);
+            int open = s.Dig ? DigDraftCells : Mathf.Max(1, s.OpenCount);
             int n;
             if (s.Chapter == 0) n = Mathf.Max(open + 1, Mathf.RoundToInt(open * FirstChapterPicksPerCell));
             else if (s.Chapter == 1) n = Mathf.Max(open + 2, Mathf.RoundToInt(open * SecondChapterPicksPerCell));
