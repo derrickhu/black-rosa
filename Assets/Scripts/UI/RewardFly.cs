@@ -26,6 +26,9 @@ namespace InkLine
         public static Piece Stamina(RectTransform layer, int n) =>
             Wallet(layer, "stamina", "cs", InkSprites.Ui("stamina"), n, StamSpark);
 
+        public static Piece Foil(RectTransform layer, int n) =>
+            new Piece { Icon = FoilArt.Icon, Count = n, Spark = FoilArt.Face, Land = Tab(layer, HomeScreen.TabStudy) };
+
         public static Piece Token(RectTransform layer, int n) =>
             new Piece { Icon = InkSprites.Ui("goldgain"), Count = n, Spark = InkTheme.Gold, Land = Tab(layer, HomeScreen.TabForge) };
 

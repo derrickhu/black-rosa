@@ -44,6 +44,8 @@ namespace InkLine
         RectTransform _home;
         float _homeParkY;
         int _ink;
+        Text _foilText;
+        int _foil;
         Text _chestNote;
         bool _starOpened;
 
@@ -307,13 +309,16 @@ namespace InkLine
             var list = new List<(string icon, int value, string tag)>();
             list.Add(("ink", info.Ink, info.DailyDouble ? "首胜×2" : null));
             if (info.Diamonds > 0) list.Add(("diamond", info.Diamonds, "首通"));
+            if (info.Foil > 0) list.Add(("foil", info.Foil, null));
             bool chest = info.Chest >= 0;
 
             var head = UiKit.Label(parent, "rh", "本关收获", 26, new Vector2(0f, RewardY + 106f), new Vector2(300f, 36f));
             head.color = InkTheme.Hex("FFE7B8");
             _anim.Fade(head, at, 0.25f, 0f, 1f);
 
-            const float W = 168f, H = 150f, Gap = 18f, ChestW = 200f;
+            const float H = 150f, Gap = 18f, ChestW = 200f;
+            // 第五章起首通多一张金箔，四张并排要收窄，否则撑出 720。
+            float W = list.Count >= 3 ? 140f : 168f;
             int n = list.Count + (chest ? 1 : 0);
             float span = list.Count * W + (chest ? ChestW : 0f) + (n - 1) * Gap;
             float x = -span * 0.5f;
@@ -324,7 +329,7 @@ namespace InkLine
                 x += W + Gap;
                 var card = ResultKit.Group(parent, "rw" + i, new Vector2(cx, RewardY), new Vector2(W, H));
                 UiKit.Stroke(card, "bg", Vector2.zero, new Vector2(W, H), Pin.Center, 5f, radius: 26f);
-                UiKit.Icon(card, InkSprites.Ui(icon), new Vector2(0f, 22f), 72f);
+                UiKit.Icon(card, icon == "foil" ? FoilArt.Icon : InkSprites.Ui(icon), new Vector2(0f, 22f), 72f);
                 var num = UiKit.Label(card, "n", "+0", 36, new Vector2(0f, -42f), new Vector2(W, 48f));
                 UiKit.Bold(num);
                 num.color = InkTheme.TextDark;
@@ -337,6 +342,11 @@ namespace InkLine
                     _inkText = num;
                     _inkCard = card;
                     _ink = info.Ink;
+                }
+                if (icon == "foil")
+                {
+                    _foilText = num;
+                    _foil = info.Foil;
                 }
                 if (tag != null)
                 {
@@ -496,6 +506,11 @@ namespace InkLine
             {
                 _chestNote.text = "已打开";
                 _chestNote.color = InkTheme.Hex("B8F0A8");
+            }
+            if (_foilText != null && _foil > 0)
+            {
+                _anim.CountUp(_foilText, _foil, _foil * 2, 0.05f, 0.7f, "+{0}", null);
+                _foil *= 2;
             }
             if (_inkText == null || _ink <= 0) return;
             _anim.CountUp(_inkText, _ink, _ink * 2, 0.05f, 0.7f, "+{0}", AudioBus.CountTick)

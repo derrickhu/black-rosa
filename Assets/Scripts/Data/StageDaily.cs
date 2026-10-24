@@ -6,15 +6,17 @@ namespace InkLine
 {
     // 每日残局：全服同一天打同一局。20 波，看自己今天能撑几波。不上榜。
     // 每天由日期定死：开局第一排 0～2 个空格、不摆字、停用两张字、一条魔气词缀、
-    // 兵种和出场顺序、战场底图。字池固定用第四章章底那一份，通关第四章才开。
+    // 兵种和出场顺序、战场底图。字池固定用第四章章底那一份。通关第三章就开，
+    // 但这一关的 Chapter 仍记成第四章：怪的移速和掉墨读的是它。
     // 格子靠改装里随机刷出的铲子挖。难度按无尽的曲线走得更快：
     // 第 n 波相当于无尽第 1.6n 波，第 20 波约 9 倍血。第 10、20 波各压一只关底。不渗魔气。
     public static partial class StageCatalog
     {
         public const int DailyWaves = 20;
         const float DailyDepthStep = 1.6f;
-        // 字池取这一关（第四章章底）的。
-        const int DailyPoolStage = GameConstants.ChapterSize * (GameConstants.DailyOpenChapter + 1) - 1;
+        // 字池、移速、掉墨都取第四章。和开放门槛（第三章）分开，改开放不改这一局的内容。
+        const int DailyContentChapter = 3;
+        const int DailyPoolStage = GameConstants.ChapterSize * (DailyContentChapter + 1) - 1;
         const int DailyBanCount = 2;
         // 开局最多留这么多空格，当天在 0～这个数里取。不摆字。
         public const int DailyStartCells = 2;
@@ -85,7 +87,7 @@ namespace InkLine
             var s = new StageDef
             {
                 Index = -1,
-                Chapter = GameConstants.DailyOpenChapter,
+                Chapter = DailyContentChapter,
                 Slot = 0,
                 Title = "每日残局",
                 Name = "每日残局 · " + DailyWaves + " 波",

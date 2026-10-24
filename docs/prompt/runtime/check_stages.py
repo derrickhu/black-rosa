@@ -680,6 +680,36 @@ check(min(tail) / max(tail) >= 0.5,
       f"第二章起裕度最低 / 最高 = {min(tail) / max(tail):.2f}（要 ≥0.50）")
 slump = tail[-1] / tail[0]
 check(slump >= 0.5, f"末章裕度 / 第二章裕度 = {slump:.2f}（要 ≥0.50，低于此说明后期战力跟不上血量）")
+
+# 后期补强：只乘在出怪上（StageCatalog.ChapterLateHp），上面的「需 DPS」还是按关卡表算的，这里再除一遍。
+# 线上存档：不到满改装就三星全通、打穿无尽 —— 原曲线第十章裕度是第二章的两倍。
+# 所以也要卡上限：第五章起不能比第三四章松太多。
+stage_src = read("Data", "StageCatalog.cs")
+late_hp = [float(x) for x in re.search(r"ChapterLateHp = \{([^}]*)\}", stage_src).group(1).replace("f", "").split(",")]
+late_hp = [late_hp[min(ch, len(late_hp) - 1)] for ch in range(chapters)]
+head = [h / l for h, l in zip(head, late_hp)]
+print("  后期怪血补强: " + " / ".join(f"{x:.2f}" for x in late_hp))
+print("  战力裕度（补强后）: " + " / ".join(f"{x:.2f}" for x in head))
+mid = (head[2] + head[3]) / 2
+loose = max(head[4:]) / mid
+check(loose <= 1.3, f"第五章起裕度最高 / 第三四章均值 = {loose:.2f}（要 ≤1.30，后期不能越打越松）")
+check(all(l >= 1.0 for l in late_hp) and all(l == 1.0 for l in late_hp[:4]), "后期补强不降血、前四章不动")
+
+# 字卡：第五章起怪血按「这章大致该有几级」抬一点，只补七成，升级的人摸得到变强。
+# 没升级的人裕度会掉一截，掉多少要看得见；前四章必须完全不动。
+study_src = read("Data", "StudyCatalog.cs")
+study_per = float(re.search(r"PerLevel\s*=\s*([\d.]+)f", study_src).group(1))
+study_share = float(re.search(r"HpShare\s*=\s*([\d.]+)f", study_src).group(1))
+study_exp = [int(x) for x in re.findall(r"\d+", re.search(r"Expected\s*=\s*\{([^}]*)\}", study_src).group(1))]
+study_hp = [1 + study_per * study_exp[min(ch, len(study_exp) - 1)] * study_share for ch in range(chapters)]
+study_pow = [1 + study_per * study_exp[min(ch, len(study_exp) - 1)] for ch in range(chapters)]
+print("  字卡预期等级: " + " / ".join(str(study_exp[min(ch, len(study_exp) - 1)]) for ch in range(chapters)))
+print("  字卡怪血倍率: " + " / ".join(f"{x:.3f}" for x in study_hp))
+print("  裕度（升到预期）: " + " / ".join(f"{h * p / s:.2f}" for h, p, s in zip(head, study_pow, study_hp)))
+print("  裕度（一级没升）: " + " / ".join(f"{h / s:.2f}" for h, s in zip(head, study_hp)))
+check(all(study_exp[ch] == 0 for ch in range(min(4, len(study_exp)))), "字卡预期等级前四章必须是 0（前四章难度不动）")
+check(all(study_exp[i] <= study_exp[i + 1] for i in range(len(study_exp) - 1)), "字卡预期等级要逐章不降")
+check(max(study_hp) <= 1.2, f"字卡怪血倍率最高 {max(study_hp):.3f}（要 ≤1.2，不升级也得能打）")
 item_src = read("Data", "ItemCatalog.cs")
 chest_src = read("Data", "ChestCatalog.cs")
 forge_cost = sum(int(x) for grp in re.findall(r"Cost = new\[\] \{([^}]*)\}", forge_src) for x in re.findall(r"\d+", grp))
@@ -715,7 +745,17 @@ income = ink_total + chest_ink
 # 买满的节奏：总价约为首通收入的 2.4~3.4 倍。九件时大约 3 倍；第十件回旋镖是紫，买满再多大约一成。
 # 宝箱墨是额外收入，算进分母；超线就该降箱子里的墨，而不是砍通关墨。
 ratio = sink / max(1, income)
-check(2.4 <= ratio <= 3.4, f"墨价 / 首通墨收入 = {sink} / ({ink_total} + 宝箱 {chest_ink}) = {ratio:.2f}")
+check(2.4 <= ratio <= 4.4, f"墨价 / 首通墨收入 = {sink} / ({ink_total} + 宝箱 {chest_ink}) = {ratio:.2f}")
+# 线上存档：结算页双倍墨几乎人人看，首通一遍的实际进账约是表上的 1.5~1.6 倍。
+# 改装（90 关内开放的级）要比「首通 + 每关都看双倍」略贵或持平，买满得去打精英、重刷。
+forge_open = 0
+for m in re.finditer(r'Cost = new\[\] \{([^}]*)\},\s*Gate = new\[\] \{([^}]*)\}', forge_src):
+    cost = [int(x) for x in re.findall(r"\d+", m.group(1))]
+    gate = [int(x) for x in re.findall(r"\d+", m.group(2))]
+    forge_open += sum(c for c, g in zip(cost, gate) if g <= chapters * size)
+doubled = ink_total * 2 + chest_ink
+check(0.9 <= forge_open / doubled <= 1.3,
+      f"改装（{chapters * size} 关内开放的级）/ 首通墨收入（每关都看双倍）= {forge_open} / {doubled} = {forge_open / doubled:.2f}（要 0.9~1.3）")
 chest_share = chest_ink / max(1, income)
 check(chest_share <= 0.2, f"宝箱墨占首通墨收入 {chest_share:.0%}（要 ≤20%，箱子是添头，主收入还是打怪）")
 print(f"  墨价明细：锻造 {forge_cost}  道具 {item_cost}  皮肤 {skin_cost}")

@@ -31,7 +31,7 @@ namespace InkLine
             if (!meta.DailyOpen)
             {
                 Locked(c, "全服每天同一局，开局只留几格，禁掉两个字",
-                    "通关第" + ChapterName(GameConstants.DailyOpenChapter) + "章开放");
+                    "通关第" + GameConstants.ChapterName(GameConstants.DailyOpenChapter) + "章开放");
             }
             else
             {
@@ -55,7 +55,7 @@ namespace InkLine
             if (!meta.EndlessOpen)
             {
                 Locked(c, $"{StageCatalog.EndlessWaves} 波冲层，每周换词缀、全服冲榜",
-                    "通关第" + ChapterName(GameConstants.EndlessOpenChapter) + "章开放");
+                    "通关第" + GameConstants.ChapterName(GameConstants.EndlessOpenChapter) + "章开放");
             }
             else
             {
@@ -136,12 +136,6 @@ namespace InkLine
         static void Write(Text t, string s)
         {
             if (t != null) t.text = s;
-        }
-
-        static string ChapterName(int chapter)
-        {
-            string[] cn = { "一", "二", "三", "四", "五", "六", "七", "八", "九", "十" };
-            return chapter >= 0 && chapter < cn.Length ? cn[chapter] : (chapter + 1).ToString();
         }
     }
 }

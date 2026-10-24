@@ -4,7 +4,7 @@ using UnityEngine.UI;
 
 namespace InkLine
 {
-    // 首页：常驻顶栏 + 四段底栏（炮台 / 出征 / 道具 / 副本）。
+    // 首页：常驻顶栏 + 五段底栏（字卡 / 炮台 / 出征 / 道具 / 副本）。
     // 有 Prefabs/Home 就只绑定；没有才走下面那套临时代码搭壳。
     public sealed class HomeScreen
     {
@@ -12,6 +12,9 @@ namespace InkLine
         public const int TabSortie = 1;
         public const int TabSpell = 2;
         public const int TabDungeon = 3;
+        // 后加的，编号接在最后，摆在最左边。
+        public const int TabStudy = 4;
+        static readonly int[] TabSlots = { 1, 2, 3, 4, 0 };
 
         const float CardW = 322f;
         const float CardH = 152f;
@@ -21,7 +24,7 @@ namespace InkLine
         readonly RectTransform _layer;
         readonly MetaProgress _meta;
         readonly Action<int> _start;
-        readonly RectTransform[] _pages = new RectTransform[4];
+        readonly RectTransform[] _pages = new RectTransform[5];
         HomeView _view;
         Button[] _tabs;
         Text _ink;
@@ -46,7 +49,8 @@ namespace InkLine
             if (!h.TryPrefab()) h.BuildShell();
             h.FitFrame();
             if (tab == TabDungeon && !meta.EndlessOpen) tab = TabSortie;
-            h.Pick(Mathf.Clamp(tab, TabForge, TabDungeon));
+            if (tab == TabStudy && !meta.StudyOpen) tab = TabSortie;
+            h.Pick(Mathf.Clamp(tab, TabForge, TabStudy));
             h.RefreshTop();
             // 排行榜上线前就有进度的老玩家，进大厅补报一次；报过的同样关数不会重发。
             RankService.Submit(meta);
@@ -84,6 +88,8 @@ namespace InkLine
             _pages[2] = _view.SpellPage != null ? _view.SpellPage.GetComponent<RectTransform>() : null;
             _pages[3] = EnsureDungeonPage();
             EnsureDungeonTab();
+            _pages[TabStudy] = EnsureStudyPage();
+            EnsureStudyTab();
             if (_tabs != null)
             {
                 for (int i = 0; i < _tabs.Length; i++)
@@ -131,10 +137,15 @@ namespace InkLine
             StaminaTap(stam);
 
             for (int i = 0; i < _pages.Length; i++) _pages[i] = Page("page" + i);
-            _tabs = UiKit.TabBar(_layer, new[] { "炮台", "出征", "道具", "副本" },
-                new[] { InkSprites.Ui("tab_forge"), InkSprites.Ui("tab_sortie"), InkSprites.Ui("tab_spell"), InkSprites.Ui(DungeonTabIcon) },
+            _tabs = UiKit.TabBar(_layer, new[] { "炮台", "出征", "道具", "副本", "字卡" },
+                new[]
+                {
+                    InkSprites.Ui("tab_forge"), InkSprites.Ui("tab_sortie"), InkSprites.Ui("tab_spell"),
+                    InkSprites.Ui(DungeonTabIcon), StudyTabIcon
+                },
                 Pick);
             DungeonPageBuilder.Build(_pages[TabDungeon]);
+            StudyPage.Build(_pages[TabStudy]);
         }
 
         const float ChipStep = 232f;
@@ -238,10 +249,17 @@ namespace InkLine
                 PaintDungeonLock();
                 return;
             }
+            if (tab == TabStudy && !_meta.StudyOpen)
+            {
+                AudioBus.Deny();
+                InkToast.Show(_layer, "通关第四章开放字卡");
+                PaintStudyLock();
+                return;
+            }
             _tab = tab;
             for (int i = 0; i < _pages.Length; i++)
                 if (_pages[i] != null) _pages[i].gameObject.SetActive(i == tab);
-            UiKit.PaintTab(_tabs, tab);
+            UiKit.PaintTab(_tabs, tab, TabSlots);
             Rebuild(tab);
             TabPicked?.Invoke(tab);
         }
@@ -288,15 +306,26 @@ namespace InkLine
                 if (tab == TabForge) BindForge();
                 else if (tab == TabSortie) BindSortie();
                 else if (tab == TabDungeon) BindDungeon();
+                else if (tab == TabStudy) BindStudy();
                 else ShowItems(_pages[TabSpell]);
                 RefreshTop();
                 ForgeTabDot();
                 ItemTabDot();
                 DungeonTabDot();
+                StudyTabDot();
                 PaintDungeonLock();
+                PaintStudyLock();
                 return;
             }
             RectTransform page = _pages[tab];
+            if (tab == TabStudy)
+            {
+                BindStudy();
+                RefreshTop();
+                StudyTabDot();
+                PaintStudyLock();
+                return;
+            }
             if (tab == TabDungeon)
             {
                 BindDungeon();
@@ -318,6 +347,8 @@ namespace InkLine
             else if (tab == TabSortie) BuildSortie(page);
             RefreshTop();
             PaintDungeonLock();
+            PaintStudyLock();
+            StudyTabDot();
         }
 
         float _fitW = -1f;
@@ -1351,7 +1382,7 @@ namespace InkLine
             if (!_meta.DailyOpen)
             {
                 AudioBus.Deny();
-                InkToast.Show(_layer, "通关第四章开放");
+                InkToast.Show(_layer, "通关第" + GameConstants.ChapterName(GameConstants.DailyOpenChapter) + "章开放");
                 return;
             }
             AudioBus.Tap();
@@ -1467,11 +1498,12 @@ namespace InkLine
         }
 
         // 通关第二章之前，底栏「副本」一直锁着，点了只提示条件，不切页。
-        void PaintDungeonLock()
+        void PaintDungeonLock() => PaintLock(TabDungeon, !_meta.EndlessOpen);
+
+        void PaintLock(int tab, bool locked)
         {
-            if (_tabs == null || _tabs.Length <= TabDungeon || _tabs[TabDungeon] == null) return;
-            bool locked = !_meta.EndlessOpen;
-            Transform btn = _tabs[TabDungeon].transform;
+            if (_tabs == null || _tabs.Length <= tab || _tabs[tab] == null) return;
+            Transform btn = _tabs[tab].transform;
             var icon = btn.Find("icon")?.GetComponent<Image>();
             if (icon != null) icon.color = locked ? new Color(0.62f, 0.62f, 0.62f, 1f) : Color.white;
             Transform mark = icon != null ? icon.transform.Find("lock") : null;
@@ -1484,7 +1516,88 @@ namespace InkLine
             if (mark != null) mark.gameObject.SetActive(locked);
             var label = btn.Find("t")?.GetComponent<Text>();
             if (label != null)
-                label.color = locked ? InkTheme.TextDim : (_tab == TabDungeon ? InkTheme.Seal : InkTheme.TextMid);
+                label.color = locked ? InkTheme.TextDim : (_tab == tab ? InkTheme.Seal : InkTheme.TextMid);
+        }
+
+        // ---------- 字卡页 ----------
+
+        static Sprite StudyTabIcon => InkSprites.Ui("tab_study") ?? InkSprites.Ui("card");
+
+        // 通关第四章之前，底栏「字卡」锁着，和副本一样只提示条件。
+        void PaintStudyLock() => PaintLock(TabStudy, !_meta.StudyOpen);
+
+        RectTransform EnsureStudyPage()
+        {
+            var spell = _view.SpellPage.GetComponent<RectTransform>();
+            Transform old = spell.parent.Find("page_study");
+            if (old != null) return (RectTransform)old;
+            var go = new GameObject("page_study", typeof(RectTransform));
+            var rt = (RectTransform)go.transform;
+            rt.SetParent(spell.parent, false);
+            rt.SetSiblingIndex(spell.GetSiblingIndex() + 1);
+            rt.anchorMin = spell.anchorMin;
+            rt.anchorMax = spell.anchorMax;
+            rt.pivot = spell.pivot;
+            rt.offsetMin = spell.offsetMin;
+            rt.offsetMax = spell.offsetMax;
+            StudyPage.Build(rt);
+            go.SetActive(false);
+            return rt;
+        }
+
+        // 照「道具」复制出第五个页签。
+        void EnsureStudyTab()
+        {
+            if (_tabs == null || _tabs.Length != TabStudy || _tabs[TabSpell] == null) return;
+            var copy = UnityEngine.Object.Instantiate(_tabs[TabSpell].gameObject, _tabs[TabSpell].transform.parent);
+            copy.name = "tab" + TabStudy;
+            Transform dot = copy.transform.Find("dot");
+            if (dot != null) UnityEngine.Object.Destroy(dot.gameObject);
+            var icon = copy.transform.Find("icon")?.GetComponent<Image>();
+            if (icon != null)
+            {
+                icon.sprite = StudyTabIcon;
+                Transform lk = icon.transform.Find("lock");
+                if (lk != null) UnityEngine.Object.Destroy(lk.gameObject);
+            }
+            var t = copy.transform.Find("t")?.GetComponent<Text>();
+            if (t != null) t.text = "字卡";
+            var tabs = new Button[TabStudy + 1];
+            for (int i = 0; i < _tabs.Length; i++) tabs[i] = _tabs[i];
+            tabs[TabStudy] = copy.GetComponent<Button>();
+            _tabs = tabs;
+            _view.Tabs = tabs;
+        }
+
+        void BindStudy()
+        {
+            RectTransform page = _pages[TabStudy];
+            if (page == null) return;
+            StudyPage.Build(page).Bind(_meta, _layer, () =>
+            {
+                RefreshTop();
+                StudyTabDot();
+            });
+            StudyTabDot();
+        }
+
+        // 字卡有能升的、或者刚开放还没点开过，底栏挂红点。
+        void StudyTabDot()
+        {
+            if (_tabs == null || _tabs.Length <= TabStudy || _tabs[TabStudy] == null) return;
+            Transform btn = _tabs[TabStudy].transform;
+            bool on = _meta.AnyStudyReady;
+            Transform dot = btn.Find("dot");
+            if (dot == null)
+            {
+                if (!on) return;
+                var ring = UiKit.Icon(btn, UiSprites.Disc(), new Vector2(42f, 88f), 28f);
+                ring.gameObject.name = "dot";
+                ring.color = InkTheme.CardFace;
+                UiKit.Icon(ring.transform, UiSprites.Disc(), Vector2.zero, 22f).color = InkTheme.Seal;
+                dot = ring.transform;
+            }
+            dot.gameObject.SetActive(on);
         }
 
         // 每日副本或无尽副本还有今日次数时，底栏「副本」挂红点。没开放时不挂。

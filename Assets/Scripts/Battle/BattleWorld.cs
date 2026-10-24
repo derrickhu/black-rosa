@@ -448,9 +448,47 @@ namespace InkLine
             }
         }
 
+        // 字卡等级，开局前由 GameFlow 写入。null 表示这一局不吃字卡。
+        public int[] StudyGlyph;
+        public int[] StudyWord;
+        // 只乘在出怪的血上：字卡补的那份和后期补强。掉落仍按关卡血算。
+        float _spawnHp = 1f;
+
+        public int StudyTrialGlyph;
+        public int StudyTrialWord;
+
+        float StudyMul(ShotMods m) => StudyGlyph == null ? 1f : StudyCatalog.ShotMul(m, StudyGlyph, StudyWord);
+
+        public float ShotStudyLevel(ShotMods m) =>
+            StudyGlyph == null ? 0f : StudyCatalog.ShotLevel(m, StudyGlyph, StudyWord);
+
+        // 这一局里这个字的字卡等级（含试用），-1 是不吃字卡或成词的半边字。
+        public int StudyLevelOf(CardId id)
+        {
+            int i = (int)id;
+            return StudyGlyph == null || i <= 0 || i >= StudyGlyph.Length ? -1 : StudyGlyph[i];
+        }
+
+        public int StudyLevelOf(WordId w)
+        {
+            int i = (int)w;
+            return StudyWord == null || i <= 0 || i >= StudyWord.Length ? -1 : StudyWord[i];
+        }
+
+        // 放下 / 成词时在格子上冒一行「Lv.7 +14%」，玩家看得见自己花的钱。
+        void StudyPop(Vector2 at, int level, bool trial)
+        {
+            if (level <= 0) return;
+            StudyCatalog.Tier t = StudyCatalog.TierOf(level);
+            string text = (trial ? "试用 Lv." : "Lv.") + level + " +" + Mathf.RoundToInt(StudyCatalog.BonusOf(level) * 100f) + "%";
+            ShowFloat(at + Vector2.up * 0.5f, text, trial ? InkTheme.Teal : StudyCatalog.TierColor(t),
+                t >= StudyCatalog.Tier.Purple ? 0.95f : 0.8f);
+        }
+
         public void Begin(StageDef stage, ForgeStats forge, int[] equipped)
         {
             Stage = stage;
+            _spawnHp = StudyCatalog.HpMul(stage) * StageCatalog.LateHpOf(stage);
             OpenRows = Mathf.Clamp(stage.OpenRows, 1, GameConstants.Rows);
             for (int c = 0; c < GameConstants.Columns; c++)
             for (int r = 0; r < GameConstants.Rows; r++)
@@ -495,6 +533,10 @@ namespace InkLine
             Pulses.Clear();
             Rain.Clear();
             Shouts.Clear();
+            if (StudyTrialGlyph > 0)
+                ShowToast("今日试用 · " + CardCatalog.Get((CardId)StudyTrialGlyph).Name + " +" + StudyCatalog.TrialBonus + " 级", 2.2f);
+            else if (StudyTrialWord > 0)
+                ShowToast("今日试用 · " + CardCatalog.WordName((WordId)StudyTrialWord) + " +" + StudyCatalog.TrialBonus + " 级", 2.2f);
             int waves = stage.Waves != null ? stage.Waves.Length : 0;
             _waveLeft = new int[waves];
             _waveSeen = new bool[waves];
@@ -1003,8 +1045,9 @@ namespace InkLine
             }
             EnemyDef def = EnemyCatalog.Get(id, Stage.HpAt(wave));
             float hp = Stage.Endless
-                ? Mathf.Max(1f, StageCatalog.SurvivalHpOf(id, Stage.HpAt(wave)) * hpShare)
-                : Mathf.Max(1f, def.Hp * hpShare);
+                ? Mathf.Max(1f, StageCatalog.SurvivalHpOf(id, Stage.HpAt(wave)) * hpShare
+                    * (Stage.Daily ? 1f : StageCatalog.EndlessLateHp(wave)))
+                : Mathf.Max(1f, def.Hp * hpShare * _spawnHp);
             float speed = def.Speed * StageCatalog.SpeedOf(Stage.Chapter) * Stage.SpeedAt(wave);
             var e = new EnemyActor
             {
@@ -1387,7 +1430,7 @@ namespace InkLine
             float share = GlyphTable.Word(WordId.ArrowRain).Damage.At(star);
             float dmg = m.BaseDamage * m.Decay;
             dmg = m.GoldRidesMul ? (dmg + m.AddDamage) * m.MulDamage : dmg * m.MulDamage + m.AddDamage;
-            dmg *= m.FinalMul;
+            dmg *= m.FinalMul * StudyMul(m);
             return dmg * share;
         }
 
@@ -1635,7 +1678,7 @@ namespace InkLine
         {
             if (hit == null || b == null) return;
             ShotMods m = b.Mods;
-            float flat = m.BaseDamage * m.Decay * m.FinalMul;
+            float flat = m.BaseDamage * m.Decay * m.FinalMul * StudyMul(m);
             if (_skinId == SkinCatalog.Tide)
             {
                 hit.Slow = Mathf.Min(hit.Slow, SkinCatalog.TideSlow);
@@ -1791,7 +1834,7 @@ namespace InkLine
                 // 霰雷：打在已冻结的目标上算碎冰
                 if (m.Shatter && e.Frozen) dmg *= 1.4f;
                 // 4.2 局外成长的终乘。排在盘面加算之后，炮台伤害线才真的在放大整发伤害。
-                dmg *= m.FinalMul;
+                dmg *= m.FinalMul * StudyMul(m);
             }
             // 4.3 暴击词条，同样乘整发
             bool crit = _critChance > 0f && UnityEngine.Random.value < _critChance;
@@ -2833,8 +2876,12 @@ namespace InkLine
             return PlaceResult.NeedConfirm;
         }
 
+        // 这一手下刚凑成的词。没有就是 None。试用要等词真的出现才算用掉。
+        public WordId FormedWord;
+
         public PlaceResult Place(CardId id, int col, int row, bool overwrite)
         {
+            FormedWord = WordId.None;
             PlaceResult peek = PeekPlace(id, col, row);
             if (peek == PlaceResult.LockedRow || peek == PlaceResult.RejectedMaxStar) return peek;
             if (peek == PlaceResult.NeedConfirm && !overwrite) return peek;
@@ -2859,6 +2906,8 @@ namespace InkLine
                 : peek == PlaceResult.NeedConfirm ? CellBeat.Replace : CellBeat.Drop, col, row);
             beat.Old = old;
             Pulses.Add(beat);
+            Vector2 cell = FieldLayout.CellPos(col, row);
+            if (peek != PlaceResult.Upgraded) StudyPop(cell, StudyLevelOf(id), (int)id == StudyTrialGlyph);
 
             if (_word[col] != WordId.None && _word[col] != before)
             {
@@ -2867,6 +2916,8 @@ namespace InkLine
                 WordsLit++;
                 ShowToast("成词 · " + LastReveal);
                 BeatWord(col, _word[col]);
+                FormedWord = _word[col];
+                StudyPop(cell + Vector2.up * 0.45f, StudyLevelOf(_word[col]), (int)_word[col] == StudyTrialWord);
             }
             else if (before != WordId.None && _word[col] != before)
             {

@@ -5,7 +5,8 @@ using UnityEngine.UI;
 namespace InkLine
 {
     // 七日签到，照花花的 3+3+1：前六天两排小卡，第七天一张宽卡。
-    // 每天体力 + 墨 + 钻石，签的时候看广告翻倍；已经直接签了的，当天还能补看一次再领一份。
+    // 每天体力 + 墨 + 钻石。通关第四章后墨换成金箔（第 1～4 天 3，第 5、6 天 6，第 7 天 10）。
+    // 签的时候看广告翻倍；已经直接签了的，当天还能补看一次再领一份。
     // 第 7 天另送金宝箱，第一次连签满 7 天还送机甲，断一天从第 1 天重来。
     public sealed class CheckInPanel : MonoBehaviour
     {
@@ -74,7 +75,8 @@ namespace InkLine
             Day7Card(new Vector2(0f, GridTop + 2f * (CardH + Gap)), new Vector2(GridW, Day7H), last <= shown, last == next,
                 MetaProgress.CheckDiamondOf(last));
 
-            var tip = UiKit.Label(_body, "tip", $"每天 体力×{GameConstants.CheckStamina}  墨×{GameConstants.CheckInk}  还有钻石 · 看广告翻倍", 22,
+            string pay = _meta.StudyOpen ? "金箔" : "墨×" + GameConstants.CheckInk;
+            var tip = UiKit.Label(_body, "tip", $"每天 体力×{GameConstants.CheckStamina}  {pay}  还有钻石 · 看广告翻倍", 22,
                 new Vector2(0f, 176f), new Vector2(BoardW - 60f, 30f), TextAnchor.MiddleCenter, Pin.Bottom);
             tip.color = InkTheme.TextMid;
 
@@ -116,7 +118,7 @@ namespace InkLine
             t.color = isNext ? InkTheme.Seal : InkTheme.TextDark;
             UiKit.Bold(t);
             Pair(card, "Ui/ico_stamina", "×" + GameConstants.CheckStamina, new Vector2(0f, 22f));
-            Pair(card, "Ui/ico_ink", "×" + GameConstants.CheckInk, new Vector2(0f, -18f));
+            Pair(card, PayIcon(), "×" + PayAmount(day), new Vector2(0f, -18f));
             Pair(card, "Ui/ico_diamond", "×" + gems, new Vector2(0f, -58f));
             if (signed) Stamp(card, Vector2.zero);
         }
@@ -130,7 +132,7 @@ namespace InkLine
             UiKit.Bold(t);
             float rowX = left + 230f;
             Pair(card, "Ui/ico_stamina", "×" + GameConstants.CheckStamina, new Vector2(rowX, 40f));
-            Pair(card, "Ui/ico_ink", "×" + GameConstants.CheckInk, new Vector2(rowX, 0f));
+            Pair(card, PayIcon(), "×" + PayAmount(GameConstants.CheckDays), new Vector2(rowX, 0f));
             Pair(card, "Ui/ico_diamond", "×" + gems, new Vector2(rowX, -40f));
             UiKit.Icon(card, InkSprites.Load("Ui/chest_gold"), new Vector2(46f, 12f), 86f);
             var cn = UiKit.Label(card, "chest", ChestCatalog.Get(ChestTier.Gold).Name, 20, new Vector2(46f, -50f), new Vector2(110f, 28f));
@@ -149,6 +151,10 @@ namespace InkLine
             }
             if (signed) Stamp(card, new Vector2(size.x * 0.5f - 90f, 0f));
         }
+
+        string PayIcon() => _meta.StudyOpen ? "Ui/ico_foil" : "Ui/ico_ink";
+
+        int PayAmount(int day) => _meta.StudyOpen ? StudyCatalog.CheckFoilOf(day) : GameConstants.CheckInk;
 
         static void Pair(Transform card, string icon, string amount, Vector2 pos)
         {
@@ -189,22 +195,24 @@ namespace InkLine
             int day = _meta.CheckIn(doubled, out bool skin, out int chest);
             if (day <= 0) return;
             int k = doubled ? 2 : 1;
+            int foil = _meta.StudyOpen ? StudyCatalog.CheckFoilOf(day) * k : 0;
+            int ink = _meta.StudyOpen ? 0 : GameConstants.CheckInk * k;
             string msg = skin
                 ? $"连签 {GameConstants.CheckDays} 天，{SkinCatalog.Get(GameConstants.CheckSkin).Name}皮肤已换上"
-                : $"签到成功 墨×{GameConstants.CheckInk * k} 钻石×{MetaProgress.CheckDiamondOf(day) * k}";
+                : $"签到成功 {(foil > 0 ? "金箔×" + foil : "墨×" + ink)} 钻石×{MetaProgress.CheckDiamondOf(day) * k}";
             if (chest >= 0) msg += "  金宝箱已放进宝箱位";
             else if (chest == -1) msg += "  宝箱位满了，选个位置放下";
             else if (chest == -3) msg += "  宝箱位满了，金宝箱换成墨";
             Transform card = _body != null ? _body.Find(day == GameConstants.CheckDays ? "day7" : "day" + day) : null;
             Vector2 from = RewardFly.Local(_layer, card);
-            int ink = GameConstants.CheckInk * k;
             if (chest == -3) ink += ChestCatalog.InkAvg(ChestTier.Gold);
             var pieces = new System.Collections.Generic.List<RewardFly.Piece>(5)
             {
                 RewardFly.Stamina(_layer, GameConstants.CheckStamina * k),
-                RewardFly.Ink(_layer, ink),
                 RewardFly.Diamond(_layer, MetaProgress.CheckDiamondOf(day) * k)
             };
+            if (foil > 0) pieces.Insert(1, RewardFly.Foil(_layer, foil));
+            if (ink > 0) pieces.Insert(1, RewardFly.Ink(_layer, ink));
             if (chest >= 0) pieces.Add(RewardFly.Chest(_layer, ChestTier.Gold, chest));
             if (skin) pieces.Add(RewardFly.Skin(_layer, GameConstants.CheckSkin));
             InkToast.Show(_layer, msg);
@@ -220,16 +228,19 @@ namespace InkLine
             AdStub.Reward("checkin_bonus", () =>
             {
                 if (this == null || !_meta.CheckAdBonus()) return;
-                string msg = $"额外领取 墨×{GameConstants.CheckInk} 钻石×{MetaProgress.CheckDiamondOf(_meta.CheckRun)}";
+                int foil = _meta.StudyOpen ? StudyCatalog.CheckFoilOf(_meta.CheckRun) : 0;
+                string pay = foil > 0 ? "金箔×" + foil : "墨×" + GameConstants.CheckInk;
+                string msg = $"额外领取 {pay} 钻石×{MetaProgress.CheckDiamondOf(_meta.CheckRun)}";
                 Transform btn = _body != null ? _body.Find("bonus") : null;
                 Vector2 from = RewardFly.Local(_layer, btn);
                 InkToast.Show(_layer, msg);
-                RewardFly.Play(_layer, from, new[]
+                var pieces = new System.Collections.Generic.List<RewardFly.Piece>
                 {
                     RewardFly.Stamina(_layer, GameConstants.CheckStamina),
-                    RewardFly.Ink(_layer, GameConstants.CheckInk),
                     RewardFly.Diamond(_layer, MetaProgress.CheckDiamondOf(_meta.CheckRun))
-                });
+                };
+                pieces.Insert(1, foil > 0 ? RewardFly.Foil(_layer, foil) : RewardFly.Ink(_layer, GameConstants.CheckInk));
+                RewardFly.Play(_layer, from, pieces.ToArray());
                 _changed?.Invoke();
                 Refresh();
             });

@@ -21,6 +21,13 @@ namespace InkLine
         readonly List<SpriteRenderer> _skins = new List<SpriteRenderer>();
         readonly List<SpriteRenderer> _washes = new List<SpriteRenderer>();
         readonly List<SpriteRenderer> _glints = new List<SpriteRenderer>();
+        // 字卡品质：字底下一团光、字外一圈品质框、左上角等级牌，传说再绕一颗亮星。
+        readonly List<SpriteRenderer> _studyGlows = new List<SpriteRenderer>();
+        readonly List<SpriteRenderer> _studyFrames = new List<SpriteRenderer>();
+        readonly List<SpriteRenderer> _studyTags = new List<SpriteRenderer>();
+        readonly List<TextMesh> _studyLv = new List<TextMesh>();
+        readonly List<SpriteRenderer> _studySparks = new List<SpriteRenderer>();
+        readonly Dictionary<int, SpriteRenderer> _halos = new Dictionary<int, SpriteRenderer>();
         readonly CellJuice _juice;
 
         // 皮肤直接换炮身图，底下再垫一团同色的光。钢珠的 tint 是透明，不能拿它判断换没换皮肤。
@@ -86,6 +93,29 @@ namespace InkLine
                 InkFx.PaintSprite(plate, Color.white);
                 _plates.Add(plate);
                 _ranks.Add(MakeRank());
+                var sGlow = Make("study_glow", InkFx.SoftDisc(), FieldLayout.CellPos(c, r), 1f);
+                sGlow.sortingOrder = 1;
+                sGlow.enabled = false;
+                InkFx.PaintAdd(sGlow, Color.clear);
+                _studyGlows.Add(sGlow);
+                var sFrame = Make("study_frame", StudyFrame(), FieldLayout.CellPos(c, r), 1f);
+                sFrame.sortingOrder = 3;
+                sFrame.enabled = false;
+                InkFx.PaintSprite(sFrame, Color.white);
+                _studyFrames.Add(sFrame);
+                var sTag = Make("study_tag", LevelPlate(), FieldLayout.CellPos(c, r), 1f);
+                sTag.sortingOrder = 4;
+                sTag.enabled = false;
+                InkFx.PaintSprite(sTag, Color.white);
+                _studyTags.Add(sTag);
+                var sLv = MakeRank();
+                sLv.name = "study_lv";
+                _studyLv.Add(sLv);
+                var sSpark = Make("study_spark", InkFx.SoftDisc(), FieldLayout.CellPos(c, r), 1f);
+                sSpark.sortingOrder = 6;
+                sSpark.enabled = false;
+                InkFx.PaintAdd(sSpark, Color.clear);
+                _studySparks.Add(sSpark);
                 for (int p = 0; p < PipN; p++)
                 {
                     var pip = Make("pip", InkFx.Pill(), FieldLayout.CellPos(c, r), 1f);
@@ -279,6 +309,7 @@ namespace InkLine
                     if (!sleep) AccrueWash(c, id);
                     w.CellCharge(c, r, out int charged, out int need);
                     PaintMark(i, _stamps[i], id, star, sleep, charged, need, _juice.Badge(c, r));
+                    PaintStudy(i, w.StudyLevelOf(id), (int)id == w.StudyTrialGlyph, sleep);
                 }
                 else
                 {
@@ -287,6 +318,7 @@ namespace InkLine
                     _stamps[i].enabled = false;
                     _glints[i].enabled = false;
                     HideMark(i);
+                    HideStudy(i);
                     PaintZi(_stamps[i], CardId.None, true);
                 }
             }
@@ -391,6 +423,7 @@ namespace InkLine
                 BulletActor b = w.Bullets[n];
                 if (b.Dead) continue;
                 Sprite body = InkArt.Heap(InkShape.Circle, InkTheme.Ink, 48);
+                PaintHalo(b, w.ShotStudyLevel(b.Mods));
                 SpriteRenderer shot = Bind(_bullets, b.Id, body, b.Pos, 1f, 6, Color.white);
                 var layer = shot.GetComponent<InkShot>();
                 if (layer == null) layer = shot.gameObject.AddComponent<InkShot>();
@@ -447,6 +480,7 @@ namespace InkLine
             _seen.Clear();
             for (int n = 0; n < w.Bullets.Count; n++) if (!w.Bullets[n].Dead) _seen.Add(w.Bullets[n].Id);
             Purge(_bullets);
+            Purge(_halos);
 
             _seen.Clear();
             for (int n = 0; n < w.Darts.Count; n++)
@@ -724,6 +758,134 @@ namespace InkLine
             _pipWas[i] = 0;
             for (int p = 0; p < PipN; p++)
                 _pips[i * PipN + p].enabled = false;
+        }
+
+        void PaintStudy(int i, int level, bool trial, bool sleep)
+        {
+            if (level <= 0)
+            {
+                HideStudy(i);
+                return;
+            }
+            StudyCatalog.Tier tier = StudyCatalog.TierOf(level);
+            Color hue = trial ? InkTheme.Teal : StudyCatalog.TierColor(tier);
+            Bounds card = _stamps[i].bounds;
+            float half = Mathf.Min(Mathf.Min(card.extents.x, card.extents.y), GameConstants.CellWidth * 0.40f);
+            Vector3 c = card.center;
+            float t = Time.unscaledTime;
+            float beat = tier >= StudyCatalog.Tier.Purple && !sleep ? 0.5f + 0.5f * Mathf.Sin(t * 2.8f + i * 0.7f) : 0f;
+            float dim = sleep ? 0.4f : 1f;
+
+            SpriteRenderer glow = _studyGlows[i];
+            glow.enabled = tier >= StudyCatalog.Tier.Blue && !sleep;
+            if (glow.enabled)
+            {
+                float a = tier == StudyCatalog.Tier.Gold ? 0.62f : tier == StudyCatalog.Tier.Purple ? 0.48f : 0.3f;
+                Color g = hue;
+                g.a = a * (0.75f + 0.25f * beat);
+                InkFx.PaintAdd(glow, g);
+                glow.transform.position = c;
+                glow.transform.localScale = Vector3.one * half * 2f * (1.55f + 0.18f * beat);
+            }
+
+            SpriteRenderer frame = _studyFrames[i];
+            frame.enabled = true;
+            Color fc = hue;
+            if (tier == StudyCatalog.Tier.Gold && !sleep)
+                fc = Color.Lerp(hue, Color.white, 0.35f * (0.5f + 0.5f * Mathf.Sin(t * 4.2f + i)));
+            fc.a = dim;
+            frame.color = fc;
+            frame.transform.position = c;
+            frame.transform.localScale = Vector3.one * half * 2f * (1.1f + 0.03f * beat);
+
+            float side = half * 2f;
+            float tagW = side * (level >= 10 ? 0.5f : 0.42f);
+            float tagH = side * 0.22f;
+            var tp = new Vector3(c.x - half - side * 0.02f + tagW * 0.5f, c.y + half + side * 0.02f - tagH * 0.5f, 0f);
+            SpriteRenderer tag = _studyTags[i];
+            tag.enabled = true;
+            Color tc = trial ? InkTheme.Teal : StudyCatalog.TierDeep(tier);
+            tc.a = dim;
+            tag.color = tc;
+            tag.transform.position = tp;
+            tag.transform.localScale = new Vector3(tagW, tagH, 1f);
+
+            TextMesh lv = _studyLv[i];
+            lv.gameObject.SetActive(true);
+            lv.text = (trial ? "试" : "Lv") + level;
+            lv.characterSize = tagH * 0.11f;
+            lv.color = new Color(1f, 1f, 1f, dim);
+            lv.transform.position = tp;
+
+            SpriteRenderer spark = _studySparks[i];
+            spark.enabled = tier == StudyCatalog.Tier.Gold && !sleep;
+            if (spark.enabled)
+            {
+                // 沿品质框绕圈跑的一颗亮星。
+                float k = Mathf.Repeat(t * 0.45f + i * 0.13f, 1f) * 4f;
+                float e = half * 1.1f;
+                int edge = (int)k;
+                float f = k - edge;
+                Vector2 o = edge == 0 ? new Vector2(-e + 2f * e * f, e)
+                    : edge == 1 ? new Vector2(e, e - 2f * e * f)
+                    : edge == 2 ? new Vector2(e - 2f * e * f, -e)
+                    : new Vector2(-e, -e + 2f * e * f);
+                spark.transform.position = c + (Vector3)o;
+                spark.transform.localScale = Vector3.one * side * (0.32f + 0.08f * Mathf.Sin(t * 11f + i));
+                InkFx.PaintAdd(spark, new Color(1f, 0.93f, 0.7f, 0.95f));
+            }
+        }
+
+        void HideStudy(int i)
+        {
+            _studyGlows[i].enabled = false;
+            _studyFrames[i].enabled = false;
+            _studyTags[i].enabled = false;
+            _studyLv[i].gameObject.SetActive(false);
+            _studySparks[i].enabled = false;
+        }
+
+        void PaintHalo(BulletActor b, float level)
+        {
+            if (level < 1f)
+            {
+                if (_halos.TryGetValue(b.Id, out SpriteRenderer old)) old.enabled = false;
+                return;
+            }
+            StudyCatalog.Tier tier = StudyCatalog.TierOf(Mathf.RoundToInt(level));
+            float a = tier == StudyCatalog.Tier.Gold ? 0.75f : tier == StudyCatalog.Tier.Purple ? 0.6f : tier == StudyCatalog.Tier.Blue ? 0.48f : 0.36f;
+            float flick = 0.88f + 0.12f * Mathf.Sin(Time.unscaledTime * 14f + b.Id);
+            float size = (0.5f + 0.035f * level) * flick;
+            Color hue = StudyCatalog.TierColor(tier);
+            hue.a = a;
+            SpriteRenderer halo = Bind(_halos, b.Id, InkFx.SoftDisc(), b.Pos, size, 5, hue);
+            InkFx.PaintAdd(halo, hue);
+        }
+
+        static Sprite _frame;
+        static Sprite StudyFrame()
+        {
+            if (_frame != null) return _frame;
+            const int n = 96;
+            var tex = new Texture2D(n, n, TextureFormat.RGBA32, false);
+            tex.filterMode = FilterMode.Bilinear;
+            tex.wrapMode = TextureWrapMode.Clamp;
+            float rad = n * 0.18f;
+            float band = n * 0.055f;
+            var px = new Color[n * n];
+            for (int y = 0; y < n; y++)
+            for (int x = 0; x < n; x++)
+            {
+                float d = RoundBox(x + 0.5f, y + 0.5f, 1.2f, 1.2f, n - 1.2f, n - 1.2f, rad);
+                float a = Mathf.Clamp01(Mathf.Min(0.5f - d, d + band + 0.5f));
+                // 内侧再晕一层淡色，框不是一根死线。
+                float inner = Mathf.Clamp01(1f - (-d - band) / (n * 0.09f)) * 0.35f;
+                px[y * n + x] = new Color(1f, 1f, 1f, d > -band ? a : Mathf.Max(a, inner));
+            }
+            tex.SetPixels(px);
+            tex.Apply(false, false);
+            _frame = Sprite.Create(tex, new Rect(0, 0, n, n), new Vector2(0.5f, 0.5f), n);
+            return _frame;
         }
 
         TextMesh MakeRank()

@@ -24,13 +24,16 @@ namespace InkLine
         {
             switch (slot)
             {
+                // 字卡的两个位先借现成的广告单元，后台建了专用的再换。
+                case "foil_double":
                 case "double": return Double;
+                case "glyph_trial":
+                case "reroll": return Reroll;
                 case "revive": return Revive;
                 case "chest_speed": return ChestSpeed;
                 case "starter_gift": return StarterGift;
                 case "emitter": return Emitter;
                 case "skin": return Skin;
-                case "reroll": return Reroll;
                 case "stamina": return Stamina;
                 case "checkin_double":
                 case "checkin_bonus": return CheckIn;

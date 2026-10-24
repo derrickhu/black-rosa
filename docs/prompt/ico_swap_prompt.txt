@@ -1,0 +1,6 @@
+A single casual mobile-game UI icon, square canvas, one object centered with a wide empty margin.
+Match the drawing treatment of the reference sticker exactly: thick even soy-sauce-brown outline in #3A2A20, flat solid colours, one soft lighter band on each shape, chunky rounded forms, crisp edges. The reference only provides the drawing style.
+
+The object is one circular swap mark made of two thick rounded arrows chasing each other. The arrow traveling toward the left is ripe-eggplant purple #6E4B8A with a lighter lilac band #C4A6DE. The arrow traveling toward the right is coin yellow #F6BE3C with a cream highlight band #FFF6D2 and an antique-gold inner edge #C4922A. Both arrowheads are big, blunt and rounded. The two arrows sit on the same ring, with a clear gap between the tail of one and the head of the other. The whole mark fills about 70% of the canvas.
+
+Plain white background. No letters, no numbers, no watermark.

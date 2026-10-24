@@ -423,7 +423,8 @@ namespace InkLine
         public const float DockH = 220f;
         // 卷轴两头是卷杆，页签不能按 720 均分，否则两边的图标压在杆上。四个页签时最外侧方牌外沿约 ±266，仍在宣纸里。
         // 选中框比图标大一圈，但要给下面的字留出宣纸，不能把字顶到下沿木轴上。
-        public static float TabStep(int count) => count >= 4 ? 140f : 180f;
+        // 五个页签时外沿约 ±272，选中的方牌和邻格图标之间还留一指宽。
+        public static float TabStep(int count) => count >= 5 ? 108f : count >= 4 ? 140f : 180f;
         const float TabIconOn = 96f;
         const float TabIconOff = 80f;
         const float TabPlaque = 112f;
@@ -511,9 +512,11 @@ namespace InkLine
             img.type = Image.Type.Sliced;
         }
 
-        public static void PaintTab(Button[] tabs, int active)
+        // slots[i] 是第 i 个页签摆在从左数第几格。下标是页签编号，后加的页签不一定排在最右。
+        public static void PaintTab(Button[] tabs, int active, int[] slots = null)
         {
             if (tabs == null) return;
+            bool mapped = slots != null && slots.Length == tabs.Length;
             for (int i = 0; i < tabs.Length; i++)
             {
                 if (tabs[i] == null) continue;
@@ -522,7 +525,8 @@ namespace InkLine
                 if (root != null)
                 {
                     float step = TabStep(tabs.Length);
-                    root.anchoredPosition = new Vector2((i - (tabs.Length - 1) * 0.5f) * step, root.anchoredPosition.y);
+                    int slot = mapped ? slots[i] : i;
+                    root.anchoredPosition = new Vector2((slot - (tabs.Length - 1) * 0.5f) * step, root.anchoredPosition.y);
                     root.sizeDelta = new Vector2(step - 8f, root.sizeDelta.y);
                 }
                 Transform plaque = tabs[i].transform.Find("plaque");

@@ -17,12 +17,14 @@ namespace InkLine
         public float PurpleChance;
     }
 
-    // 开箱掉的一叠卡：哪个道具、几张。Spare 是满级后折成的墨，已经算进 ChestLoot.Ink。
+    // 开箱掉的一叠卡：哪个道具、几张。
+    // Foil > 0：这一叠对应的道具已经满级，不进仓库。开箱翻开后演成这么多金箔。
     public struct CardStack
     {
         public int Item;
         public int Count;
         public int Spare;
+        public int Foil;
     }
 
     // 炮台宝箱开出来的一叠炮台碎片。Have / Need 是入账之后的进度。
@@ -39,6 +41,10 @@ namespace InkLine
     {
         public ChestTier Tier;
         public int Ink;
+        public int Foil;
+        // 道具全满级后多出来的卡：先按墨算进 Ink，字卡开放了入账时再换成金箔。
+        public int SpareInk;
+        public int SpareFoil;
         public readonly List<CardStack> Cards = new List<CardStack>();
         public string Title;     // 有值时盖过品阶名，炮台宝箱用
         public string ArtKey;    // 有值时用 Ui/chest_<ArtKey>
@@ -199,7 +205,18 @@ namespace InkLine
                 int pick = PickItem(plan[i].q, level, equipped, used, t == ChestTier.Royal && plan[i].q == ItemQuality.Purple);
                 if (pick < 0)
                 {
-                    loot.Ink += plan[i].n * ItemCatalog.SpareInkOf(new ItemDef { Quality = plan[i].q });
+                    int spare = plan[i].n * ItemCatalog.SpareInkOf(new ItemDef { Quality = plan[i].q });
+                    int foil = plan[i].n * StudyCatalog.SpareFoilOf(plan[i].q);
+                    loot.Ink += spare;
+                    loot.SpareInk += spare;
+                    loot.SpareFoil += foil;
+                    // 仍抽一张这个品质的卡出来演。入账时不存卡，翻开后变成金箔。
+                    int face = FaceItem(plan[i].q, used);
+                    if (face >= 0)
+                    {
+                        used.Add(face);
+                        loot.Cards.Add(new CardStack { Item = face, Count = plan[i].n, Foil = foil });
+                    }
                     continue;
                 }
                 used.Add(pick);
@@ -216,6 +233,21 @@ namespace InkLine
             var loot = new ChestLoot { Tier = t, Ink = Random.Range(d.InkMin, d.InkMax + 1) };
             loot.Cards.Add(new CardStack { Item = (int)ItemId.Snipe, Count = GameConstants.GuideSlingshot });
             return loot;
+        }
+
+        // 这一品质已经没有能收卡的道具。随便挑一个同品质的来当卡面，优先没在这箱里露过脸的。
+        static int FaceItem(ItemQuality q, List<int> used)
+        {
+            int repeat = -1;
+            var fresh = new List<int>();
+            for (int i = 0; i < ItemCatalog.Count; i++)
+            {
+                if (ItemCatalog.Get(i).Quality != q) continue;
+                repeat = i;
+                if (!used.Contains(i)) fresh.Add(i);
+            }
+            if (fresh.Count > 0) return fresh[Random.Range(0, fresh.Count)];
+            return repeat;
         }
 
         static int PickItem(ItemQuality q, int[] level, int[] equipped, List<int> used, bool preferLocked)

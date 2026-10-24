@@ -62,6 +62,12 @@ namespace InkLine
             public float Tilt;
             public float Wait;
             public int Tier;
+            public int TurnFoil;
+            public Image Art;
+            public Text Name;
+            public Text CountLab;
+            public Text Prog;
+            public bool Turned;
         }
 
         MetaProgress _meta;
@@ -133,13 +139,23 @@ namespace InkLine
                  .Punch(box, 1.05f, 0.22f, 0.36f);
 
             float t = 1.35f;
+            bool both = _loot.Ink > 0 && _loot.Foil > 0;
             if (_loot.Ink > 0)
             {
-                var chip = ResultKit.Group(_root, "ink", new Vector2(0f, ChestY - 170f), new Vector2(220f, 64f));
+                var chip = ResultKit.Group(_root, "ink", new Vector2(both ? -125f : 0f, ChestY - 170f), new Vector2(220f, 64f));
                 var ink = UiKit.Chip(chip, "v", InkSprites.Ui("ink"), "+0",
                     Vector2.zero, new Vector2(220f, 64f), Pin.Center);
                 _anim.Pop(chip, t, 0.3f)
                      .CountUp(ink, 0, _loot.Ink, t + 0.1f, 0.5f, "+{0}", AudioBus.CountTick);
+                t += 0.45f;
+            }
+            if (_loot.Foil > 0)
+            {
+                var chip = ResultKit.Group(_root, "foil", new Vector2(both ? 125f : 0f, ChestY - 170f), new Vector2(220f, 64f));
+                var foil = UiKit.Chip(chip, "v", FoilArt.Icon, "+0",
+                    Vector2.zero, new Vector2(220f, 64f), Pin.Center);
+                _anim.Pop(chip, t, 0.3f)
+                     .CountUp(foil, 0, _loot.Foil, t + 0.1f, 0.5f, "+{0}", AudioBus.CountTick);
                 t += 0.45f;
             }
             if (!string.IsNullOrEmpty(_loot.Note))
@@ -178,6 +194,7 @@ namespace InkLine
         {
             if (cards.Count == 0) return t;
             float reveal = t + (cards.Count - 1) * DealGap + Deal + 0.2f;
+            float tail = reveal;
             for (int i = 0; i < cards.Count; i++)
             {
                 Card c = cards[i];
@@ -195,8 +212,48 @@ namespace InkLine
                 Live(flipAt + Turn * 0.5f, () => Burst(c));
                 if (c.Rays != null) _anim.Spin(c.Rays.transform, 40f);
                 reveal = flipAt + Turn + (c.Tier == 2 ? 0.35f : 0.16f);
+                tail = Mathf.Max(tail, reveal);
+                if (c.TurnFoil > 0)
+                {
+                    float at = dealAt + total + 0.08f;
+                    _anim.Tween(at, 0.48f, k => Morph(c, k));
+                    Live(at + 0.2f, () =>
+                    {
+                        AudioBus.Coin();
+                        UiConfetti.Sparks(_root, c.Slot, InkTheme.GoldHi, 14, 480f);
+                    });
+                    tail = Mathf.Max(tail, at + 0.6f);
+                }
             }
-            return reveal + 0.3f;
+            return tail + 0.3f;
+        }
+
+        // 满级的那叠：先按原卡翻开，停一下，再缩进去换成金箔。跳过时直接落在金箔上。
+        void Morph(Card c, float k)
+        {
+            if (c.Body == null) return;
+            float s = k < 0.4f
+                ? Mathf.Lerp(1f, 0.22f, Ease.InQuad(k / 0.4f))
+                : Mathf.Lerp(0.22f, 1f, Ease.OutBack((k - 0.4f) / 0.6f));
+            c.Body.localScale = new Vector3(s, s, 1f);
+            c.Body.localRotation = Quaternion.identity;
+            if (k >= 0.4f) ShowFoil(c);
+        }
+
+        void ShowFoil(Card c)
+        {
+            if (c.Turned) return;
+            c.Turned = true;
+            Sprite foil = FoilArt.Icon;
+            if (c.Art != null && foil != null) c.Art.sprite = foil;
+            if (c.Name != null) c.Name.text = "金箔";
+            if (c.CountLab != null) c.CountLab.text = "+" + c.TurnFoil;
+            if (c.Prog != null) c.Prog.text = "满级换成";
+            if (c.Fill != null)
+            {
+                var img = c.Fill.GetComponent<Image>();
+                if (img != null) img.color = FoilArt.Face;
+            }
         }
 
         void Burst(Card c)
@@ -309,8 +366,10 @@ namespace InkLine
             string done = max ? "已满级" : (have >= need ? (rank <= 0 ? "可解锁!" : "可升级!") : have + "/" + need);
             float from = max ? 1f : (have - c.Count) / (float)need;
             float to = max ? 1f : have / (float)need;
-            return MakeCard("card_" + c.Item, d.Quality, ItemCatalog.QualityName(d.Quality), InkSprites.Ui((ItemId)c.Item),
+            Card card = MakeCard("card_" + c.Item, d.Quality, ItemCatalog.QualityName(d.Quality), InkSprites.Ui((ItemId)c.Item),
                 d.Name, c.Count, from, to, done, have >= need && !max, slot);
+            card.TurnFoil = c.Foil;
+            return card;
         }
 
         Card MakeCard(string id, ItemQuality q, string rank, Sprite icon, string title, int count,
@@ -353,13 +412,15 @@ namespace InkLine
 
             float winW = w * f.WinW;
             float winH = (f.WinB - f.WinA) * h;
-            UiKit.Icon(front, icon, new Vector2(0f, Y(f.WinA, f.WinB, h)), Mathf.Min(winW, winH) * 0.84f);
+            c.Art = UiKit.Icon(front, icon, new Vector2(0f, Y(f.WinA, f.WinB, h)), Mathf.Min(winW, winH) * 0.84f);
             var cnt = ResultKit.Headline(front, "c", "×" + count, 30,
                 new Vector2(winW * 0.5f - 26f, h * 0.5f - f.WinA * h - 20f), InkTheme.CardFace, InkTheme.Outline, 2f);
             cnt.rectTransform.sizeDelta = new Vector2(110f, 44f);
 
             var name = UiKit.Bold(UiKit.Label(front, "n", title, 20, new Vector2(0f, Y(f.NameA, f.NameB, h)), new Vector2(w - 30f, 28f)));
             name.color = InkTheme.TextDark;
+            c.Name = name;
+            c.CountLab = cnt;
 
             c.FillW = winW - 8f;
             c.FillH = Mathf.Max(8f, (f.GrooveB - f.GrooveA) * h - 3f);
@@ -378,6 +439,7 @@ namespace InkLine
 
             var prog = UiKit.Bold(UiKit.Label(front, "p", progText, 16, new Vector2(0f, Y(f.GrooveA, f.GrooveB, h)), new Vector2(w, 24f)));
             prog.color = InkTheme.CardFace;
+            c.Prog = prog;
             prog.gameObject.AddComponent<Outline>().effectColor = InkTheme.Outline;
             if (pulse) _anim.Breathe(prog.transform, 0f, 0.08f, 1.6f);
 

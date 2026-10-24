@@ -206,6 +206,17 @@ namespace InkLine
         public static float InkOf(int chapter) =>
             ChapterInk[Mathf.Clamp(chapter, 0, ChapterInk.Length - 1)];
 
+        // 后期怪血补强。锻造在后几章涨得比血快，第十章裕度一度是第二章的两倍，
+        // 通关玩家几乎全三星。只乘在出怪那一下，掉落、关卡定价、boss 表都还按 ChapterHp 算，
+        // 所以墨和金币收入不跟着涨。精英吃主线这一份再乘 HardHp。
+        static readonly float[] ChapterLateHp = { 1f, 1f, 1f, 1f, 1f, 1.14f, 1.05f, 1.18f, 1.28f, 1.42f };
+
+        public static float LateHpOf(StageDef s)
+        {
+            if (s == null || s.Endless || s.Daily || s.Event) return 1f;
+            return ChapterLateHp[Mathf.Clamp(s.Chapter, 0, ChapterLateHp.Length - 1)];
+        }
+
         static StageDef[] _all;
 
         public static IReadOnlyList<StageDef> All

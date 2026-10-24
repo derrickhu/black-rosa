@@ -96,6 +96,16 @@ namespace InkLine
             return Mathf.Lerp(EndlessHpTop, EndlessHpTail, Tail(k));
         }
 
+        // 无尽后段补强：第 30 波起抬，第 40 波 +30%，第 70 波 +40%。
+        // 原曲线下没满改装也能打穿 70 波。只乘在出怪上，金币和墨的掉落曲线不动；每日残局只有 20 波，碰不到。
+        public static float EndlessLateHp(int wave)
+        {
+            int n = wave + 1;
+            if (n <= 30) return 1f;
+            if (n <= 40) return Mathf.Lerp(1f, 1.3f, (n - 30) / 10f);
+            return Mathf.Lerp(1.3f, 1.4f, (n - 40) / 30f);
+        }
+
         // 第 50 波之后的进度，第 70 波正好是 1。
         static float Tail(float k) =>
             Mathf.Clamp01((k - 1f) / ((EndlessWaves - 1f) / (EndlessPaceWaves - 1f) - 1f));

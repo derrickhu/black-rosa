@@ -23,7 +23,7 @@ namespace InkLine
     }
 
     [Serializable]
-    public sealed class MetaProgress
+    public sealed partial class MetaProgress
     {
         const string KeyV2 = "inkline.meta.v2";
         const string KeyV1 = "inkline.meta.v1";
@@ -330,6 +330,7 @@ namespace InkLine
             Ink = Mathf.Max(0, Ink);
             Diamond = Mathf.Max(0, Diamond);
             Token = Mathf.Max(0, Token);
+            NormalizeStudy();
             // 奖励来的体力可以超过上限，这里只防负数，否则重进游戏多出来的就被削掉。
             Stamina = Mathf.Max(0, Stamina);
             if (GuideStep == GuideBattle && ClearedCount() > 0)
@@ -520,6 +521,7 @@ namespace InkLine
             if (RollEndless()) dirty = true;
             if (RollDaily()) dirty = true;
             if (RollTasks()) dirty = true;
+            if (RollStudy()) dirty = true;
             if (RegenStamina()) dirty = true;
             if (TickChests()) dirty = true;
             if (dirty) Save();
@@ -1159,10 +1161,21 @@ namespace InkLine
             var loot = new ChestLoot { Title = ChestCatalog.CannonName, ArtKey = ChestCatalog.CannonArt };
             if (drop.Skin >= 0 && drop.Skin < SkinOwned.Length && SkinOwned[drop.Skin])
             {
-                int ink = drop.Count * SkinCatalog.ShardInk(skin.Rarity);
-                Ink += ink;
-                loot.Ink = ink;
-                loot.Note = "已有" + skin.Name + "，碎片换成了墨";
+                if (StudyOpen)
+                {
+                    int foil = drop.Count * StudyCatalog.ShardFoil(skin.Rarity);
+                    Foil += foil;
+                    loot.Foil = foil;
+                    loot.Note = "已有" + skin.Name + "，碎片换成了金箔";
+                }
+                else
+                {
+                    int ink = drop.Count * SkinCatalog.ShardInk(skin.Rarity);
+                    Ink += ink;
+                    loot.Ink = ink;
+                    loot.Note = "已有" + skin.Name + "，碎片换成了墨";
+                }
+                Foil += AddChestFoilChance(loot);
                 Save();
                 return loot;
             }
@@ -1184,7 +1197,23 @@ namespace InkLine
                 Need = need,
                 Unlocked = unlocked
             });
+            int bonus = AddChestFoilChance(loot);
+            if (bonus > 0)
+            {
+                Foil += bonus;
+                Save();
+            }
             return loot;
+        }
+
+        // 字卡开放后，开箱额外有几率掉 1～5 金箔。只写进战利品，钱包由调用方入账，避免和 ApplyLoot 加两次。
+        int AddChestFoilChance(ChestLoot loot)
+        {
+            if (!StudyOpen || loot == null) return 0;
+            int n = StudyCatalog.RollChestFoil();
+            if (n <= 0) return 0;
+            loot.Foil += n;
+            return n;
         }
 
         public bool TryCraftSkin(int i)
@@ -1221,6 +1250,8 @@ namespace InkLine
                     r.Diamonds = def.Finale ? GameConstants.DiamondFinale
                         : def.HasBoss ? GameConstants.DiamondBoss : GameConstants.DiamondStage;
                 Diamond += r.Diamonds;
+                r.Foil = StudyCatalog.FirstClearFoil(def);
+                Foil += r.Foil;
             }
             ChestTier tier = ChestCatalog.ForStage(def, r.FirstClear, ChestCycle);
             if (!def.Finale && !def.HasBoss) ChestCycle++;
@@ -1354,7 +1385,8 @@ namespace InkLine
             CheckDay = Today;
             int times = doubled ? 2 : 1;
             if (doubled) CheckAdDay = Today;
-            Ink += GameConstants.CheckInk * times;
+            if (StudyOpen) Foil += StudyCatalog.CheckFoilOf(day) * times;
+            else Ink += GameConstants.CheckInk * times;
             Diamond += CheckDiamondOf(day) * times;
             Stamina += GameConstants.CheckStamina * times;
             if (day == GameConstants.CheckDays)
@@ -1376,7 +1408,8 @@ namespace InkLine
         {
             if (!CheckedToday || CheckAdDoneToday) return false;
             CheckAdDay = Today;
-            Ink += GameConstants.CheckInk;
+            if (StudyOpen) Foil += StudyCatalog.CheckFoilOf(CheckRun);
+            else Ink += GameConstants.CheckInk;
             Diamond += CheckDiamondOf(CheckRun);
             Stamina += GameConstants.CheckStamina;
             Save();
@@ -1927,13 +1960,35 @@ namespace InkLine
         void ApplyLoot(ChestLoot loot)
         {
             if (loot == null) return;
+            AddChestFoilChance(loot);
+            if (StudyOpen && loot.SpareInk > 0)
+            {
+                // 满级卡的金箔写在卡上，开箱演出里变成金箔，不进顶上那颗金箔药丸。
+                loot.Ink -= loot.SpareInk;
+                loot.SpareInk = 0;
+            }
+            else if (!StudyOpen)
+            {
+                for (int k = loot.Cards.Count - 1; k >= 0; k--)
+                    if (loot.Cards[k].Foil > 0) loot.Cards.RemoveAt(k);
+            }
             Ink += loot.Ink;
+            Foil += loot.Foil;
+            int turned = 0;
+            bool shown = false;
             for (int k = 0; k < loot.Cards.Count; k++)
             {
                 CardStack c = loot.Cards[k];
+                if (c.Foil > 0)
+                {
+                    shown = true;
+                    turned += c.Foil;
+                    continue;
+                }
                 if (c.Item < 0 || c.Item >= ItemCards.Length) continue;
                 ItemCards[c.Item] += c.Count;
             }
+            if (StudyOpen) Foil += shown ? turned : loot.SpareFoil;
         }
 
         public int ChestRushCost(int slot) => ChestCatalog.DiamondCost(ChestSecondsLeft(slot));

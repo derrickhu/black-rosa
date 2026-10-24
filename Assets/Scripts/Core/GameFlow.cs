@@ -798,6 +798,8 @@ namespace InkLine
             InkSprites.EnemyTheme = stage.Event ? InkSprites.EventTheme : null;
             _world = new BattleWorld();
             _world.ItemRanks = _meta.ItemLevel;
+            _meta.TakeStudy(stage.Daily, out _world.StudyGlyph, out _world.StudyWord,
+                out _world.StudyTrialGlyph, out _world.StudyTrialWord);
             _world.Begin(stage, _meta.Forged, _meta.Equipped);
             _world.ApplySkin(_meta.Skin);
             _world.CodexHit = OnCodex;
@@ -1302,7 +1304,13 @@ namespace InkLine
                 ShowConfirm(col, row);
                 return;
             }
-            _world.Place(_held, col, row, false);
+            CommitPlace(col, row, false);
+        }
+
+        void CommitPlace(int col, int row, bool overwrite)
+        {
+            _world.Place(_held, col, row, overwrite);
+            if (!BattleWorld.PreviewFill) _meta.NoteTrialUse(_held, _world.FormedWord);
             AfterPlace();
         }
 
@@ -1311,8 +1319,7 @@ namespace InkLine
             DropOverlay();
             _overlay = ConfirmPanel.Show(_layer, () =>
             {
-                _world.Place(_held, col, row, true);
-                AfterPlace();
+                CommitPlace(col, row, true);
             }, () =>
             {
                 _screen = Screen.Place;
@@ -1434,7 +1441,11 @@ namespace InkLine
                     {
                         if (_inkDoubled) return;
                         _inkDoubled = true;
-                        if (canInk && !preview) _meta.AddInk(info.Ink);
+                        if (canInk && !preview)
+                        {
+                            _meta.AddInk(info.Ink);
+                            _meta.AddFoil(info.Foil);
+                        }
                         ChestLoot loot = canChest ? _meta.OpenPending() : null;
                         if (loot == null)
                         {

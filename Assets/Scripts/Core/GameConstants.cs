@@ -20,8 +20,16 @@ namespace InkLine
         public const int EndlessPlaysPerDay = 1;
         public const int EndlessAdPlays = 1;
         public const int EndlessInkPerWave = 5;
-        // 每日残局通关第四章开，每天一局，看广告再加一局，续一次命。
-        public const int DailyOpenChapter = 3;
+        // 每日残局通关第三章开，每天一局，看广告再加一局，续一次命。
+        // 残局的字池、移速和掉墨仍按第四章，见 StageDaily。
+        public const int DailyOpenChapter = 2;
+
+        public static string ChapterName(int chapter)
+        {
+            const string n = "一二三四五六七八九十";
+            if (chapter < 0 || chapter >= n.Length) return (chapter + 1).ToString();
+            return n[chapter].ToString();
+        }
         public const int DailyPlaysPerDay = 1;
         public const int DailyAdPlays = 1;
         public const int DailyInkPerWave = 4;

@@ -71,6 +71,7 @@ namespace InkLine
         // 前两章的价不动，刚解锁买得动。第三章起按这一章的首通进账定价，略贵一截：
         // 正常打完，刚开的级点得动，手里剩不多，不够再点还没开的级。
         // 同一条线逐级只涨不降。多一门炮、加一滴血比同章的伤害贵。
+        // 门槛过 45 关的级整体 ×1.6：线上存档显示双倍墨广告看全了，首通一遍就够买满，精英没人打。
         static readonly ForgeDef[] Lines =
         {
             // 伤害线 18 级，每级 +25%，满级 +450%。前 12 级门槛铺到第 69 关；
@@ -80,7 +81,7 @@ namespace InkLine
             {
                 Line = ForgeLine.Damage, Name = "伤害", Stat = "炮弹伤害", Amount = 25f,
                 Icon = "damage", Reveal = 1, Brief = "所有炮弹的伤害一起涨", LockNote = "后续章节开放",
-                Cost = new[] { 120, 150, 180, 210, 350, 430, 550, 660, 800, 920, 1060, 1200, 1360, 1520, 1720, 1940, 2180, 2440 },
+                Cost = new[] { 120, 150, 180, 210, 350, 430, 550, 660, 1280, 1470, 1700, 1920, 2180, 2430, 2750, 3100, 3490, 3900 },
                 Gate = new[] { 1, 2, 6, 12, 20, 28, 36, 44, 52, 58, 64, 69, 76, 84, 98, 112, 126, 140 }
             },
             new ForgeDef
@@ -94,7 +95,7 @@ namespace InkLine
             {
                 Line = ForgeLine.FireRate, Name = "射速", Stat = "开火间隔", Amount = 8f,
                 Icon = "rate", Reveal = 6, Brief = "每门炮开火更快",
-                Cost = new[] { 140, 170, 310, 440, 620 },
+                Cost = new[] { 140, 170, 310, 440, 990 },
                 Gate = new[] { 6, 9, 24, 45, 62 }
             },
             // 开局金币 8 级，每级 +8，满级开局 70。门槛铺到第七、八章，
@@ -103,14 +104,14 @@ namespace InkLine
             {
                 Line = ForgeLine.StartGold, Name = "开局金币", Stat = "开局金币", Amount = 8f,
                 Icon = "gold", Reveal = 12, Brief = "开局多带金币，先手改装",
-                Cost = new[] { 150, 170, 300, 400, 520, 660, 820, 980 },
+                Cost = new[] { 150, 170, 300, 400, 830, 1060, 1310, 1570 },
                 Gate = new[] { 12, 18, 26, 36, 48, 56, 62, 68 }
             },
             new ForgeDef
             {
                 Line = ForgeLine.BaseHp, Name = "基地生命", Stat = "基地生命", Amount = 1f,
                 Icon = "hp", Reveal = 17, Brief = "基地多扛一次突破",
-                Cost = new[] { 200, 480, 1080 },
+                Cost = new[] { 200, 480, 1730 },
                 Gate = new[] { 17, 27, 50 }
             },
             // ---- 皮肤专属：拥有皮肤才露面，装着才生效。Reveal 写皮肤的开放关，和 Gate[0] 对齐 ----
@@ -119,7 +120,7 @@ namespace InkLine
             {
                 Line = ForgeLine.Crit, Name = "暴击", Stat = "暴击率", Amount = 4f,
                 Icon = "crit", Reveal = 12, Brief = "炮弹有几率打出双倍伤害", Exclusive = true, Skin = SkinCatalog.Flame,
-                Cost = new[] { 160, 280, 400, 540, 700 },
+                Cost = new[] { 160, 280, 400, 860, 1120 },
                 Gate = new[] { 12, 24, 38, 52, 64 }
             },
             // 福袋 · 金币收益：只加局内金币，不碰墨 —— 墨是局外总账，check_stages 的墨价比按它算。
@@ -127,7 +128,7 @@ namespace InkLine
             {
                 Line = ForgeLine.GoldGain, Name = "金币收益", Stat = "局内金币", Amount = 6f,
                 Icon = "goldgain", Reveal = 15, Brief = "打怪掉的金币更多", Exclusive = true, Skin = SkinCatalog.Lucky,
-                Cost = new[] { 170, 340, 460, 620, 800 },
+                Cost = new[] { 170, 340, 460, 990, 1280 },
                 Gate = new[] { 15, 30, 44, 58, 68 }
             },
             // ---- 第二幕的通用词条。存档按位置记等级，只能接在最后 ----
@@ -136,7 +137,7 @@ namespace InkLine
             {
                 Line = ForgeLine.DraftCut, Name = "改装折扣", Stat = "改装价", Amount = 3f,
                 Icon = "draftcut", Reveal = 72, Brief = "局内每次改装更便宜",
-                Cost = new[] { 480, 560, 660, 780, 920 },
+                Cost = new[] { 770, 900, 1060, 1250, 1470 },
                 Gate = new[] { 72, 76, 80, 84, 88 }
             },
             // 道具冷却 5 级，每级 -4%，满级冷却短 20%。
@@ -144,7 +145,7 @@ namespace InkLine
             {
                 Line = ForgeLine.ItemCd, Name = "道具冷却", Stat = "道具冷却", Amount = 4f,
                 Icon = "itemcd", Reveal = 74, Brief = "道具转好得更快",
-                Cost = new[] { 420, 500, 580, 680, 800 },
+                Cost = new[] { 670, 800, 930, 1090, 1280 },
                 Gate = new[] { 74, 78, 82, 86, 90 }
             }
             // 以后的专属词条接在这里。活动货币升级的写 Coin = ForgeCoin.Token。
