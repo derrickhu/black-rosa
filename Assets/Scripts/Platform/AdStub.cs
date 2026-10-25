@@ -17,17 +17,18 @@ namespace InkLine
         const string Event = "adunit-b9540a99a3ceffcb";
         const string Double = "adunit-7eef570170a031a0";
         const string Revive = "adunit-cf484a6c10184818";
+        // 字卡：试用、兑换后再领。
+        const string Glyph = "adunit-793c39c14611f6d7";
 
-        // 签到当天补领一份和当场翻倍是同一个广告位。
+        // 签到当天补领一份和当场翻倍是同一个广告位。结算翻倍也走原来的翻倍位。
         // 招财进宝的加次数、存钱翻倍、失败存回共用一个；无尽的看广告加次数也走这一条。
         static string UnitOf(string slot)
         {
             switch (slot)
             {
-                // 字卡的两个位先借现成的广告单元，后台建了专用的再换。
-                case "foil_double":
-                case "double": return Double;
                 case "glyph_trial":
+                case "foil_double": return Glyph;
+                case "double": return Double;
                 case "reroll": return Reroll;
                 case "revive": return Revive;
                 case "chest_speed": return ChestSpeed;

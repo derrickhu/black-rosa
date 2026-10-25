@@ -183,17 +183,11 @@ namespace InkLine
             int owned = 0;
             for (int i = 0; i < all.Count; i++)
             {
-                if (_meta.StudyOwned(all[i])) owned++;
+                if (!_meta.StudyOwned(all[i])) continue;
+                owned++;
                 if (StudyCatalog.Match(all[i], _filter)) _shown.Add(all[i]);
             }
-            // 有的排前面，没有的按出现先后垫在后面。
-            _shown.Sort((a, b) =>
-            {
-                bool oa = _meta.StudyOwned(a);
-                bool ob = _meta.StudyOwned(b);
-                if (oa != ob) return oa ? -1 : 1;
-                return Index(a).CompareTo(Index(b));
-            });
+            _shown.Sort((a, b) => Index(a).CompareTo(Index(b)));
             _note.text = "已有 " + owned + "/" + all.Count + " · 上限 Lv." + _meta.StudyCap;
             int rows = (_shown.Count + Cols - 1) / Cols;
             _content.sizeDelta = new Vector2(0f, rows * StepY + 16f);
@@ -220,14 +214,6 @@ namespace InkLine
             btn.transition = Selectable.Transition.None;
             btn.targetGraphic = card.GetComponent<Image>();
             btn.onClick.AddListener(() => Open(e));
-            if (!owned)
-            {
-                int ch = StudyCatalog.FirstChapter(e);
-                var tip = card.Find("name").GetComponent<Text>();
-                tip.text = ch >= 0 ? "第" + (ch + 1) + "章出现" : "？？";
-                tip.fontSize = 20;
-                return;
-            }
             if (_meta.HasTrial(e)) StudyCard.Tag(card, "试用", InkTheme.Teal);
             if (_meta.UpgradeBlock(e) == MetaProgress.StudyBlock.None) StudyCard.Dot(card);
         }
@@ -235,16 +221,7 @@ namespace InkLine
         void Open(CodexEntry e)
         {
             AudioBus.Tap();
-            if (!_meta.StudyOwned(e))
-            {
-                int ch = StudyCatalog.FirstChapter(e);
-                InkToast.Show(_layer, ch >= 0 ? "第" + (ch + 1) + "章出现，在关卡里用过一次才能升级" : "还没遇见过");
-                return;
-            }
-            var owned = new List<CodexEntry>();
-            for (int i = 0; i < _shown.Count; i++)
-                if (_meta.StudyOwned(_shown[i])) owned.Add(_shown[i]);
-            GlyphDetailPanel.Show(_layer, _meta, owned, owned.IndexOf(e), AfterChange);
+            GlyphDetailPanel.Show(_layer, _meta, _shown, _shown.IndexOf(e), AfterChange);
         }
 
         void OpenSwap()
@@ -282,8 +259,9 @@ namespace InkLine
         public static Color Badge(int lv) =>
             lv >= 1 ? StudyCatalog.TierDeep(StudyCatalog.TierOf(lv)) : InkTheme.CtaOff;
 
+        // caption 为假时不在图下再写字名。详情大卡的图里已经有字。
         public static RectTransform Build(Transform parent, CodexEntry e, bool owned, int lv, Vector2 pos, Vector2 size,
-            Pin pin)
+            Pin pin, bool caption = true)
         {
             float k = size.x / 152f;
             Transform host = parent;
@@ -299,7 +277,7 @@ namespace InkLine
             var card = UiKit.Stroke(host, "c", pos, size, pin, owned && lv >= 7 ? 6f : 5f,
                 owned ? Line(lv) : InkTheme.LineDim, owned ? Fill(lv) : InkTheme.CardDim, 24f * k);
             Color tint = owned ? Color.white : new Color(0.25f, 0.2f, 0.16f, 0.32f);
-            float y = 18f * k;
+            float y = caption ? 18f * k : 0f;
             if (e.Kind == CodexKind.Glyph)
                 Glyph(card, InkArt.Glyph((CardId)e.Index, 160), new Vector2(0f, y), 104f * k, tint);
             else
@@ -308,10 +286,13 @@ namespace InkLine
                 for (int i = 0; i < parts.Length && i < 2; i++)
                     Glyph(card, InkArt.Glyph(parts[i], 160), new Vector2((i == 0 ? -30f : 30f) * k, y), 62f * k, tint);
             }
-            var name = UiKit.Label(card, "name", owned ? CodexCatalog.Title(e) : "？？", Mathf.RoundToInt(26 * k),
-                new Vector2(0f, -size.y * 0.5f + 30f * k), new Vector2(size.x, 36f * k));
-            name.color = owned ? InkTheme.TextDark : InkTheme.TextDim;
-            UiKit.Bold(name);
+            if (caption)
+            {
+                var name = UiKit.Label(card, "name", owned ? CodexCatalog.Title(e) : "？？", Mathf.RoundToInt(26 * k),
+                    new Vector2(0f, -size.y * 0.5f + 30f * k), new Vector2(size.x, 36f * k));
+                name.color = owned ? InkTheme.TextDark : InkTheme.TextDim;
+                UiKit.Bold(name);
+            }
             if (owned)
             {
                 Vector2 pillSize = new Vector2(70f, 32f) * k;

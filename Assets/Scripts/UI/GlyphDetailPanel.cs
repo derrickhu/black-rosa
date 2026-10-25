@@ -69,7 +69,7 @@ namespace InkLine
 
             CodexEntry e = Cur;
             int lv = _meta.StudyLevel(e);
-            var card = StudyCard.Build(_body, e, true, lv, new Vector2(0f, CardY), CardSize, Pin.Top);
+            var card = StudyCard.Build(_body, e, true, lv, new Vector2(0f, CardY), CardSize, Pin.Top, false);
             if (_meta.HasTrial(e)) StudyCard.Tag(card, "试用", InkTheme.Teal);
 
             if (_list.Count > 1)
@@ -224,6 +224,9 @@ namespace InkLine
         RectTransform Reveal(int lv)
         {
             Paint();
+            // 重绘会把新卡面盖到演出上面，品质横幅要留在最上层。
+            Transform fx = _board.Find("study_up_fx");
+            if (fx != null) fx.SetAsLastSibling();
             Transform bonus = _body.Find("bonus");
             if (bonus != null)
             {
