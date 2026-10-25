@@ -81,8 +81,7 @@ namespace InkLine
         public const int CheckInk = 30;
         public const int CheckSkin = 2;
         public static readonly int[] CheckDiamonds = { 3, 3, 4, 4, 5, 5, 20 };
-        // 游戏圈：每天发一条帖子领一次，墨加一个木宝箱。
-        public const int ClubInk = 50;
+        // 游戏圈：每天发一条帖子领一次。墨、宝箱、金箔的范围在 ClubReward。
 
         // 首通给钻石，重复通关不给。普通关、最后一波有头目、章底。
         public const int DiamondStage = 1;

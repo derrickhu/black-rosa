@@ -47,9 +47,27 @@ namespace InkLine
             new Card { Title = "救救我救救我，要输了", ImageUrlId = ReviveId, ImageUrl = ReviveUrl },
         };
 
+        // 游戏圈转发刷新专用。朋友看到的是炫耀今天的奖，不提刷新。
+        // 聊天卡片大约 14 个字就换行，每句都卡在一行里。
+        // 配图在 game_assets/black-rosa/推广/转发图/club/，后台过审后把编号和地址填进来。
+        static readonly string[] ClubLines =
+        {
+            "今天这奖，我不信",
+            "金箱子自己跳出来了",
+            "这波奖励也太狠了",
+            "我抽中了，你敢看吗",
+            "今天手气好到离谱",
+            "这奖励，我先藏着",
+        };
+
         public static Card Pick() => PickFrom(Cards);
 
         public static Card PickRevive() => PickFrom(ReviveCards);
+
+        public static Card PickClub()
+        {
+            return new Card { Title = ClubLines[Random.Range(0, ClubLines.Length)] };
+        }
 
         static Card PickFrom(Card[] cards)
         {

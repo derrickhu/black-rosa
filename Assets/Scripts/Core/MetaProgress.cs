@@ -74,6 +74,13 @@ namespace InkLine
         public int GiftAds;
         public bool GiftClaimed;
         public int ClubDay;
+        // 当天抽好的游戏圈奖励。ClubRollDay 对上今天才算数，重开面板不会再抽。
+        public int ClubRollDay;
+        public int ClubInk;
+        public int ClubChest;
+        public int ClubFoil;
+        // 转发刷新用掉的日期。一天一次，领完就不能再刷。
+        public int ClubRefreshDay;
         // 当天用转发复活过的日期。和今天不同就能再用一次。
         public int ShareReviveDay;
         public int CheckDay;
@@ -1326,14 +1333,48 @@ namespace InkLine
 
         public bool ClubClaimedToday => ClubDay == Today;
 
-        // slot 是木宝箱进了哪个位。-1 位满了先寄着，-3 寄不下才折成墨。
+        public bool HasClubOffer => ClubRollDay == Today;
+
+        public bool ClubRefreshedToday => ClubRefreshDay == Today;
+
+        public ChestTier ClubChestTier => (ChestTier)Mathf.Clamp(ClubChest, 0, (int)ChestTier.Gold);
+
+        // 当天还没领、也还没抽过，才抽一份新的。
+        public void EnsureClubOffer()
+        {
+            if (ClubClaimedToday || ClubRollDay == Today) return;
+            RollClubOffer();
+        }
+
+        // 转发成功后整份重抽。可能变好，也可能变差。一天一次。
+        public bool RerollClubOffer()
+        {
+            if (ClubClaimedToday || ClubRefreshDay == Today) return false;
+            ClubRefreshDay = Today;
+            RollClubOffer();
+            return true;
+        }
+
+        void RollClubOffer()
+        {
+            int cleared = ClearedCount();
+            ClubRollDay = Today;
+            ClubInk = ClubReward.RollInk(cleared);
+            ClubChest = (int)ClubReward.RollChest();
+            ClubFoil = ClubReward.RollFoil(cleared);
+            Save();
+        }
+
+        // slot 是箱子进了哪个位。-1 位满了先寄着，-3 寄不下才折成墨。
         public bool ClaimClub(out int slot)
         {
             slot = -1;
             if (ClubClaimedToday) return false;
+            if (ClubRollDay != Today) RollClubOffer();
             ClubDay = Today;
-            Ink += GameConstants.ClubInk;
-            slot = GrantChest(ChestTier.Wood);
+            Ink += ClubInk;
+            if (ClubFoil > 0) Foil += ClubFoil;
+            slot = GrantChest(ClubChestTier);
             Save();
             return true;
         }

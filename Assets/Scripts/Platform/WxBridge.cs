@@ -328,6 +328,12 @@ namespace InkLine
         // 编辑器没有转发界面，直接当成功，方便把复活流程走通。
         public static void ShareForReward(Action onOk, Action onNo)
         {
+            ShareForReward(ShareCatalog.PickRevive(), "battle_revive", onOk, onNo);
+        }
+
+        // 拉起一次带回调用的转发。entry 用来分开经分，续命是 battle_revive，游戏圈刷新是 gameclub_refresh。
+        public static void ShareForReward(ShareCatalog.Card card, string entry, Action onOk, Action onNo)
+        {
 #if UNITY_MINIGAME || WEIXINMINIGAME || UNITY_WEIXINMINIGAME || MINIGAME_SUBPLATFORM_WEIXIN
             if (Application.isEditor)
             {
@@ -339,9 +345,8 @@ namespace InkLine
             _shareAt = Time.realtimeSinceStartup;
             try
             {
-                ShareCatalog.Card card = ShareCatalog.PickRevive();
                 WeChatWASM.WX.ShareAppMessage(ActiveOf(card));
-                Analytics.ShareApp("battle_revive", card.Title, card.ImageUrl);
+                Analytics.ShareApp(entry, card.Title, card.ImageUrl);
             }
             catch (Exception e)
             {
