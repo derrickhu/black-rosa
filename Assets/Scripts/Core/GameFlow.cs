@@ -76,8 +76,27 @@ namespace InkLine
         // 启动封面还盖着。第一屏画出来再揭，0 表示已经揭过或不用揭。
         int _loadingCover;
 
+        static GameFlow _it;
+
+        // 转发会把游戏盖住。不先按住的话，切回来会被当成离开游戏：
+        // 战斗里弹设置，大厅里云档一回来还会整页重建，看起来像重新进了游戏。
+        public static void ArmShareReturn()
+        {
+            if (_it == null) return;
+            _it._holdForShare = true;
+            _it._leftGame = false;
+        }
+
+        public static void DisarmShareReturn()
+        {
+            if (_it == null) return;
+            _it._holdForShare = false;
+            _it._leftGame = false;
+        }
+
         void Start()
         {
+            _it = this;
             bool promo = false;
             PromoStart(ref promo);
             if (promo)
@@ -92,6 +111,7 @@ namespace InkLine
 
         void OnDestroy()
         {
+            if (_it == this) _it = null;
             CloudSync.Imported -= OnCloudImported;
             ItemPanel.Opened -= OnItemPanel;
             ItemPanel.UnlockDone -= OnItemUnlocked;
@@ -103,6 +123,8 @@ namespace InkLine
         void OnCloudImported()
         {
             if (_canvas == null) return;
+            // 转发还没回来时不要整页重建。云档先落了盘，回来后玩家这次操作会再存回去。
+            if (_holdForShare || Time.realtimeSinceStartup < _shareSettleUntil) return;
             _meta = MetaProgress.Load();
             if (_screen == Screen.Lobby) Enter();
         }

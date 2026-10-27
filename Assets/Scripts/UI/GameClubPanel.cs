@@ -238,8 +238,14 @@ namespace InkLine
                 InkToast.Show(_layer, "今天已经刷新过了");
                 return;
             }
+            // 先按住「这是转发」，再藏掉盖在「去游戏圈」上的原生按钮，最后才拉起转发。
+            // 没按住时，切回来会被当成离开游戏，大厅整页重建。
+            GameFlow.ArmShareReturn();
+            WxBridge.HideClubButton();
             WxBridge.ShareForReward(ShareCatalog.PickClub(), "gameclub_refresh", () =>
             {
+                GameFlow.DisarmShareReturn();
+                RestoreClubButton();
                 if (!_meta.RerollClubOffer()) return;
                 if (this == null)
                 {
@@ -252,8 +258,16 @@ namespace InkLine
                 _changed?.Invoke();
             }, () =>
             {
+                GameFlow.DisarmShareReturn();
+                RestoreClubButton();
                 if (this != null) InkToast.Show(_layer, "转发没发出去");
             });
+        }
+
+        void RestoreClubButton()
+        {
+            if (this == null || _go == null || !WxBridge.CanUseClub) return;
+            WxBridge.ShowClubButton(PanelKit.ScreenRect(_go.GetComponent<RectTransform>()));
         }
 
         void OnClaim()

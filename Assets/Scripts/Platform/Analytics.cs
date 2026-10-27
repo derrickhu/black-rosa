@@ -125,15 +125,18 @@ namespace InkLine
         }
 
         // 只记发起分享，不代表对方点进来。entry 上线后不要改名。
-        public static void ShareApp(string entry, string title, string imageUrl)
+        // 游戏圈刷新是 gameclub_refresh，续命是 battle_revive，右上角是 wx_menu，主动转发是 api_share_game。
+        public static void ShareApp(string entry, string title, string imageUrl, string imageUrlId = null)
         {
             Ensure();
             Param p = new Param().Str("entry_point", string.IsNullOrEmpty(entry) ? "wx_other" : entry)
                 .Str("title", title ?? "")
                 .Str("image_url", imageUrl ?? "")
+                .Str("image_url_id", imageUrlId ?? "")
                 .Str("query", "");
             if (_levelOpen) p.Num("level_id", _levelId);
             Track("share_app_message", p);
+            Flush();
         }
 
         public static void ShareTimeline(string title, string imageUrl)

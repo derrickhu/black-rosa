@@ -292,7 +292,7 @@ namespace InkLine
                 {
                     ShareCatalog.Card card = ShareCatalog.Pick();
                     // 这套回调拿不到 from，右上角菜单是唯一的被动入口。
-                    Analytics.ShareApp("wx_menu", card.Title, card.ImageUrl);
+                    Analytics.ShareApp("wx_menu", card.Title, card.ImageUrl, card.ImageUrlId);
                     done(MessageOf(card));
                 });
                 WeChatWASM.WX.OnShareTimeline(done =>
@@ -315,8 +315,8 @@ namespace InkLine
 #if UNITY_MINIGAME || WEIXINMINIGAME || UNITY_WEIXINMINIGAME || MINIGAME_SUBPLATFORM_WEIXIN
             if (Application.isEditor) return;
             ShareCatalog.Card card = ShareCatalog.Pick();
+            Analytics.ShareApp("api_share_game", card.Title, card.ImageUrl, card.ImageUrlId);
             WeChatWASM.WX.ShareAppMessage(ActiveOf(card));
-            Analytics.ShareApp("api_share_game", card.Title, card.ImageUrl);
 #endif
         }
 
@@ -345,8 +345,9 @@ namespace InkLine
             _shareAt = Time.realtimeSinceStartup;
             try
             {
+                // 先入队再拉起。微信一切到转发界面就会 OnHide，写在后面的话这次经分会被重启丢掉。
+                Analytics.ShareApp(entry, card.Title, card.ImageUrl, card.ImageUrlId);
                 WeChatWASM.WX.ShareAppMessage(ActiveOf(card));
-                Analytics.ShareApp(entry, card.Title, card.ImageUrl);
             }
             catch (Exception e)
             {

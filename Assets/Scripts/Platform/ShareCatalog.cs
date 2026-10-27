@@ -49,7 +49,16 @@ namespace InkLine
 
         // 游戏圈转发刷新专用。朋友看到的是炫耀今天的奖，不提刷新。
         // 聊天卡片大约 14 个字就换行，每句都卡在一行里。
-        // 配图在 game_assets/black-rosa/推广/转发图/club/，后台过审后把编号和地址填进来。
+        // 图必须用后台过审的编号和地址。空着时微信会截当前画面，小游戏进程会被打重启。
+        const string ClubBunId = "uTuxnQgvTP2KaTcx3LWaRQ==";
+        const string ClubBunUrl = "https://mmocgame.qpic.cn/wechatgame/gkKEMSAOfJ0IQxyj3G0LJdGWEia7UHJaVo3Ou0kaQcMEibIUJrdXYua0tcuhicYRwTT/0";
+        const string ClubKingId = "gSKWEPXPTSC2db/1Z6h8iw==";
+        const string ClubKingUrl = "https://mmocgame.qpic.cn/wechatgame/gkKEMSAOfJ3c1MtQP1urZqfHcFk2J4ejCBHcezxT38GWwxyLrG0z7iaSDV6a5gC5z/0";
+        const string ClubTileId = "phShsAlrQXWwCKGuqUB7xw==";
+        const string ClubTileUrl = "https://mmocgame.qpic.cn/wechatgame/gkKEMSAOfJ0jnBbPVImvTd420qoUaXBhCicK9zAJRiakCrHRibV76xYaO7dCcOFibp34/0";
+        const string ClubChestId = "kXQesEsyS/Wo8vfklFRzQA==";
+        const string ClubChestUrl = "https://mmocgame.qpic.cn/wechatgame/gkKEMSAOfJ3Hvauf7oSc2icpfX0ciczV315oP7jK4twUdt2tm9LS1zickfjalgwU5jv/0";
+
         static readonly string[] ClubLines =
         {
             "今天这奖，我不信",
@@ -60,13 +69,23 @@ namespace InkLine
             "这奖励，我先藏着",
         };
 
+        static readonly Card[] ClubArts =
+        {
+            new Card { ImageUrlId = ClubBunId, ImageUrl = ClubBunUrl },
+            new Card { ImageUrlId = ClubKingId, ImageUrl = ClubKingUrl },
+            new Card { ImageUrlId = ClubTileId, ImageUrl = ClubTileUrl },
+            new Card { ImageUrlId = ClubChestId, ImageUrl = ClubChestUrl },
+        };
+
         public static Card Pick() => PickFrom(Cards);
 
         public static Card PickRevive() => PickFrom(ReviveCards);
 
         public static Card PickClub()
         {
-            return new Card { Title = ClubLines[Random.Range(0, ClubLines.Length)] };
+            Card card = ClubArts[Random.Range(0, ClubArts.Length)];
+            card.Title = ClubLines[Random.Range(0, ClubLines.Length)];
+            return card;
         }
 
         static Card PickFrom(Card[] cards)
