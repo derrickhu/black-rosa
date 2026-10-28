@@ -50,14 +50,27 @@ async function handleWechatPushCallback(req) {
   return respond(200, SUCCESS);
 }
 
+function missingCollection(error) {
+  const text = String((error && (error.code || error.errCode || error.message || error.errMsg)) || error || '');
+  return /not exist|ResourceNotFound|COLLECTION_NOT_EXIST|502005|集合不存在|Db or Table not exist/i.test(text);
+}
+
 async function handleQueryPendingWechatGifts(req) {
   const user = requireUser(req);
-  const res = await collection(PENDING_GIFT_COLLECTION)
-    .where({ userId: user.userId, status: 'pending' })
-    .orderBy('createdAt', 'asc')
-    .limit(20)
-    .get();
-  return { gifts: normalizeGiftRows((res && res.data) || []) };
+  // 礼包现在落邮件。这个集合可能还没建过。orderBy 还要求组合索引，没有索引时云数据库直接抛错，启动查询就变成 500。
+  let rows = [];
+  try {
+    const res = await collection(PENDING_GIFT_COLLECTION)
+      .where({ userId: user.userId, status: 'pending' })
+      .limit(20)
+      .get();
+    rows = (res && res.data) || [];
+  } catch (error) {
+    if (missingCollection(error)) return { gifts: [] };
+    throw error;
+  }
+  rows.sort((a, b) => (Number(a.createdAt) || 0) - (Number(b.createdAt) || 0));
+  return { gifts: normalizeGiftRows(rows) };
 }
 
 async function handleMarkWechatGiftsGranted(req) {

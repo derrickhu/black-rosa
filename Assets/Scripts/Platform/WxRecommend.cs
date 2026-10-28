@@ -62,10 +62,11 @@ namespace InkLine
 
 #if UNITY_MINIGAME || WEIXINMINIGAME || UNITY_WEIXINMINIGAME || MINIGAME_SUBPLATFORM_WEIXIN
         [DllImport("__Internal")]
-        static extern void InkRecommendLoad();
+        static extern void InkRecommendCall(int mode);
 
-        [DllImport("__Internal")]
-        static extern void InkRecommendShow();
+        static void InkRecommendLoad() => InkRecommendCall(0);
+
+        static void InkRecommendShow() => InkRecommendCall(1);
 #endif
     }
 }
