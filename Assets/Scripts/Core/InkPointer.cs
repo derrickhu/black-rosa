@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using UnityEngine.EventSystems;
 
@@ -10,6 +11,12 @@ namespace InkLine
         public static bool Held { get; private set; }
         public static bool Up { get; private set; }
 
+        // 微信原生页（红包、转发）盖住时，松手事件经常丢。旧手指会一直报按住，
+        // 新的点击全被当成同一次拖动，炮台就再也拖不动。盖住回来后只认新按下的一下。
+        static bool _armFresh;
+
+        public static void ArmFresh() => _armFresh = true;
+
         public static void Pump()
         {
             Down = Held = Up = false;
@@ -17,15 +24,36 @@ namespace InkLine
 
             if (Input.touchCount > 0)
             {
+                if (FreshTouch(Input.touchCount, i => Input.GetTouch(i))) return;
                 Touch t = Input.GetTouch(0);
                 ApplyTouch(t.position, t.phase);
                 return;
             }
 
             ScreenPos = Input.mousePosition;
+            if (_armFresh)
+            {
+                if (Input.GetMouseButtonUp(0)) _armFresh = false;
+                else if (!Input.GetMouseButton(0)) _armFresh = false;
+                else return;
+            }
             Down = Input.GetMouseButtonDown(0);
             Held = Input.GetMouseButton(0);
             Up = Input.GetMouseButtonUp(0);
+        }
+
+        static bool FreshTouch(int count, System.Func<int, Touch> get)
+        {
+            if (!_armFresh) return false;
+            for (int i = 0; i < count; i++)
+            {
+                Touch t = get(i);
+                if (t.phase != TouchPhase.Began) continue;
+                _armFresh = false;
+                ApplyTouch(t.position, t.phase);
+                return true;
+            }
+            return true;
         }
 
         static bool TryFromEventSystem()
@@ -34,6 +62,7 @@ namespace InkLine
             if (es == null || es.currentInputModule == null) return false;
             BaseInput input = es.currentInputModule.input;
             if (input == null || input.touchCount <= 0) return false;
+            if (FreshTouch(input.touchCount, i => input.GetTouch(i))) return true;
             Touch t = input.GetTouch(0);
             ApplyTouch(t.position, t.phase);
             return true;

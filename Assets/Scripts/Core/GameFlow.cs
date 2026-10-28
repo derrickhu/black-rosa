@@ -143,6 +143,7 @@ namespace InkLine
             WxBridge.OnHide(NoteLeft);
             WxBridge.OnShow(NoteBack);
             WxBridge.InstallShare();
+            WxRecommend.Preload();
             ItemPanel.Opened += OnItemPanel;
             ItemPanel.UnlockShown += _ => CloseMask();
             ItemPanel.UnlockDone += OnItemUnlocked;
@@ -265,17 +266,26 @@ namespace InkLine
         bool _holdForShare;
         // 转发界面回来时，OnShow 和 OnApplicationPause 会各叫一次。这段时间里不再弹设置。
         float _shareSettleUntil;
+        // 红包这类原生页盖住时，不要在底下把三选一弹出来。回来再留一拍，松手那下不会点到牌上。
+        float _inputQuietUntil;
 
         // 切出去、锁屏、被盖住。回来时设置页已经在上面，点继续才接着打。
         void NoteLeft()
         {
             if (_holdForAd || _holdForShare) return;
+            _inputQuietUntil = float.PositiveInfinity;
+            InkPointer.ArmFresh();
+            _dragging = false;
+            AbortUnfinishedDraft();
             _leftGame = true;
             PauseForReturn();
         }
 
         void NoteBack()
         {
+            _inputQuietUntil = Time.realtimeSinceStartup + 1.2f;
+            InkPointer.ArmFresh();
+            _dragging = false;
             StartCoroutine(WechatGift.Sync(_meta, _layer, RefreshHomeWallet));
             StartCoroutine(Mailbox.Refresh(RefreshHomeWallet));
             if (_holdForShare || Time.realtimeSinceStartup < _shareSettleUntil)
@@ -437,6 +447,15 @@ namespace InkLine
             if (HoldOverflow(GuideHome)) return;
             GuideHome();
             if (remindChest) InkToast.Show(_layer, "新宝箱先留着，出征页上可以再放");
+            MaybeRecommend();
+        }
+
+        // 通关第二章之后，第一次回到首页再拉起。结算页还在播横幅和砸星，不在那里盖。
+        void MaybeRecommend()
+        {
+            if (_holdForShare || _meta == null || _meta.Guiding) return;
+            if (!_meta.ChapterCleared(GameConstants.RecommendChapter)) return;
+            WxRecommend.TryShow();
         }
 
         // ---------- 新手指引：首页这半段（升伤害 → 开箱 → 领奖励 → 弹弓 → 出征第二关） ----------
@@ -871,6 +890,7 @@ namespace InkLine
         void TickAutoDraft()
         {
             if (_askingRetreat || _world == null || BattleWorld.PreviewFill || _world.Victory || _world.Defeat) return;
+            if (Time.realtimeSinceStartup < _inputQuietUntil) return;
             if (_screen != Screen.Battle || _teach >= 3) return;
             // 活动关的钱要攒着存进聚宝盆，买不买改装让玩家自己点。
             if (_world.Stage.Event) return;
@@ -1195,6 +1215,27 @@ namespace InkLine
             Vector2 b = BattleHud.WorldToCanvas(_layer, new Vector3(w * 0.6f, GameConstants.EmitterY, 0f));
             _mask.Swipe(a, b);
             _mask.Say("按住这里左右滑，炮跟着走，对准敌人");
+        }
+
+        // 原生页盖上来时，三选一或已经点中的牌不能留在半空。否则松手会落在牌上，
+        // 战斗停在放牌，炮台拖不动，看起来像整局卡住。
+        void AbortUnfinishedDraft()
+        {
+            if (_guide || _world == null) return;
+            if (_screen == Screen.Draft)
+            {
+                CloseDraft();
+                return;
+            }
+            if (_screen != Screen.Place && _screen != Screen.Confirm) return;
+            _world.Gold += _draftPaid;
+            _world.DraftCount = Mathf.Max(0, _world.DraftCount - 1);
+            _digging = false;
+            _held = CardId.None;
+            _autoMute = AutoMuteAfterClose;
+            _autoWait = 0f;
+            CloseMask();
+            ResumeBattle();
         }
 
         void CloseDraft()

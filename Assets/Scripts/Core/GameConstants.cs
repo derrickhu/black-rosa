@@ -17,6 +17,8 @@ namespace InkLine
         // 章下标从 0 数。招财进宝通关第一章开，无尽通关第二章开。
         public const int EventOpenChapter = 0;
         public const int EndlessOpenChapter = 1;
+        // 通关这一章后拉起一次微信推荐组件。第二章，下标从 0 数。
+        public const int RecommendChapter = 1;
         public const int EndlessPlaysPerDay = 1;
         public const int EndlessAdPlays = 1;
         public const int EndlessInkPerWave = 5;
@@ -104,9 +106,9 @@ namespace InkLine
         public const float CellHeight = 1.16f;
         // 3 行整块靠下，上面留给走怪。漏怪线贴在格底下方。
         public const float GridCenterY = -2.5f;
-        // 炮在格底和底栏之间。太靠下会在 16:9 上被改装键挡住，
-        // 太靠上又会顶到漏怪线。-5.20 给底栏一行按钮留出约一指空隙。
-        public const float EmitterY = -5.20f;
+        // 炮在格底和底栏之间。心贴在格子下沿，炮口再抬就会压到心上。
+        // -5.70 让炮身顶离开心的下沿；底栏那一行仍由 BattleHud.FitCamera 让开。
+        public const float EmitterY = -5.70f;
         public static float LeakY =>
             GridCenterY - (Rows - 1) * 0.5f * CellHeight - CellHeight * 0.5f - 0.36f;
         public const float SpawnY = 7.15f;
