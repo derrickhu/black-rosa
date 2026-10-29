@@ -758,6 +758,15 @@ print("  裕度（一级没升）: " + " / ".join(f"{h / s:.2f}" for h, s in zip
 check(all(study_exp[ch] == 0 for ch in range(min(4, len(study_exp)))), "字卡预期等级前四章必须是 0（前四章难度不动）")
 check(all(study_exp[i] <= study_exp[i + 1] for i in range(len(study_exp) - 1)), "字卡预期等级要逐章不降")
 check(max(study_hp) <= 1.2, f"字卡怪血倍率最高 {max(study_hp):.3f}（要 ≤1.2，不升级也得能打）")
+study_costs = [int(x) for x in re.findall(r"\d+", re.search(r"Cost\s*=\s*\{([^}]*)\}", study_src).group(1))]
+study_full = sum(study_costs)
+foil_m = re.search(r"float n = (\d+)\s*\+\s*(?:(\d+)\s*\*\s*)?\(s\.Chapter - 4\)", study_src)
+foil_base = int(foil_m.group(1))
+foil_step = int(foil_m.group(2) or 1)
+foil_main = sum(round((foil_base + foil_step * (r["ch"] - 4)) * (2.0 if r["slot"] == size - 1 else 1.5 if r["bosses"] else 1.0))
+                for r in rows if r["ch"] >= 4)
+check(0.6 * study_full <= foil_main <= 1.1 * study_full,
+      f"金箔首通主线 {foil_main} / 单张满级 {study_full} = {foil_main / study_full:.2f}（要 0.6~1.1，稀缺资源）")
 item_src = read("Data", "ItemCatalog.cs")
 chest_src = read("Data", "ChestCatalog.cs")
 forge_cost = sum(int(x) for grp in re.findall(r"Cost = new\[\] \{([^}]*)\}", forge_src) for x in re.findall(r"\d+", grp))

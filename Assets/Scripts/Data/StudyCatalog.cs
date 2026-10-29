@@ -19,13 +19,13 @@ namespace InkLine
         public const int ShardFoilAdvanced = 3;
         public const int ShardFoilRare = 5;
         static readonly int[] SpareFoil = { 1, 2, 5 };
-        // 墨换金箔一天三次，越换越贵。后期一关首通约 33 金箔、400 墨（看双倍 800），
-        // 换的汇率要明显差过去打关：一次 10 金箔，一天全换完也就够中段升一级。
+        // 墨换金箔一天三次，越换越贵。后期一关首通约 14 金箔、400 墨（看双倍 800），
+        // 换的汇率明显差过去打关：一次 5 金箔，一天换满加上广告和钻石约够初段升一级。
         static readonly int[] SwapPrice = { 800, 1200, 1600 };
-        public const int SwapFoil = 10;
+        public const int SwapFoil = 5;
         // 钻石换金箔，一天一次。比墨换贵一点，用来花掉打关多出来的钻。
         public const int GemSwapCost = 40;
-        public const int GemSwapFoil = 20;
+        public const int GemSwapFoil = 10;
         public static int SwapPerDay => SwapPrice.Length;
         public static int SwapInkAt(int done) => SwapPrice[Mathf.Clamp(done, 0, SwapPrice.Length - 1)];
         public const int TrialPerDay = 2;
@@ -68,10 +68,12 @@ namespace InkLine
         public static int SpareFoilOf(ItemQuality q) => SpareFoil[Mathf.Clamp((int)q, 0, SpareFoil.Length - 1)];
 
         // 首通发的金箔。只有第五章起的主线和精英。
+        // 第五章普通关 7，逐章 +1，到第十二章普通关 14。小关底 ×1.5，章底 ×2，精英再 ×1.2。
+        // 第五到十二章主线首通合计约 882，约够升满 0.8 张字；看双倍或补打精英才能多升几张。
         public static int FirstClearFoil(StageDef s)
         {
             if (s == null || s.Endless || s.Daily || s.Event || s.Chapter < 4) return 0;
-            float n = 15 + 3 * (s.Chapter - 4);
+            float n = 7 + (s.Chapter - 4);
             if (s.Finale) n *= 2f;
             else if (s.HasBoss) n *= 1.5f;
             if (s.Hard) n *= 1.2f;
