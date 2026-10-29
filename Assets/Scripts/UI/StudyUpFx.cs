@@ -6,7 +6,7 @@ namespace InkLine
 {
     // 字卡升一级的演出。挂在详情面板 board 最上层，自带 UiAnim：面板重绘会清掉主动画，这里不受影响。
     // 节拍跟 study_up 音效走：前 0.3 秒金箔从价钱那里吸进卡、卡蓄力发亮；
-    // 0.3 秒爆点换成新等级的卡面，白闪、冲击环、火花、等级字冲出来。品质变了再加光芒、横幅，满级撒彩带。
+    // 0.3 秒爆点重绘成新等级，白闪、冲击环、火花、等级字冲出来。品质变了再加光芒、横幅，满级撒彩带。
     public sealed class StudyUpFx : MonoBehaviour
     {
         public const float Hit = 0.3f;
@@ -107,11 +107,11 @@ namespace InkLine
 
         void Burst(Vector2 card, Vector2 size, int level, Color col, Color deep, Color hot)
         {
-            // 卡形白闪，往外胀着淡掉。
-            var flash = UiKit.Panel(_root, "flash", card, size, Color.white);
+            // 字后面一团白闪，往外胀着淡掉。
+            float d = Mathf.Max(size.x, size.y) * 1.25f;
+            var flash = UiKit.Panel(_root, "flash", card, new Vector2(d, d), Color.white);
             var fi = flash.GetComponent<Image>();
-            fi.sprite = UiSprites.Fill(UiSprites.Tier(size.x * 0.16f));
-            fi.type = Image.Type.Sliced;
+            fi.sprite = InkFx.SoftDisc();
             fi.raycastTarget = false;
             _a.Tween(0f, 0.36f, k =>
             {

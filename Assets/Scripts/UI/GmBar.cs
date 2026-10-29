@@ -69,6 +69,7 @@ namespace InkLine
                 ("改装满级", () => meta.MaxForge()),
                 ("签到跨一天", () => meta.GmCheckNextDay()),
                 ("图鉴全开", () => meta.UnlockCodex()),
+                ("印章各来一套", () => meta.GmGrantSeals()),
                 (GlowLabel(), () => ShotSparks.Bright = !ShotSparks.Bright),
                 (GoldLabel(), NextGoldMul),
                 ("聚宝盆 +1000", () => meta.GmEventBank(EventBankGrant)),

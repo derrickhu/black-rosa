@@ -35,6 +35,7 @@ namespace InkLine
                 WordLevel[i] = Mathf.Clamp(WordLevel[i], 0, StudyCatalog.MaxLevel);
             Foil = Mathf.Max(0, Foil);
             if (TrialKind < 0 || TrialKind > 2) TrialKind = 0;
+            NormalizeSeals();
         }
 
         bool RollStudy()
@@ -46,6 +47,7 @@ namespace InkLine
             SwapAdDone = false;
             SwapGemDone = false;
             TrialCount = 0;
+            SealAdCount = 0;
             // 试用只在当天有效。挂着没打出来的，过天清掉，不带到第二天。
             TrialKind = 0;
             TrialId = 0;
@@ -83,6 +85,7 @@ namespace InkLine
             Foil -= StudyCatalog.CostOf(lv);
             if (e.Kind == CodexKind.Glyph) GlyphLevel[e.Index] = lv + 1;
             else WordLevel[e.Index] = lv + 1;
+            FillSlots();
             Save();
             return true;
         }
@@ -93,10 +96,10 @@ namespace InkLine
             get
             {
                 if (!StudyOpen) return false;
-                if (!StudySeen) return true;
+                if (!StudySeen || SealNew > 0) return true;
                 IReadOnlyList<CodexEntry> all = StudyCatalog.All;
                 for (int i = 0; i < all.Count; i++)
-                    if (UpgradeBlock(all[i]) == StudyBlock.None) return true;
+                    if (UpgradeBlock(all[i]) == StudyBlock.None || CanFillSlot(all[i])) return true;
                 return false;
             }
         }

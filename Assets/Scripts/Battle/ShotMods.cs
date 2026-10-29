@@ -13,6 +13,7 @@ namespace InkLine
         public float Radius;
         public int Stacks;  // 可叠层数，目前只有毒用
         public int Chain;   // 范围内再连带几个，0 表示范围内全体
+        public float Amp;   // 烈度印章：冻 / 晕期间目标额外受伤的比例
     }
 
     // 子弹一路上收集到的所有改动。BulletActor 只留运动学，
@@ -85,7 +86,25 @@ namespace InkLine
         public bool Whirl;             // 旋风：聚过来的整团贴到命中点那一列
         public bool Riposte;           // 回锋：折返时补一层穿，回程不衰减
 
+        // 印章
+        public float Splash;           // 广域：没有半径的字命中时溅到身边，半径（格）
+        // 烈度：被推开（土、击退）/ 吹开（风）/ 拉过来（聚）的怪之后两秒额外受伤
+        public float MarkPush;
+        public float MarkWind;
+        public float MarkGather;
+        public float LateralExtra;     // 位移：风多吹一列的几率
+        public long SealOnce;          // 按字只乘一次的烈度，乘过的位记在这里
+
         public IReadOnlyList<StatusHit> Status => _status;
+
+        // 这个字的「只乘一次」还没用过就记上并返回真。
+        public bool FirstSeal(CardId id)
+        {
+            long bit = 1L << (int)id;
+            if ((SealOnce & bit) != 0) return false;
+            SealOnce |= bit;
+            return true;
+        }
 
         public int Star(CardId id) => _star[(int)id];
         public bool Has(CardId id) => _star[(int)id] > 0;
@@ -111,6 +130,7 @@ namespace InkLine
                 cur.Radius = Mathf.Max(cur.Radius, hit.Radius);
                 cur.Stacks = Mathf.Max(cur.Stacks, hit.Stacks);
                 cur.Chain = Mathf.Max(cur.Chain, hit.Chain);
+                cur.Amp = Mathf.Max(cur.Amp, hit.Amp);
                 _status[i] = cur;
                 return;
             }
@@ -218,6 +238,12 @@ namespace InkLine
             Crumble = src.Crumble;
             Whirl = src.Whirl;
             Riposte = src.Riposte;
+            Splash = src.Splash;
+            MarkPush = src.MarkPush;
+            MarkWind = src.MarkWind;
+            MarkGather = src.MarkGather;
+            LateralExtra = src.LateralExtra;
+            SealOnce = src.SealOnce;
         }
     }
 }

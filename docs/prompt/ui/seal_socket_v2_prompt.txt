@@ -1,0 +1,10 @@
+A sprite sheet of 2 casual mobile-game UI medallions, arranged in one row of 2, each medallion centered in its own half with a wide empty margin around it. Both medallions are the same size, seen straight on.
+
+Chunky sticker finish: thick dark brown outline the color of ink (#3A2A20), flat colors, simple cel shading, crisp edges, the same language as a cartoon gold-coin icon.
+
+Left medallion, an empty seal socket: a round setting of new-coin gold (#F6BE3C). The outer rim is a ring of small raised beads, with a darker antique-gold bevel (#C4922A) on the inner edge. Inside the beads sits one thin engraved ring. The very center is one smooth flat disc of pale new-coin gold, slightly recessed, even and empty, a clear place for a small dark emblem. Four tiny gold scrolls sit on the rim at the top, bottom, left and right.
+
+Right medallion, a locked seal socket, the same outer beaded gold rim and the same diameter. The center is closed by a round carved cap of pale celadon stone, the green of a pale jade pendant, with a soft highlight. A small gold clasp shaped like a tiny padlock sits on the cap. The piece looks finished and shut, and it belongs to the same set as the left medallion.
+
+The whole background is one flat solid magenta color like a highlighter pen (#FF00FF), edge to edge, the same magenta behind both medallions.
+NO TEXT, no letters, no numbers, no labels anywhere in the image.

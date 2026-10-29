@@ -139,23 +139,43 @@ namespace InkLine
                  .Punch(box, 1.05f, 0.22f, 0.36f);
 
             float t = 1.35f;
-            bool both = _loot.Ink > 0 && _loot.Foil > 0;
+            int seals = _loot.Seals.Count;
+            int chips = (_loot.Ink > 0 ? 1 : 0) + (_loot.Foil > 0 ? 1 : 0) + seals;
+            float chipW = chips >= 3 ? 196f : 220f;
+            float chipStep = chipW + 14f;
+            int chipAt = 0;
+            Vector2 ChipPos() => new Vector2((chipAt++ - (chips - 1) * 0.5f) * chipStep, ChestY - 170f);
             if (_loot.Ink > 0)
             {
-                var chip = ResultKit.Group(_root, "ink", new Vector2(both ? -125f : 0f, ChestY - 170f), new Vector2(220f, 64f));
+                var chip = ResultKit.Group(_root, "ink", ChipPos(), new Vector2(chipW, 64f));
                 var ink = UiKit.Chip(chip, "v", InkSprites.Ui("ink"), "+0",
-                    Vector2.zero, new Vector2(220f, 64f), Pin.Center);
+                    Vector2.zero, new Vector2(chipW, 64f), Pin.Center);
                 _anim.Pop(chip, t, 0.3f)
                      .CountUp(ink, 0, _loot.Ink, t + 0.1f, 0.5f, "+{0}", AudioBus.CountTick);
                 t += 0.45f;
             }
             if (_loot.Foil > 0)
             {
-                var chip = ResultKit.Group(_root, "foil", new Vector2(both ? 125f : 0f, ChestY - 170f), new Vector2(220f, 64f));
+                var chip = ResultKit.Group(_root, "foil", ChipPos(), new Vector2(chipW, 64f));
                 var foil = UiKit.Chip(chip, "v", FoilArt.Icon, "+0",
-                    Vector2.zero, new Vector2(220f, 64f), Pin.Center);
+                    Vector2.zero, new Vector2(chipW, 64f), Pin.Center);
                 _anim.Pop(chip, t, 0.3f)
                      .CountUp(foil, 0, _loot.Foil, t + 0.1f, 0.5f, "+{0}", AudioBus.CountTick);
+                t += 0.45f;
+            }
+            for (int i = 0; i < seals; i++)
+            {
+                SealDrop s = _loot.Seals[i];
+                var chip = ResultKit.Group(_root, "seal" + i, ChipPos(), new Vector2(chipW, 64f));
+                UiKit.Stroke(chip, "bg", Vector2.zero, new Vector2(chipW, 64f), Pin.Center, 4f,
+                    SealCatalog.QualityDeep(s.Quality), InkTheme.CardFace, 32f);
+                SealArt.Medal(chip, "m", s.Type, s.Quality, new Vector2(-chipW * 0.5f + 34f, 0f), 58f);
+                var name = UiKit.Label(chip, "n", SealCatalog.DropName(s), 24, new Vector2(24f, 0f), new Vector2(chipW - 60f, 40f));
+                name.color = SealCatalog.QualityDeep(s.Quality);
+                UiKit.Bold(name);
+                _anim.Pop(chip, t, 0.3f, 1.6f);
+                Live(t + 0.05f, AudioBus.Stamp);
+                if (s.Quality == SealQuality.Gold) Live(t + 0.2f, AudioBus.StudyTier);
                 t += 0.45f;
             }
             if (!string.IsNullOrEmpty(_loot.Note))

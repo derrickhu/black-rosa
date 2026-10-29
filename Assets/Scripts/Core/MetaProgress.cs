@@ -338,6 +338,7 @@ namespace InkLine
             Diamond = Mathf.Max(0, Diamond);
             Token = Mathf.Max(0, Token);
             NormalizeStudy();
+            if (FillSlots()) rulesChanged = true;
             // 奖励来的体力可以超过上限，这里只防负数，否则重进游戏多出来的就被削掉。
             Stamina = Mathf.Max(0, Stamina);
             if (GuideStep == GuideBattle && ClearedCount() > 0)
@@ -997,6 +998,39 @@ namespace InkLine
             Save();
         }
 
+        // 字卡开放后的三选一字池：账号打到过的最远一关为止，所有关卡字池的并集，再并上这关自己的。
+        public CardId[] AccountPool(StageDef stage)
+        {
+            int top = 0;
+            for (int i = 0; i < Stars.Length && i < GameConstants.StageCount; i++)
+                if (Unlocked(i)) top = i;
+            var seen = new bool[CardCatalog.IdCount];
+            var list = new List<CardId>();
+            for (int s = 0; s <= top; s++) AddPool(StageCatalog.Get(s).Pool, seen, list);
+            if (stage != null) AddPool(stage.Pool, seen, list);
+            return list.ToArray();
+        }
+
+        static void AddPool(CardId[] pool, bool[] seen, List<CardId> into)
+        {
+            if (pool == null) return;
+            for (int i = 0; i < pool.Length; i++)
+            {
+                int id = (int)pool[i];
+                if (id <= 0 || id >= seen.Length || seen[id]) continue;
+                seen[id] = true;
+                into.Add(pool[i]);
+            }
+        }
+
+        // 主线看 Stars，精英看 HardStars。无尽、活动、每日没有首通一说。
+        public bool StageCleared(StageDef stage)
+        {
+            if (stage == null || stage.Endless || stage.Event || stage.Daily) return true;
+            int[] book = stage.Hard ? HardStars : Stars;
+            return stage.Index < 0 || stage.Index >= book.Length || book[stage.Index] > 0;
+        }
+
         // 活动关的字池：打到哪关，就用那关的字池。
         public CardId[] EventPool()
         {
@@ -1259,6 +1293,13 @@ namespace InkLine
                 Diamond += r.Diamonds;
                 r.Foil = StudyCatalog.FirstClearFoil(def);
                 Foil += r.Foil;
+                if (SealDropOpen)
+                {
+                    var seals = new List<SealDrop>();
+                    SealCatalog.RollFirstClear(def, seals);
+                    GrantSeals(seals);
+                    r.Seals = seals.ToArray();
+                }
             }
             ChestTier tier = ChestCatalog.ForStage(def, r.FirstClear, ChestCycle);
             if (!def.Finale && !def.HasBoss) ChestCycle++;
@@ -1276,6 +1317,7 @@ namespace InkLine
                 : ChapterFullStars(chapter) && !ChapterChestClaimed(chapter);
             r.NewLines = TakeForgeReveals();
             r.NewSkins = TakeSkinReveals();
+            FillSlots();
             int ink = Mathf.Max(0, collected);
             if (!DailyWinDone)
             {
@@ -2002,6 +2044,11 @@ namespace InkLine
         {
             if (loot == null) return;
             AddChestFoilChance(loot);
+            if (SealDropOpen && loot.Seals.Count == 0)
+            {
+                SealCatalog.RollChest(loot.Tier, loot.Seals);
+                GrantSeals(loot.Seals);
+            }
             if (StudyOpen && loot.SpareInk > 0)
             {
                 // 满级卡的金箔写在卡上，开箱演出里变成金箔，不进顶上那颗金箔药丸。

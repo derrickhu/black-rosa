@@ -46,6 +46,8 @@ namespace InkLine
         public int SpareInk;
         public int SpareFoil;
         public readonly List<CardStack> Cards = new List<CardStack>();
+        // 银、金、皇家箱有几率掉的印章，入账时才掷。
+        public readonly List<SealDrop> Seals = new List<SealDrop>();
         public string Title;     // 有值时盖过品阶名，炮台宝箱用
         public string ArtKey;    // 有值时用 Ui/chest_<ArtKey>
         public string Note;

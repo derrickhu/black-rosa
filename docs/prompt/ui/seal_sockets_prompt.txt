@@ -1,0 +1,8 @@
+A sprite sheet of 4 casual mobile-game UI parts, arranged in a strict grid of 2 columns and 2 rows, every part centered in its own cell with wide empty margin around it.
+Chunky sticker finish: thick dark brown outline (#3A2A20), flat colors, simple cel shading, the same style as a cartoon gold coin icon.
+1. Top left: a round medallion seen straight on. A thick ornate rim of new-coin gold (#F6BE3C) with a ring of small raised beads, darker antique gold (#C4922A) on the inner bevel. The center face inside the rim is one perfectly flat pure white disc (#FFFFFF) with no pattern, no shading, no symbol.
+2. Top right: an empty gem socket seen straight on: a round gold coin (#F6BE3C) with a shallow recessed center, a small engraved four-point twinkle star in the middle, warm golden glow.
+3. Bottom left: a small round smooth gray river pebble stud (#9A948A), flat, with a tiny highlight.
+4. Bottom right: a small glowing golden bead of light, a round warm gold dot (#FFD66B) with a soft cream highlight.
+The whole background is one flat solid magenta color like a highlighter pen (#FF00FF), edge to edge, the same magenta behind every cell.
+NO TEXT, no letters, no numbers, no labels anywhere in the image.

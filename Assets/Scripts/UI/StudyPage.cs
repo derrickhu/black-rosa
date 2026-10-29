@@ -37,6 +37,7 @@ namespace InkLine
         Text _foil;
         RectTransform _foilChip;
         Text _note;
+        RectTransform _sealMark;
         readonly List<Button> _chips = new List<Button>();
         StudyCatalog.Filter _filter = StudyCatalog.Filter.All;
         readonly List<CodexEntry> _shown = new List<CodexEntry>();
@@ -76,6 +77,7 @@ namespace InkLine
                 TextAnchor.MiddleCenter, Pin.Top);
             _note.color = InkTheme.TextMid;
             SwapMark(new Vector2(292f, BarY));
+            SealMark(new Vector2(-292f, BarY));
 
             var names = StudyCatalog.Filters;
             float step = 96f;
@@ -135,6 +137,32 @@ namespace InkLine
             UiKit.Bold(t);
         }
 
+        // 左侧一枚印章标，和右边的兑换对称。开了插槽或攒到过印章才出现。
+        void SealMark(Vector2 pos)
+        {
+            var go = new GameObject("seals", typeof(RectTransform), typeof(Image), typeof(Button));
+            go.transform.SetParent(_page, false);
+            var rt = go.GetComponent<RectTransform>();
+            rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 1f);
+            rt.pivot = new Vector2(0.5f, 1f);
+            rt.sizeDelta = new Vector2(96f, 90f);
+            rt.anchoredPosition = new Vector2(pos.x, -pos.y);
+            var hit = go.GetComponent<Image>();
+            hit.color = Color.clear;
+            var btn = go.GetComponent<Button>();
+            btn.transition = Selectable.Transition.None;
+            btn.targetGraphic = hit;
+            btn.onClick.AddListener(OpenSeals);
+            SealArt.Medal(go.transform, "m", SealType.Fierce, SealQuality.Blue, new Vector2(0f, 16f), 54f);
+            var t = UiKit.Label(go.transform, "t", "印章", 20, new Vector2(0f, -28f), new Vector2(96f, 26f));
+            UiKit.Bold(t);
+            var ring = UiKit.Icon(go.transform, UiSprites.Disc(), new Vector2(30f, 36f), 26f);
+            ring.name = "dot";
+            ring.color = InkTheme.CardFace;
+            UiKit.Icon(ring.transform, UiSprites.Disc(), Vector2.zero, 20f).color = InkTheme.Seal;
+            _sealMark = rt;
+        }
+
         Button FilterChip(string text, Vector2 pos, Vector2 size, Action click)
         {
             var root = UiKit.Stroke(_page, "f_" + text, pos, size, Pin.Top, 4f, radius: size.y * 0.5f);
@@ -160,6 +188,9 @@ namespace InkLine
         {
             if (_meta == null) return;
             _foil.text = _meta.Foil.ToString();
+            _sealMark.gameObject.SetActive(_meta.SealBagShown);
+            Transform dot = _sealMark.Find("dot");
+            if (dot != null) dot.gameObject.SetActive(_meta.SealNew > 0);
             for (int i = 0; i < _chips.Count; i++)
             {
                 bool on = StudyCatalog.Filters[i] == _filter;
@@ -215,13 +246,20 @@ namespace InkLine
             btn.targetGraphic = card.GetComponent<Image>();
             btn.onClick.AddListener(() => Open(e));
             if (_meta.HasTrial(e)) StudyCard.Tag(card, "试用", InkTheme.Teal);
-            if (_meta.UpgradeBlock(e) == MetaProgress.StudyBlock.None) StudyCard.Dot(card);
+            if (_meta.HasLuckSeal(e)) StudyCard.Luck(card);
+            if (_meta.UpgradeBlock(e) == MetaProgress.StudyBlock.None || _meta.CanFillSlot(e)) StudyCard.Dot(card);
         }
 
         void Open(CodexEntry e)
         {
             AudioBus.Tap();
             GlyphDetailPanel.Show(_layer, _meta, _shown, _shown.IndexOf(e), AfterChange);
+        }
+
+        void OpenSeals()
+        {
+            AudioBus.Tap();
+            SealBagPanel.Show(_layer, _meta, AfterChange);
         }
 
         void OpenSwap()
@@ -323,6 +361,20 @@ namespace InkLine
             var tag = UiKit.Stroke(card, "tag", new Vector2(card.sizeDelta.x * 0.5f - 34f, -card.sizeDelta.y * 0.5f + 62f),
                 size, Pin.Center, 3f, null, col, 15f);
             var t = UiKit.Label(tag, "t", text, 18, Vector2.zero, size);
+            t.color = InkTheme.CardFace;
+            UiKit.Bold(t);
+        }
+
+        // 镶了字运：右下角一枚小红印「运」。试用角标在右侧中下，两个可以同时在。
+        public static void Luck(RectTransform card)
+        {
+            float k = card.sizeDelta.x / 152f;
+            var ring = UiKit.Icon(card, UiSprites.Disc(),
+                new Vector2(card.sizeDelta.x * 0.5f - 22f * k, -card.sizeDelta.y * 0.5f + 22f * k), 38f * k);
+            ring.name = "luck";
+            ring.color = InkTheme.Outline;
+            UiKit.Icon(ring.transform, UiSprites.Disc(), Vector2.zero, 32f * k).color = InkTheme.Seal;
+            var t = UiKit.Label(ring.transform, "t", "运", Mathf.RoundToInt(20 * k), Vector2.zero, new Vector2(38f, 38f) * k);
             t.color = InkTheme.CardFace;
             UiKit.Bold(t);
         }

@@ -316,11 +316,15 @@ namespace InkLine
             head.color = InkTheme.Hex("FFE7B8");
             _anim.Fade(head, at, 0.25f, 0f, 1f);
 
-            const float H = 150f, Gap = 18f, ChestW = 200f;
-            // 第五章起首通多一张金箔，四张并排要收窄，否则撑出 720。
-            float W = list.Count >= 3 ? 140f : 168f;
-            int n = list.Count + (chest ? 1 : 0);
-            float span = list.Count * W + (chest ? ChestW : 0f) + (n - 1) * Gap;
+            const float H = 150f, Gap = 18f;
+            SealDrop[] seals = info.Seals;
+            bool seal = seals != null && seals.Length > 0;
+            int cards = list.Count + (seal ? 1 : 0);
+            // 第五章起首通多一张金箔、再加印章，并排要收窄，否则撑出 720。
+            float W = cards >= 4 ? 112f : cards >= 3 ? 140f : 168f;
+            float ChestW = cards >= 4 ? 160f : 200f;
+            int n = cards + (chest ? 1 : 0);
+            float span = cards * W + (chest ? ChestW : 0f) + (n - 1) * Gap;
             float x = -span * 0.5f;
             for (int i = 0; i < list.Count; i++)
             {
@@ -353,9 +357,38 @@ namespace InkLine
                     Stamp(card, tag, new Vector2(W * 0.40f, H * 0.52f), -12f, InkTheme.Seal, t0 + 0.7f);
                 }
             }
-            float end = at + list.Count * 0.14f + 0.7f;
-            if (chest) end = Mathf.Max(end, BuildChest(parent, a, new Vector2(x + ChestW * 0.5f, RewardY), ChestW, H, at + list.Count * 0.14f));
+            if (seal)
+            {
+                BuildSeals(parent, seals, new Vector2(x + W * 0.5f, RewardY), new Vector2(W, H), at + list.Count * 0.14f);
+                x += W + Gap;
+            }
+            float end = at + cards * 0.14f + 0.7f;
+            if (chest) end = Mathf.Max(end, BuildChest(parent, a, new Vector2(x + ChestW * 0.5f, RewardY), ChestW, H, at + cards * 0.14f));
             return end;
+        }
+
+        // 印章一张卡：一枚就写「烈度 · 绿」，几枚就叠着摆、写「印章 ×N」。按最好的品质描边，金的带光。
+        void BuildSeals(RectTransform parent, SealDrop[] seals, Vector2 pos, Vector2 size, float at)
+        {
+            SealQuality best = SealQuality.Green;
+            for (int i = 0; i < seals.Length; i++)
+                if (seals[i].Quality > best) best = seals[i].Quality;
+            var card = ResultKit.Group(parent, "seal", pos, size);
+            UiKit.Stroke(card, "bg", Vector2.zero, size, Pin.Center, 5f, SealCatalog.QualityDeep(best), radius: 26f);
+            float medal = Mathf.Min(78f, size.x * 0.66f);
+            int shown = Mathf.Min(seals.Length, 3);
+            for (int i = 0; i < shown; i++)
+            {
+                float dx = (i - (shown - 1) * 0.5f) * medal * 0.42f;
+                var m = SealArt.Medal(card, "m" + i, seals[i].Type, seals[i].Quality, new Vector2(dx, 22f), medal);
+                _anim.Pop(m, at + 0.25f + i * 0.12f, 0.28f, 1.8f);
+            }
+            string text = seals.Length == 1 ? SealCatalog.DropName(seals[0]) : "印章 ×" + seals.Length;
+            var name = UiKit.Label(card, "n", text, size.x < 130f ? 19 : 22, new Vector2(0f, -44f), new Vector2(size.x, 30f));
+            UiKit.Bold(name);
+            name.color = SealCatalog.QualityDeep(best);
+            _anim.Pop(card, at, 0.32f).At(at + 0.3f, AudioBus.Stamp);
+            if (best == SealQuality.Gold) _anim.At(at + 0.5f, AudioBus.StudyTier);
         }
 
         // 宝箱从天上砸下来、弹两下落进卡里。底下一行告诉玩家不开会怎样：进宝箱位，或位满了离开后再选。

@@ -59,6 +59,7 @@ namespace InkLine
                 if (m.Whirl) e.Pos.x = Mathf.Lerp(e.Pos.x, c.x, 0.85f);
                 e.Pos.y = Mathf.Clamp(e.Pos.y, GameConstants.LeakY + 0.4f, GameConstants.SpawnY - 0.35f);
                 if (m.GatherHold > 0f) e.HoldTime = Mathf.Max(e.HoldTime, m.GatherHold);
+                MarkHurt(e, m.MarkGather);
                 n++;
             }
             if (n == 0) return;
@@ -83,6 +84,11 @@ namespace InkLine
             {
                 e.VulnTime -= dt;
                 if (e.VulnTime <= 0f) e.Vuln = 0f;
+            }
+            if (e.MarkTime > 0f)
+            {
+                e.MarkTime -= dt;
+                if (e.MarkTime <= 0f) e.MarkAmp = 0f;
             }
             if (e.Phantoms > 0 && e.Hp <= e.MaxHp * 0.5f) SpawnPhantoms(e);
             if (e.ShieldAura <= 0f && e.Bell <= 0f) return;

@@ -72,6 +72,10 @@ namespace InkLine
         // 第二幕。Vuln 是破的易伤比例；Hidden 是墨影 / 幻影还没被炮弹本体打中显形。
         public float Vuln;
         public float VulnTime;
+        // 烈度印章。HardAmp：冻 / 晕期间额外受伤，硬控结束就不算；Mark：被推拉之后一小段额外受伤。
+        public float HardAmp;
+        public float MarkAmp;
+        public float MarkTime;
         public bool Hidden;
         public float ShieldAura;
         public float Bell;
@@ -194,7 +198,7 @@ namespace InkLine
     }
 
     // 这一下伤害是哪来的。域和连斩不再走斩杀，也不再触发新的域。
-    public enum HitSource { Direct, Cleave, Area, Arrow, Echo }
+    public enum HitSource { Direct, Cleave, Area, Arrow, Echo, Splash }
 
     // 命中三层的投递单：底层永远是墨溅，Kind 是唯一那个元素层，
     // Event 是斩杀 / 晕 / 位移这类事件层，被压掉的元素退化成 Dots 个色点。
@@ -461,7 +465,58 @@ namespace InkLine
         public int StudyTrialGlyph;
         public int StudyTrialWord;
 
-        float StudyMul(ShotMods m) => StudyGlyph == null ? 1f : StudyCatalog.ShotMul(m, StudyGlyph, StudyWord);
+        // 印章加成，开局前由 GameFlow 写入。null 表示这一局不吃印章（每日残局、插槽没开）。
+        public SealPack Seals;
+
+        float StudyMul(ShotMods m) => StudyGlyph == null ? 1f : StudyCatalog.ShotMul(m, StudyGlyph, StudyWord, Seals);
+
+        // 下面几个按条目取印章加成，没有就是 0。
+        float SealFierce(CardId id) => Seals == null ? 0f : Seals.Fierce[(int)id];
+        float SealFierce(WordId w) => Seals == null ? 0f : Seals.Fierce[SealCatalog.KeyOf(w)];
+        float SealLast(CardId id) => Seals == null ? 0f : Seals.Last[(int)id];
+        float SealWide(CardId id) => Seals == null ? 0f : Seals.Wide[(int)id];
+        float SealMove(CardId id) => Seals == null ? 0f : Seals.Move[(int)id];
+        float SealMove(WordId w) => Seals == null ? 0f : Seals.Move[SealCatalog.KeyOf(w)];
+        float SealKeep(CardId id) => Seals == null ? 0f : Seals.Keep[(int)id];
+        float SealKeep(WordId w) => Seals == null ? 0f : Seals.Keep[SealCatalog.KeyOf(w)];
+        float SealSplash(int key) => Seals == null ? 0f : Seals.Splash[key];
+
+        // 这一发第一次带上某个字时，把它的溅射记到炮弹上。
+        static void TakeSplash(ShotMods m, float r)
+        {
+            if (r > m.Splash) m.Splash = r;
+        }
+
+        // 重那一截：乘算里超出 1 的部分 × (1 + 烈度)。
+        static float Swell(float mul, float fierce) => 1f + (mul - 1f) * (1f + fierce);
+
+        // 状族的数值按印章调：持久乘时长，广域乘半径，烈度按字分两种（乘强度 / 挂受伤加成）。
+        StatusHit SealStatus(CardId id, StatusHit s)
+        {
+            if (Seals == null) return s;
+            float f = SealFierce(id);
+            s.Time *= 1f + SealLast(id);
+            s.Radius *= 1f + SealWide(id);
+            switch (s.Kind)
+            {
+                case StatusKind.Burn:
+                case StatusKind.Poison:
+                case StatusKind.Break:
+                    s.Power *= 1f + f;
+                    break;
+                case StatusKind.Confuse:
+                    s.Power = Mathf.Min(0.9f, s.Power * (1f + f));
+                    break;
+                case StatusKind.Slow:
+                    s.Power = Mathf.Max(0.05f, 1f - (1f - s.Power) * (1f + f));
+                    break;
+                case StatusKind.Freeze:
+                case StatusKind.Stun:
+                    s.Amp = Mathf.Max(s.Amp, f);
+                    break;
+            }
+            return s;
+        }
 
         public float ShotStudyLevel(ShotMods m) =>
             StudyGlyph == null ? 0f : StudyCatalog.ShotLevel(m, StudyGlyph, StudyWord);
@@ -480,13 +535,17 @@ namespace InkLine
         }
 
         // 放下 / 成词时在格子上冒一行「Lv.7 +14%」，玩家看得见自己花的钱。
-        void StudyPop(Vector2 at, int level, bool trial)
+        // 有锋芒时后面接「锋芒 +Y%」；镶着金印章的字整行换成金色、大一号。
+        void StudyPop(Vector2 at, int level, bool trial, int key)
         {
             if (level <= 0) return;
             StudyCatalog.Tier t = StudyCatalog.TierOf(level);
             string text = (trial ? "试用 Lv." : "Lv.") + level + " +" + Mathf.RoundToInt(StudyCatalog.BonusOf(level) * 100f) + "%";
-            ShowFloat(at + Vector2.up * 0.5f, text, trial ? InkTheme.Teal : StudyCatalog.TierColor(t),
-                t >= StudyCatalog.Tier.Purple ? 0.95f : 0.8f);
+            float edge = Seals != null && key >= 0 && key < Seals.Edge.Length ? Seals.Edge[key] : 0f;
+            if (edge > 0f) text += " 锋芒 +" + Mathf.RoundToInt(edge * 100f) + "%";
+            bool gold = Seals != null && key >= 0 && key < Seals.Gold.Length && Seals.Gold[key];
+            Color col = trial ? InkTheme.Teal : gold ? StudyCatalog.TierColor(StudyCatalog.Tier.Gold) : StudyCatalog.TierColor(t);
+            ShowFloat(at + Vector2.up * 0.5f, text, col, gold ? 1.05f : t >= StudyCatalog.Tier.Purple ? 0.95f : 0.8f);
         }
 
         public void Begin(StageDef stage, ForgeStats forge, int[] equipped)
@@ -1289,29 +1348,34 @@ namespace InkLine
                 GlyphDef g = GlyphTable.Get(CardId.Pierce);
                 m.Mark(CardId.Pierce, _pierceStar[col]);
                 m.Pierce += g.Count.IntAt(_pierceStar[col]);
-                m.PierceDecay = g.Decay.At(_pierceStar[col]);
+                m.PierceDecay = Mathf.Min(1f, g.Decay.At(_pierceStar[col]) + SealKeep(CardId.Pierce));
+                if (m.FirstSeal(CardId.Pierce)) m.FinalMul *= 1f + SealFierce(CardId.Pierce);
+                TakeSplash(m, SealSplash((int)CardId.Pierce));
             }
             if (_explodeStar[col] > 0 && PullCharge(col, ChExplode, CardCatalog.Get(CardId.Explode).ChargeNeed))
             {
                 GlyphDef g = GlyphTable.Get(CardId.Explode);
                 m.Mark(CardId.Explode, _explodeStar[col]);
-                m.ExplodeR = Mathf.Max(m.ExplodeR, g.Radius.At(_explodeStar[col]));
-                m.ExplodeShare = g.Decay.At(_explodeStar[col]);
+                m.ExplodeR = Mathf.Max(m.ExplodeR, g.Radius.At(_explodeStar[col]) * (1f + SealWide(CardId.Explode)));
+                m.ExplodeShare = Mathf.Min(1f, g.Decay.At(_explodeStar[col]) + SealKeep(CardId.Explode))
+                                 * (1f + SealFierce(CardId.Explode));
             }
             if (_heavyStar[col] > 0 && PullCharge(col, ChHeavy, CardCatalog.ChargeNeed(CardId.Heavy, _heavyStar[col])))
             {
                 // 只放大视觉，碰撞半径不动 —— 之前连 Radius 一起乘，炮弹会撑满格。
                 m.Mark(CardId.Heavy, _heavyStar[col]);
-                m.MulDamage *= GlyphTable.Get(CardId.Heavy).MulDamage.At(_heavyStar[col]);
+                m.MulDamage *= Swell(GlyphTable.Get(CardId.Heavy).MulDamage.At(_heavyStar[col]), SealFierce(CardId.Heavy));
+                TakeSplash(m, SealSplash((int)CardId.Heavy));
             }
             if (_stunStar[col] > 0 && PullCharge(col, ChStun, CardCatalog.Get(CardId.Stun).ChargeNeed))
             {
                 m.Mark(CardId.Stun, _stunStar[col]);
-                m.AddStatus(new StatusHit
+                m.AddStatus(SealStatus(CardId.Stun, new StatusHit
                 {
                     Kind = StatusKind.Stun,
                     Time = GlyphTable.Get(CardId.Stun).Time.At(_stunStar[col])
-                });
+                }));
+                TakeSplash(m, SealSplash((int)CardId.Stun));
             }
             int wordNeed = _word[col] == WordId.ArrowRain
                 ? CardCatalog.WordChargeNeed(_word[col], _wordGate[col])
@@ -1325,27 +1389,30 @@ namespace InkLine
                 m.WordLook = id;
                 // 「斩」不走 ApplyMod。只有连斩这一发真正打出来，才算带着它，雷决才会亮。
                 if (id == WordId.Cleave) m.Mark(CardId.Slash, Mathf.Max(1, ws));
+                float f = SealFierce(id);
+                TakeSplash(m, SealSplash(SealCatalog.KeyOf(id)));
                 switch (id)
                 {
                     case WordId.InstantKill:
                         m.InstantKill = true;
-                        m.ExecuteHp = Mathf.Max(m.ExecuteHp, w.ExecuteHp.At(ws));
-                        m.ExecuteBoss = Mathf.Max(m.ExecuteBoss, w.ExecuteBoss.At(ws));
+                        m.ExecuteHp = Mathf.Max(m.ExecuteHp, Mathf.Min(0.95f, w.ExecuteHp.At(ws) * (1f + f)));
+                        m.ExecuteBoss = Mathf.Max(m.ExecuteBoss, Mathf.Min(0.95f, w.ExecuteBoss.At(ws) * (1f + f)));
                         break;
                     case WordId.ArrowRain:
                         RainArrows(col, ws, b);
                         break;
                     case WordId.Knockback:
-                        m.PushColumn = Mathf.Max(m.PushColumn, w.Move.At(ws));
+                        m.PushColumn = Mathf.Max(m.PushColumn, w.Move.At(ws) * (1f + SealMove(id)));
+                        m.MarkPush = Mathf.Max(m.MarkPush, f);
                         break;
                     case WordId.Cleave:
                         m.CleaveLeft = Mathf.Max(m.CleaveLeft, w.Count.IntAt(ws));
-                        m.CleaveDecay = w.Decay.At(ws);
+                        m.CleaveDecay = Mathf.Min(1f, w.Decay.At(ws) + SealKeep(id)) * (1f + f);
                         break;
                     case WordId.Crush:
                         m.Mark(CardId.Qian, ws);
                         m.Mark(CardId.Jun, ws);
-                        m.Crush = Mathf.Max(m.Crush, w.Damage.At(ws));
+                        m.Crush = Mathf.Max(m.Crush, w.Damage.At(ws) * (1f + f));
                         break;
                 }
             }
@@ -1430,11 +1497,12 @@ namespace InkLine
                 GlyphDef g = GlyphTable.Get(id.Value);
                 m.Mark(id.Value, s);
                 if (g.Family != GlyphFamily.Hurt) continue;
-                m.AddDamage += g.AddDamage.At(s);
-                if (g.MulDamage.Any) m.MulDamage *= g.MulDamage.At(s);
+                float f = SealFierce(id.Value);
+                m.AddDamage += g.AddDamage.At(s) * (1f + f);
+                if (g.MulDamage.Any) m.MulDamage *= Swell(g.MulDamage.At(s), f);
             }
             SignaturePairs.Tune(m);
-            float share = GlyphTable.Word(WordId.ArrowRain).Damage.At(star);
+            float share = GlyphTable.Word(WordId.ArrowRain).Damage.At(star) * (1f + SealFierce(WordId.ArrowRain));
             float dmg = m.BaseDamage * m.Decay;
             dmg = m.GoldRidesMul ? (dmg + m.AddDamage) * m.MulDamage : dmg * m.MulDamage + m.AddDamage;
             dmg *= m.FinalMul * StudyMul(m);
@@ -1505,20 +1573,22 @@ namespace InkLine
             GlyphDef g = GlyphTable.Get(id);
             ShotMods m = b.Mods;
             m.Mark(id, star);
+            float f = SealFierce(id);
+            TakeSplash(m, SealSplash((int)id));
 
             switch (g.Family)
             {
                 case GlyphFamily.Hurt:
-                    m.AddDamage += g.AddDamage.At(star);
-                    if (g.MulDamage.Any) m.MulDamage *= g.MulDamage.At(star);
+                    m.AddDamage += g.AddDamage.At(star) * (1f + f);
+                    if (g.MulDamage.Any) m.MulDamage *= Swell(g.MulDamage.At(star), f);
                     if (g.Leech.Any)
                     {
-                        m.Leech += g.Leech.At(star);
+                        m.Leech += g.Leech.At(star) * (1f + f);
                         m.LeechCap = Mathf.Max(m.LeechCap, g.LeechCap.At(star));
                     }
                     break;
                 case GlyphFamily.Status:
-                    m.AddStatus(new StatusHit
+                    m.AddStatus(SealStatus(id, new StatusHit
                     {
                         Kind = g.Status,
                         Power = g.Power.At(star),
@@ -1526,19 +1596,22 @@ namespace InkLine
                         Radius = g.Radius.At(star),
                         Stacks = g.Stacks.IntAt(star),
                         Chain = g.Count.IntAt(star)
-                    });
+                    }));
                     // 冰 ★3 才有几率把缓升成冻，掷点留到命中时
                     if (id == CardId.Fire) m.BurnPop = m.BurnPop || GlyphTable.BurnPop(star);
                     break;
                 case GlyphFamily.Move:
                     if (g.Axis == MoveAxis.Column)
                     {
-                        m.PushColumn = Mathf.Max(m.PushColumn, g.Move.At(star));
-                        m.PushHold = Mathf.Max(m.PushHold, g.Time.At(star));
+                        m.PushColumn = Mathf.Max(m.PushColumn, g.Move.At(star) * (1f + SealMove(id)));
+                        m.PushHold = Mathf.Max(m.PushHold, g.Time.At(star) * (1f + SealLast(id)));
+                        m.MarkPush = Mathf.Max(m.MarkPush, f);
                     }
                     else if (g.Axis == MoveAxis.Lateral)
                     {
                         m.PushLateral = Mathf.Max(m.PushLateral, g.Move.IntAt(star));
+                        m.LateralExtra = Mathf.Max(m.LateralExtra, Mathf.Min(1f, g.Move.At(star) * SealMove(id)));
+                        m.MarkWind = Mathf.Max(m.MarkWind, f);
                         // 风 ★3 带一小段缓
                         if (g.Time.At(star) > 0f)
                             m.AddStatus(new StatusHit
@@ -1550,12 +1623,15 @@ namespace InkLine
                     }
                     else if (g.Axis == MoveAxis.Center)
                     {
-                        m.GatherR = Mathf.Max(m.GatherR, g.Radius.At(star));
-                        m.GatherPull = Mathf.Max(m.GatherPull, g.Move.At(star));
+                        m.GatherR = Mathf.Max(m.GatherR, g.Radius.At(star) * (1f + SealWide(id)));
+                        m.GatherPull = Mathf.Max(m.GatherPull, g.Move.At(star) * (1f + SealMove(id)));
                         m.GatherHold = Mathf.Max(m.GatherHold, g.Time.At(star));
+                        m.MarkGather = Mathf.Max(m.MarkGather, f);
                     }
                     break;
                 case GlyphFamily.Ballistic:
+                    if ((id == CardId.Track || id == CardId.Accel) && f > 0f && m.FirstSeal(id))
+                        m.FinalMul *= 1f + f;
                     if (id == CardId.Track) m.Homing = Mathf.Max(m.Homing, g.Ballistic.At(star));
                     else if (id == CardId.Accel)
                         b.Vel = b.Vel.normalized * (b.Vel.magnitude * g.Ballistic.At(star));
@@ -1568,7 +1644,7 @@ namespace InkLine
                             Split(b, star);
                         }
                     }
-                    else if (id == CardId.Rebound) m.Rebound = Mathf.Max(m.Rebound, g.Rebound.At(star));
+                    else if (id == CardId.Rebound) m.Rebound = Mathf.Max(m.Rebound, g.Rebound.At(star) * (1f + f));
                     break;
             }
             PaintBodyColor(m);
@@ -1638,7 +1714,8 @@ namespace InkLine
                 Vector2 dir = Quaternion.Euler(0f, 0f, ang) * Vector2.up;
                 BulletActor clone = FireBullet(source.Pos, dir);
                 clone.Mods.CopyFrom(source.Mods);
-                clone.Mods.Decay *= g.Decay.At(star);
+                clone.Mods.Decay *= Mathf.Min(1f, g.Decay.At(star) + SealKeep(CardId.Split));
+                clone.Mods.FinalMul *= 1f + SealFierce(CardId.Split);
                 clone.Radius = source.Radius;
                 clone.NextRow = source.NextRow + 1;
                 clone.Vel = dir * source.Vel.magnitude;
@@ -1661,6 +1738,7 @@ namespace InkLine
                 _cleaveStep = 0;
                 ResolveHit(e, b.Mods, b, HitSource.Direct);
                 SkinEcho(e, b);
+                if (b.Mods.Splash > 0f) Splash(b, e);
                 while (b.Mods.CleaveLeft > 0) Cleave(b);
                 if (b.Mods.GatherR > 0f) Gather(b, e);
                 if (b.Mods.ExplodeR > 0f) Explode(b.Pos, b.Mods, b);
@@ -1729,6 +1807,36 @@ namespace InkLine
             });
             AudioBus.Zap();
             ResolveHit(best, m, b, HitSource.Echo, flat * 0.55f);
+        }
+
+        // 广域印章给没有半径的字加的那块溅射：命中点身边的怪吃五成伤害，状态和推拉照常上。
+        void Splash(BulletActor b, EnemyActor hit)
+        {
+            if (hit == null) return;
+            float r = b.Mods.Splash;
+            int n = 0;
+            for (int i = 0; i < Enemies.Count; i++)
+            {
+                EnemyActor e = Enemies[i];
+                if (e.Dead || e.Doom > 0f || e.Hidden || e.Id == hit.Id || b.HitIds.Contains(e.Id)) continue;
+                float reach = r + e.Radius;
+                if ((e.Pos - hit.Pos).sqrMagnitude > reach * reach) continue;
+                b.HitIds.Add(e.Id);
+                ResolveHit(e, b.Mods, b, HitSource.Splash);
+                n++;
+            }
+            if (n > 0)
+                Bursts.Add(new FxBurst { Pos = hit.Pos, Kind = HitFx.Ink, Tint = InkTheme.GoldHi, Scale = 0.6f + r });
+        }
+
+        // 被推拉的怪挂一小段额外受伤。几种同时来取大的。
+        const float MarkHold = 2f;
+
+        static void MarkHurt(EnemyActor e, float amp)
+        {
+            if (amp <= 0f) return;
+            e.MarkAmp = e.MarkTime > 0f ? Mathf.Max(e.MarkAmp, amp) : amp;
+            e.MarkTime = MarkHold;
         }
 
         // 连斩光效从哪一只跳到哪一只，ResolveHit 里按它投递。
@@ -1833,6 +1941,7 @@ namespace InkLine
                 dmg = flat >= 0f ? flat : m.BaseDamage * m.Decay;
                 if (from == HitSource.Cleave) dmg *= m.CleaveDecay;
                 else if (from == HitSource.Area) dmg *= m.ExplodeShare;
+                else if (from == HitSource.Splash) dmg *= SealCatalog.SplashShare;
                 // 3 加算池先全部求和，4 乘算池最后连乘。
                 // 加算默认不吃乘算 —— 否则「镇金」那条招牌就没意义了。
                 if (m.GoldRidesMul) dmg = (dmg + m.AddDamage) * m.MulDamage;
@@ -1847,6 +1956,9 @@ namespace InkLine
             if (crit) dmg *= ForgeCatalog.CritMul;
             // 4.4 破：易伤放大整发，排在甲前面，甲照样按固定值削。
             if (e.VulnTime > 0f) dmg *= 1f + e.Vuln;
+            // 4.41 烈度印章：冻 / 晕期间、被推拉之后的那一小段，额外受伤。
+            if (e.HardAmp > 0f && e.Held) dmg *= 1f + e.HardAmp;
+            if (e.MarkTime > 0f) dmg *= 1f + e.MarkAmp;
 
             // 4.5 甲：每发固定减伤，放在乘算之后、斩杀之前。
             // 放这里有两个原因：一是减伤要吃满所有增伤，不然重击流被削两次；
@@ -2036,9 +2148,9 @@ namespace InkLine
             float time = s.Time;
             if (GlyphTable.IsHard(kind))
             {
-                ApplyHard(e, kind, time, s.Power);
+                ApplyHard(e, kind, time, s.Power, s.Amp);
                 if (kind == StatusKind.Confuse && e.Confused)
-                    e.ConfuseBite = GlyphTable.ConfuseBite(m.Star(CardId.Confuse));
+                    e.ConfuseBite = GlyphTable.ConfuseBite(m.Star(CardId.Confuse)) * (1f + SealFierce(CardId.Confuse));
                 // 焦雷：这一下的账记在敌人身上，晕结束时再结
                 if (kind == StatusKind.Stun && m.Shock > 0f)
                     e.Shock = Mathf.Max(e.Shock, m.Shock);
@@ -2073,7 +2185,7 @@ namespace InkLine
         }
 
         // 硬控同时只生效一个：冻 > 晕 > 惑，输的那个降级成等时长的缓。
-        void ApplyHard(EnemyActor e, StatusKind kind, float time, float power)
+        void ApplyHard(EnemyActor e, StatusKind kind, float time, float power, float amp = 0f)
         {
             if (time <= 0f) return;
             // 头目不吃惑，按比例掉输出代替
@@ -2104,10 +2216,12 @@ namespace InkLine
             if (rank == cur && e.Hard == kind)
             {
                 e.HardTime = Mathf.Max(e.HardTime, time);
+                e.HardAmp = Mathf.Max(e.HardAmp, amp);
                 return;
             }
             e.Hard = kind;
             e.HardTime = Mathf.Max(e.HardTime, time);
+            e.HardAmp = amp;
             if (kind == StatusKind.Stun) e.StunGuard = time + 0.35f;
             ShowFloat(e.Pos + Vector2.right * 0.12f, HardWord(kind), InkTheme.Ink, 0.95f);
         }
@@ -2142,6 +2256,7 @@ namespace InkLine
                 else
                     e.Pos.y = Mathf.Min(top, e.Pos.y + m.PushColumn);
                 if (m.PushHold > 0f) e.HoldTime = Mathf.Max(e.HoldTime, m.PushHold);
+                MarkHurt(e, m.MarkPush);
                 ShowFloat(e.Pos, "退", InkTheme.GraphiteHi, 0.9f);
                 if (m.RamEarth)
                 {
@@ -2153,7 +2268,9 @@ namespace InkLine
             if (m.PushLateral > 0)
             {
                 int col = FieldLayout.ColumnAtX(e.Pos.x);
-                int step = UnityEngine.Random.Range(1, m.PushLateral + 1);
+                int far = m.PushLateral + (m.LateralExtra > 0f && UnityEngine.Random.value < m.LateralExtra ? 1 : 0);
+                int step = UnityEngine.Random.Range(1, far + 1);
+                MarkHurt(e, m.MarkWind);
                 if (UnityEngine.Random.value < 0.5f) step = -step;
                 int to = Mathf.Clamp(col + step, 0, GameConstants.Columns - 1);
                 e.Pos.x = FieldLayout.ColumnX(to);
@@ -2943,7 +3060,7 @@ namespace InkLine
             beat.Old = old;
             Pulses.Add(beat);
             Vector2 cell = FieldLayout.CellPos(col, row);
-            if (peek != PlaceResult.Upgraded) StudyPop(cell, StudyLevelOf(id), (int)id == StudyTrialGlyph);
+            if (peek != PlaceResult.Upgraded) StudyPop(cell, StudyLevelOf(id), (int)id == StudyTrialGlyph, SealCatalog.KeyOf(id));
 
             if (_word[col] != WordId.None && _word[col] != before)
             {
@@ -2953,7 +3070,8 @@ namespace InkLine
                 ShowToast("成词 · " + LastReveal);
                 BeatWord(col, _word[col]);
                 FormedWord = _word[col];
-                StudyPop(cell + Vector2.up * 0.45f, StudyLevelOf(_word[col]), (int)_word[col] == StudyTrialWord);
+                StudyPop(cell + Vector2.up * 0.45f, StudyLevelOf(_word[col]), (int)_word[col] == StudyTrialWord,
+                    SealCatalog.KeyOf(_word[col]));
             }
             else if (before != WordId.None && _word[col] != before)
             {

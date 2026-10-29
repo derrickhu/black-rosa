@@ -42,6 +42,10 @@ namespace InkLine
         bool _rerolled;
         // 关掉改装没选，这组牌留着。再开还是这三张，只有看广告重刷才换。
         bool _offerKept;
+        // 字卡开放后这一局的三选一字池（账号已解锁的全部字），null 时用关卡自己的池。
+        CardId[] _offerPool;
+        // 这关还没首通，本关新字仍然抬权重。
+        bool _offerFresh;
         int _draftPaid;
         bool _taughtStar;
         bool _dragging;
@@ -845,6 +849,9 @@ namespace InkLine
             _world.ItemRanks = _meta.ItemLevel;
             _meta.TakeStudy(stage.Daily, out _world.StudyGlyph, out _world.StudyWord,
                 out _world.StudyTrialGlyph, out _world.StudyTrialWord);
+            _world.Seals = _meta.TakeSeals(stage.Daily);
+            _offerPool = !stage.Daily && _meta.StudyOpen ? _meta.AccountPool(stage) : null;
+            _offerFresh = !stage.Endless && !stage.Event && !_meta.StageCleared(stage);
             _world.Begin(stage, _meta.Forged, _meta.Equipped);
             _world.ApplySkin(_meta.Skin);
             _world.CodexHit = OnCodex;
@@ -1056,7 +1063,7 @@ namespace InkLine
         // 会发出重复项。
         void RollOffer()
         {
-            var pool = new List<CardId>(_world.Stage.Pool);
+            var pool = new List<CardId>(_offerPool ?? _world.Stage.Pool);
             var weight = new List<int>();
             for (int i = 0; i < pool.Count; i++)
                 weight.Add(OfferWeight(pool[i]));
@@ -1096,6 +1103,7 @@ namespace InkLine
         // 本关新字没上过盘时最重；盘上已有的字次之，方便升星；成词另一半在盘上时也抬高。
         int OfferWeight(CardId id)
         {
+            if (_offerPool != null) return OpenWeight(id);
             CardDef def = CardCatalog.Get(id);
             bool onBoard = HasSameOnBoard(id);
             if (!onBoard && IsFresh(id)) return 26;
@@ -1108,6 +1116,20 @@ namespace InkLine
                 return w;
             }
             return onBoard ? 16 : 10;
+        }
+
+        // 字卡开放后：账号已解锁的字全进池，底子一样重，半边字不打折。
+        // 只留局内两档（同字在盘上方便升星、成词另一半在盘上方便凑词），本关新字只在首通前抬。
+        // 最后乘字运。
+        int OpenWeight(CardId id)
+        {
+            CardDef def = CardCatalog.Get(id);
+            bool onBoard = HasSameOnBoard(id);
+            int w = 10;
+            if (_offerFresh && !onBoard && IsFresh(id)) w = 26;
+            else if (def.Wake == CardWake.WordPart && HasSameOnBoard(CardCatalog.Partner(id))) w = 22;
+            else if (onBoard) w = 16;
+            return Mathf.Max(1, Mathf.RoundToInt(w * _meta.OfferLuck(id)));
         }
 
         bool IsFresh(CardId id)

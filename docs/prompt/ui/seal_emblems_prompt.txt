@@ -1,0 +1,14 @@
+A sprite sheet of 8 casual mobile-game emblem symbols, arranged in a strict grid of 4 columns and 2 rows, every symbol centered in its own cell with wide empty margin around it.
+Each symbol is one bold simple silhouette filled with warm cream white like fresh rice paper (#FFF8E6), a thick dark brown outline (#3A2A20) like a chunky sticker, one small soft highlight, flat colors.
+Row 1, left to right:
+1. A four-point twinkle star with two tiny twinkle stars beside it.
+2. The pointed tip of a sword blade pointing straight up, with a small glint on the edge.
+3. A single tall flame with three tongues.
+4. Three concentric arcs radiating outward from a small dot, like ripples spreading.
+Row 2, left to right:
+5. An hourglass with sand in the lower half.
+6. A curved swoosh arrow sweeping sideways, like a gust pushing.
+7. An arrow flying straight through a small ring and coming out the other side.
+8. A small round padlock.
+The whole background is one flat solid magenta color like a highlighter pen (#FF00FF), edge to edge, the same magenta behind every cell.
+NO TEXT, no letters, no numbers, no labels anywhere in the image.

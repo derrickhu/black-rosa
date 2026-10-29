@@ -141,7 +141,27 @@ namespace InkLine
         }
 
         // 一发炮弹的字卡倍率。glyph / word 是开局写进来的等级，-1 表示不参与（成词的半边字）。
-        public static float ShotMul(ShotMods m, int[] glyph, int[] word) => 1f + PerLevel * ShotLevel(m, glyph, word);
+        // 每个字的加成 = 等级 × 2% + 锋芒，一发带好几个字取平均。
+        public static float ShotMul(ShotMods m, int[] glyph, int[] word, SealPack seals)
+        {
+            if (seals == null) return 1f + PerLevel * ShotLevel(m, glyph, word);
+            if (m == null || glyph == null) return 1f;
+            float sum = 0f;
+            int n = 0;
+            for (int i = 1; i < glyph.Length; i++)
+            {
+                if (glyph[i] < 0 || !m.Has((CardId)i)) continue;
+                sum += PerLevel * glyph[i] + seals.Edge[SealCatalog.KeyOf((CardId)i)];
+                n++;
+            }
+            int w = (int)m.Word;
+            if (word != null && w > 0 && w < word.Length && word[w] >= 0)
+            {
+                sum += PerLevel * word[w] + seals.Edge[SealCatalog.KeyOf((WordId)w)];
+                n++;
+            }
+            return n == 0 ? 1f : 1f + sum / n;
+        }
 
         // ---- 条目 ----
 
