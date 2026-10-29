@@ -4,14 +4,13 @@ using static InkLine.EnemyId;
 
 namespace InkLine
 {
-    // 「招财进宝」的三档活动关。两排全开。血量借偏后的主线关，移速仍借原来那一关：
-    // 小集血是第 4 章、速度是第 2 章；庙会血是第 6 章、速度是第 3 章；
-    // 大集血是第 7 章最后一关（不含关底加成）、速度是第 5 章。
+    // 「招财进宝」的三档活动关。两排全开。每档自带血量、怪量和移速档位（见 EventCatalog.Tiers），
+    // 不借主线某章某关的数值，后续调主线第五章以后的怪量和血量不会牵动活动。
     // 难度加在只数上，不加快怪。
-    // 波数写死成 6 / 8 / 10。只数按 RampCounts 从疏到密，最后一波再用 EventPeak 抬一档。
+    // 波数写死成 6 / 8 / 10。只数按 EventCounts 从疏到密，最后一波再用 EventPeak 抬一档。
     // 同一拍的怪散开到各列，不再排成一列小队。前两波一拍四只，之后一拍五只，
     // 倒数第二波一拍十只，最后一波一拍十五只。波和波之间不留空档。
-    // 不进 72 关的表，也不进 check_stages 的主线曲线。
+    // 不进主线表，也不跟主线章节曲线做比值绑定。
     public static partial class StageCatalog
     {
         // 抽牌定价只吃钱袋七成，剩下三成留着存。主线是八成五。
@@ -20,11 +19,7 @@ namespace InkLine
         // 庙会青石街，三档共用一张。
         public const string EventBackdrop = "Bg/battle_bg_event";
 
-        // 每档的怪量倍率，和开局密度。主线开局是 0.75，活动开局贴着它，不再另打折。
-        // 改这里要同步 check_stages。
-        static readonly float[] EventCrowd = { 2.8f, 3.0f, 3.2f };
-        // 移速借这几章，不跟上面的血量走。
-        static readonly int[] EventPace = { 1, 2, 4 };
+        // 开局密度和终盘波峰。改这里要同步 check_stages。
         const float EventRampOpen = 0.72f;
         const int EventEaseWaves = 0;
         const float EventEase = 1f;
@@ -45,24 +40,87 @@ namespace InkLine
             var s = new StageDef
             {
                 Index = -1,
-                Chapter = EventPace[Mathf.Clamp(tier, 0, EventPace.Length - 1)],
-                Slot = t.Slot,
+                Chapter = t.SpeedChapter,
+                Slot = tier,
                 Title = t.Name,
                 Name = EventCatalog.Title + " · " + t.Name,
                 Mask = G("XXXXXX", "XXXXXX"),
                 Pool = pool,
                 Fresh = new CardId[0],
                 Waves = EventWaves(tier),
-                Hp = HpOf(t.Chapter, t.Slot, false),
+                Hp = t.Hp,
                 StaminaCost = 0,
                 EventTier = tier
             };
-            s.Bodies = RampCounts(s.Waves, t.Chapter, t.Slot,
-                EventCrowd[Mathf.Clamp(tier, 0, EventCrowd.Length - 1)], EventRampOpen,
-                EventEaseWaves, EventEase, EventPeak);
+            s.Bodies = EventCounts(s.Waves, t.Crowd);
             EventStream(s);
             Price(s, EventDraftShare);
             return s;
+        }
+
+        // 活动关自己的摊怪：整关总血按「波长 × 密度」分到每波，再按该波平均血换成只数。
+        // 不读主线 ChapterBodies，也不走主线的开局补对和 ChapterPress。
+        static int[][] EventCounts(WaveDef[] waves, float crowd)
+        {
+            int nW = waves.Length;
+            var raw = new float[nW][];
+            var floor = new int[nW][];
+            var waveRaw = new float[nW];
+            var waveHp = new float[nW];
+            var waveFloor = new int[nW];
+            float hpSum = 0f;
+            for (int w = 0; w < nW; w++)
+            {
+                SpawnSpec[] list = waves[w].Spawns;
+                raw[w] = new float[list.Length];
+                floor[w] = new int[list.Length];
+                for (int k = 0; k < list.Length; k++)
+                {
+                    int count = list[k].Count * EnemyCatalog.Density(list[k].Id);
+                    raw[w][k] = count;
+                    floor[w][k] = count >= 1 ? 1 : 0;
+                    float hp = count * EnemyCatalog.Base(list[k].Id).Hp;
+                    waveRaw[w] += count;
+                    waveHp[w] += hp;
+                    waveFloor[w] += floor[w][k];
+                    hpSum += hp;
+                }
+            }
+            int last = nW - 1;
+            float pre = 0f;
+            for (int w = 0; w < last; w++) pre += Mathf.Max(0.01f, waves[w].Duration);
+            var weight = new float[nW];
+            float wSum = 0f, cursor = 0f;
+            for (int w = 0; w < nW; w++)
+            {
+                float dur = Mathf.Max(0.01f, waves[w].Duration);
+                float lvl;
+                if (w == last && nW > 1) lvl = EventPeak;
+                else
+                {
+                    float u = pre > 0.01f ? Mathf.Clamp01((cursor + dur * 0.5f) / pre) : 0.5f;
+                    lvl = EventRampOpen + (RampLate - EventRampOpen) * u;
+                    if (w < EventEaseWaves) lvl *= EventEase;
+                }
+                weight[w] = waveRaw[w] > 0f ? dur * lvl : 0f;
+                wSum += weight[w];
+                cursor += dur;
+            }
+            float hpGoal = hpSum * crowd;
+            var bodies = new float[nW];
+            float bodySum = 0f;
+            for (int w = 0; w < nW; w++)
+            {
+                if (weight[w] <= 0f || wSum <= 0f) continue;
+                bodies[w] = hpGoal * weight[w] / wSum / (waveHp[w] / waveRaw[w]);
+                bodySum += bodies[w];
+            }
+            int total = Mathf.Max(1, Mathf.RoundToInt(bodySum));
+            int[] perWave = Share(total, bodies, waveFloor);
+            var grid = new int[nW][];
+            for (int w = 0; w < nW; w++)
+                grid[w] = Share(perWave[w], raw[w], floor[w]);
+            return grid;
         }
 
         // 活动怪只用 EventCast 这八种，全都换了「招财」的皮（evt_*.png）。

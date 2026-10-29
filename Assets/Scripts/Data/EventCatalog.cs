@@ -7,9 +7,10 @@ namespace InkLine
     public struct EventTierDef
     {
         public string Name;
-        // 借主线哪一章哪一关的血量、速度、波长和出怪折扣。下一处要打赢上一处才开，不看章节。
-        public int Chapter;
-        public int Slot;
+        // 活动自己的血量倍率和怪量倍率，不再跟主线章节绑死。移速仍用 SpeedChapter 那一档。
+        public float Hp;
+        public float Crowd;
+        public int SpeedChapter;
         public string Brief;
     }
 
@@ -39,9 +40,9 @@ namespace InkLine
 
         public static readonly EventTierDef[] Tiers =
         {
-            new EventTierDef { Name = "小集", Chapter = 3, Slot = 4, Brief = "六波，怪少钱少" },
-            new EventTierDef { Name = "庙会", Chapter = 5, Slot = 4, Brief = "八波，钱袋翻倍" },
-            new EventTierDef { Name = "大集", Chapter = 6, Slot = 8, Brief = "十波，怪硬钱多" }
+            new EventTierDef { Name = "小集", Hp = 2.11f, Crowd = 3.30f, SpeedChapter = 1, Brief = "六波，怪少钱少" },
+            new EventTierDef { Name = "庙会", Hp = 2.64f, Crowd = 3.24f, SpeedChapter = 2, Brief = "八波，钱袋翻倍" },
+            new EventTierDef { Name = "大集", Hp = 4.03f, Crowd = 3.58f, SpeedChapter = 4, Brief = "十波，怪硬钱多" }
         };
 
         public static readonly EventMilestone[] Milestones =

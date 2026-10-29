@@ -30,7 +30,8 @@ const { httpError } = require('./http');
 const { readEnvPrefer, gameKeyUpper } = require('./config');
 const { sendMailOnce } = require('./mail');
 
-const DEFAULT_MAX_CLEARED = 90;
+// 十二章 × 每章九关。和客户端 GameConstants.StageCount 对齐，超过这个数的上报直接拒绝。
+const DEFAULT_MAX_CLEARED = 108;
 const DEFAULT_MAX_ENDLESS = 70;
 const DEFAULT_MAX_DAILY = 20;
 const DEFAULT_LIST_LIMIT = 50;

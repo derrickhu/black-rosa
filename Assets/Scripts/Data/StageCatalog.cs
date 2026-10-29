@@ -200,15 +200,17 @@ namespace InkLine
 
         // 每只怪掉墨的章节系数，把每章首通的墨收入钉在锻造和道具定价对应的那条线上。
         // 前两章一局的怪多、局也长，系数反而要压低；改波次或只数之后跑 check_stages 重新对一遍。
-        static readonly float[] ChapterInk = { 1.55f, 0.82f, 1.08f, 1.26f, 1.41f, 1.05f, 1.09f, 1.07f, 0.78f, 0.94f, 0.92f, 0.88f };
+        // 第五章起只数按 ChapterPress 加过。这里把掉墨系数按同一比例收回，多出来的怪不加首通墨。
+        // 金币不走这个系数，改装价会跟着只数变贵。
+        static readonly float[] ChapterInk = { 1.55f, 0.82f, 1.08f, 1.26f, 1.283f, 0.877f, 0.818f, 0.730f, 0.475f, 0.531f, 0.482f, 0.428f };
 
         public static float InkOf(int chapter) =>
             ChapterInk[Mathf.Clamp(chapter, 0, ChapterInk.Length - 1)];
 
-        // 后期怪血补强。锻造在后几章涨得比血快，第十章裕度一度是第二章的两倍，
-        // 通关玩家几乎全三星。只乘在出怪那一下，掉落、关卡定价、boss 表都还按 ChapterHp 算，
-        // 所以墨和金币收入不跟着涨。精英吃主线这一份再乘 HardHp。
-        static readonly float[] ChapterLateHp = { 1f, 1f, 1f, 1f, 1f, 1.14f, 1.05f, 1.18f, 1.28f, 1.42f, 1.62f, 1.72f };
+        // 后期怪血补强。前四章不动。第五章起逐章抬，每一只怪出生时都乘，前面几波和最后一波一起涨。
+        // 只乘在出怪那一下，掉落、关卡定价、boss 表都还按 ChapterHp 算，所以血变厚不多掉墨、不多掉金。
+        // 精英吃主线这一份再乘 HardHp。
+        static readonly float[] ChapterLateHp = { 1f, 1f, 1f, 1f, 1.12f, 1.24f, 1.36f, 1.50f, 1.66f, 1.84f, 2.06f, 2.30f };
 
         public static float LateHpOf(StageDef s)
         {
@@ -530,7 +532,49 @@ namespace InkLine
                             grid[w][k] = 2;
                 }
             }
+            // 活动关自己有密度和拍子，这里再乘会把一局撑过时长上限。
+            if (rampOpen < 0f) PressCounts(grid, bossAt, chapter);
             return grid;
+        }
+
+        // 第五章起逐章多刷杂兵。前两波只加一小截（开局还没抽牌，避免一上来就压死），
+        // 第三波到倒数第二波吃满加成，最后一波保持原来的收尾比例，不单堆在关底。
+        // boss 本人不加只数。金币随只数涨，改装价在 Price 里按钱袋重算，所以每次改装更贵。
+        // 掉墨系数从第五章起按这个比例收回，多出来的怪不加首通墨。
+        static readonly float[] ChapterPress = { 1f, 1f, 1f, 1f, 1.08f, 1.16f, 1.24f, 1.32f, 1.40f, 1.48f, 1.56f, 1.64f };
+        const float PressWave1Share = 0.30f;
+        const float PressWave2Share = 0.65f;
+        const float PressMidShare = 1.15f;
+
+        static void PressCounts(int[][] grid, bool[][] bossAt, int chapter)
+        {
+            float press = ChapterPress[Mathf.Clamp(chapter, 0, ChapterPress.Length - 1)];
+            if (press <= 1.001f || grid.Length == 0) return;
+            float extra = press - 1f;
+            int nW = grid.Length;
+            for (int w = 0; w < nW; w++)
+            {
+                float mul = w == 0 ? 1f + extra * PressWave1Share
+                    : w == 1 && nW >= 4 ? 1f + extra * PressWave2Share
+                    : w < nW - 1 ? 1f + extra * PressMidShare
+                    : press;
+                int have = 0;
+                var weight = new float[grid[w].Length];
+                var floor = new int[grid[w].Length];
+                for (int k = 0; k < grid[w].Length; k++)
+                {
+                    if (bossAt[w][k] || grid[w][k] <= 0) continue;
+                    weight[k] = grid[w][k];
+                    floor[k] = 1;
+                    have += grid[w][k];
+                }
+                if (have <= 0) continue;
+                int want = Mathf.Max(have, Mathf.RoundToInt(have * mul));
+                if (want == have) continue;
+                int[] scaled = Share(want, weight, floor);
+                for (int k = 0; k < grid[w].Length; k++)
+                    if (weight[k] > 0f) grid[w][k] = scaled[k];
+            }
         }
 
         // 按权重把 total 摊成整数，每份不低于 floor；权重为 0 的那份恒为 0。
@@ -687,6 +731,11 @@ namespace InkLine
         // 起价占平均价的比例。再低的话，开局那一波就够付第一次改装。
         // 步长按剩下的钱拟合后再抬一截，所以每一次都比上一次贵，后面抬得更明显。
         const float DraftFirstShare = 0.68f;
+        // 第五章起钱袋变厚。起价仍占平均价的 68% 时，铺满棋盘会滑进最后一波。
+        // 份额按章收：第五到八章、十一章、十二章的起价仍高于旧曲线，后面的步长更陡。
+        // 第九、十章头一两次比旧价略低，否则铺满会拖过整关八成时间；铺满那一段的平均价仍明显更高。
+        static readonly float[] DraftFirstShareByChapter =
+            { 0.68f, 0.68f, 0.68f, 0.68f, 0.64f, 0.68f, 0.56f, 0.48f, 0.32f, 0.30f, 0.46f, 0.52f };
         const float DraftStepLift = 1.18f;
         // 同一章里有的关特别容易出钱、有的关起价会被平均价压得很低。按章设一个地板，避免那种关打几下就弹改装。
         const int DraftFirstChapterStep = 3;
@@ -731,7 +780,8 @@ namespace InkLine
             // 起价高于开局金币，打过一阵才买得起第一次。步长至少 1，每次都比上次贵。
             float avg = budget / Mathf.Max(1, n);
             int floor = GameConstants.FirstDraftCost + s.Chapter * DraftFirstChapterStep;
-            s.DraftFirst = Mathf.Max(floor, Mathf.RoundToInt(avg * DraftFirstShare));
+            float firstShare = DraftFirstShareByChapter[Mathf.Clamp(s.Chapter, 0, DraftFirstShareByChapter.Length - 1)];
+            s.DraftFirst = Mathf.Max(floor, Mathf.RoundToInt(avg * firstShare));
             float fitted = n > 1 ? 2f * (budget - n * s.DraftFirst) / (n * (n - 1f)) : 0f;
             s.DraftStep = Mathf.Max(1f, fitted > 0f ? fitted * DraftStepLift : 1f);
         }

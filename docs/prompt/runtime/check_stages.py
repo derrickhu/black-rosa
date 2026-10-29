@@ -274,6 +274,11 @@ ramp_peak = float(re.search(r"RampPeak\s*=\s*([\d.]+)f", core_src).group(1))
 ramp_boss = float(re.search(r"RampBossWave\s*=\s*([\d.]+)f", core_src).group(1))
 chapter_bodies = [float(x) for x in re.findall(
     r"[\d.]+", re.search(r"ChapterBodies\s*=\s*\{([^}]*)\}", core_src).group(1))]
+chapter_press = [float(x) for x in re.findall(
+    r"[\d.]+", re.search(r"ChapterPress\s*=\s*\{([^}]*)\}", core_src).group(1))]
+press_w1_share = float(re.search(r"PressWave1Share\s*=\s*([\d.]+)f", core_src).group(1))
+press_w2_share = float(re.search(r"PressWave2Share\s*=\s*([\d.]+)f", core_src).group(1))
+press_mid_share = float(re.search(r"PressMidShare\s*=\s*([\d.]+)f", core_src).group(1))
 first_ease = [float(x) for x in re.findall(
     r"[\d.]+", re.search(r"FirstChapterEase\s*=\s*\{([^}]*)\}", core_src).group(1))]
 chapter_ink = [float(x) for x in re.findall(
@@ -283,6 +288,8 @@ first_picks_per_cell = float(re.search(r"FirstChapterPicksPerCell\s*=\s*([\d.]+)
 second_picks_per_cell = float(re.search(r"SecondChapterPicksPerCell\s*=\s*([\d.]+)f", core_src).group(1))
 budget_share = float(re.search(r"DraftBudgetShare\s*=\s*([\d.]+)f", core_src).group(1))
 first_share = float(re.search(r"DraftFirstShare\s*=\s*([\d.]+)f", core_src).group(1))
+first_share_by_ch = [float(x) for x in re.findall(
+    r"[\d.]+", re.search(r"DraftFirstShareByChapter\s*=\s*\{([^}]*)\}", core_src).group(1))]
 step_lift = float(re.search(r"DraftStepLift\s*=\s*([\d.]+)f", core_src).group(1))
 first_chapter_step = int(re.search(r"DraftFirstChapterStep\s*=\s*(\d+)", core_src).group(1))
 
@@ -370,7 +377,8 @@ def waves_of(r):
     if r["ch"] == 0 and r["slot"] < len(first_ease):
         body_mul *= first_ease[r["slot"]]
     waves = ramp_bodies(out, body_mul)
-    return thicken_late_open(thicken_middle(waves, r["ch"]), r["ch"])
+    waves = thicken_late_open(thicken_middle(waves, r["ch"]), r["ch"])
+    return press_counts(waves, r["ch"])
 
 
 def share(total, weight, floor):
@@ -453,6 +461,36 @@ def thicken_late_open(waves, chapter):
         if w["boss"]:
             continue
         w["specs"] = [(t, e, n if boss or n != 1 else 2, boss) for t, e, n, boss in w["specs"]]
+    return waves
+
+
+def press_counts(waves, chapter):
+    """复刻 PressCounts：第五章起前两波少加，中间几波吃满，最后一波保收尾比例。boss 只数不动。"""
+    press = chapter_press[min(chapter, len(chapter_press) - 1)]
+    if press <= 1.001 or not waves:
+        return waves
+    extra = press - 1.0
+    n_w = len(waves)
+    for w, wave in enumerate(waves):
+        if w == 0:
+            mul = 1.0 + extra * press_w1_share
+        elif w == 1 and n_w >= 4:
+            mul = 1.0 + extra * press_w2_share
+        elif w < n_w - 1:
+            mul = 1.0 + extra * press_mid_share
+        else:
+            mul = press
+        idx = [i for i, s in enumerate(wave["specs"]) if not s[3] and s[2] > 0]
+        have = sum(wave["specs"][i][2] for i in idx)
+        want = max(have, round(have * mul)) if have else 0
+        if not idx or want == have:
+            continue
+        got = share(want, [wave["specs"][i][2] for i in idx], [1] * len(idx))
+        specs = list(wave["specs"])
+        for i, g in zip(idx, got):
+            t, e, _, boss = specs[i]
+            specs[i] = (t, e, g, boss)
+        wave["specs"] = specs
     return waves
 
 
@@ -555,7 +593,8 @@ def econ(r):
         n_want = min(max(round(open_n * picks_per_cell), open_n + 2), open_n * 3)
     budget = (purse_all + start_gold) * budget_share
     floor = first_cost + r["ch"] * first_chapter_step
-    first_d = max(floor, round(budget / n_want * first_share))
+    used_share = first_share_by_ch[min(r["ch"], len(first_share_by_ch) - 1)]
+    first_d = max(floor, round(budget / n_want * used_share))
     fitted = 2 * (budget - n_want * first_d) / (n_want * (n_want - 1)) if n_want > 1 else 0.0
     step = max(1.0, fitted * step_lift if fitted > 0 else 1.0)
     # 数一数这局的钱实际买得起几次抽牌。
@@ -801,9 +840,8 @@ for ch in range(chapters):
 # ---------- 活动关 ----------
 # 只数走 RampCounts，最后一波另乘 EventPeak。同一拍散到各列，不排成一列小队。
 print("\n活动关")
-evt_tiers = [(int(c), int(s)) for c, s in re.findall(
-    r"Chapter = (\d+), Slot = (\d+)", read("Data", "EventCatalog.cs"))]
-evt_crowd = [float(x) for x in re.findall(r"[\d.]+", re.search(r"EventCrowd = \{([^}]*)\}", evt_src).group(1))]
+evt_tiers = [(float(hp), float(cr), int(sp)) for hp, cr, sp in re.findall(
+    r"Hp = ([\d.]+)f,\s*Crowd = ([\d.]+)f,\s*SpeedChapter = (\d+)", read("Data", "EventCatalog.cs"))]
 evt_open = float(re.search(r"EventRampOpen = ([\d.]+)f", evt_src).group(1))
 evt_ease_waves = int(re.search(r"EventEaseWaves = (\d+)", evt_src).group(1))
 evt_ease = float(re.search(r"EventEase = ([\d.]+)f", evt_src).group(1))
@@ -818,7 +856,7 @@ evt_peak = float(re.search(r"EventPeak = ([\d.]+)f", evt_src).group(1))
 evt_cases = re.split(r"case \d+:|default:", re.search(r"EventWaves\(int tier\)\s*\{(.*)\n        \}", evt_src, re.S).group(1))
 evt_cases = [c for c in evt_cases if "W(" in c]
 evt_want = [6, 8, 10]
-check(len(evt_cases) == 3 and len(evt_tiers) == 3 and len(evt_crowd) == 3, "活动三档的出场表、借关、怪量倍率都在")
+check(len(evt_cases) == 3 and len(evt_tiers) == 3, "活动三档的出场表、血量和怪量倍率都在")
 check(evt_open_batch == 4 and evt_batch == 5 and 3.6 <= evt_beat <= 4.6
       and evt_open_waves == 2 and evt_late_waves == 2 and evt_late_lanes == 2 and evt_finale_lanes == 3,
       f"活动前 {evt_open_waves} 拍 {evt_open_batch} 只，之后每拍 {evt_batch} 只 / {evt_beat:.1f}s，"
@@ -840,16 +878,17 @@ def event_pack(n, lanes, batch):
     return beats, lanes_out
 
 
+evt_rates = []
+evt_purses = []
 for i, body in enumerate(evt_cases[:3]):
-    ch, slot = evt_tiers[i]
+    t_hp, t_crowd, _sp = evt_tiers[i]
     waves = []
     for wb in re.split(r"\bW\(", body)[1:]:
         specs = [(float(t), e, int(n) if n else 1) for t, e, _, n in
                  re.findall(r"S\(([\d.]+)f,\s*(\w+)(?:,\s*(-?\d+))?(?:,\s*(\d+))?\)", wb)]
         last = max(t for t, _, _ in specs)
         waves.append(dict(boss=False, dur=max(8.0, last + 5.5), specs=specs))
-    ramp = ramp_bodies(waves, chapter_bodies[min(ch, len(chapter_bodies) - 1)] * evt_crowd[i], evt_open,
-                       evt_ease_waves, evt_ease, evt_peak)
+    ramp = ramp_bodies(waves, t_crowd, evt_open, evt_ease_waves, evt_ease, evt_peak)
     early_cols = late_cols = 0
     early_min = 99
     for w, wave in enumerate(ramp):
@@ -866,7 +905,7 @@ for i, body in enumerate(evt_cases[:3]):
         else:
             late_cols = evt_late_lanes
         wave["sizes"] = sizes
-    t = hp_of(ch, slot)
+    t = t_hp
     dmul = max(0.1, t) ** drop_pow
     gold = kills = 0
     hp_all = hp_last = 0.0
@@ -886,19 +925,17 @@ for i, body in enumerate(evt_cases[:3]):
     dur = sum(w["dur"] for w in ramp)
     pre = dur - ramp[-1]["dur"]
     peak = (hp_last / ramp[-1]["dur"]) / ((hp_all - hp_last) / pre)
-    main = [e for e, r in zip(eco, rows) if r["ch"] == ch]
-    main_rate = sum(e["hp"] for e in main) / sum(e["dur"] for e in main)
-    rate = hp_all / dur / main_rate
-    last_rate = (hp_last / ramp[-1]["dur"]) / main_rate
+    evt_rates.append(hp_all / dur)
+    evt_purses.append(purse)
     check(len(ramp) == evt_want[i], f"活动第 {i + 1} 档 {len(ramp)} 波（要 {evt_want[i]}）")
     check(90 <= dur <= 360, f"活动第 {i + 1} 档一局 {dur:.0f} 秒（要 90~360）")
     check(early_min >= 3, f"活动第 {i + 1} 档前期一拍最少 {early_min} 只（要 ≥3）")
     check(1.5 <= peak <= 4.2, f"活动第 {i + 1} 档最后一波每秒血是前面的 {peak:.2f} 倍（要 1.5~4.2）")
-    check(0.65 <= rate <= 1.6, f"活动第 {i + 1} 档整局每秒血是第 {ch + 1} 章主线的 {rate:.2f} 倍（要 0.65~1.6）")
-    check(1.5 <= last_rate <= 3.4, f"活动第 {i + 1} 档最后一波每秒血是第 {ch + 1} 章主线的 {last_rate:.2f} 倍（要 1.5~3.4）")
     sizes = " ".join(",".join(str(x) for x in w["sizes"]) for w in ramp)
     print(f"  第 {i + 1} 档  每波 {per_wave}  节拍 {evt_beat:.1f}s  共 {kills} 只  {dur:.0f}s  钱袋 {purse}")
     print(f"    每拍 {sizes}")
+check(evt_rates[0] < evt_rates[1] < evt_rates[2] and evt_purses[0] < evt_purses[1] < evt_purses[2],
+      "活动三档每秒血量和钱袋逐档上升")
 
 # ---------- 明细表 ----------
 print("\n明细")
