@@ -6,9 +6,9 @@
 原图是平涂硬边火：深红描边、红、橙、柠檬黄。按亮度分段映射，形状和描边一笔不动，
 只换颜色，所以和普通灼烧并排时读得出是同一种火、不同的秘卷。
 """
-import base64
 import os
 import re
+import uuid
 from pathlib import Path
 
 import numpy as np
@@ -50,7 +50,8 @@ def write_meta(dst, template):
         return
     src = template.read_text(encoding="utf-8")
     old = re.search(r"guid: (\S+)", src).group(1)
-    guid = base64.b64encode(os.urandom(len(old) * 3 // 4)).decode()[: len(old)]
+    # 团结认 32 位十六进制。按旧 GUID 的长度去填随机 base64，编辑器会判无效并丢掉这张图。
+    guid = uuid.uuid4().hex
     src = src.replace("guid: " + old, "guid: " + guid, 1)
     src = re.sub(r"spriteID: [0-9a-f]+", "spriteID: " + os.urandom(16).hex(), src, count=1)
     meta.write_text(src, encoding="utf-8")
