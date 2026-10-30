@@ -1120,7 +1120,7 @@ namespace InkLine
 
         // 字卡开放后：账号已解锁的字全进池，底子一样重，半边字不打折。
         // 只留局内两档（同字在盘上方便升星、成词另一半在盘上方便凑词），本关新字只在首通前抬。
-        // 最后乘字运。
+        // 字卡等级不进权重。最后乘字运。
         int OpenWeight(CardId id)
         {
             CardDef def = CardCatalog.Get(id);
