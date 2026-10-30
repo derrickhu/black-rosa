@@ -7,7 +7,7 @@ using UnityEngine.UI;
 namespace InkLine
 {
     // 游戏圈每日任务：发一条帖子领当天抽好的墨和宝箱，通关第四章后有机会带一点金箔。
-    // 领取前可以转发一次，整份奖励重抽。转发和发帖不分先后。
+    // 领取前可以转发一次。八成只会变好，两成可能变差。转发和发帖不分先后。
     // 「去游戏圈」上盖着微信原生的透明按钮，点它直接进游戏圈；切回来时重查发帖数。
     public sealed class GameClubPanel : MonoBehaviour
     {

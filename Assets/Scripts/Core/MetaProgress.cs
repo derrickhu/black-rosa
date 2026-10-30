@@ -1379,12 +1379,17 @@ namespace InkLine
             RollClubOffer();
         }
 
-        // 转发成功后整份重抽。可能变好，也可能变差。一天一次。
+        // 转发成功后重抽一次。八成只会变好，两成可能变差。一天一次。
         public bool RerollClubOffer()
         {
             if (ClubClaimedToday || ClubRefreshDay == Today) return false;
             ClubRefreshDay = Today;
-            RollClubOffer();
+            int ink = ClubInk;
+            int chest = ClubChest;
+            int foil = ClubFoil;
+            ClubReward.Reroll(ClearedCount(), ink, chest, foil, out ClubInk, out ClubChest, out ClubFoil);
+            ClubRollDay = Today;
+            Save();
             return true;
         }
 
