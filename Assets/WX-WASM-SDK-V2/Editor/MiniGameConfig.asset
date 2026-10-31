@@ -15,8 +15,8 @@ MonoBehaviour:
   ProjectConf:
     projectName: ink-line
     Appid: wxad27f529c95e582c
-    CDN: 
-    assetLoadType: 1
+    CDN: https://726f-rosa-env-d7grf78r5dbd37323-1414200063.tcb.qcloud.la/black-rosa/StreamingAssets/
+    assetLoadType: 0
     compressDataPackage: 1
     VideoUrl: https://726f-rosa-env-d7grf78r5dbd37323-1414200063.tcb.qcloud.la/black-rosa/loading/loading3.mp4
     relativeDST: wechat-minigame
