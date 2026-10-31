@@ -3,14 +3,14 @@ using UnityEngine.UI;
 
 namespace InkLine
 {
-    // 印章的样子：金边釉面章底按品质换色，中间压一枚白色纹样，纹样按类型各画一枚。
+    // 印章的样子：奶油描边的金边珐琅章，按品质换釉色。中间压一枚立体小饰物，饰物按类型各画一枚。
     // 详情槽、背包、结算、开箱共用。
     public static class SealArt
     {
         public static Sprite Icon(SealType t) => InkSprites.Load(SealCatalog.IconKey(t));
 
-        // 纹样占章面的比例。章底的金边约占外径的三成，纹样落在釉面里面。
-        const float IconShare = 0.52f;
+        // 饰物占整章的比例。章外还有一圈奶油边，饰物要落在釉面里面，又要够大才看得清。
+        const float IconShare = 0.56f;
 
         // 一枚镶好的印章。金印后面多一圈慢转的光。
         public static RectTransform Medal(Transform parent, string name, SealType t, SealQuality q, Vector2 pos, float size)

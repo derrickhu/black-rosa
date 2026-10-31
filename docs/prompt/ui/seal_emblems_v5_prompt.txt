@@ -1,0 +1,16 @@
+A sprite sheet of eight small raised cloisonné charms for a cozy cartoon mobile game, arranged in a strict grid of 4 columns and 2 rows. Each charm is about the same overall size, centered in its own cell, with a wide empty gap around it. Front view.
+
+Match the drawing method of the attached picture: thick dark-brown ink outline the color of walnut wood (#3A2A20), a thin cream sticker edge, soft cel shading. Each charm is a little sculpted object with thickness: a bright face on the upper left, a darker side along the lower right, and a thin raised rim the yellow of a brand-new gold coin around every part, like gold cloisonné wire.
+
+Row 1, first: a big four-pointed sparkle star with two tiny sparkle stars beside it. The big star face is warm egg-yolk gold. The tiny stars are pale cream.
+Row 1, second: a short spear pointing straight up. The blade is polished steel gray with a bright highlight running down the cutting edge. A short gold crossguard sits under the blade.
+Row 1, third: a tall flame with two tongues. The outer flame is ripe persimmon orange. The inner tongue is pale cream.
+Row 1, fourth: a small round pearl with three widening ripple arcs spreading outward on both sides. The pearl and the arcs are porcelain blue, each edged in gold wire.
+
+Row 2, first: an hourglass with a gold frame and a little pile of fine sand in the bottom bulb. The open glass area is the same magenta as the background.
+Row 2, second: three curling wind strokes sweeping to the right and overlapping. Each stroke is pale cream with a gold wire edge, thicker in the middle, thinner at the tail.
+Row 2, third: a round gold ring with an ivory arrow flying to the right straight through the ring. The space inside the ring is the same magenta as the background.
+Row 2, fourth: a small padlock with a round pewter body and an arched polished-gold shackle. The keyhole is the same magenta as the background.
+
+The whole background is one flat solid magenta highlighter color (#FF00FF), edge to edge.
+NO TEXT, no letters, no numbers, no labels anywhere in the image.

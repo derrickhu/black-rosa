@@ -152,8 +152,8 @@ namespace InkLine
         static readonly List<SealType> _own = new List<SealType>();
 
         // 刷一个槽：字运 12、锋芒 / 烈度 / 广域各 22，专属合计 22 平分；没有专属，那 22 平分给三个通用。
-        // noLuck：这个字别的槽已经有字运，抽中就重抽。
-        public static SealType RollSlot(int key, bool noLuck)
+        // 每个槽单独抽，字运也可以三个都是。稀有靠这 12 的权重，不另设上限。
+        public static SealType RollSlot(int key)
         {
             _own.Clear();
             if (Allowed(key, SealType.Last)) _own.Add(SealType.Last);
@@ -161,7 +161,7 @@ namespace InkLine
             if (Allowed(key, SealType.Keep)) _own.Add(SealType.Keep);
             float common = _own.Count > 0 ? 22f : 22f + 22f / 3f;
             float own = _own.Count > 0 ? 22f / _own.Count : 0f;
-            float luck = noLuck ? 0f : 12f;
+            const float luck = 12f;
             float sum = luck + common * 3f + own * _own.Count;
             float r = Random.value * sum;
             if ((r -= luck) < 0f) return SealType.Luck;
@@ -293,7 +293,7 @@ namespace InkLine
         {
             switch (t)
             {
-                case SealType.Luck: return "这个字在三选一里更常出现，每字只能刷出一个";
+                case SealType.Luck: return "这个字在三选一里更常出现，几枚的倍率叠乘";
                 case SealType.Edge: return "这个字的伤害加成再高一截";
                 case SealType.Fierce: return "这个字本事里的那一项变强";
                 case SealType.Wide: return "范围变大；单体的字改成溅射旁边";
@@ -529,7 +529,7 @@ namespace InkLine
     }
 
     // 一局开打前，把每个条目的印章加成摊平成数组。每日残局、字卡没开都是 null。
-    // 下标是 SealCatalog 的条目号。同类型的几枚相加。
+    // 下标是 SealCatalog 的条目号。同类型的几枚相加，字运的倍率相乘。
     public sealed class SealPack
     {
         public readonly float[] Luck;
@@ -564,7 +564,7 @@ namespace InkLine
             if (q == SealQuality.Gold) Gold[key] = true;
             switch (t)
             {
-                case SealType.Luck: Luck[key] = Mathf.Max(Luck[key], SealCatalog.LuckOf(q)); break;
+                case SealType.Luck: Luck[key] *= SealCatalog.LuckOf(q); break;
                 case SealType.Edge: Edge[key] += SealCatalog.Value(t, q); break;
                 case SealType.Fierce: Fierce[key] += SealCatalog.Value(t, q); break;
                 case SealType.Wide:

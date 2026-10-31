@@ -51,7 +51,7 @@ namespace InkLine
                 {
                     int s = key * SealCatalog.SlotsPer + k;
                     if (SlotType[s] != 0) continue;
-                    SlotType[s] = (int)SealCatalog.RollSlot(key, HasLuck(key, k));
+                    SlotType[s] = (int)SealCatalog.RollSlot(key);
                     changed = true;
                 }
             }
@@ -61,13 +61,6 @@ namespace InkLine
         public void EnsureSlots()
         {
             if (FillSlots()) Save();
-        }
-
-        bool HasLuck(int key, int except)
-        {
-            for (int k = 0; k < SealCatalog.SlotsPer; k++)
-                if (k != except && SlotType[key * SealCatalog.SlotsPer + k] == (int)SealType.Luck) return true;
-            return false;
         }
 
         // ---- 读 ----
@@ -156,13 +149,15 @@ namespace InkLine
             return best;
         }
 
+        // 这个字上镶着的字运倍率叠乘。空着的字运槽不算。
         float LuckAt(CodexEntry e)
         {
             int open = SlotsOpen(e);
+            float m = 1f;
             for (int k = 0; k < open; k++)
                 if (SlotTypeOf(e, k) == SealType.Luck && SlotSealOf(e, k, out SealQuality q))
-                    return SealCatalog.LuckOf(q);
-            return 1f;
+                    m *= SealCatalog.LuckOf(q);
+            return m;
         }
 
         // 开局把印章摊平给战斗。每日残局、插槽没开返回 null。
@@ -226,8 +221,7 @@ namespace InkLine
             return Diamond >= SealCatalog.RerollDiamond ? SealBlock.None : SealBlock.Diamond;
         }
 
-        // 一次换掉这个字上所有已开的槽，只换类型。先把镶着的印章卸回背包，再重抽。可能刷出同一种。
-        // 先清空再按顺序重抽，字运才不会因为旧类型占着名额、刷完又一个都不剩。
+        // 一次换掉这个字上所有已开的槽，只换类型。先把镶着的印章卸回背包，再重抽。可能刷出同一种，字运也可以三个都是。
         public int Reroll(CodexEntry e)
         {
             if (RollStudy()) Save();
@@ -244,7 +238,7 @@ namespace InkLine
             for (int k = 0; k < open; k++)
             {
                 int s = key * SealCatalog.SlotsPer + k;
-                SlotType[s] = (int)SealCatalog.RollSlot(key, HasLuck(key, k));
+                SlotType[s] = (int)SealCatalog.RollSlot(key);
             }
             Save();
             return open;
