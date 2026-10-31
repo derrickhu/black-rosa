@@ -618,7 +618,7 @@ namespace InkLine
         void BuildActions(CodexEntry e, int lv)
         {
             MetaProgress.StudyBlock block = _meta.UpgradeBlock(e);
-            int cost = StudyCatalog.CostOf(lv);
+            int cost = StudyCatalog.CostOf(lv, e.Kind == CodexKind.Word);
             if (lv < StudyCatalog.MaxLevel)
             {
                 // 贴在升级按钮上沿，整行按按钮居中，图标和数字同一条线。
@@ -725,13 +725,15 @@ namespace InkLine
             for (int k = slotsWas; k < slots; k++)
             {
                 if (!(_orb.Find("slot" + k) is RectTransform node)) continue;
+                int slot = k;
                 Vector2 at = SlotAt[k];
                 _anim.Pop(node, 0.35f, 0.45f, 0f);
                 _anim.At(0.5f, () =>
                 {
                     if (_orb == null) return;
                     UiConfetti.Sparks(_orb, at, FoilArt.Face, 14, 420f);
-                    InkToast.Show(_layer, "开了新插槽：" + SealCatalog.TypeName(_meta.SlotTypeOf(Cur, k)));
+                    string name = SealCatalog.TypeName(_meta.SlotTypeOf(Cur, slot));
+                    InkToast.Show(_layer, string.IsNullOrEmpty(name) ? "开了新插槽" : "开了新插槽：" + name);
                 });
             }
             return _body.Find("orb/c") as RectTransform;

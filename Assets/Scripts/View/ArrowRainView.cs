@@ -3,8 +3,8 @@ using UnityEngine;
 
 namespace InkLine
 {
-    // 万箭蓄满后的满屏落箭。帧动画的箭尖画在精灵底部，轴心也在箭尖，
-    // 所以根节点就是击中点，箭杆拖在上面。
+    // 万箭蓄满后从炮口往上射的满屏箭。帧动画的箭尖画在精灵底部，轴心也在箭尖，
+    // 转 180 度后尖朝上，根节点仍是击中点，箭杆拖在下面。
     public sealed class ArrowRainView : MonoBehaviour
     {
         sealed class Bolt
@@ -53,7 +53,7 @@ namespace InkLine
                 float s = ArrowHeight / Mathf.Max(0.2f, h);
                 float lean = ((a.Id % 5) - 2) * 3.5f;
                 b.Root.position = new Vector3(a.Pos.x, a.Pos.y, 0f);
-                b.Root.localRotation = Quaternion.Euler(0f, 0f, lean);
+                b.Root.localRotation = Quaternion.Euler(0f, 0f, 180f + lean);
                 b.Root.localScale = new Vector3(s, s, 1f);
             }
         }

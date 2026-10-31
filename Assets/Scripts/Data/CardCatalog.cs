@@ -90,12 +90,12 @@ namespace InkLine
         }
 
         // 以下数值一律读 GlyphTable，这里只留调用点习惯的名字。
-        // 万箭的冷却看两个字里较低的那颗星：1 星 4 发，两张都到 2 星减到 3 发，都到 3 星再减到 2 发。
+        // 万箭的冷却看两个字里较低的那颗星：1 星 6 发，两张都到 2 星减到 5 发，都到 3 星再减到 4 发。
         // 只升其中一张不算，所以传入的是这一列「万」「箭」的最低星。
         public static int WordChargeNeed(WordId word, int gateStar = 1)
         {
             if (word == WordId.ArrowRain)
-                return 5 - Mathf.Clamp(gateStar, 1, 3);
+                return 7 - Mathf.Clamp(gateStar, 1, 3);
             return GlyphTable.Word(word).Charge;
         }
 

@@ -329,7 +329,7 @@ namespace InkLine
             },
             new WordDef
             {
-                Id = WordId.ArrowRain, Charge = 4,
+                Id = WordId.ArrowRain, Charge = 6,
                 Count = new Tri(3f, 4f, 6f),
                 // 这一发普通炮弹（加算、乘算、终乘都算完）的份额。
                 // 满屏箭多，1 星一半，2 星四分之三，3 星一整发。

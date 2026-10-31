@@ -278,7 +278,7 @@ namespace InkLine
         public static string WakeNote(WordId word)
         {
             if (word == WordId.ArrowRain)
-                return "1 星每 4 发蓄满一次。两个字都升到 2 星后每 3 发，都到 3 星后每 2 发";
+                return "1 星每 6 发蓄满一次。两个字都升到 2 星后每 5 发，都到 3 星后每 4 发";
             return $"每 {CardCatalog.WordChargeNeed(word)} 发经过才生效一次";
         }
 
@@ -370,7 +370,7 @@ namespace InkLine
             switch (word)
             {
                 case WordId.InstantKill: return pair + $"每 {need} 发蓄满一次，那一发命中时，血量低于斩杀线的敌人直接倒下。";
-                case WordId.ArrowRain: return pair + "蓄满的那一发化成满屏落下的发光箭雨，场上每只敌人挨一箭。单支从这一发普通炮弹的一半起，星级升高后逐步提到一整发。1 星每 4 发；两个字都升到 2 星后冷却减 1，都到 3 星再减 1。";
+                case WordId.ArrowRain: return pair + "蓄满的那一发化成从底下往上射的满屏发光箭，场上每只敌人挨一箭。单支从这一发普通炮弹的一半起，星级升高后逐步提到一整发。1 星每 6 发；两个字都升到 2 星后冷却减 1，都到 3 星再减 1。";
                 case WordId.Knockback: return pair + $"每 {need} 发蓄满一次，那一发把敌人远远击退。";
                 case WordId.Cleave: return pair + $"每 {need} 发蓄满一次，那一发命中后接连斩向身边的敌人。";
                 case WordId.Crush: return pair + $"每 {need} 发蓄满一次，那一发按敌人眼下的血量再砸掉一截，越肉越疼；头目减半。";

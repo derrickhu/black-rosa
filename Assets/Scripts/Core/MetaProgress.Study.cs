@@ -73,7 +73,7 @@ namespace InkLine
             int lv = StudyLevel(e);
             if (lv >= StudyCatalog.MaxLevel) return StudyBlock.Max;
             if (lv >= StudyCap) return StudyBlock.Cap;
-            if (Foil < StudyCatalog.CostOf(lv)) return StudyBlock.Foil;
+            if (Foil < StudyCatalog.CostOf(lv, e.Kind == CodexKind.Word)) return StudyBlock.Foil;
             return StudyBlock.None;
         }
 
@@ -81,7 +81,7 @@ namespace InkLine
         {
             if (UpgradeBlock(e) != StudyBlock.None) return false;
             int lv = StudyLevel(e);
-            Foil -= StudyCatalog.CostOf(lv);
+            Foil -= StudyCatalog.CostOf(lv, e.Kind == CodexKind.Word);
             if (e.Kind == CodexKind.Glyph) GlyphLevel[e.Index] = lv + 1;
             else WordLevel[e.Index] = lv + 1;
             FillSlots();

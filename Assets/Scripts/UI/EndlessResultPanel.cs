@@ -7,7 +7,7 @@ namespace InkLine
     public sealed class EndlessResultArgs
     {
         public bool Win;
-        public bool Daily;      // 每日残局：纪录和次数按当天算，结算转盘必得一枚印章
+        public bool Daily;      // 每日残局：纪录和次数按当天算，第五章后全部守住拉一次印章转轮
         public int Total;       // 这局一共几波
         public EndlessResult Result;
         public Action Double;
@@ -31,6 +31,8 @@ namespace InkLine
         const float RankY = -318f;
         const float DoubleY = -414f;
         const float AgainY = -514f;
+        const float SlotY = -190f;
+        const float SlotLift = 10f;
 
         static readonly Color Gold = InkTheme.Hex("F6BE3C");
         static readonly Color Cream = InkTheme.Hex("FFE7B8");
@@ -43,6 +45,7 @@ namespace InkLine
         RectTransform _root;
         Text _ink;
         Button _double;
+        SealSlot _slot;
 
         public RectTransform Root => _root;
 
@@ -55,7 +58,11 @@ namespace InkLine
             p._a = a;
             p._root = dim;
             p._anim = UiAnim.On(p);
-            ResultKit.SkipCatcher(dim, () => { if (p._anim.Playing) p._anim.Finish(); });
+            ResultKit.SkipCatcher(dim, () =>
+            {
+                if (p._slot != null) p._slot.Skip();
+                if (p._anim.Playing) p._anim.Finish();
+            });
             p.Build();
             AudioBus.Sweep(dim);
             return p;
@@ -72,9 +79,10 @@ namespace InkLine
             var stage = ResultKit.Group(_root, "stage", Vector2.zero, new Vector2(ScreenFit.DesignW, ScreenFit.DesignH));
             if (win) PlayWin(stage);
             else PlayLose(stage);
-            if (_a.Daily && _a.Result.HasSeal) BuildWheel(stage, win ? 1.05f : 0.9f);
+            float buttonsAt = win ? 1.7f : 1.4f;
+            if (_a.Daily && _a.Result.HasSeal) buttonsAt = BuildSlot(stage, win ? 1.05f : 0.9f);
             else BuildLoot(stage, win ? 1.45f : 1.15f);
-            BuildButtons(stage, win ? 1.7f : 1.4f);
+            BuildButtons(stage, buttonsAt);
             if (win)
                 _anim.At(1.55f, () =>
                 {
@@ -229,6 +237,7 @@ namespace InkLine
         void BuildButtons(RectTransform stage, float at)
         {
             float lift = _a.Rank != null ? 0f : RankY - DoubleY;
+            if (_slot != null) lift = SlotLift;
             if (_a.Rank != null)
             {
                 var rank = ResultKit.Group(stage, "rank", new Vector2(0f, RankY), new Vector2(300f, 72f));
@@ -274,88 +283,16 @@ namespace InkLine
             return (ChestTier)MetaProgress.EndlessChestTier(wave);
         }
 
-        // 每日残局的转盘。奖已经入账，转盘只是转到那一枚。指针停在正上方。
-        void BuildWheel(RectTransform stage, float at)
+        // 每日残局的印章转轮。奖已经入账，转轮只是停到那三枚。返回按钮出场的时间。
+        float BuildSlot(RectTransform stage, float at)
         {
-            const int n = 8;
-            const float radius = 70f;
-            const float medal = 44f;
-            const float hubY = -168f;
-            var hub = new Vector2(0f, hubY);
-            SealDrop prize = _a.Result.Seal;
-            var faces = new SealDrop[n];
-            faces[0] = prize;
-            for (int i = 1; i < n; i++) faces[i] = SealCatalog.RollDaily();
-            int win = UnityEngine.Random.Range(0, n);
-            if (win != 0)
-            {
-                SealDrop tmp = faces[win];
-                faces[win] = faces[0];
-                faces[0] = tmp;
-            }
-
-            float step = 360f / n;
-            var glow = UiKit.Icon(stage, InkSprites.Load("Ui/seal_burst"), hub + new Vector2(0f, radius), medal * 1.85f);
-            glow.color = new Color(1f, 0.95f, 0.75f, 0.95f);
-            glow.raycastTarget = false;
-
-            var wheel = ResultKit.Group(stage, "wheel", hub, new Vector2(radius * 2f + medal, radius * 2f + medal));
-            var medals = new RectTransform[n];
-            for (int i = 0; i < n; i++)
-            {
-                float deg = 90f - i * step;
-                float rad = deg * Mathf.Deg2Rad;
-                var p = new Vector2(Mathf.Cos(rad), Mathf.Sin(rad)) * radius;
-                medals[i] = SealArt.Medal(wheel, "m" + i, faces[i].Type, faces[i].Quality, p, medal);
-            }
-
-            var plate = UiKit.Stroke(stage, "hub", hub, new Vector2(112f, 76f), Pin.Center, 3f,
-                Gold, InkTheme.Hex("FFF8EC"), 38f);
-            plate.GetComponent<Image>().raycastTarget = false;
-            _ink = UiKit.Label(plate, "ink", "墨 +0", 22, new Vector2(0f, 14f), new Vector2(104f, 28f));
-            UiKit.Bold(_ink);
-            _ink.color = InkTheme.TextDark;
-            _ink.raycastTarget = false;
-            var prizeT = UiKit.Label(plate, "prize", "印章", 18, new Vector2(0f, -14f), new Vector2(104f, 26f));
-            UiKit.Bold(prizeT);
-            prizeT.color = InkTheme.TextMid;
-            prizeT.raycastTarget = false;
-
-            float endZ = win * step;
-            float startZ = endZ + 360f * 4f + 180f;
-            wheel.localRotation = Quaternion.Euler(0f, 0f, startZ);
-            for (int i = 0; i < n; i++)
-                medals[i].localRotation = Quaternion.Euler(0f, 0f, -startZ);
-            int shown = -1;
-            _anim.Pop(wheel, at, 0.32f)
-                 .CountUp(_ink, 0, _a.Result.Ink, at + 0.1f, 0.45f, "墨 +{0}", AudioBus.CountTick)
-                 .Tween(at + 0.15f, 2.5f, k =>
-                 {
-                     if (wheel == null) return;
-                     float z = Mathf.Lerp(startZ, endZ, Ease.OutCubic(k));
-                     wheel.localRotation = Quaternion.Euler(0f, 0f, z);
-                     for (int i = 0; i < n; i++)
-                         if (medals[i] != null) medals[i].localRotation = Quaternion.Euler(0f, 0f, -z);
-                     int idx = Mathf.RoundToInt(Mathf.Repeat(z, 360f) / step) % n;
-                     if (idx == shown) return;
-                     shown = idx;
-                     AudioBus.CountTick();
-                 })
-                 .At(at + 2.7f, () =>
-                 {
-                     if (medals[win] != null) medals[win].localScale = Vector3.one * 1.22f;
-                     if (prizeT != null)
-                     {
-                         prizeT.text = SealCatalog.DropName(prize);
-                         prizeT.color = SealCatalog.QualityDeep(prize.Quality);
-                     }
-                     AudioBus.Stamp();
-                     if (prize.Quality == SealQuality.Gold)
-                     {
-                         UiConfetti.Burst(_root, 48);
-                         AudioBus.Confetti();
-                     }
-                 });
+            float delay = at + 0.45f;
+            _slot = SealSlot.Build(stage, _root, new Vector2(0f, SlotY), _a.Result.Spin, delay);
+            _ink = _slot.Ink;
+            _anim.Pop(_slot.transform, at, 0.34f)
+                 .At(at + 0.12f, AudioBus.Stamp)
+                 .CountUp(_ink, 0, _a.Result.Ink, at + 0.15f, 0.45f, "墨 +{0}", AudioBus.CountTick);
+            return _slot.Duration - 0.5f;
         }
 
         static float Swing(float k) => 1f - Mathf.Cos(k * Mathf.PI * 3.2f) * Mathf.Pow(1f - k, 2.2f);

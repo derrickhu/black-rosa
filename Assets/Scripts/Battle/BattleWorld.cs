@@ -220,7 +220,7 @@ namespace InkLine
         public bool GlowOverlay;
     }
 
-    // 万箭蓄满后的一支落箭。同一波共用 Claimed，每只敌人只挨一箭。
+    // 万箭蓄满后的一支上射箭。同一波共用 Claimed，每只敌人只挨一箭。
     public sealed class RainArrow
     {
         public int Id;
@@ -1126,7 +1126,10 @@ namespace InkLine
                 Speed = speed,
                 Radius = def.Radius,
                 Gold = Stage.WaveGold != null ? EnemyCatalog.Drop(EnemyCatalog.Base(id).Gold, Stage.GoldAt(wave)) : def.Gold,
-                Ink = Stage.Event ? 0f : def.Ink * StageCatalog.InkOf(Stage.Chapter),
+                Ink = Stage.Event ? 0f
+                    : def.Ink * StageCatalog.InkOf(Stage.Chapter)
+                        * (Stage.Daily ? StageCatalog.DailyInkShare
+                            : Stage.Endless ? StageCatalog.EndlessInkShare(wave) : 1f),
                 Shield = def.HasShield,
                 Strafe = def.Strafe,
                 PreferEmpty = def.PreferEmpty,
@@ -1511,7 +1514,7 @@ namespace InkLine
 
         void RainArrows(int col, int star, BulletActor src)
         {
-            // 箭从画面顶上铺满六列往下落。密度跟星走，伤害在箭尖经过敌人时才结算，
+            // 箭从炮口一带铺满六列往上射。密度跟星走，伤害在箭尖经过敌人时才结算，
             // 同一波里每只敌人只吃一箭。
             float dmg = RainDamage(src, col, star);
             int n = 8 + star * 4;
@@ -1525,7 +1528,7 @@ namespace InkLine
                 Rain.Add(new RainArrow
                 {
                     Id = ++_rainSeq,
-                    Pos = new Vector2(x, GameConstants.WorldHalfHeight + UnityEngine.Random.Range(0.15f, 2.2f)),
+                    Pos = new Vector2(x, GameConstants.EmitterY - UnityEngine.Random.Range(0.15f, 2.2f)),
                     Speed = UnityEngine.Random.Range(4.6f, 5.8f),
                     Dmg = dmg,
                     Mods = src.Mods,
@@ -1544,8 +1547,8 @@ namespace InkLine
             {
                 RainArrow a = Rain[i];
                 float y0 = a.Pos.y;
-                a.Pos.y -= a.Speed * dt;
-                if (a.Pos.y < GameConstants.LeakY - 1.4f) Rain.RemoveAt(i);
+                a.Pos.y += a.Speed * dt;
+                if (a.Pos.y > GameConstants.WorldHalfHeight + 1.4f) Rain.RemoveAt(i);
                 else StrikeRain(a, y0);
             }
         }
@@ -1560,8 +1563,10 @@ namespace InkLine
                 if (e.Dead || e.Hidden || a.Claimed.Contains(e.Id)) continue;
                 if (Mathf.Abs(e.Pos.x - a.Pos.x) > band) continue;
                 // 这一帧箭尖扫过的那段。怪身和这段重叠才算打中，避免从怪身上穿过去没结算。
-                if (e.Pos.y > y0 + e.Radius) continue;
-                if (e.Pos.y + e.Radius < a.Pos.y) continue;
+                float top = Mathf.Max(y0, a.Pos.y);
+                float bot = Mathf.Min(y0, a.Pos.y);
+                if (e.Pos.y > top + e.Radius) continue;
+                if (e.Pos.y + e.Radius < bot) continue;
                 a.Claimed.Add(e.Id);
                 ResolveHit(e, a.Mods, a.Src, HitSource.Arrow, a.Dmg);
             }
@@ -2921,6 +2926,16 @@ namespace InkLine
             }
             _clearHold += dt;
             if (_clearHold < ClearHold) return;
+            Victory = true;
+            Paused = true;
+            FlushDrops();
+            Chests.Clear();
+        }
+
+        // 模拟器里的每日残局：直接按全部守住结算。已经在场上的怪不再逐个打死，墨只算已经拾到的。
+        public void GmClear()
+        {
+            if (PreviewFill || Stage == null || !Stage.Daily || Victory || Defeat) return;
             Victory = true;
             Paused = true;
             FlushDrops();

@@ -158,7 +158,7 @@ namespace InkLine
             }
         }
 
-        // 通关第五章后：全部守住才给一枚。四格是品质比例，种类另外都会有。
+        // 通关第五章后：全部守住随机得一枚印章。这里不写转轮的几种停法。
         void BuildReward()
         {
             var head = UiKit.Label(_body, "chesthead", "结 算 奖 励", 22, new Vector2(0f, Y(RewardHeadY)), new Vector2(300f, 30f));
@@ -170,21 +170,10 @@ namespace InkLine
             var card = UiKit.Stroke(_body, "seal", new Vector2(0f, Y(ChestY)), new Vector2(W, H), Pin.Center, 4f,
                 Jade, JadeFace, 20f);
             card.GetComponent<Image>().raycastTarget = false;
-            var title = UiKit.Label(card, "title", "全部守住得一枚 · 七种类型都会有", 20,
-                new Vector2(0f, 52f), new Vector2(W - 24f, 28f));
+            SealArt.Unknown(card, "q", new Vector2(0f, 18f), 92f);
+            var title = UiKit.Label(card, "title", "随机获得一枚印章", 24, new Vector2(0f, -46f), new Vector2(W - 24f, 32f));
             UiKit.Bold(title);
             title.color = JadeDeep;
-
-            SealQuality[] qs = { SealQuality.Green, SealQuality.Blue, SealQuality.Purple, SealQuality.Gold };
-            string[] pct = { "60%", "28%", "10%", "2%" };
-            for (int i = 0; i < qs.Length; i++)
-            {
-                float x = (i - 1.5f) * 112f;
-                SealArt.Medal(card, "q" + i, SealType.Edge, qs[i], new Vector2(x, 4f), 56f);
-                var p = UiKit.Label(card, "p" + i, pct[i], 20, new Vector2(x, -48f), new Vector2(90f, 26f));
-                UiKit.Bold(p);
-                p.color = SealCatalog.QualityDeep(qs[i]);
-            }
         }
 
         void BuildPlays()

@@ -7,7 +7,7 @@ namespace InkLine
     // 每日残局：全服同一天打同一局。20 波，看自己今天能撑几波。不上榜。
     // 每天由日期定死：开局第一排 0～2 个空格、不摆字、停用两张字、一条魔气词缀、
     // 兵种和出场顺序、战场底图。字池固定用第四章章底那一份。通关第三章就开，
-    // 但这一关的 Chapter 仍记成第四章：怪的移速和掉墨读的是它。
+    // 但这一关的 Chapter 仍记成第四章：怪的移速按它走，掉墨先按它再减半。不出墨箱。
     // 格子靠改装里随机刷出的铲子挖。难度按无尽曲线再往深处走：
     // 第 n 波（从 1 数）读无尽第 round(2.2*(n-1))+4 波。第 1 波约 2.9 倍血，第 20 波约 13.8 倍。
     // 第 10、20 波各压一只关底。不渗魔气。
@@ -17,7 +17,9 @@ namespace InkLine
         const float DailyDepthStep = 2.2f;
         // 第 1 波就不从无尽开头读，整局都比旧的 1.6 倍深度更硬。
         const int DailyDepthOpen = 4;
-        // 字池、移速、掉墨都取第四章。和开放门槛（第三章）分开，改开放不改这一局的内容。
+        // 字池、移速取第四章。掉墨也先按第四章，再乘下面这份，避免二十波攒得比主线一关还多。
+        // 和开放门槛（第三章）分开，改开放不改这一局的内容。
+        public const float DailyInkShare = 0.5f;
         const int DailyContentChapter = 3;
         const int DailyPoolStage = GameConstants.ChapterSize * (DailyContentChapter + 1) - 1;
         const int DailyBanCount = 2;

@@ -15,7 +15,7 @@ namespace InkLine
         readonly float[] _pipFlash = new float[GameConstants.Columns * GameConstants.Rows];
         readonly int[] _pipWas = new int[GameConstants.Columns * GameConstants.Rows];
         readonly float[] _pipTick = new float[GameConstants.Columns * GameConstants.Rows];
-        const int PipN = 4;
+        const int PipN = 6;
         readonly List<SpriteRenderer> _emitters = new List<SpriteRenderer>();
         readonly List<SpriteRenderer> _muzzles = new List<SpriteRenderer>();
         readonly List<SpriteRenderer> _skins = new List<SpriteRenderer>();

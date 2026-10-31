@@ -5,17 +5,19 @@ using static InkLine.EnemyId;
 namespace InkLine
 {
     // 无尽模式：一局 70 波，越打越硬，看能撑到第几波。成绩上排行榜的「无尽」页（按周清榜）。
-    // 前 50 波的血量曲线不动，免得已有的波数成绩和每日残局一起漂：
-    // 第 1 波 2.3 倍，第 10 波约 3.9，第 20 波约 6.3，第 30 波约 9.3，第 40 波约 12.3，
-    // 第 50 波 14 倍（第十章关底 3.5 × 1.4 × 1.15 ≈ 5.6 倍，这里约是它的 2.5 倍）。
-    // 第 51 波起才是第二幕加出来的尾段，血量缓升到第 70 波的 17.5 倍，约章底的 3.1 倍。
-    // 薄皮杂兵另有下限。满盘面打得过第 50 波，不再是墙。
+    // 前 50 波的基础血量曲线不动，每日残局也读这条：
+    // 第 1 波 2.3 倍，第 10 波约 3.9，第 20 波约 6.3，第 30 波约 9.3，第 40 波约 12.3，第 50 波 14 倍。
+    // 第 51 波起线性接到第 70 波的 17.5 倍。
+    // 无尽另乘一层后段血量，每日残局不乘：第 10 波 ×1.15，缓坡收到第 70 波 ×5。
+    // 线上伤害词条只到 8 级、主线停在第六章的档也能打穿 70 波；旧的尾段从第 30 波才抬，第 70 波只到 ×1.4。
+    // 薄皮杂兵另有下限。
     // 只数跟着每波的总血涨，封顶 EndlessBodyCap，后期不至于卡。
     // 再打个只数折扣：前 10 波少约一成；第 11 波起再收，到第 30 波大约剩四分之三。
     // 盘面开局一排；第 10 波起每 3 波随机开一格，先第二排后第三排，第 43 波开满。
     // 第 10 波起魔气从上往下渗到第 40 波，怪的减伤跟着涨到 12%。
     // 每周换一条魔气词缀（StageRules），血、速、钱、怪量跟着词缀乘。
     // 金币掉得比主线吝啬、抽牌越抽越贵，钱永远不够花。
+    // 击杀掉墨从第 10 波起往下收，打满一局大约 2100，原来大约 3900。前 9 波不动。
     // 兵种分四段解锁。第 10、20、30、40、50 波是原来的五只关底，
     // 第 60 波影姬、第 70 波钟魔，接在魔气铺满之后。
     // 每波用固定种子排，所有人打的是同一套，排行榜才公平。
@@ -96,14 +98,34 @@ namespace InkLine
             return Mathf.Lerp(EndlessHpTop, EndlessHpTail, Tail(k));
         }
 
-        // 无尽后段补强：第 30 波起抬，第 40 波 +30%，第 70 波 +40%。
-        // 原曲线下没满改装也能打穿 70 波。只乘在出怪上，金币和墨的掉落曲线不动；每日残局只有 20 波，碰不到。
+        // 无尽后段血量。第 9 波及以前是 1。第 10 波 ×1.15，用 1.35 次方把前段抬起来，第 70 波 ×5。
+        // 只乘在出怪上。金币掉落、基础血量曲线都不动，每日残局不读这个函数。
+        // 乘完之后第 30 波的血大约赶上旧的第 70 波，第 70 波大约是旧的 3.6 倍。
+        const float EndlessLateOpen = 1.15f;
+        const float EndlessLateTop = 5f;
+        const float EndlessLateEase = 1.35f;
+
         public static float EndlessLateHp(int wave)
         {
             int n = wave + 1;
-            if (n <= 30) return 1f;
-            if (n <= 40) return Mathf.Lerp(1f, 1.3f, (n - 30) / 10f);
-            return Mathf.Lerp(1.3f, 1.4f, (n - 40) / 30f);
+            if (n < EndlessDarkFrom) return 1f;
+            float k = (n - EndlessDarkFrom) / (float)(EndlessWaves - EndlessDarkFrom);
+            float u = 1f - Mathf.Pow(1f - Mathf.Clamp01(k), EndlessLateEase);
+            return Mathf.Lerp(EndlessLateOpen, EndlessLateTop, u);
+        }
+
+        // 击杀掉墨的份额。前 9 波照旧。第 10 波 0.82，线性收到第 70 波 0.34。
+        // 怪自己的墨还按基础血量的 0.6 次方涨，后 40 波原来吃掉将近八成，打满一局大约 3900。
+        // 收到大约一半。金币箱不走这里。
+        const float EndlessInkOpen = 0.82f;
+        const float EndlessInkTail = 0.34f;
+
+        public static float EndlessInkShare(int wave)
+        {
+            int n = wave + 1;
+            if (n < EndlessDarkFrom) return 1f;
+            float k = (n - EndlessDarkFrom) / (float)(EndlessWaves - EndlessDarkFrom);
+            return Mathf.Lerp(EndlessInkOpen, EndlessInkTail, Mathf.Clamp01(k));
         }
 
         // 第 50 波之后的进度，第 70 波正好是 1。

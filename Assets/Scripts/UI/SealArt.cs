@@ -48,6 +48,19 @@ namespace InkLine
             }
         }
 
+        // 还不知道会开出哪一枚：灰铁章，中间一个问号。
+        public static RectTransform Unknown(Transform parent, string name, Vector2 pos, float size)
+        {
+            var root = Holder(parent, name, pos, size);
+            UiKit.Icon(root, InkSprites.Load("Ui/seal_stud"), Vector2.zero, size);
+            // 全角问号的笔画靠在字框左边，放进圆章会偏。半角问号的笔画在字框正中。
+            int px = Mathf.RoundToInt(size * 0.42f);
+            var q = UiKit.Label(root, "q", "?", px, new Vector2(0f, px * 0.06f), new Vector2(size, size));
+            q.color = new Color(0.45f, 0.43f, 0.40f, 1f);
+            UiKit.Bold(q);
+            return root;
+        }
+
         // 还没到等级的槽：灰铁边的锁槽，中间一把小锁。
         public static RectTransform Stud(Transform parent, string name, Vector2 pos, float size)
         {

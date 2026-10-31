@@ -49,6 +49,8 @@ namespace InkLine
             if (!e.IsBoss && Random.value >= StageCatalog.ChestChance) return;
             if (Chests.Count >= ChestCap) return;
             bool gold = Stage.Event || Random.value < StageCatalog.ChestGoldShare;
+            // 每日残局不出墨箱。金币箱照旧，否则二十波的墨会厚过主线一关。
+            if (Stage.Daily && !gold) return;
             int col = FieldLayout.ColumnAtX(e.Pos.x);
             float low = FieldLayout.GridTop + 0.9f;
             float high = GameConstants.SpawnY - 1.6f;
@@ -56,7 +58,11 @@ namespace InkLine
             int amount = gold ? Stage.ChestGold : Stage.ChestInk;
             // 无尽的箱价按前几波定的，后面的怪越来越值钱，箱子跟着同一条掉落曲线涨。
             if (Stage.Endless)
+            {
                 amount = Mathf.Max(1, Mathf.RoundToInt(amount * EnemyCatalog.DropMul(hp) / EnemyCatalog.DropMul(Stage.HpAt(0))));
+                if (!gold && !Stage.Daily)
+                    amount = Mathf.Max(1, Mathf.RoundToInt(amount * StageCatalog.EndlessInkShare(e.Wave)));
+            }
             Chests.Add(new ChestActor
             {
                 Id = NextActorId++,

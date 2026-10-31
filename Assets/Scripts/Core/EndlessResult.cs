@@ -11,5 +11,6 @@ namespace InkLine
         public int ChestSlot;   // 进了哪个位；-1 位满先寄着，-3 寄不下折成墨，-2 没箱子
         public bool HasSeal;    // 每日残局必得的那一枚，已经进背包
         public SealDrop Seal;
+        public SealSpin Spin;   // 结算转轮停在哪三枚，Seal 就是它给的那一枚
     }
 }

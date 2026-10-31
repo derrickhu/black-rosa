@@ -15,6 +15,30 @@ namespace InkLine
         public SealQuality Quality;
     }
 
+    public enum SlotHit { None, Pair, Triple }
+
+    // 每日残局转轮一次的结果：三轴各停在哪一类，以及最后给的那一枚。
+    public struct SealSpin
+    {
+        public SealType A, B, C;
+        public SlotHit Hit;
+        public SealDrop Prize;
+
+        public SealSpin(SealType a, SealType b, SealType c, SlotHit hit, SealDrop prize)
+        {
+            A = a; B = b; C = c; Hit = hit; Prize = prize;
+        }
+
+        public SealType Reel(int i) => i == 0 ? A : i == 1 ? B : C;
+
+        // 这一轴是不是中奖的那几枚之一。三个都不同时只有中间那枚。
+        public bool Lit(int i)
+        {
+            if (Hit == SlotHit.None) return i == 1;
+            return Reel(i) == Prize.Type;
+        }
+    }
+
     // 字卡第二版：插槽和印章。数值、刷出权重、掉落表都在这里，详见 docs/插槽.md。
     // 槽按「条目」编号：字是 CardId，词是 CardCatalog.IdCount + WordId。每个条目 3 个槽。
     public static class SealCatalog
@@ -41,7 +65,8 @@ namespace InkLine
         public static int BagIndex(SealType t, SealQuality q) => ((int)t - 1) * QualityCount + (int)q;
 
         // 第 k 个槽在字卡几级时出现。
-        static readonly int[] SlotLevel = { 1, 4, 7 };
+        // 第 1、2、3 个槽在字卡 4、7、10 级出现。
+        static readonly int[] SlotLevel = { 4, 7, 10 };
 
         public static int SlotLevelOf(int k) => SlotLevel[Mathf.Clamp(k, 0, SlotLevel.Length - 1)];
 
@@ -191,8 +216,54 @@ namespace InkLine
             }
         }
 
-        // 通关第五章后，每日残局 20 波全部守住才给一枚。品质走普通档：绿 60 / 蓝 28 / 紫 10 / 金 2。种类七种平均。
-        public static SealDrop RollDaily() => Roll(Source.Normal);
+        // 通关第五章后，每日残局 20 波全部守住，结算拉一次三轴转轮，给一枚：
+        // 三个同类 4% → 这一类金印；两个同类 16% → 这一类紫印；三个都不同 80% → 中间那一类，蓝 25% / 绿 55%。
+        // 两个同类时六成排在前两轴，第三轴才有悬念；这时第三轴停在差一格的位置。种类七种等概率。
+        public const float SpinTriple = 0.04f;
+        public const float SpinPair = 0.16f;
+        public const float SpinBlue = 0.25f;
+        const float SpinPairFront = 0.6f;
+
+        public static SealSpin RollDaily()
+        {
+            float r = Random.value;
+            if (r < SpinTriple)
+            {
+                SealType t = AnyType();
+                return new SealSpin(t, t, t, SlotHit.Triple, new SealDrop { Type = t, Quality = SealQuality.Gold });
+            }
+            if (r < SpinTriple + SpinPair)
+            {
+                SealType t = AnyType();
+                SealType u = OtherType(t, SealType.None);
+                var prize = new SealDrop { Type = t, Quality = SealQuality.Purple };
+                float k = Random.value;
+                if (k < SpinPairFront) return new SealSpin(t, t, u, SlotHit.Pair, prize);
+                if (k < SpinPairFront + (1f - SpinPairFront) * 0.5f) return new SealSpin(t, u, t, SlotHit.Pair, prize);
+                return new SealSpin(u, t, t, SlotHit.Pair, prize);
+            }
+            SealType a = AnyType();
+            SealType b = OtherType(a, SealType.None);
+            SealType c = OtherType(a, b);
+            float blue = SpinBlue / (1f - SpinTriple - SpinPair);
+            var q = Random.value < blue ? SealQuality.Blue : SealQuality.Green;
+            return new SealSpin(a, b, c, SlotHit.None, new SealDrop { Type = b, Quality = q });
+        }
+
+        public static SealType AnyType() => (SealType)Random.Range(1, TypeCount + 1);
+
+        // 和 a、b 都不同的一类。
+        public static SealType OtherType(SealType a, SealType b)
+        {
+            for (int guard = 0; guard < 32; guard++)
+            {
+                SealType t = AnyType();
+                if (t != a && t != b) return t;
+            }
+            for (int i = 1; i <= TypeCount; i++)
+                if ((SealType)i != a && (SealType)i != b) return (SealType)i;
+            return SealType.Luck;
+        }
 
         // ---- 文案和颜色 ----
 

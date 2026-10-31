@@ -415,6 +415,59 @@
       "prompt_influence": 0.55,
       "output": "../../../Assets/Resources/Audio/study_tier.mp3",
       "notes": "字卡品质提升（1 / 4 / 7 / 10 级），叠在 study_up 爆点后面"
+    },
+    {
+      "name": "slot_lever",
+      "text": "a heavy mechanical slot machine lever pulled down hard: a ratcheting metal clack-clack and a solid spring thunk, then the reels start with a quick whirring rattle, close, dry, no music, no voice",
+      "duration": 0.9,
+      "prompt_influence": 0.55,
+      "output": "../../../Assets/Resources/Audio/slot_lever.mp3",
+      "notes": "印章转轮：拉杆、三轴起转"
+    },
+    {
+      "name": "slot_tick",
+      "text": "one tiny crisp plastic tick of a spinning prize wheel peg flicking past, very short, bright, dry, close, no reverb, no music, no voice",
+      "duration": 0.12,
+      "output": "../../../Assets/Resources/Audio/slot_tick.mp3",
+      "notes": "印章转轮：每过一格。高频连响，必须极短"
+    },
+    {
+      "name": "slot_stop",
+      "text": "a slot machine reel slamming to a stop: one punchy heavy metal clunk with a short bright latch click on top, sharp attack, quick decay, dry, close, no music, no voice",
+      "duration": 0.4,
+      "output": "../../../Assets/Resources/Audio/slot_stop.mp3",
+      "notes": "印章转轮：一轴停下"
+    },
+    {
+      "name": "slot_tense",
+      "text": "a fast snare drum roll that steadily rises in pitch and volume with a thin rising string tremolo underneath, building suspense for about two seconds and cutting off cleanly at the peak, no voice",
+      "duration": 2.2,
+      "prompt_influence": 0.55,
+      "output": "../../../Assets/Resources/Audio/slot_tense.mp3",
+      "notes": "印章转轮：前两轴一样时第三轴慢下来，憋悬念"
+    },
+    {
+      "name": "slot_jackpot",
+      "text": "a casino jackpot win: a loud bright bell ring, then a cascade of gold coins pouring onto metal, with a fast rising glockenspiel fanfare and sparkling shimmer that rings out and fades to silence, joyful, short room, no voice",
+      "duration": 2.8,
+      "prompt_influence": 0.55,
+      "output": "../../../Assets/Resources/Audio/slot_jackpot.mp3",
+      "notes": "印章转轮：三连金印"
+    },
+    {
+      "name": "slot_pair",
+      "text": "a cheerful small win jingle: three quick bright bell notes rising with a short sparkle of a few coins clinking, finishes cleanly, short room, no voice",
+      "duration": 1.2,
+      "prompt_influence": 0.55,
+      "output": "../../../Assets/Resources/Audio/slot_pair.mp3",
+      "notes": "印章转轮：两连紫印"
+    },
+    {
+      "name": "slot_small",
+      "text": "one soft warm ceramic ding with a light paper rustle, gentle, finishes cleanly, dry room, no music, no voice",
+      "duration": 0.6,
+      "output": "../../../Assets/Resources/Audio/slot_small.mp3",
+      "notes": "印章转轮：三个都不一样，拿中间那枚"
     }
   ]
 }

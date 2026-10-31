@@ -40,6 +40,7 @@ namespace InkLine
         RectTransform _adGun;
         Image _adGhost;
         Image _adMark;
+        RectTransform _gmClear;
 
         BattleHud(RectTransform layer, Text gold, RectTransform goldChip, Image[] hearts,
             RectTransform heartsWrap, RectTransform wavePlate, Text wave, Text mire, Text toast, Text ink, RectTransform inkChip,
@@ -119,8 +120,21 @@ namespace InkLine
                 btn.onClick.AddListener(() => hud.ToggleTip(k));
             }
             hud.BuildAdGun(addEmitter);
+            if (WxBridge.IsSimulator && world != null && world.Stage != null && world.Stage.Daily)
+                hud._gmClear = GmClearButton(layer, () => world.GmClear());
             hud.Layout();
             return hud;
+        }
+
+        // 只在模拟器的每日残局出现。贴在设置齿轮右边，不挡波次。
+        static RectTransform GmClearButton(RectTransform layer, System.Action clear)
+        {
+            var hold = UiKit.Panel(layer, "gmclear", Vector2.zero, new Vector2(112f, 44f), Color.clear, Pin.TopLeft);
+            hold.GetComponent<Image>().raycastTarget = false;
+            var btn = UiKit.Btn(hold, "b", "通关", Vector2.zero, new Vector2(112f, 44f), clear, false);
+            var label = btn.GetComponentInChildren<Text>();
+            if (label != null) label.fontSize = 22;
+            return hold;
         }
 
         static ItemKey MakeKey(RectTransform layer, int slot, Vector2 pos)
@@ -238,6 +252,9 @@ namespace InkLine
 
             PinTop(Settings.transform as RectTransform, new Vector2(Side, top),
                 new Vector2(Gear, Gear), 6f, Pin.TopLeft);
+            if (_gmClear != null)
+                PinTop(_gmClear, new Vector2(Side + Gear + 8f, top + 16f),
+                    new Vector2(112f, 44f), 0f, Pin.TopLeft);
             PinTop(GoldChip, new Vector2(Side, row), new Vector2(ReadW, ReadH), 0f, Pin.TopLeft);
             // 波次和设置同一行，垂直居中在齿轮高度里。金币和墨仍在下一行。
             PinTop(_wavePlate, new Vector2(0f, top), new Vector2(220f, Gear), 0f, Pin.Top);

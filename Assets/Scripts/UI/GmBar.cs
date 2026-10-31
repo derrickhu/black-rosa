@@ -43,10 +43,10 @@ namespace InkLine
             dimBtn.targetGraphic = dim.GetComponent<Image>();
             dimBtn.onClick.AddListener(() => UnityEngine.Object.Destroy(dim.gameObject));
 
-            var board = UiKit.Stroke(dim, "board", new Vector2(0f, -12f), new Vector2(480f, 1100f), Pin.Center, 8f);
+            var board = UiKit.Stroke(dim, "board", Vector2.zero, new Vector2(480f, 1240f), Pin.Center, 8f);
             var boardImg = board.GetComponent<Image>();
             if (boardImg != null) boardImg.raycastTarget = true;
-            UiKit.Label(board, "title", "GM", 28, new Vector2(0f, 522f), new Vector2(200f, 40f));
+            UiKit.Label(board, "title", "GM", 28, new Vector2(0f, 580f), new Vector2(200f, 40f));
 
             var rows = new (string label, Action act)[]
             {
@@ -63,7 +63,6 @@ namespace InkLine
                         InkToast.Show(layer, $"手里的宝箱太多，这只换成 {ChestCatalog.InkAvg(ChestTier.Gold)} 墨");
                 }),
                 ("宝箱解完", () => meta.GmFinishChests()),
-                ("关卡全开", () => meta.UnlockStages()),
                 ("皮肤全开", () => meta.UnlockSkins()),
                 ("道具全开", () => meta.UnlockItems()),
                 ("改装满级", () => meta.MaxForge()),
@@ -85,10 +84,11 @@ namespace InkLine
                 })
             };
 
+            float y = 528f;
             for (int i = 0; i < rows.Length; i++)
             {
+                if (i == 7) y = DrawChapters(board, meta, y, refresh);
                 int idx = i;
-                float y = 478f - i * 48f;
                 Button row = null;
                 row = UiKit.Btn(board, "g" + i, rows[i].label, new Vector2(0f, y), new Vector2(360f, 44f), () =>
                 {
@@ -101,8 +101,62 @@ namespace InkLine
                     if (refresh != null) refresh();
                 }, false);
                 row.transform.SetAsLastSibling();
+                y -= 48f;
             }
             dim.SetAsLastSibling();
+        }
+
+        // 「没」和 1～12。点哪章，主线就通到那一章，再点「没」全部清掉。
+        static float DrawChapters(RectTransform board, MetaProgress meta, float y, Action refresh)
+        {
+            var cap = UiKit.Label(board, "chcap", "", 22, new Vector2(0f, y), new Vector2(400f, 30f));
+            UiKit.Bold(cap);
+            cap.color = InkTheme.TextDark;
+            y -= 34f;
+            var chips = new Button[GameConstants.Chapters + 1];
+            for (int n = 0; n <= GameConstants.Chapters; n++)
+            {
+                bool top = n <= 6;
+                int col = top ? n : n - 7;
+                int cols = top ? 7 : 6;
+                float x = (col - (cols - 1) * 0.5f) * 54f;
+                float cy = top ? y : y - 46f;
+                int chapter = n;
+                chips[n] = ChapterChip(board, "ch" + n, n == 0 ? "没" : n.ToString(), new Vector2(x, cy), () =>
+                {
+                    meta.GmClearThrough(chapter);
+                    PaintChapters(chips, cap, meta.GmChapterThrough());
+                    if (refresh != null) refresh();
+                });
+            }
+            PaintChapters(chips, cap, meta.GmChapterThrough());
+            return y - 46f - 48f;
+        }
+
+        static Button ChapterChip(Transform parent, string name, string text, Vector2 pos, Action click)
+        {
+            var rt = UiKit.Stroke(parent, name, pos, new Vector2(48f, 40f), Pin.Center, 3f, InkTheme.Outline, InkTheme.Plain, 12f);
+            var img = rt.GetComponent<Image>();
+            img.raycastTarget = true;
+            var btn = rt.gameObject.AddComponent<Button>();
+            btn.targetGraphic = img;
+            btn.onClick.AddListener(() => click());
+            var t = UiKit.Label(rt, "t", text, 22, Vector2.zero, new Vector2(48f, 40f));
+            UiKit.Bold(t);
+            return btn;
+        }
+
+        static void PaintChapters(Button[] chips, Text cap, int through)
+        {
+            cap.text = through <= 0 ? "主线还没通" : through >= GameConstants.Chapters ? "主线全通" : "主线通到第" + through + "章";
+            for (int n = 0; n < chips.Length; n++)
+            {
+                bool on = n == through;
+                var img = chips[n].GetComponent<Image>();
+                if (img != null) img.color = on ? InkTheme.Cta : InkTheme.Plain;
+                var t = chips[n].GetComponentInChildren<Text>();
+                if (t != null) t.color = on ? InkTheme.CardFace : InkTheme.TextDark;
+            }
         }
 
         static void ShowPreview(RectTransform gm, int kind)

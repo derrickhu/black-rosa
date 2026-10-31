@@ -158,6 +158,15 @@ namespace InkLine
         public static void StudyUp() => CueOr("study_up", "res_unlock", 1f, 0.12f, 1f);
         public static void StudyTier() => CueOr("study_tier", "card_rare", 1f, 0.4f, 1f);
 
+        // 每日残局的印章转轮。
+        public static void SlotLever() => CueOr("slot_lever", "draft", 1f, 0.3f, 1f);
+        public static void SlotTick(float pitch) => CueOr("slot_tick", "res_tick", 0.38f, 0.045f, pitch);
+        public static void SlotStop(int reel) => CueOr("slot_stop", "stamp", 1f, 0.05f, 1f + 0.06f * reel);
+        public static void SlotTense() => CueOr("slot_tense", "res_heart", 0.9f, 0.5f, 1f);
+        public static void SlotJackpot() => CueOr("slot_jackpot", "study_tier", 1f, 0.5f, 1f);
+        public static void SlotPair() => CueOr("slot_pair", "card_rare", 1f, 0.4f, 1f);
+        public static void SlotSmall() => CueOr("slot_small", "chime", 0.9f, 0.3f, 1f);
+
         static void CueOr(string name, string fallback, float volume, float gap, float pitch)
         {
             Cue(Clip(name) != null ? name : fallback, volume, gap, 0f, pitch);

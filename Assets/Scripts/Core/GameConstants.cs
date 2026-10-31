@@ -21,7 +21,8 @@ namespace InkLine
         public const int RecommendChapter = 1;
         public const int EndlessPlaysPerDay = 1;
         public const int EndlessAdPlays = 1;
-        public const int EndlessInkPerWave = 5;
+        // 无尽每打完一波另给的墨。打满 70 波原来再给 350，和击杀掉落叠在一起偏多。
+        public const int EndlessInkPerWave = 3;
         // 每日残局通关第三章开，每天一局，看广告再加一局，续一次命。
         // 残局的字池、移速和掉墨仍按第四章，见 StageDaily。
         public const int DailyOpenChapter = 2;

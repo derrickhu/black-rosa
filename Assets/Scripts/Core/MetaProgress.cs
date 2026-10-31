@@ -493,10 +493,28 @@ namespace InkLine
             Save();
         }
 
-        public void UnlockStages()
+        public void UnlockStages() => GmClearThrough(GameConstants.Chapters);
+
+        // 从第 1 章起连续通了几章。中间有没通的章就停在那里。
+        public int GmChapterThrough()
         {
+            int n = 0;
+            for (int c = 0; c < GameConstants.Chapters; c++)
+            {
+                if (!ChapterCleared(c)) break;
+                n++;
+            }
+            return n;
+        }
+
+        // GM：主线通到第 chapters 章，1 起算。0 是一关都没通。通到的章给满星，后面的星清掉。
+        public void GmClearThrough(int chapters)
+        {
+            chapters = Mathf.Clamp(chapters, 0, GameConstants.Chapters);
+            int keep = chapters * GameConstants.ChapterSize;
             for (int i = 0; i < Stars.Length; i++)
-                Stars[i] = GameConstants.MaxStar;
+                Stars[i] = i < keep ? GameConstants.MaxStar : 0;
+            FillSlots();
             Save();
         }
 
@@ -720,21 +738,22 @@ namespace InkLine
         }
 
         // 每日残局结算：拾到的墨 + 每波的墨。
-        // 通关第五章前按波数给箱子。通关第五章后，20 波全部守住才给一枚印章，不再给箱子。
+        // 通关第五章前按波数给箱子。通关第五章后，20 波全部守住才拉一次印章转轮，不再给箱子。
         public EndlessResult ApplyDaily(int waves, int collected)
         {
             RollDaily();
             waves = Mathf.Clamp(waves, 0, StageCatalog.DailyWaves);
             bool cleared = waves >= StageCatalog.DailyWaves;
             bool sealReward = SealOpen;
-            SealDrop seal = default;
+            SealSpin spin = default;
             int chest = -1;
             if (sealReward)
             {
                 if (cleared)
-                    seal = SealCatalog.RollDaily();
+                    spin = SealCatalog.RollDaily();
             }
             else chest = DailyChestTier(waves);
+            SealDrop seal = spin.Prize;
             var r = new EndlessResult
             {
                 Waves = waves,
@@ -745,6 +764,7 @@ namespace InkLine
                 ChestSlot = -2,
                 HasSeal = sealReward && cleared,
                 Seal = seal,
+                Spin = spin,
             };
             if (r.NewBest) DailyBest = waves;
             if (waves > DailyRecord) DailyRecord = waves;

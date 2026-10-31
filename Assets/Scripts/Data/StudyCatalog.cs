@@ -12,7 +12,7 @@ namespace InkLine
         public const int MaxLevel = 10;
         public const float PerLevel = 0.02f;
 
-        // Cost[lv] 是从 lv 升到 lv+1 要的金箔。
+        // Cost[lv] 是单字从 lv 升到 lv+1 要的金箔。词走同一档的两倍：成词才放的大招不跟单字一个价。
         static readonly int[] Cost = { 30, 40, 55, 70, 90, 110, 135, 160, 190, 220 };
 
         // 金箔来源。炮台碎片和道具卡多出来的，开放后不再折墨。
@@ -52,7 +52,11 @@ namespace InkLine
 
         public static bool IsOpen(int cleared) => cleared >= OpenCleared;
 
-        public static int CostOf(int level) => level >= 0 && level < Cost.Length ? Cost[level] : 0;
+        public static int CostOf(int level, bool word = false)
+        {
+            int c = level >= 0 && level < Cost.Length ? Cost[level] : 0;
+            return word ? c * 2 : c;
+        }
 
         // 每多通一章，上限 +1。刚开放是 4，十章全通是 10，后面两章不再加。
         public static int CapOf(int cleared)
