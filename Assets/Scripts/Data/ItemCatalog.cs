@@ -92,9 +92,10 @@ namespace InkLine
             new[] { 5, 8, 12, 18, 26 }
         };
 
-        // 普通 / 高级 / 稀有。第一级普通仍是底数，后面的品质和等级拉开。
-        static readonly float[] InkMul = { 1f, 1.9f, 3.1f };
-        const int InkBase = 190;
+        // 普通 / 高级 / 稀有。同级大约 1 : 3 : 6，品质越高越贵。
+        // 普通 1→5：280 / 530 / 785 / 1035。稀有：1680 / 3190 / 4705 / 6215。
+        static readonly float[] InkMul = { 1f, 3f, 6f };
+        const int InkBase = 280;
         const float InkGrow = 0.9f;
 
         // 满级之后再开到的卡折成墨。
@@ -106,7 +107,7 @@ namespace InkLine
             return CardNeed[(int)d.Quality][Mathf.Max(0, level)];
         }
 
-        // 解锁只要卡，升级才花墨。每级在底数上再加九成，高级和稀有再乘品质。
+        // 解锁只要卡，升级才花墨。每级在底数上再加九成，再乘品质。
         public static int NextPrice(ItemDef d, int level)
         {
             if (level <= 0 || level >= MaxLevel) return 0;

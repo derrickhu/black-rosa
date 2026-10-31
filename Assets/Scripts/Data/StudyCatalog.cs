@@ -46,7 +46,7 @@ namespace InkLine
         }
 
         // 第 ch 章（从 0 数）打完时，常用的几个字大致升到几级。第五章（下标 4）起才有。
-        static readonly int[] Expected = { 0, 0, 0, 0, 1, 2, 3, 4, 5, 6, 9, 10 };
+        static readonly int[] Expected = { 0, 0, 0, 0, 1, 2, 3, 4, 5, 6, 9, 10, 10, 10 };
         // 怪血补满预期加成：后期本来就偏松，升到预期的人难度持平，没升的人吃亏。
         const float HpShare = 1f;
 
@@ -72,12 +72,13 @@ namespace InkLine
         public static int SpareFoilOf(ItemQuality q) => SpareFoil[Mathf.Clamp((int)q, 0, SpareFoil.Length - 1)];
 
         // 首通发的金箔。只有第五章起的主线和精英。
-        // 第五章普通关 7，逐章 +1，到第十二章普通关 14。小关底 ×1.5，章底 ×2，精英再 ×1.2。
-        // 第五到十二章主线首通合计约 882，约够升满 0.8 张字；看双倍或补打精英才能多升几张。
+        // 第五章普通关 7，逐章 +1，到第十二章普通关 14。十三、十四章停在 14，不再往上加。
+        // 小关底 ×1.5，章底 ×2，精英再 ×1.2。
+        // 主线首通合计大约够升满一张字出头；看双倍或补打精英才能多升几张。
         public static int FirstClearFoil(StageDef s)
         {
             if (s == null || s.Endless || s.Daily || s.Event || s.Chapter < 4) return 0;
-            float n = 7 + (s.Chapter - 4);
+            float n = 7 + (Mathf.Min(s.Chapter, 11) - 4);
             if (s.Finale) n *= 2f;
             else if (s.HasBoss) n *= 1.5f;
             if (s.Hard) n *= 1.2f;

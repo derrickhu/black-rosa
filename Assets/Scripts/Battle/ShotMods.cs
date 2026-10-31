@@ -85,6 +85,10 @@ namespace InkLine
         public bool Crumble;           // 崩山：破防目标无视甲
         public bool Whirl;             // 旋风：聚过来的整团贴到命中点那一列
         public bool Riposte;           // 回锋：折返时补一层穿，回程不衰减
+        public float GhostShare;       // 影：影弹打几成。0 表示这发不再套影
+        public bool GhostFire;         // 鬼火：影弹的灼烧不打折
+        public bool FireWheel;         // 风火轮
+        public bool Pin;               // 定海针
 
         // 印章
         public float Splash;           // 广域：没有半径的字命中时溅到身边，半径（格）
@@ -135,6 +139,37 @@ namespace InkLine
                 return;
             }
             _status.Add(hit);
+        }
+
+        public void ScaleTime(StatusKind kind, float mul)
+        {
+            for (int i = 0; i < _status.Count; i++)
+            {
+                if (_status[i].Kind != kind) continue;
+                StatusHit cur = _status[i];
+                cur.Time *= mul;
+                _status[i] = cur;
+                return;
+            }
+        }
+
+        public float StatusTime(StatusKind kind)
+        {
+            for (int i = 0; i < _status.Count; i++)
+                if (_status[i].Kind == kind) return _status[i].Time;
+            return 0f;
+        }
+
+        // except 是 None 时全部打折。鬼火把灼烧留在外面。
+        public void ScalePowers(float mul, StatusKind except)
+        {
+            for (int i = 0; i < _status.Count; i++)
+            {
+                if (except != StatusKind.None && _status[i].Kind == except) continue;
+                StatusHit cur = _status[i];
+                cur.Power *= mul;
+                _status[i] = cur;
+            }
         }
 
         public void ScaleStatus(StatusKind kind, float mul)
@@ -238,6 +273,10 @@ namespace InkLine
             Crumble = src.Crumble;
             Whirl = src.Whirl;
             Riposte = src.Riposte;
+            GhostShare = src.GhostShare;
+            GhostFire = src.GhostFire;
+            FireWheel = src.FireWheel;
+            Pin = src.Pin;
             Splash = src.Splash;
             MarkPush = src.MarkPush;
             MarkWind = src.MarkWind;

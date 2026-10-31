@@ -172,7 +172,7 @@ namespace InkLine
 
         // 每章一张地面，铺满镜头（cover）。图没导进来就留原来的纯色底和中间那块提亮。
         // 包里是缩略图，高清版由 CdnAssets 换上，尺寸变了 Sync 里每帧的 FitBackdrop 会重新铺。
-        public void SetBackdrop(int chapter) => SetBackdrop("Bg/battle_bg_" + (chapter + 1));
+        public void SetBackdrop(int chapter) => SetBackdrop(StageCatalog.BattleBackdrop(chapter));
 
         public void SetBackdrop(string name)
         {
@@ -376,6 +376,7 @@ namespace InkLine
                 else if (e.BurnTime > 0f) tint = Color.Lerp(Color.white, BurnLooks.Number(e.BurnLook), 0.22f);
                 else if (e.PoisonTime > 0f) tint = Color.Lerp(Color.white, InkTheme.Poison, 0.18f);
                 else if (e.VulnTime > 0f) tint = Color.Lerp(Color.white, InkTheme.Break, 0.22f);
+                if (e.SkillSeal > 0f) tint = Color.Lerp(tint, InkTheme.SealHi, 0.55f);
                 // 隐身的只留一层淡影，轻轻闪，让人知道那里有东西但范围打不着。
                 if (e.Hidden) tint.a = 0.26f + 0.08f * Mathf.Sin(Time.unscaledTime * 6f + e.Id);
                 Sprite body = InkArt.Person(e.Type, Color.clear);
@@ -411,7 +412,7 @@ namespace InkLine
                 if (dots == null) dots = sr.gameObject.AddComponent<InkDot>();
                 dots.Sync(e, 5, w.HaltAura > 0f);
                 PaintHitFlash(sr, e);
-                PaintWard(sr, e, sx);
+                PaintWard(sr, e);
                 var bar = sr.GetComponent<InkBar>();
                 if (bar == null) bar = sr.gameObject.AddComponent<InkBar>();
                 // 16 起步：压在命中特效（9~15）之上、飘字（19/20）之下。
@@ -507,16 +508,19 @@ namespace InkLine
 
         public const float DartScale = 0.64f;
         static readonly Color DemonTint = InkTheme.Hex("E040B8");
-        static readonly Color WardTint = new Color(0.62f, 0.78f, 0.95f, 0.75f);
 
-        // 别人挂上去的盾（墨僧、钟魔、魔化）：一圈淡蓝罩子，挨一发就碎。
+        // ward_shield.png 里笔触圈占画布的比例。用来把圈缩到刚好套住这只怪。
+        const float WardFill = 0.82f;
+
+        // 别人挂上去的盾（墨僧、钟魔、魔化）：一圈墨笔水纹，慢慢转，挨一发就碎。
         // 盾兵自己那面盾画在贴图里，不再罩。
-        static void PaintWard(SpriteRenderer host, EnemyActor e, float parentScale)
+        static void PaintWard(SpriteRenderer host, EnemyActor e)
         {
             Transform t = host.transform.Find("ward");
             SpriteRenderer sr = t != null ? t.GetComponent<SpriteRenderer>() : null;
             bool on = e.Shield && e.ShieldGiven;
-            if (!on)
+            Sprite art = on ? InkSprites.Load("Vfx/ward_shield") : null;
+            if (!on || art == null)
             {
                 if (sr != null) sr.enabled = false;
                 return;
@@ -526,17 +530,24 @@ namespace InkLine
                 var go = new GameObject("ward");
                 go.transform.SetParent(host.transform, false);
                 sr = go.AddComponent<SpriteRenderer>();
-                sr.sprite = InkArt.Heap(InkShape.Ring, Color.white, 96);
             }
+            sr.sprite = art;
             sr.enabled = true;
             sr.sortingOrder = host.sortingOrder + 1;
-            Color c = WardTint;
-            c.a *= e.Hidden ? 0.4f : 1f;
-            sr.color = c;
-            float w = sr.sprite != null ? Mathf.Max(0.01f, sr.sprite.bounds.size.x) : 1f;
-            float k = e.Radius * 2.5f / (w * Mathf.Max(0.01f, parentScale));
-            sr.transform.localScale = new Vector3(k, k, 1f);
+            float a = 0.9f + 0.08f * Mathf.Sin(Time.unscaledTime * 2.4f + e.Id);
+            if (e.Hidden) a *= 0.4f;
+            sr.color = new Color(1f, 1f, 1f, a);
+            Vector3 p = host.transform.localScale;
+            float bw = host.sprite != null ? host.sprite.bounds.size.x * Mathf.Abs(p.x) : e.Radius * 2.6f;
+            float bh = host.sprite != null ? host.sprite.bounds.size.y * Mathf.Abs(p.y) : e.Radius * 2.6f;
+            float full = Mathf.Max(bw, bh) * 1.22f / WardFill;
+            float w = Mathf.Max(0.01f, art.bounds.size.x);
+            sr.transform.localScale = new Vector3(
+                full / (w * Mathf.Max(0.01f, Mathf.Abs(p.x))),
+                full / (w * Mathf.Max(0.01f, Mathf.Abs(p.y))),
+                1f);
             sr.transform.localPosition = Vector3.zero;
+            sr.transform.localRotation = Quaternion.Euler(0f, 0f, Time.unscaledTime * 22f + e.Id * 40f);
         }
 
         // 命中白闪。原来是整只换成纯白剪影，射速快的时候敌人大半时间都是一团白，

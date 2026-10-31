@@ -141,6 +141,8 @@ namespace InkLine
                 case CardId.Rebound:
                 case CardId.Qian:
                 case CardId.Jun:
+                case CardId.Shadow:
+                case CardId.Seal:
                     return true;
                 default:
                     return false;
@@ -457,6 +459,8 @@ namespace InkLine
                 case CardId.Rebound:
                 case CardId.Qian:
                 case CardId.Jun:
+                case CardId.Shadow:
+                case CardId.Seal:
                     DrawShaped(px, n, CardCatalog.Get(id).Shape, InkTheme.Accent(id));
                     return;
                 default:

@@ -87,6 +87,16 @@ namespace InkLine
             Show(m, 1, 1);
         }
 
+        public void ShowTrio(int trio)
+        {
+            SignatureTrio t = SignatureTrios.All[trio];
+            var m = new ShotMods();
+            m.Mark(t.A, 1);
+            m.Mark(t.B, 1);
+            m.Mark(t.C, 1);
+            Show(m, 1, 1);
+        }
+
         public void ShowPair(int pair)
         {
             SignaturePair p = SignaturePairs.All[pair];

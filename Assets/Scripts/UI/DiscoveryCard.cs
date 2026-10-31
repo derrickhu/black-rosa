@@ -12,7 +12,7 @@ namespace InkLine
 
         public static void Show(RectTransform layer, CodexKind kind, int index, Action done)
         {
-            bool pair = kind == CodexKind.Pair;
+            bool pair = kind == CodexKind.Pair || kind == CodexKind.Trio;
             var dim = UiKit.Dimmer(layer);
             dim.name = "discovery";
             dim.GetComponent<Image>().color = new Color(0.10f, 0.07f, 0.05f, 0.78f);
@@ -61,12 +61,14 @@ namespace InkLine
         }
 
         static string Ribbon(CodexKind kind) =>
-            kind == CodexKind.Pair ? "发现隐藏组合" : kind == CodexKind.Word ? "成词 · 新词" : "解锁新字";
+            kind == CodexKind.Trio ? "悟得三字诀"
+                : kind == CodexKind.Pair ? "发现隐藏组合" : kind == CodexKind.Word ? "成词 · 新词" : "解锁新字";
 
         static string EffectLine(CodexKind kind, int index)
         {
             if (kind == CodexKind.Glyph) return CodexCatalog.StarLine((CardId)index, 1);
             if (kind == CodexKind.Word) return CodexCatalog.WordStarLine((WordId)index, 1);
+            if (kind == CodexKind.Trio) return SignatureTrios.All[index].Note;
             return SignaturePairs.All[index].Note;
         }
     }

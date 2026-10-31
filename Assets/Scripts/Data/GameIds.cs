@@ -33,7 +33,10 @@ namespace InkLine
         Gather,
         Rebound,
         Qian,
-        Jun
+        Jun,
+        // 第十三、十四章。图鉴和字卡按下标记位，只能往后接。
+        Shadow,
+        Seal
     }
 
     public enum CardWake

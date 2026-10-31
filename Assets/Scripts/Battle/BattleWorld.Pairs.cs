@@ -49,6 +49,12 @@ namespace InkLine
         public const int Collapse = 10;   // 坍缩：爆前往里一缩
         public const int Whirl = 11;      // 旋风：一团卷成漩涡
         public const int Riposte = 12;    // 回锋：折返那一下亮锋
+        public const int FireWheel = 13;  // 风火轮
+        public const int Cloud = 14;      // 穿云箭
+        public const int Needle = 15;     // 定海针
+        public const int Seal = 16;       // 封
+        public const int Ghost = 17;      // 影弹
+        public const int Soul = 18;       // 失魂
 
         public int Kind;
         public Vector2 A;

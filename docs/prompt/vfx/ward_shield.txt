@@ -1,0 +1,9 @@
+2D game VFX sprite, square. PURE BLACK background only (#000000), no floor, no character, no text, no watermark. One centered energy effect. High contrast, crisp edges, no motion blur. The rest of the image is completely pure black.
+
+Subject: one closed protective ward, a hand-painted ink-brush circle seen flat from above. The ring is unbroken and fills about 78 percent of the frame. The inside of the circle is empty pure black, wide enough for a character to stand in the hole.
+
+Brush: thick calligraphy strokes with uneven pressure, a few dry-brush skips, and small ink spatters just outside the ring. A second thinner brush circle sits just inside the main one, so the ward reads as two nested shields.
+
+Colors, anchored to real things: the bright inner lip of each stroke is the white of fresh snow. The body of the brush is the blue of a sunlit swimming pool. The outer lip of each stroke is the deep blue of indigo-dyed cloth. Four round dew-drop beads sit on the ring at the top, bottom, left, and right; each bead is pale daytime-sky blue with a snow-white center.
+
+Flat 2D illustration. The dark outer lip stays clearly blue, bright enough to read on black, so the silhouette is a painted ring and not a soft fog.

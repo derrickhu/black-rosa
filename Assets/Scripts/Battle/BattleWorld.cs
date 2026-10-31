@@ -77,6 +77,7 @@ namespace InkLine
         public float MarkAmp;
         public float MarkTime;
         public bool Hidden;
+        public float SkillSeal;   // 封：这段时间里不放技能
         public float ShieldAura;
         public float Bell;
         public float AuraCd;
@@ -102,6 +103,8 @@ namespace InkLine
         public bool Dead;
         public bool Mother = true;
         public bool Returning;     // 返：已经折回来往下飞
+        public bool Ghost;         // 影弹：不再套第二发
+        public bool GhostArmed;
         public int ChargedMask;
         public int SplitMask;
         public readonly ShotMods Mods = new ShotMods();
@@ -230,6 +233,16 @@ namespace InkLine
         public ShotMods Mods;
         public BulletActor Src;
         public List<int> Claimed;
+        public bool Cloud;         // 穿云箭：打中不散
+        public bool Spent;
+    }
+
+    sealed class PendingGhost
+    {
+        public float In;
+        public Vector2 Pos;
+        public Vector2 Vel;
+        public ShotMods Mods;
     }
 
     public sealed partial class BattleWorld
@@ -314,6 +327,8 @@ namespace InkLine
         public readonly List<FloatText> Floats = new List<FloatText>();
         public readonly List<FxBurst> Bursts = new List<FxBurst>();
         public readonly List<RainArrow> Rain = new List<RainArrow>();
+        readonly List<EnemyActor> _rainPick = new List<EnemyActor>();
+        readonly List<PendingGhost> _ghosts = new List<PendingGhost>();
         int _rainSeq;
         public readonly List<DropItem> Drops = new List<DropItem>();
         public readonly List<DeathFx> Deaths = new List<DeathFx>();
@@ -398,6 +413,7 @@ namespace InkLine
         readonly bool[] _codexGlyph = new bool[CardCatalog.IdCount];
         readonly bool[] _codexWord = new bool[CardCatalog.WordCount];
         readonly bool[] _codexPair = new bool[SignaturePairs.All.Length];
+        readonly bool[] _codexTrio = new bool[SignatureTrios.All.Length];
 
         // 局外升级只改这两个系数和开局条件，结算骨架一步都不动。
         float _damageMul = 1f;
@@ -595,6 +611,7 @@ namespace InkLine
             WordHits.Clear();
             Pulses.Clear();
             Rain.Clear();
+            _ghosts.Clear();
             PairFxs.Clear();
             Fields.Clear();
             Shouts.Clear();
@@ -1277,6 +1294,7 @@ namespace InkLine
 
         void TickBullets(float dt)
         {
+            TickGhosts(dt);
             _deadBullets.Clear();
             for (int i = 0; i < Bullets.Count; i++)
             {
@@ -1286,6 +1304,7 @@ namespace InkLine
                     Steer(b, dt);
                 b.Pos += b.Vel * dt;
                 ApplyRows(b);
+                ArmGhost(b);
                 if (b.Mods.Rebound > 0f && !b.Returning && b.Pos.y > ReboundTop) Turn(b, null);
                 if (b.Pos.y > GameConstants.WorldHalfHeight + 1f || (b.Returning && b.Pos.y < ReboundFloor))
                     b.Dead = true;
@@ -1336,6 +1355,7 @@ namespace InkLine
 
         void StampColumn(BulletActor b, int col)
         {
+            NoteTrios(col);
             b.ChargedMask |= 1 << col;
             ShotMods m = b.Mods;
             // 图鉴按「这列摆过」记。这一发蓄满没有，跟收录无关。
@@ -1514,8 +1534,10 @@ namespace InkLine
 
         void RainArrows(int col, int star, BulletActor src)
         {
-            // 箭从炮口一带铺满六列往上射。密度跟星走，伤害在箭尖经过敌人时才结算，
-            // 同一波里每只敌人只吃一箭。
+            // 箭从炮口一带铺满六列往上射。密度跟星走，伤害在箭尖经过敌人时才结算。
+            // 普通万箭打中第一只就散。同一列有「穿」时是穿云箭，打中不散，继续射上面那只。
+            // 同一波共用 Claimed，每只敌人仍然只挨一支。
+            bool cloud = ColumnHas(col, CardId.Pierce);
             float dmg = RainDamage(src, col, star);
             int n = 8 + star * 4;
             float left = FieldLayout.ColumnX(0);
@@ -1529,16 +1551,35 @@ namespace InkLine
                 {
                     Id = ++_rainSeq,
                     Pos = new Vector2(x, GameConstants.EmitterY - UnityEngine.Random.Range(0.15f, 2.2f)),
-                    Speed = UnityEngine.Random.Range(4.6f, 5.8f),
+                    Speed = UnityEngine.Random.Range(cloud ? 6.4f : 4.6f, cloud ? 7.6f : 5.8f),
                     Dmg = dmg,
                     Mods = src.Mods,
                     Src = src,
-                    Claimed = claimed
+                    Claimed = claimed,
+                    Cloud = cloud
                 });
             }
-            ShowFloat(new Vector2(FieldLayout.ColumnX(col), 2.4f), "万箭", InkTheme.Word, 1.25f);
-            AudioBus.Spell(1.08f);
-            AddShake(0.14f);
+            if (cloud)
+            {
+                // 齐射的金柱落在怪走的那一带。锚点太靠下时，放大后的光环会罩到炮上。
+                PairPop(PairFx.Cloud, new Vector2(0f, 3.6f), 2.5f);
+                ShowFloat(new Vector2(FieldLayout.ColumnX(col), 2.4f), "穿云", InkTheme.GoldHi, 1.55f);
+                AddShake(0.24f);
+            }
+            else
+            {
+                ShowFloat(new Vector2(FieldLayout.ColumnX(col), 2.4f), "万箭", InkTheme.Word, 1.25f);
+                AddShake(0.14f);
+            }
+            AudioBus.Spell(cloud ? 1.22f : 1.08f);
+        }
+
+        bool ColumnHas(int col, CardId id)
+        {
+            if (col < 0 || col >= GameConstants.Columns || Grid == null) return false;
+            for (int r = 0; r < OpenRows; r++)
+                if (Open[col, r] && Grid[col, r] == id && Stars[col, r] > 0) return true;
+            return false;
         }
 
         void TickRain(float dt)
@@ -1548,8 +1589,9 @@ namespace InkLine
                 RainArrow a = Rain[i];
                 float y0 = a.Pos.y;
                 a.Pos.y += a.Speed * dt;
-                if (a.Pos.y > GameConstants.WorldHalfHeight + 1.4f) Rain.RemoveAt(i);
-                else StrikeRain(a, y0);
+                bool gone = a.Pos.y > GameConstants.WorldHalfHeight + 1.4f;
+                if (!gone) StrikeRain(a, y0);
+                if (gone || a.Spent) Rain.RemoveAt(i);
             }
         }
 
@@ -1557,6 +1599,7 @@ namespace InkLine
         {
             if (a.Claimed == null || a.Mods == null) return;
             float band = GameConstants.CellWidth * 0.62f;
+            _rainPick.Clear();
             for (int i = 0; i < Enemies.Count; i++)
             {
                 EnemyActor e = Enemies[i];
@@ -1567,8 +1610,32 @@ namespace InkLine
                 float bot = Mathf.Min(y0, a.Pos.y);
                 if (e.Pos.y > top + e.Radius) continue;
                 if (e.Pos.y + e.Radius < bot) continue;
+                _rainPick.Add(e);
+            }
+            // 箭往上飞，同一帧叠在一起时先打下面那只。
+            for (int i = 1; i < _rainPick.Count; i++)
+            {
+                EnemyActor key = _rainPick[i];
+                int j = i - 1;
+                while (j >= 0 && _rainPick[j].Pos.y > key.Pos.y)
+                {
+                    _rainPick[j + 1] = _rainPick[j];
+                    j--;
+                }
+                _rainPick[j + 1] = key;
+            }
+            for (int i = 0; i < _rainPick.Count; i++)
+            {
+                EnemyActor e = _rainPick[i];
+                if (e.Dead || a.Claimed.Contains(e.Id)) continue;
                 a.Claimed.Add(e.Id);
                 ResolveHit(e, a.Mods, a.Src, HitSource.Arrow, a.Dmg);
+                if (!a.Cloud)
+                {
+                    a.Spent = true;
+                    return;
+                }
+                PairPop(PairFx.Cloud, e.Pos, 2.1f);
             }
         }
 
@@ -1651,11 +1718,107 @@ namespace InkLine
                     }
                     // 烈度留到折返时再乘。和分裂叠在同一发上要先封顶，乘早了会被封顶吃掉。
                     else if (id == CardId.Rebound) m.Rebound = Mathf.Max(m.Rebound, g.Rebound.At(star));
+                    else if (id == CardId.Shadow)
+                        m.GhostShare = Mathf.Max(m.GhostShare, g.Power.At(star));
                     break;
             }
             PaintBodyColor(m);
             NoteGlyph(id);
             NotePairs(m);
+        }
+
+        void NoteTrios(int col)
+        {
+            if (PreviewFill || CodexHit == null) return;
+            for (int i = 0; i < _codexTrio.Length; i++)
+            {
+                if (_codexTrio[i]) continue;
+                SignatureTrio t = SignatureTrios.All[i];
+                if (!ColumnHas(col, t.A) || !ColumnHas(col, t.B) || !ColumnHas(col, t.C)) continue;
+                _codexTrio[i] = true;
+                CodexHit(CodexKind.Trio, i);
+            }
+        }
+
+        // 影弹从炮口补出，不跟着母弹一起死。只继承这一列的常驻字。
+        void ArmGhost(BulletActor b)
+        {
+            if (b.Ghost || b.GhostArmed || b.Mods.GhostShare <= 0f || b.NextRow < OpenRows) return;
+            b.GhostArmed = true;
+            ShotMods mods = BuildGhostMods(b);
+            Vector2 vel = PendingGhostSpeed.sqrMagnitude > 0.01f
+                ? PendingGhostSpeed
+                : Vector2.up * GameConstants.BulletSpeed;
+            _ghosts.Add(new PendingGhost
+            {
+                In = 0.2f,
+                Pos = new Vector2(b.Pos.x, GameConstants.EmitterY + 0.24f),
+                Vel = vel,
+                Mods = mods
+            });
+        }
+
+        ShotMods BuildGhostMods(BulletActor src)
+        {
+            int col = FieldLayout.ColumnAtX(src.Pos.x);
+            var dummy = new BulletActor
+            {
+                Pos = src.Pos,
+                Vel = Vector2.up * GameConstants.BulletSpeed,
+                Mother = false,
+                Ghost = true,
+                NextRow = OpenRows
+            };
+            dummy.Mods.BaseDamage = src.Mods.BaseDamage;
+            dummy.Mods.FinalMul = src.Mods.FinalMul;
+            if (Grid != null)
+            {
+                for (int row = 0; row < OpenRows; row++)
+                {
+                    if (!Open[col, row]) continue;
+                    CardId? id = Grid[col, row];
+                    if (!id.HasValue || id.Value == CardId.Shadow || id.Value == CardId.Split) continue;
+                    if (CardCatalog.Get(id.Value).Wake != CardWake.Always) continue;
+                    ApplyMod(dummy, id.Value, Stars[col, row]);
+                }
+            }
+            float share = Mathf.Clamp(src.Mods.GhostShare, 0.05f, 1f);
+            ShotMods m = dummy.Mods;
+            m.Decay *= share;
+            m.AddDamage *= share;
+            bool fullBurn = src.Mods.Has(CardId.Fire) && src.Mods.Has(CardId.Shadow);
+            m.ScalePowers(share, fullBurn ? StatusKind.Burn : StatusKind.None);
+            m.GhostShare = 0f;
+            m.GhostFire = fullBurn;
+            dummy.Vel = dummy.Vel.sqrMagnitude > 0.01f ? dummy.Vel : Vector2.up * GameConstants.BulletSpeed;
+            // 加速字改的是 dummy 的速度，补弹要用那一档。
+            PendingGhostSpeed = dummy.Vel;
+            return m;
+        }
+
+        Vector2 PendingGhostSpeed;
+
+        void TickGhosts(float dt)
+        {
+            for (int i = _ghosts.Count - 1; i >= 0; i--)
+            {
+                PendingGhost g = _ghosts[i];
+                g.In -= dt;
+                if (g.In > 0f) continue;
+                _ghosts.RemoveAt(i);
+                var b = new BulletActor
+                {
+                    Id = NextActorId++,
+                    Pos = g.Pos,
+                    Vel = g.Vel.sqrMagnitude > 0.01f ? g.Vel : Vector2.up * GameConstants.BulletSpeed,
+                    NextRow = OpenRows,
+                    Mother = false,
+                    Ghost = true,
+                    GhostArmed = true
+                };
+                b.Mods.CopyFrom(g.Mods);
+                Bullets.Add(b);
+            }
         }
 
         void NoteGlyph(CardId id)
@@ -1720,6 +1883,9 @@ namespace InkLine
                 Vector2 dir = Quaternion.Euler(0f, 0f, ang) * Vector2.up;
                 BulletActor clone = FireBullet(source.Pos, dir);
                 clone.Mods.CopyFrom(source.Mods);
+                // 影弹跟着走过「影」那一格的那发走，裂开的子弹不把已经排上的补弹再复制一份。
+                clone.Mods.GhostShare = 0f;
+                clone.GhostArmed = false;
                 clone.Mods.Decay *= Mathf.Min(1f, g.Decay.At(star) + SealKeep(CardId.Split));
                 clone.Mods.FinalMul *= 1f + SealFierce(CardId.Split);
                 clone.Radius = source.Radius;
@@ -1914,6 +2080,10 @@ namespace InkLine
                 if (from != HitSource.Direct) return;
                 Reveal(e);
             }
+
+            // 影弹的光效打在怪身上。鬼火是大团紫火，单独的影是一小团影子。
+            if (from == HitSource.Direct && src != null && src.Ghost)
+                PairPop(PairFx.Ghost, e.Pos, m.GhostFire ? 2.4f : 1.15f);
 
             // 0 盾：普通弹只破盾；斩杀破盾后继续；破 ★3 拆盾后也继续
             if (e.Shield)
@@ -2182,6 +2352,25 @@ namespace InkLine
                     e.Slow = Mathf.Min(e.Slow, s.Power);
                     e.SlowTime = Mathf.Max(e.SlowTime, time);
                     break;
+                case StatusKind.Seal:
+                {
+                    // 头目减半。不占冻 / 晕 / 惑的硬控位，甲和免击退也不动。
+                    float sealedFor = time * (e.IsBoss ? 0.5f : 1f);
+                    if (sealedFor <= 0f) break;
+                    if (e.SkillSeal <= 0f)
+                    {
+                        if (m.Has(CardId.Confuse) && m.Has(CardId.Seal))
+                            PairPop(PairFx.Soul, e.Pos, Mathf.Max(1.4f, e.Radius + 0.9f));
+                        else
+                        {
+                            ShowFloat(e.Pos + Vector2.up * 0.2f, "封", InkTheme.SealHi, 1.15f);
+                            PairPop(PairFx.Seal, e.Pos, e.Radius + 0.15f);
+                        }
+                    }
+                    e.SkillSeal = Mathf.Max(e.SkillSeal, sealedFor);
+                    if (e.Hidden) Reveal(e);
+                    break;
+                }
                 case StatusKind.Break:
                     if (e.VulnTime <= 0f) ShowFloat(e.Pos + Vector2.left * 0.14f, "破", InkTheme.Break, 0.95f);
                     e.Vuln = e.VulnTime > 0f ? Mathf.Max(e.Vuln, s.Power) : s.Power;
@@ -2255,18 +2444,20 @@ namespace InkLine
             Vector2 was = e.Pos;
             if (m.PushColumn > 0f)
             {
+                // 定海针还要钉住，上推减半，避免又推又钉互相抵消。
+                float push = m.Pin ? m.PushColumn * 0.5f : m.PushColumn;
                 float top = GameConstants.SpawnY - 0.35f;
                 // 击退这一词是冲击波一路顶回去，不是瞬移；土的落地硬直还按原样一下到位。
                 if (m.Word == WordId.Knockback)
-                    e.KnockLeft = Mathf.Max(e.KnockLeft, Mathf.Min(top, e.Pos.y + m.PushColumn) - e.Pos.y);
+                    e.KnockLeft = Mathf.Max(e.KnockLeft, Mathf.Min(top, e.Pos.y + push) - e.Pos.y);
                 else
-                    e.Pos.y = Mathf.Min(top, e.Pos.y + m.PushColumn);
+                    e.Pos.y = Mathf.Min(top, e.Pos.y + push);
                 if (m.PushHold > 0f) e.HoldTime = Mathf.Max(e.HoldTime, m.PushHold);
                 MarkHurt(e, m.MarkPush);
                 ShowFloat(e.Pos, "退", InkTheme.GraphiteHi, 0.9f);
                 if (m.RamEarth)
                 {
-                    float land = Mathf.Min(top, was.y + m.PushColumn);
+                    float land = Mathf.Min(top, was.y + push);
                     PairPop(PairFx.RamEarth, was, new Vector2(was.x, land), e.Radius);
                     AddShake(0.12f);
                 }
@@ -2281,7 +2472,15 @@ namespace InkLine
                 int to = Mathf.Clamp(col + step, 0, GameConstants.Columns - 1);
                 e.Pos.x = FieldLayout.ColumnX(to);
                 if (m.ColdWind) PairPop(PairFx.ColdWind, was, e.Pos, e.Radius);
-                ShowFloat(e.Pos, m.ColdWind ? "寒" : "风", m.ColdWind ? InkTheme.Ice : InkTheme.Wind, 0.9f);
+                if (m.FireWheel)
+                {
+                    PairPop(PairFx.FireWheel, e.Pos, 1.6f);
+                    float dps = m.StatusPower(StatusKind.Burn);
+                    if (dps > 0f) LightField(e.Pos, 0.62f, dps * 0.5f, m.BurnLook);
+                }
+                ShowFloat(e.Pos, m.FireWheel ? "轮" : m.ColdWind ? "寒" : "风",
+                    m.FireWheel ? InkTheme.Fire : m.ColdWind ? InkTheme.Ice : InkTheme.Wind,
+                    m.FireWheel ? 1.15f : 0.9f);
             }
         }
 
@@ -2455,7 +2654,7 @@ namespace InkLine
                     for (int i = 1; i < KillsWith.Length; i++)
                         if (m.Has((CardId)i)) KillsWith[i]++;
             }
-            if (e.SplitCount > 0) SpawnSplit(e, e.SplitCount);
+            if (e.SplitCount > 0 && e.SkillSeal <= 0f) SpawnSplit(e, e.SplitCount);
             if (m != null && m.BurnPop) BurnPop(e.Pos, m);
             if (CodexHit != null && !PreviewFill) CodexHit(CodexKind.Enemy, (int)e.Type);
             Chain();
@@ -2727,7 +2926,7 @@ namespace InkLine
                     e.Recoil = Vector2.Lerp(e.Recoil, Vector2.zero, 1f - Mathf.Exp(-16f * dt));
                 if (e.StunGuard > 0f) e.StunGuard -= dt;
                 if (e.ColorPhase && e.Hp <= e.MaxHp * 0.5f) e.Colored = true;
-                if (e.HealAura > 0f) TickHealAura(e, dt);
+                if (e.HealAura > 0f && e.SkillSeal <= 0f) TickHealAura(e, dt);
                 TickAct2(e, dt);
                 float vuln = e.VulnTime > 0f ? 1f + e.Vuln : 1f;
                 if (e.BurnTime > 0f)
@@ -2798,7 +2997,7 @@ namespace InkLine
                 float speed = e.Speed * e.Slow;
                 // 狂化：半血后提速。这几只同时开了 ColorPhase，所以染红那个
                 // 反馈现在就是「它加速了」的信号，不再只是装饰。
-                if (e.RageSpeed > 1f && e.Hp <= e.MaxHp * 0.5f) speed *= e.RageSpeed;
+                if (e.SkillSeal <= 0f && e.RageSpeed > 1f && e.Hp <= e.MaxHp * 0.5f) speed *= e.RageSpeed;
                 if (e.PreferEmpty)
                 {
                     int col = FieldLayout.ColumnAtX(e.Pos.x);

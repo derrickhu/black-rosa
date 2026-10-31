@@ -257,7 +257,8 @@ namespace InkLine
             var name = card.Find("n").GetComponent<Text>();
             if (st == CodexState.Unknown)
             {
-                bool hinted = e.Kind == CodexKind.Pair && CodexCatalog.PairHinted(_meta, e.Index);
+                bool hinted = e.Kind == CodexKind.Pair && CodexCatalog.PairHinted(_meta, e.Index)
+                    || e.Kind == CodexKind.Trio && CodexCatalog.TrioHinted(_meta, e.Index);
                 name.text = hinted ? "似曾相识" : "？？";
                 name.color = hinted ? InkTheme.Gold : InkTheme.TextDim;
                 return;
@@ -276,6 +277,8 @@ namespace InkLine
             else if (e.Kind == CodexKind.Enemy)
                 Put(card, "art", InkSprites.Person((EnemyId)e.Index), 136f,
                     known ? Color.white : new Color(0.3f, 0.26f, 0.22f, 0.6f));
+            else if (e.Kind == CodexKind.Trio)
+                Put(card, "art", TrioFrame(e.Index), 156f, tint);
             else
                 Put(card, "art", PairFrame(e.Index), 124f, tint);
 
@@ -301,7 +304,8 @@ namespace InkLine
             AudioBus.Tap();
             if (st == CodexState.Unknown)
             {
-                string tip = e.Kind == CodexKind.Pair ? "两字同弹，方见真形" : "还没在关卡里遇见过";
+                string tip = e.Kind == CodexKind.Trio ? "三字同列，方见真形"
+                    : e.Kind == CodexKind.Pair ? "两字同弹，方见真形" : "还没在关卡里遇见过";
                 InkToast.Show(_layer, tip);
                 return;
             }
@@ -319,6 +323,15 @@ namespace InkLine
             }
             Sprite[] frames = InkVfx.Frames(body.Frames, body.Count);
             return frames != null && frames.Length > 0 ? frames[0] : null;
+        }
+
+        public static Sprite TrioFrame(int trio)
+        {
+            ShotFx form = trio == 0 ? ShotFx.FormFireWheel
+                : trio == 1 ? ShotFx.FormCloudArrow
+                : ShotFx.FormNeedle;
+            string key = GlowShot.FormKey(form);
+            return key != null ? GlowShot.Art(key + "_shot") : null;
         }
     }
 
@@ -359,7 +372,7 @@ namespace InkLine
         void Build()
         {
             bool enemy = _e.Kind == CodexKind.Enemy;
-            bool pair = _e.Kind == CodexKind.Pair;
+            bool pair = _e.Kind == CodexKind.Pair || _e.Kind == CodexKind.Trio;
             _board.Find("shotBox").gameObject.SetActive(!enemy);
             _board.Find("note").gameObject.SetActive(!enemy);
             _board.Find("enemy").gameObject.SetActive(enemy);
@@ -386,6 +399,12 @@ namespace InkLine
                 var w = (WordId)_e.Index;
                 note = CodexCatalog.WakeNote(w);
                 lore = CodexCatalog.WordLore(w);
+            }
+            else if (_e.Kind == CodexKind.Trio)
+            {
+                SignatureTrio t = SignatureTrios.All[_e.Index];
+                note = $"{CardCatalog.Get(t.A).Name} + {CardCatalog.Get(t.B).Name} + {CardCatalog.Get(t.C).Name}";
+                lore = "三个字放进同一列，一起打出去。字本身照常生效，另外多出这一诀。";
             }
             else
             {
@@ -462,14 +481,35 @@ namespace InkLine
             }
             CardId[] parts;
             if (_e.Kind == CodexKind.Word) parts = CodexCatalog.PartsOf((WordId)_e.Index);
+            else if (_e.Kind == CodexKind.Trio)
+            {
+                SignatureTrio t = SignatureTrios.All[_e.Index];
+                parts = new[] { t.A, t.B, t.C };
+            }
             else
             {
                 SignaturePair p = SignaturePairs.All[_e.Index];
                 parts = new[] { p.A, p.B };
             }
-            CodexPanel.Put(card, "ga", InkArt.Glyph(parts[0], 160), 84f, tint);
-            CodexPanel.Put(card, "gb", InkArt.Glyph(parts[1], 160), 84f, tint);
-            card.Find("plus").gameObject.SetActive(_e.Kind == CodexKind.Pair);
+            CodexPanel.Put(card, "ga", InkArt.Glyph(parts[0], 160), parts.Length > 2 ? 72f : 84f, tint);
+            CodexPanel.Put(card, "gb", InkArt.Glyph(parts[1], 160), parts.Length > 2 ? 72f : 84f, tint);
+            if (parts.Length > 2)
+            {
+                Transform gc = card.Find("gc");
+                if (gc == null)
+                {
+                    Transform gb = card.Find("gb");
+                    if (gb != null)
+                    {
+                        gc = UnityEngine.Object.Instantiate(gb, card);
+                        gc.name = "gc";
+                        var rt = gc.GetComponent<RectTransform>();
+                        rt.anchoredPosition += new Vector2(78f, 0f);
+                    }
+                }
+                CodexPanel.Put(card, "gc", InkArt.Glyph(parts[2], 160), 72f, tint);
+            }
+            card.Find("plus").gameObject.SetActive(_e.Kind == CodexKind.Pair || _e.Kind == CodexKind.Trio);
         }
 
         void BuildShotBox()
@@ -480,6 +520,7 @@ namespace InkLine
             _shot = CodexShot.Build(box, box.sizeDelta - new Vector2(56f, 56f));
             if (_e.Kind == CodexKind.Glyph) _shot.ShowGlyph((CardId)_e.Index, 1);
             else if (_e.Kind == CodexKind.Word) _shot.ShowWord((WordId)_e.Index);
+            else if (_e.Kind == CodexKind.Trio) _shot.ShowTrio(_e.Index);
             else _shot.ShowPair(_e.Index);
             box.Find("plain").gameObject.SetActive(_e.Kind == CodexKind.Glyph && !ChangesLook((CardId)_e.Index));
         }
@@ -541,7 +582,9 @@ namespace InkLine
 
         void BuildPairEffect()
         {
-            Lab("pair/effect/v").text = SignaturePairs.All[_e.Index].Note;
+            Lab("pair/effect/v").text = _e.Kind == CodexKind.Trio
+                ? SignatureTrios.All[_e.Index].Note
+                : SignaturePairs.All[_e.Index].Note;
         }
     }
 }

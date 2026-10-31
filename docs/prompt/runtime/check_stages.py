@@ -98,7 +98,7 @@ bad_mask = [tag(r) for r in rows
             or "X" not in r["mask"][-1]]
 check(not bad_mask, "形状都是 1~3 行 × 6 列、最上一排有格子" + ("" if not bad_mask else ": " + ", ".join(bad_mask)))
 cell_range = {0: (2, 7), 1: (7, 9), 2: (9, 11), 3: (10, 12), 4: (11, 12), 5: (11, 13), 6: (12, 14), 7: (13, 15),
-              8: (15, 18), 9: (16, 18), 10: (4, 4), 11: (5, 5)}
+              8: (15, 18), 9: (16, 18), 10: (4, 4), 11: (5, 5), 12: (16, 18), 13: (16, 18)}
 row_cap = {0: 2, 1: 2, 2: 2, 3: 2}
 for ch in range(chapters):
     part = [r for r in rows if r["ch"] == ch]
@@ -115,9 +115,9 @@ check(third <= 4, f"前八章第三排最多开 {third} 格（要 ≤4，三排�
 avg = [sum(len(open_cells(r)) for r in rows if r["ch"] == ch) / size for ch in range(chapters)]
 back = [f"第 {k + 1} 章" for k in range(1, min(chapters, dig_from)) if avg[k] <= avg[k - 1]]
 check(not back, "第十章为止章均格数逐章上升: " + " / ".join(f"{x:.1f}" for x in avg))
-dug = [tag(r) for r in rows if (r["ch"] >= dig_from) != r["dig"]]
-check(not dug, "第十一章起每关挖格子，前面的关不挖" + ("" if not dug else ": " + ", ".join(dug)))
-fat = [f"第 {ch + 1} 章 {avg[ch]:.1f}" for ch in range(dig_from, chapters) if avg[ch] >= 8]
+dug = [tag(r) for r in rows if (dig_from <= r["ch"] <= 11) != r["dig"]]
+check(not dug, "第十一、十二章每关挖格子，其余章不挖" + ("" if not dug else ": " + ", ".join(dug)))
+fat = [f"第 {ch + 1} 章 {avg[ch]:.1f}" for ch in range(dig_from, min(chapters, 12)) if avg[ch] >= 8]
 check(not fat, "铲子章开局平均不到 8 格" + ("" if not fat else ": " + ", ".join(fat)))
 same = [tag(rows[k]) for k in range(1, len(rows)) if rows[k]["mask"] == rows[k - 1]["mask"] and not rows[k]["bosses"]]
 check(not same, "相邻两关形状不同（关底除外）" + ("" if not same else ": " + ", ".join(same)))
@@ -140,18 +140,24 @@ multi = [f"{r['ch'] + 1}-{r['slot'] + 1}" for r in rows
 check(not multi, "一关最多给一个字（成词对算一个）")
 dry = [f"第 {ch + 1} 章" for ch in range(min(chapters, dig_from)) if not any(r["give"] for r in rows if r["ch"] == ch)]
 check(not dry, "第十章为止每章都有新字或新词" + ("" if not dry else ": " + ", ".join(dry)))
-extra = [f"{tag(r)} {r['give']}" for r in rows if r["ch"] >= dig_from and r["give"]]
+extra = [f"{tag(r)} {r['give']}" for r in rows if dig_from <= r["ch"] <= 11 and r["give"]]
 check(not extra, "铲子章不发新字" + ("" if not extra else ": " + ", ".join(extra)))
 
 # ---------- 关底 ----------
 print("\n关底")
 order = ["BossDrum", "BossInkbag", "BossIron", "BossTwin", "BossWarden", "BossThunder", "BossMedic", "BossKing",
-         "BossShade", "BossBell", "BossBell", "BossKing"]
+         "BossShade", "BossBell", "BossBell", "BossKing", "BossBell", "BossShade"]
 finales = [r for r in rows if r["slot"] == size - 1]
 check([r["main"] for r in finales] == order[:chapters],
       "章底按顺序是 " + " / ".join(o.replace("Boss", "") for o in order[:chapters]))
 minis = [r for r in rows if r["slot"] == 4 and r["ch"] > 0]
-mini_ok = [r["main"] == order[r["ch"] - 1] for r in minis]
+mini_ok = []
+for r in minis:
+    expect = order[r["ch"] - 1]
+    # 云海中段打影姬。上一章章底是墨王，基础血低于地宫小关底的钟魔，乘 4.3 追不上。
+    if r["ch"] == 12:
+        expect = "BossShade"
+    mini_ok.append(r["main"] == expect)
 check(all(mini_ok), "每章第 5 关重打上一章的章底")
 early = [f"{r['ch'] + 1}-{r['slot'] + 1}" for r in rows[:size - 1] if r["bosses"]]
 check(not early, "第一章前 8 关没有 boss")
@@ -584,7 +590,7 @@ def econ(r):
     chests = kills * chest_chance + (1 if r["bosses"] else 0)
     purse_all = gold + round(chests * chest_gold_share * cg)
 
-    open_n = dig_cells if r["ch"] >= dig_from else max(1, len(open_cells(r)))
+    open_n = dig_cells if r["dig"] else max(1, len(open_cells(r)))
     if r["ch"] == 0:
         n_want = max(open_n + 1, round(open_n * first_picks_per_cell))
     elif r["ch"] == 1:
@@ -760,10 +766,10 @@ check(all(study_exp[i] <= study_exp[i + 1] for i in range(len(study_exp) - 1)), 
 check(max(study_hp) <= 1.2, f"字卡怪血倍率最高 {max(study_hp):.3f}（要 ≤1.2，不升级也得能打）")
 study_costs = [int(x) for x in re.findall(r"\d+", re.search(r"Cost\s*=\s*\{([^}]*)\}", study_src).group(1))]
 study_full = sum(study_costs)
-foil_m = re.search(r"float n = (\d+)\s*\+\s*(?:(\d+)\s*\*\s*)?\(s\.Chapter - 4\)", study_src)
+foil_m = re.search(r"float n = (\d+)\s*\+\s*\(Mathf\.Min\(s\.Chapter,\s*(\d+)\)\s*-\s*4\)", study_src)
 foil_base = int(foil_m.group(1))
-foil_step = int(foil_m.group(2) or 1)
-foil_main = sum(round((foil_base + foil_step * (r["ch"] - 4)) * (2.0 if r["slot"] == size - 1 else 1.5 if r["bosses"] else 1.0))
+foil_cap = int(foil_m.group(2))
+foil_main = sum(round((foil_base + (min(r["ch"], foil_cap) - 4)) * (2.0 if r["slot"] == size - 1 else 1.5 if r["bosses"] else 1.0))
                 for r in rows if r["ch"] >= 4)
 check(0.6 * study_full <= foil_main <= 1.1 * study_full,
       f"金箔首通主线 {foil_main} / 单张满级 {study_full} = {foil_main / study_full:.2f}（要 0.6~1.1，稀缺资源）")

@@ -35,11 +35,13 @@ namespace InkLine
             new CardDef(CardId.Gather, "聚", "把身边的敌人拉成一团", InkShape.Circle),
             new CardDef(CardId.Rebound, "返", "飞到头折返再打一遍", InkShape.Arrow),
             new CardDef(CardId.Qian, "千", "和「钧」同列才醒", InkShape.Square, CardWake.WordPart, WordId.Crush, 4),
-            new CardDef(CardId.Jun, "钧", "和「千」同列才醒", InkShape.Square, CardWake.WordPart, WordId.Crush, 4)
+            new CardDef(CardId.Jun, "钧", "和「千」同列才醒", InkShape.Square, CardWake.WordPart, WordId.Crush, 4),
+            new CardDef(CardId.Shadow, "影", "打出后再补一发影弹", InkShape.Arc),
+            new CardDef(CardId.Seal, "封", "打中后封住对方的技能", InkShape.Ring)
         };
 
         // 给按 CardId 索引的数组用，加字时跟着枚举一起长。
-        public const int IdCount = (int)CardId.Jun + 1;
+        public const int IdCount = (int)CardId.Seal + 1;
 
         public static CardDef Get(CardId id)
         {

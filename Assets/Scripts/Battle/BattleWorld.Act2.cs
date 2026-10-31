@@ -38,6 +38,14 @@ namespace InkLine
                 PairPop(PairFx.Riposte, b.Pos, b.Pos + b.Vel.normalized, 1f);
                 ShowFloat(b.Pos + Vector2.up * 0.2f, "回锋", InkTheme.GraphiteHi, 1.05f);
             }
+            if (m.FireWheel)
+            {
+                // 回程再吹远一列。去程那一下在折返之前已经结算过了。
+                m.PushLateral += 1;
+                PairPop(PairFx.FireWheel, b.Pos, 3.4f);
+                ShowFloat(b.Pos + Vector2.up * 0.28f, "轮", InkTheme.Fire, 1.45f);
+                AddShake(0.22f);
+            }
         }
 
         // 聚：命中点一圈里的敌人往中心拉。头目、推不动的、还隐着身的不拉。
@@ -61,16 +69,32 @@ namespace InkLine
                 if (m.Whirl) e.Pos.x = Mathf.Lerp(e.Pos.x, c.x, 0.85f);
                 e.Pos.y = Mathf.Clamp(e.Pos.y, GameConstants.LeakY + 0.4f, GameConstants.SpawnY - 0.35f);
                 if (m.GatherHold > 0f) e.HoldTime = Mathf.Max(e.HoldTime, m.GatherHold);
+                if (m.Pin) PinDown(e);
                 MarkHurt(e, m.MarkGather);
                 n++;
             }
-            if (n == 0) return;
+            if (m.Pin) PinDown(hit);
+            if (n == 0 && !m.Pin) return;
             Bursts.Add(new FxBurst
             {
                 Pos = c, Kind = HitFx.Wind, Tint = InkTheme.GatherHi, Scale = 0.9f + m.GatherR
             });
             if (m.Whirl) PairPop(PairFx.Whirl, c, m.GatherR);
-            ShowFloat(c + Vector2.up * 0.22f, m.Whirl ? "旋" : "聚", InkTheme.Gather, m.Whirl ? 1.2f : 0.95f);
+            if (m.Pin)
+            {
+                PairPop(PairFx.Needle, c, Mathf.Max(0.8f, m.GatherR));
+                AddShake(0.18f);
+            }
+            ShowFloat(c + Vector2.up * 0.22f, m.Pin ? "针" : m.Whirl ? "旋" : "聚",
+                m.Pin ? InkTheme.Ice : InkTheme.Gather, m.Pin ? 1.4f : m.Whirl ? 1.2f : 0.95f);
+        }
+
+        // 定海针：缓到四成，不占冻的硬控位。头目钉一半时间。
+        void PinDown(EnemyActor e)
+        {
+            if (e == null || e.Dead) return;
+            e.Slow = Mathf.Min(e.Slow, 0.4f);
+            e.SlowTime = Mathf.Max(e.SlowTime, e.IsBoss ? 1f : 2f);
         }
 
         void Reveal(EnemyActor e)
@@ -92,7 +116,14 @@ namespace InkLine
                 e.MarkTime -= dt;
                 if (e.MarkTime <= 0f) e.MarkAmp = 0f;
             }
-            if (e.Phantoms > 0 && e.Hp <= e.MaxHp * 0.5f) SpawnPhantoms(e);
+            if (e.SkillSeal > 0f)
+            {
+                e.SkillSeal -= dt;
+                if (e.Hidden) Reveal(e);
+            }
+            // 封着的时候不分裂幻影、不挂盾、不敲钟。
+            if (e.Phantoms > 0 && e.SkillSeal <= 0f && e.Hp <= e.MaxHp * 0.5f) SpawnPhantoms(e);
+            if (e.SkillSeal > 0f) return;
             if (e.ShieldAura <= 0f && e.Bell <= 0f) return;
             // 被定住（冻 / 晕）的施法者不施法。
             if (e.Held) return;
@@ -159,7 +190,6 @@ namespace InkLine
                 p.StrafeDir = side;
                 Enemies.Add(p);
             }
-            ShowFloat(from.Pos + Vector2.up * 0.4f, "影", InkTheme.Ink, 1.35f);
             AddShake(0.2f);
         }
     }

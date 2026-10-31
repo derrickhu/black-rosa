@@ -1,0 +1,11 @@
+One single simplified Chinese character "影" centred on a flat light rice-paper background the colour of fresh printer paper with a faint warm tint (#FCFCF6), filling the whole square. Thick hand-brushed ink calligraphy, solid filled strokes with closed clean edges and a gentle brush slant, exactly the brush language of the attached reference card glyph. The reference only provides the brush language. The new character is 影.
+
+The character body is soy-sauce black ink (#1A1410). Structure, every stroke in its standard place:
+
+Left half is 景. On top, 日: a tall rectangular box with one horizontal stroke across its middle. Under that, 京: a short top bar with a tiny vertical tick dropping from its centre, then a small square 口, then a small 小 made of one short vertical and two short legs.
+
+Right half is 彡: three separate short falling strokes stacked down the right side, each sweeping from its upper end down toward the lower left, clear of the left half.
+
+Only the lowest of those three right-side falling strokes is recoloured. It stays the same length, the same slant and the same thickness as a normal brush stroke of this character, and it stays attached in that stroke's place. That one stroke is a flat hand-painted two-tone slate brush: body the colour of wet slate (#5C6B80), one lighter band the colour of pale morning mist (#C5D0E0) along its edge. The other two right-side strokes and the whole left half stay black ink.
+
+The character sits in the centre at about 60% of the canvas with equal empty paper on all sides. One character only, the paper stays empty around it.

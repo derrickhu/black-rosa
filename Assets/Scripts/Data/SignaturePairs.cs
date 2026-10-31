@@ -49,7 +49,11 @@ namespace InkLine
             new SignaturePair { A = CardId.Wind, B = CardId.Gather, Name = "旋风",
                 Form = ShotFx.FormWhirl, Note = "聚过来的整团一起贴到命中点那一列" },
             new SignaturePair { A = CardId.Rebound, B = CardId.Pierce, Name = "回锋",
-                Form = ShotFx.FormRiposte, Note = "折返时多穿一个，回程不衰减" }
+                Form = ShotFx.FormRiposte, Note = "折返时多穿一个，回程不衰减" },
+            new SignaturePair { A = CardId.Shadow, B = CardId.Fire, Name = "鬼火",
+                Form = ShotFx.FormGhostFire, Note = "影弹的灼烧按满额算" },
+            new SignaturePair { A = CardId.Seal, B = CardId.Confuse, Name = "失魂",
+                Form = ShotFx.FormSoul, Note = "迷惑时间 +50%，这段里技能也封着" }
         };
 
         public static bool Lit(ShotMods m, int index)
@@ -125,6 +129,15 @@ namespace InkLine
                 m.Whirl = true;
             if (Lit(m, CardId.Rebound, CardId.Pierce))              // 回锋
                 m.Riposte = true;
+            if (Lit(m, CardId.Shadow, CardId.Fire))                 // 鬼火
+                m.GhostFire = true;
+            if (Lit(m, CardId.Seal, CardId.Confuse))                // 失魂
+            {
+                m.ScaleTime(StatusKind.Confuse, 1.5f);
+                float t = m.StatusTime(StatusKind.Confuse);
+                if (t > 0f) m.AddStatus(new StatusHit { Kind = StatusKind.Seal, Time = t });
+            }
+            SignatureTrios.Apply(m);
         }
     }
 }

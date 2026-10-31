@@ -95,9 +95,11 @@ namespace InkLine
         public long CodexGlyph;
         public int CodexWord;
         public int CodexPair;
+        public int CodexTrio;
         public long CodexNewGlyph;
         public int CodexNewWord;
         public int CodexNewPair;
+        public int CodexNewTrio;
         public int CodexEnemy;
         public int CodexNewEnemy;
         // 三栏各三枚印，第 tab*3+i 位表示第 i 枚已经领过。
@@ -1560,6 +1562,7 @@ namespace InkLine
                 case CodexKind.Glyph: return (CodexGlyph & (1L << i)) != 0;
                 case CodexKind.Word: return (CodexWord & (1 << i)) != 0;
                 case CodexKind.Enemy: return (CodexEnemy & (1 << i)) != 0;
+                case CodexKind.Trio: return (CodexTrio & (1 << i)) != 0;
                 default: return (CodexPair & (1 << i)) != 0;
             }
         }
@@ -1571,14 +1574,15 @@ namespace InkLine
                 case CodexKind.Glyph: return (CodexNewGlyph & (1L << i)) != 0;
                 case CodexKind.Word: return (CodexNewWord & (1 << i)) != 0;
                 case CodexKind.Enemy: return (CodexNewEnemy & (1 << i)) != 0;
+                case CodexKind.Trio: return (CodexNewTrio & (1 << i)) != 0;
                 default: return (CodexNewPair & (1 << i)) != 0;
             }
         }
 
         public bool CodexHasNew =>
-            CodexNewGlyph != 0 || CodexNewWord != 0 || CodexNewPair != 0
+            CodexNewGlyph != 0 || CodexNewWord != 0 || CodexNewPair != 0 || CodexNewTrio != 0
             || CodexNewEnemy != 0 || CodexHasMile;
-        public bool CodexPairNew => CodexNewPair != 0;
+        public bool CodexPairNew => CodexNewPair != 0 || CodexNewTrio != 0;
         public bool CodexBaseNew => CodexNewGlyph != 0 || CodexNewWord != 0;
         public bool CodexEnemyNew => CodexNewEnemy != 0;
 
@@ -1629,6 +1633,7 @@ namespace InkLine
                 case CodexKind.Glyph: CodexGlyph |= 1L << i; CodexNewGlyph |= 1L << i; break;
                 case CodexKind.Word: CodexWord |= 1 << i; CodexNewWord |= 1 << i; break;
                 case CodexKind.Enemy: CodexEnemy |= 1 << i; CodexNewEnemy |= 1 << i; break;
+                case CodexKind.Trio: CodexTrio |= 1 << i; CodexNewTrio |= 1 << i; break;
                 default: CodexPair |= 1 << i; CodexNewPair |= 1 << i; break;
             }
             Save();
@@ -1643,6 +1648,7 @@ namespace InkLine
                 case CodexKind.Glyph: CodexNewGlyph &= ~(1L << i); break;
                 case CodexKind.Word: CodexNewWord &= ~(1 << i); break;
                 case CodexKind.Enemy: CodexNewEnemy &= ~(1 << i); break;
+                case CodexKind.Trio: CodexNewTrio &= ~(1 << i); break;
                 default: CodexNewPair &= ~(1 << i); break;
             }
             Save();
@@ -1654,6 +1660,7 @@ namespace InkLine
                 if (CardCatalog.Get((CardId)i).Wake != CardWake.WordPart) CodexLearn(CodexKind.Glyph, i);
             for (int i = (int)WordId.InstantKill; i < CardCatalog.WordCount; i++) CodexLearn(CodexKind.Word, i);
             for (int i = 0; i < SignaturePairs.All.Length; i++) CodexLearn(CodexKind.Pair, i);
+            for (int i = 0; i < SignatureTrios.All.Length; i++) CodexLearn(CodexKind.Trio, i);
             for (int i = 0; i < EnemyCatalog.IdCount; i++) CodexLearn(CodexKind.Enemy, i);
         }
 

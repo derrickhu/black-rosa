@@ -101,6 +101,11 @@ namespace InkLine
                     Fx = pair, Tint = v.Mixed, Star = v.Form.Star, Card = pairA
                 };
 
+            // 三字诀盖过两两和单字，炮弹换成那张大发光体。
+            ShotFx trio = TrioForm(m);
+            if (trio != ShotFx.None && GlowShot.HasBody(trio))
+                v.Form = new SlotLook { Fx = trio, Tint = v.Mixed, Star = Mathf.Max(1, v.Form.Star) };
+
             Motes(m, ref v, pairA, pairB);
             if (word == WordId.ArrowRain) v.Hidden = true;
             return v;
@@ -166,6 +171,17 @@ namespace InkLine
             return ShotFx.None;
         }
 
+        static ShotFx TrioForm(ShotMods m)
+        {
+            if (m.Has(CardId.Fire) && m.Has(CardId.Wind) && m.Has(CardId.Rebound))
+                return ShotFx.FormFireWheel;
+            if (m.Has(CardId.Myriad) && m.Has(CardId.Arrow) && m.Has(CardId.Pierce))
+                return ShotFx.FormCloudArrow;
+            if (m.Has(CardId.Ice) && m.Has(CardId.Earth) && m.Has(CardId.Gather))
+                return ShotFx.FormNeedle;
+            return ShotFx.None;
+        }
+
         // 第一幕的体槽全员有图，这张退化表只给第二幕的四对招牌兜底：
         // 图没画出来时退回对里那个有图的字；崩山两边都没有体图，就让体槽照常抢位。
         public static ShotFx Fallback(ShotFx fx)
@@ -175,6 +191,10 @@ namespace InkLine
                 case ShotFx.FormCollapse: return ShotFx.FormExplode;
                 case ShotFx.FormWhirl: return ShotFx.FormWind;
                 case ShotFx.FormRiposte: return ShotFx.FormPierce;
+                case ShotFx.FormGhostFire: return ShotFx.FormFire;
+                case ShotFx.FormFireWheel: return ShotFx.FormFire;
+                case ShotFx.FormCloudArrow: return ShotFx.FormArrow;
+                case ShotFx.FormNeedle: return ShotFx.FormIce;
                 default: return ShotFx.None;
             }
         }

@@ -16,7 +16,8 @@ namespace InkLine
     // 软状态（灼烧 / 中毒 / 缓）随便叠，同名取强；
     // 硬控（冻 / 晕 / 惑）同时只生效一个，优先级见 GlyphTable.HardRank。
     // 破（易伤）是软状态：同名取强，不占硬控位。
-    public enum StatusKind { None, Burn, Poison, Slow, Freeze, Stun, Confuse, Break }
+    // 封不是硬控，不跟冻 / 晕 / 惑抢位置。它只让对方的技能停一会儿。
+    public enum StatusKind { None, Burn, Poison, Slow, Freeze, Stun, Confuse, Break, Seal }
 
     // 位族的位移轴：同轴取最大，异轴都执行。Center 是聚：把身边的往命中点拉。
     public enum MoveAxis { None, Column, Lateral, Center }
@@ -46,7 +47,9 @@ namespace InkLine
         FormHeavy,
         // 第二幕：破的环、聚的绕、返的尾、千钧的体，和四对新招牌
         HaloBreak, OrbitGather, TrailRebound, FormCrush,
-        FormCrumble, FormCollapse, FormWhirl, FormRiposte
+        FormCrumble, FormCollapse, FormWhirl, FormRiposte,
+        // 第二幕后加的组合：鬼火、失魂、风火轮、穿云箭、定海针。接在最后。
+        FormGhostFire, FormSoul, FormFireWheel, FormCloudArrow, FormNeedle
     }
 
     // 三档数值。星只放大数字，★3 才允许加新动词。
@@ -240,6 +243,13 @@ namespace InkLine
                 Power = new Tri(0.15f, 0.25f, 0.35f), Time = new Tri(3f),
                 Halo = ShotFx.HaloBreak, Hit = HitFx.Heavy
             },
+            // 封：光环、分裂、隐身、狂化停掉。不封甲，也不免击退。头目时长减半。
+            new GlyphDef
+            {
+                Id = CardId.Seal, Family = GlyphFamily.Status, Status = StatusKind.Seal,
+                Time = new Tri(2f, 3f, 4f),
+                Hit = HitFx.Ink
+            },
 
             // ---- 位族 ----
             new GlyphDef
@@ -294,6 +304,12 @@ namespace InkLine
                 Id = CardId.Rebound, Family = GlyphFamily.Ballistic,
                 Rebound = new Tri(0.6f, 0.75f, 0.9f),
                 Trail = ShotFx.TrailRebound
+            },
+            // 影：这一发爬完列之后，再从炮口补一发。影弹只吃常驻字，不再套影。
+            new GlyphDef
+            {
+                Id = CardId.Shadow, Family = GlyphFamily.Ballistic,
+                Power = new Tri(0.4f, 0.5f, 0.6f)
             },
 
             // ---- 域族 ----

@@ -125,6 +125,8 @@ namespace InkLine
                 case CardId.Rebound: return "rebound";
                 case CardId.Qian: return "qian";
                 case CardId.Jun: return "jun";
+                case CardId.Shadow: return "shadow";
+                case CardId.Seal: return "seal";
                 default: return "fire";
             }
         }

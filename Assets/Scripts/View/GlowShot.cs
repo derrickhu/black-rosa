@@ -69,6 +69,11 @@ namespace InkLine
                 case ShotFx.FormCollapse: return "collapse";
                 case ShotFx.FormWhirl: return "whirl";
                 case ShotFx.FormRiposte: return "riposte";
+                case ShotFx.FormGhostFire: return "ghostfire";
+                case ShotFx.FormSoul: return "soul";
+                case ShotFx.FormFireWheel: return "firewheel";
+                case ShotFx.FormCloudArrow: return "cloudarrow";
+                case ShotFx.FormNeedle: return "needle";
                 default: return null;
             }
         }
@@ -88,6 +93,11 @@ namespace InkLine
                 case "collapse": return InkTheme.Hex("9B4DFF");
                 case "whirl": return InkTheme.Hex("3EE0FF");
                 case "riposte": return InkTheme.Hex("4D8CFF");
+                case "ghostfire": return InkTheme.Hex("FF6A1A");
+                case "soul": return InkTheme.Hex("C44DFF");
+                case "firewheel": return InkTheme.Hex("FF8A1A");
+                case "cloudarrow": return InkTheme.Hex("FFD24A");
+                case "needle": return InkTheme.Hex("7EE7FF");
                 case "break": return BreakHalo;
                 case "gather": return GatherHalo;
                 default: return ReboundHalo;

@@ -9,7 +9,9 @@ namespace InkLine
     // 命令行：-promoOut 帧目录 [-promoStage 关下标] [-promoGold 金币倍数] [-promoSeconds 最长秒数]
     //         [-promoSkin 皮肤] [-promoWarm 预热秒数] [-promoSeed 随机种子]
     //         [-promoScene stage|frost|boss|endless] [-promoWave 从第几波（从 0 数）开打]
-    //         [-promoForce 字,字…] [-promoForceAt 秒,秒…]：到点白送一次改装，三张里塞进指定的字。
+        //         [-promoForce 字,字…] [-promoForceAt 秒,秒…]：到点白送一次改装，三张里塞进指定的字。
+        //         [-promoThrough 关下标]：通关后接着打，打到这一关为止。
+        //         [-promoWatch 1]：只开 720×1280 窗口给人看，不逐帧存图。
     // frost：两排盘，第一排摆满三星冰，等着塞火凑霜火。boss：直接打这关最后一波，盘面满配。
     // endless：魔化词缀的无尽，从 -promoWave 开打，三排满配。
     public sealed partial class GameFlow
@@ -30,6 +32,10 @@ namespace InkLine
             public int Wave = -1;
             public CardId[] Force = new CardId[0];
             public float[] ForceAt = new float[0];
+            // 打到这一关（含）就停。-1 表示只打 -promoStage 那一关。
+            public int Through = -1;
+            // 只开窗口给人看，不逐帧存图，游戏按真实时间走。
+            public bool Watch;
         }
 
         PromoPlan _plan;
@@ -55,6 +61,7 @@ namespace InkLine
         bool _pQuit;
         int _pForce;
         int _pForced = -1;
+        float _pChainAt = -1f;
 
         static string PromoArg(string key)
         {
@@ -80,6 +87,8 @@ namespace InkLine
             if (int.TryParse(PromoArg("-promoWave"), out int wave)) _plan.Wave = wave;
             string force = PromoArg("-promoForce");
             string forceAt = PromoArg("-promoForceAt");
+            if (int.TryParse(PromoArg("-promoThrough"), out int through)) _plan.Through = through;
+            _plan.Watch = PromoArg("-promoWatch") == "1";
             if (!string.IsNullOrEmpty(force) && !string.IsNullOrEmpty(forceAt))
             {
                 string[] ids = force.Split(',');
@@ -99,8 +108,14 @@ namespace InkLine
             // captureFramerate 只管游戏时间，界面动画和音效间隔走真实时间。
             // 真实帧率也锁到录制帧率，两边才对得上，不然界面在成片里是慢动作。
             QualitySettings.vSyncCount = 0;
-            Application.targetFrameRate = PromoRecorder.Fps;
-            Debug.Log($"[Promo] screen {UnityEngine.Screen.width}x{UnityEngine.Screen.height} stage {_plan.Stage}");
+            Application.targetFrameRate = _plan.Watch ? 60 : PromoRecorder.Fps;
+            if (_plan.Watch)
+            {
+                UnityEngine.Screen.fullScreenMode = FullScreenMode.Windowed;
+                UnityEngine.Screen.SetResolution(720, 1280, false);
+                System.IO.Directory.CreateDirectory(_plan.Out);
+            }
+            Debug.Log($"[Promo] screen {UnityEngine.Screen.width}x{UnityEngine.Screen.height} stage {_plan.Stage} through {_plan.Through} watch {_plan.Watch}");
         }
 
         partial void PromoBoot(ref bool took)
@@ -112,6 +127,11 @@ namespace InkLine
             _meta.SetGuide(MetaProgress.GuideDone);
             _meta.SetItemGuideDone();
             _meta.UnlockStages();
+            if (_plan.Watch)
+            {
+                int from = Mathf.Clamp(_plan.Stage, 0, _meta.Stars.Length);
+                for (int i = from; i < _meta.Stars.Length; i++) _meta.Stars[i] = 0;
+            }
             _meta.UnlockSkins();
             _meta.MaxForge();
             _meta.UnlockCodex();
@@ -228,12 +248,12 @@ namespace InkLine
                 UnityEngine.Random.InitState(_plan.Seed);
                 _meta.FillStamina();
                 PromoEnter();
-                _rec = PromoRecorder.Begin(_plan.Out);
+                if (!_plan.Watch) _rec = PromoRecorder.Begin(_plan.Out);
                 _pPhase = 1;
                 _pClock = 0f;
                 return;
             }
-            float dt = 1f / PromoRecorder.Fps;
+            float dt = _rec != null ? 1f / PromoRecorder.Fps : Time.deltaTime;
             _pClock += dt;
             PromoLog();
             if (_pPhase == 1)
@@ -241,6 +261,13 @@ namespace InkLine
                 PromoDrive(dt);
                 if (_screen == Screen.Result)
                 {
+                    if (PromoRevive()) return;
+                    if (PromoChain()) return;
+                    if (_plan.Watch)
+                    {
+                        PromoRetry();
+                        return;
+                    }
                     _pPhase = 2;
                     _pEnd = _pClock + 5f;
                     if (_pHand != null) _pHand.gameObject.SetActive(false);
@@ -300,6 +327,7 @@ namespace InkLine
             if (_screen == Screen.Battle) PromoBattle(dt);
             else if (_screen == Screen.Draft) PromoDraft();
             else if (_screen == Screen.Place) PromoPlace();
+            else if (_screen == Screen.Reveal) PromoReveal();
             _pPress = Mathf.Max(0f, _pPress - dt);
             float s = _pPress > 0f ? 0.84f : 1f;
             var rt = _pHand.rectTransform;
@@ -382,6 +410,53 @@ namespace InkLine
             return weight > 0f ? sum / weight : Mathf.Sin(_pClock * 0.9f) * 0.9f;
         }
 
+        // 失败页其实先盖着续命。看的时候直接续，别把窗口关掉。
+        bool PromoRevive()
+        {
+            if (_world == null || _world.Victory) return false;
+            int cap = _endless ? GameConstants.EndlessRevives : GameConstants.MaxRevives;
+            if (_world.RevivesUsed >= cap || !_world.TryRevive()) return false;
+            DropOverlay();
+            _screen = Screen.Battle;
+            _pScreen = Screen.Lobby;
+            return true;
+        }
+
+        // 续命用完了还是输了。看的时候重开这一关，录片时才退出。
+        void PromoRetry()
+        {
+            if (_pChainAt < 0f) _pChainAt = _pClock + 1.4f;
+            if (_pClock < _pChainAt) return;
+            _pChainAt = -1f;
+            _meta.FillStamina();
+            StartStage(_pickStage);
+            _pScreen = Screen.Lobby;
+        }
+
+        // 通关后接着打下一关，直到 -promoThrough。体力每关补满，不然五关之后进不去。
+        bool PromoChain()
+        {
+            if (_plan.Through < 0 || _world == null || !_world.Victory || _pickStage >= _plan.Through)
+                return false;
+            if (_pChainAt < 0f) _pChainAt = _pClock + 2.2f;
+            if (_pClock < _pChainAt) return true;
+            _pChainAt = -1f;
+            _meta.FillStamina();
+            StartStage(_pickStage + 1);
+            _pScreen = Screen.Lobby;
+            return true;
+        }
+
+        // 新字第一次打出来会盖一张发现卡，把战斗暂停。停一下让人看见，再收回去。
+        void PromoReveal()
+        {
+            if (_pStep < 1.6f) return;
+            Transform d = _layer.Find("discovery");
+            if (d != null) Destroy(d.gameObject);
+            _screen = Screen.Battle;
+            if (_world != null) _world.Paused = false;
+        }
+
         void PromoDraft()
         {
             var view = _overlay != null ? _overlay.GetComponent<DraftView>() : null;
@@ -438,6 +513,7 @@ namespace InkLine
             {
                 float score = PromoBestCell(_offer[i], out int c, out int r, out bool ow)
                               + UnityEngine.Random.Range(0f, 3f);
+                if (_plan.Watch && IsFresh(_offer[i]) && !HasSameOnBoard(_offer[i])) score += 80f;
                 if (score <= best) continue;
                 best = score;
                 pick = i;

@@ -124,7 +124,8 @@ namespace InkLine
         static bool HasTime(int key) =>
             key == (int)CardId.Fire || key == (int)CardId.Poison || key == (int)CardId.Ice
             || key == (int)CardId.Water || key == (int)CardId.Thunder || key == (int)CardId.Stun
-            || key == (int)CardId.Confuse || key == (int)CardId.Break || key == (int)CardId.Earth;
+            || key == (int)CardId.Confuse || key == (int)CardId.Break || key == (int)CardId.Earth
+            || key == (int)CardId.Seal;
 
         static bool HasMove(int key) =>
             key == (int)CardId.Earth || key == (int)CardId.Wind || key == (int)CardId.Gather

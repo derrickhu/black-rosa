@@ -53,6 +53,11 @@ namespace InkLine
         public static readonly Color GatherHi = Hex("9EC2F0");
         public static readonly Color Rebound = Hex("2E9C8C");
         public static readonly Color ReboundHi = Hex("A6E6DA");
+        // 影：淡墨青；封：松烟紫
+        public static readonly Color Shadow = Hex("5C6B80");
+        public static readonly Color ShadowHi = Hex("C5D0E0");
+        public static readonly Color GlyphSeal = Hex("4A3B78");
+        public static readonly Color SealHi = Hex("C4B4F0");
         // ---- 界面层调色板（休闲卡片风）----
         // 只给 UiKit / 各屏用。上面那批墨色还在给战场表现和字牌用，别混。
         public static readonly Color Outline = Hex("3A2A20");     // 统一深描边
@@ -107,6 +112,8 @@ namespace InkLine
                 case CardId.Break: return Break;
                 case CardId.Gather: return Gather;
                 case CardId.Rebound: return Rebound;
+                case CardId.Shadow: return Shadow;
+                case CardId.Seal: return GlyphSeal;
                 case CardId.Qian:
                 case CardId.Jun:
                 case CardId.Sec:

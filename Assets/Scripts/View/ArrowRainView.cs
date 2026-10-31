@@ -50,11 +50,14 @@ namespace InkLine
                 Sprite sprite = _frames[at] != null ? _frames[at] : _frames[0];
                 b.Body.sprite = sprite;
                 float h = sprite != null ? sprite.bounds.size.y : 1f;
-                float s = ArrowHeight / Mathf.Max(0.2f, h);
-                float lean = ((a.Id % 5) - 2) * 3.5f;
+                float tall = a.Cloud ? ArrowHeight * 1.85f : ArrowHeight;
+                float s = tall / Mathf.Max(0.2f, h);
+                float lean = ((a.Id % 5) - 2) * (a.Cloud ? 1.6f : 3.5f);
                 b.Root.position = new Vector3(a.Pos.x, a.Pos.y, 0f);
                 b.Root.localRotation = Quaternion.Euler(0f, 0f, 180f + lean);
-                b.Root.localScale = new Vector3(s, s, 1f);
+                b.Root.localScale = new Vector3(a.Cloud ? s * 0.72f : s, s, 1f);
+                b.Body.color = a.Cloud ? new Color(1f, 0.9f, 0.42f, 1f) : Color.white;
+                b.Body.sortingOrder = a.Cloud ? 16 : 12;
             }
         }
 
