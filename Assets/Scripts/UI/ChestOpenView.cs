@@ -7,6 +7,7 @@ namespace InkLine
 {
     // 开箱演出：箱子砸下来抖两下、掀盖，墨先滚出来，卡背朝上从箱口飞出落位，
     // 再一张张蓄力、翻面。品质越高蓄力越久、光越亮，稀有卡翻开带光芒和震屏。
+    // 印章不跟墨挤成小药丸：卡都翻完，它再占下一格牌位盖下来。章本身要够大，背后发光，名字写在下面。
     // 战利品在 MetaProgress.OpenChest 里已经入账了，这里只负责演，点一下就跳到结尾。
     public sealed class ChestOpenView : MonoBehaviour
     {
@@ -140,11 +141,11 @@ namespace InkLine
 
             float t = 1.35f;
             int seals = _loot.Seals.Count;
-            int chips = (_loot.Ink > 0 ? 1 : 0) + (_loot.Foil > 0 ? 1 : 0) + seals;
-            float chipW = chips >= 3 ? 196f : 220f;
+            int lead = (_loot.Ink > 0 ? 1 : 0) + (_loot.Foil > 0 ? 1 : 0);
+            float chipW = lead >= 3 ? 196f : 220f;
             float chipStep = chipW + 14f;
             int chipAt = 0;
-            Vector2 ChipPos() => new Vector2((chipAt++ - (chips - 1) * 0.5f) * chipStep, ChestY - 170f);
+            Vector2 ChipPos() => new Vector2((chipAt++ - (lead - 1) * 0.5f) * chipStep, ChestY - 170f);
             if (_loot.Ink > 0)
             {
                 var chip = ResultKit.Group(_root, "ink", ChipPos(), new Vector2(chipW, 64f));
@@ -161,21 +162,6 @@ namespace InkLine
                     Vector2.zero, new Vector2(chipW, 64f), Pin.Center);
                 _anim.Pop(chip, t, 0.3f)
                      .CountUp(foil, 0, _loot.Foil, t + 0.1f, 0.5f, "+{0}", AudioBus.CountTick);
-                t += 0.45f;
-            }
-            for (int i = 0; i < seals; i++)
-            {
-                SealDrop s = _loot.Seals[i];
-                var chip = ResultKit.Group(_root, "seal" + i, ChipPos(), new Vector2(chipW, 64f));
-                UiKit.Stroke(chip, "bg", Vector2.zero, new Vector2(chipW, 64f), Pin.Center, 4f,
-                    SealCatalog.QualityDeep(s.Quality), InkTheme.CardFace, 32f);
-                SealArt.Medal(chip, "m", s.Type, s.Quality, new Vector2(-chipW * 0.5f + 34f, 0f), 58f);
-                var name = UiKit.Label(chip, "n", SealCatalog.DropName(s), 24, new Vector2(24f, 0f), new Vector2(chipW - 60f, 40f));
-                name.color = SealCatalog.QualityDeep(s.Quality);
-                UiKit.Bold(name);
-                _anim.Pop(chip, t, 0.3f, 1.6f);
-                Live(t + 0.05f, AudioBus.Stamp);
-                if (s.Quality == SealQuality.Gold) Live(t + 0.2f, AudioBus.StudyTier);
                 t += 0.45f;
             }
             if (!string.IsNullOrEmpty(_loot.Note))
@@ -197,6 +183,7 @@ namespace InkLine
                 if (c.Item >= 0 && c.Count > 0) cards.Add(ItemCard(c, Slot(cards.Count)));
             }
             t = Play(cards, t);
+            if (seals > 0) t = RevealSeals(t, cards.Count);
 
             var go = ResultKit.Group(_root, "go", new Vector2(0f, -540f), new Vector2(360f, 100f));
             UiKit.Btn(go, "b", "收下", Vector2.zero, new Vector2(360f, 100f), Close, true);
@@ -207,6 +194,99 @@ namespace InkLine
         {
             int col = i % 3, row = i / 3;
             return new Vector2((col - 1) * StepX, CardsTop - StepY * 0.5f - row * StepY);
+        }
+
+        // 卡翻完才盖章。章和道具牌一样大，落在下一格；背后的光落地才亮，名字写在章下面。
+        float RevealSeals(float t, int cardsBefore)
+        {
+            int n = _loot.Seals.Count;
+            float start = t + 0.12f;
+            const float dur = 0.78f;
+            for (int i = 0; i < n; i++)
+            {
+                SealDrop s = _loot.Seals[i];
+                float at = start + i * 0.5f;
+                Vector2 slot = cardsBefore == 0
+                    ? new Vector2((i - (n - 1) * 0.5f) * StepX, CardsTop - StepY * 0.5f)
+                    : Slot(cardsBefore + i);
+                Vector2 from = new Vector2(0f, ChestY + 24f);
+                var root = ResultKit.Group(_root, "seal" + i, from, new Vector2(172f, 250f));
+                root.SetAsLastSibling();
+                Color glow = SealGlow(s.Quality);
+                var light = UiKit.Icon(root, InkSprites.Load("Ui/seal_burst"), new Vector2(0f, 36f), 250f);
+                light.color = new Color(glow.r, glow.g, glow.b, 0f);
+                SealArt.Medal(root, "m", s.Type, s.Quality, new Vector2(0f, 36f), 150f);
+                var name = UiKit.Label(root, "n", SealCatalog.DropName(s), 26, new Vector2(0f, -92f), new Vector2(200f, 40f));
+                name.color = SealCatalog.QualityDeep(s.Quality);
+                UiKit.Bold(name);
+                var nameFade = name.gameObject.AddComponent<CanvasGroup>();
+                nameFade.alpha = 0f;
+                _anim.Tween(at, dur, k => DriveSeal(root, light, nameFade, from, slot, k));
+                float hit = at + dur * 0.7f;
+                Live(hit, () =>
+                {
+                    AudioBus.Stamp();
+                    UiConfetti.Sparks(_root, slot, glow, s.Quality == SealQuality.Gold ? 22 : 14, 560f);
+                });
+                if (s.Quality == SealQuality.Gold) Live(hit + 0.08f, AudioBus.StudyTier);
+            }
+            return start + (n - 1) * 0.5f + dur + 0.16f;
+        }
+
+        static Color SealGlow(SealQuality q)
+        {
+            switch (q)
+            {
+                case SealQuality.Gold: return InkTheme.Hex("F7C948");
+                case SealQuality.Purple: return InkTheme.Hex("C084FC");
+                case SealQuality.Blue: return InkTheme.Hex("7EB6FF");
+                default: return InkTheme.Hex("8ED68A");
+            }
+        }
+
+        // k 走完章停在牌位上，光留着，名字在下面。跳过时直接停在这一态。
+        static void DriveSeal(RectTransform root, Image glow, CanvasGroup name, Vector2 from, Vector2 slot, float k)
+        {
+            if (root == null) return;
+            const float emerge = 0.18f;
+            const float travelEnd = 0.7f;
+            Vector2 pos;
+            float sc, sx = 1f, sy = 1f, rot = 0f, fade = 0f;
+            if (k < emerge)
+            {
+                float u = k / emerge;
+                pos = from;
+                sc = Mathf.LerpUnclamped(0f, 1.35f, Ease.OutBack(u));
+                rot = Mathf.Lerp(-16f, 8f, u);
+            }
+            else if (k < travelEnd)
+            {
+                float u = (k - emerge) / (travelEnd - emerge);
+                pos = Vector2.LerpUnclamped(from, slot, Ease.InQuad(u));
+                sc = Mathf.Lerp(1.35f, 1.08f, u);
+                rot = Mathf.Lerp(8f, -4f, u);
+            }
+            else
+            {
+                float u = (k - travelEnd) / (1f - travelEnd);
+                pos = slot;
+                float w = Mathf.Sin(u * Mathf.PI) * (1f - u);
+                sx = 1f + w * 0.22f;
+                sy = 1f - w * 0.16f;
+                sc = Mathf.Lerp(1.08f, 1f, Ease.OutCubic(u));
+                rot = Mathf.Lerp(-4f, 0f, Ease.OutCubic(u));
+                fade = Ease.OutCubic(Mathf.Clamp01((u - 0.08f) / 0.5f));
+            }
+            root.anchoredPosition = pos;
+            root.localScale = new Vector3(sx * sc, sy * sc, 1f);
+            root.localRotation = Quaternion.Euler(0f, 0f, rot);
+            if (glow != null)
+            {
+                Color c = glow.color;
+                c.a = fade * 0.9f;
+                glow.color = c;
+            }
+            if (name != null) name.alpha = fade;
         }
 
         // 先一起飞出落位（卡背朝上），落齐了再按顺序一张张翻。

@@ -199,7 +199,7 @@ namespace InkLine
             return new SealDrop { Type = (SealType)Random.Range(1, TypeCount + 1), Quality = (SealQuality)q };
         }
 
-        // 开箱掉几枚。木箱、炮台宝箱不掉。
+        // 开箱掉几枚。木箱不掉。炮台宝箱不走品阶，和皇家同一档，见 RollCannon。
         public static void RollChest(ChestTier t, List<SealDrop> into)
         {
             switch (t)
@@ -215,6 +215,9 @@ namespace InkLine
                     break;
             }
         }
+
+        // 炮台宝箱和皇家箱同一档：必掉一枚，品质表不带绿。
+        public static void RollCannon(List<SealDrop> into) => into.Add(Roll(Source.Rare));
 
         // 通关第五章后，每日残局 20 波全部守住，结算拉一次三轴转轮，给一枚：
         // 三个同类 4% → 这一类金印；两个同类 16% → 这一类紫印；三个都不同 80% → 中间那一类，蓝 25% / 绿 55%。

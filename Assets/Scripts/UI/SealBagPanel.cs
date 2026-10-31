@@ -11,8 +11,8 @@ namespace InkLine
     {
         const float BoardW = 640f;
         const float BoardH = 1040f;
-        const float ChipY = 150f;
-        const float ListTop = 186f;
+        const float ChipY = 172f;
+        const float ListTop = 208f;
         const float ListBottom = 150f;
         const int Cols = 4;
         const float CellW = 136f;
@@ -54,7 +54,7 @@ namespace InkLine
         void Build(RectTransform dim)
         {
             _board = PanelKit.Board(dim, "印章", Vector2.zero, new Vector2(BoardW, BoardH), Pin.Center, Close);
-            _sum = UiKit.Label(_board, "sum", "", 21, new Vector2(0f, 104f), new Vector2(580f, 30f),
+            _sum = UiKit.Label(_board, "sum", "", 21, new Vector2(0f, 100f), new Vector2(580f, 56f),
                 TextAnchor.MiddleCenter, Pin.Top);
             _sum.color = InkTheme.TextDim;
 
@@ -143,17 +143,15 @@ namespace InkLine
             _content.sizeDelta = new Vector2(0f, Mathf.Max(1, rows) * StepY + 16f);
             if (shown == 0)
             {
-                string tip = _meta.SealTotal == 0
-                    ? "还没有印章\n通关第五章后，残局全部守住得一枚\n银箱、金箱、皇家箱也会掉"
-                    : "这一类还没有";
-                var e = UiKit.Label(_content, "empty", tip, 22, new Vector2(0f, 180f), new Vector2(520f, 140f),
-                    TextAnchor.MiddleCenter, Pin.Top);
+                var e = UiKit.Label(_content, "empty", _meta.SealTotal == 0 ? "还没有印章" : "这一类还没有",
+                    22, new Vector2(0f, 180f), new Vector2(520f, 80f), TextAnchor.MiddleCenter, Pin.Top);
                 e.color = InkTheme.TextDim;
             }
 
+            const string source = "来源：开宝箱、每日副本";
             _sum.text = _scrap
-                ? "点一格选一枚，再点继续加；选满再点清零"
-                : "共 " + _meta.SealTotal + " 枚 · 镶嵌请到字卡详情点插槽";
+                ? "点一格选一枚，再点继续加；选满再点清零\n" + source
+                : "共 " + _meta.SealTotal + " 枚 · 镶嵌请到字卡详情点插槽\n" + source;
             BuildFoot();
         }
 

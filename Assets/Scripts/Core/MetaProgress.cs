@@ -1251,6 +1251,7 @@ namespace InkLine
                     loot.Note = "已有" + skin.Name + "，碎片换成了墨";
                 }
                 Foil += AddChestFoilChance(loot);
+                GrantCannonSeal(loot);
                 Save();
                 return loot;
             }
@@ -1273,11 +1274,13 @@ namespace InkLine
                 Unlocked = unlocked
             });
             int bonus = AddChestFoilChance(loot);
+            GrantCannonSeal(loot);
             if (bonus > 0)
             {
                 Foil += bonus;
                 Save();
             }
+            else if (loot.Seals.Count > 0) Save();
             return loot;
         }
 
@@ -1289,6 +1292,14 @@ namespace InkLine
             if (n <= 0) return 0;
             loot.Foil += n;
             return n;
+        }
+
+        // 炮台宝箱和皇家箱一样必掉一枚印章。入账和演出都走这份列表。
+        void GrantCannonSeal(ChestLoot loot)
+        {
+            if (!SealDropOpen || loot == null || loot.Seals.Count > 0) return;
+            SealCatalog.RollCannon(loot.Seals);
+            GrantSeals(loot.Seals);
         }
 
         public bool TryCraftSkin(int i)

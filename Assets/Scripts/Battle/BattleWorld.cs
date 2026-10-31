@@ -1649,7 +1649,8 @@ namespace InkLine
                             Split(b, star);
                         }
                     }
-                    else if (id == CardId.Rebound) m.Rebound = Mathf.Max(m.Rebound, g.Rebound.At(star) * (1f + f));
+                    // 烈度留到折返时再乘。和分裂叠在同一发上要先封顶，乘早了会被封顶吃掉。
+                    else if (id == CardId.Rebound) m.Rebound = Mathf.Max(m.Rebound, g.Rebound.At(star));
                     break;
             }
             PaintBodyColor(m);

@@ -439,7 +439,7 @@ namespace InkLine
             }
             if (have == 0 && !filled)
             {
-                var none = UiKit.Label(sheet, "none", "还没有" + SealCatalog.TypeName(t) + "印章 · 第五章后残局通关、银金皇家箱会掉",
+                var none = UiKit.Label(sheet, "none", "还没有" + SealCatalog.TypeName(t) + "印章 · 开宝箱、每日副本可以获得",
                     18, new Vector2(0f, cy - cellH * 0.5f - 18f), new Vector2(w - 40f, 26f));
                 none.color = InkTheme.TextMid;
             }

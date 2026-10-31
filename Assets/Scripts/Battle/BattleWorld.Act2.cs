@@ -9,7 +9,8 @@ namespace InkLine
         // 返：飞过出怪线再往上一点就折回来；回程掉到漏怪线以下就算飞完。
         const float ReboundTop = GameConstants.SpawnY + 0.35f;
         static float ReboundFloor => GameConstants.LeakY - 0.5f;
-        // 分裂弹每发都会折返，回程系数封顶，免得「分 + 返」翻倍。
+        // 分裂弹每发都会折返，基础回程系数封顶，免得「分 + 返」翻倍。
+        // 烈度在封顶之后再乘，金印是 0.5 × 1.22，不会把裂弹抬回满额折返。
         const float ReboundSplitCap = 0.5f;
 
         // 钟魔进场后多久敲第一下。
@@ -25,6 +26,7 @@ namespace InkLine
             b.Mother = false;
             float k = m.Riposte ? 1f : m.Rebound;
             if (m.Has(CardId.Split)) k = Mathf.Min(k, ReboundSplitCap);
+            if (!m.Riposte) k *= 1f + SealFierce(CardId.Rebound);
             m.Decay *= k;
             if (m.Riposte) m.Pierce += 1;
             float speed = b.Vel.magnitude;

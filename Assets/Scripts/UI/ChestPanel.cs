@@ -56,19 +56,33 @@ namespace InkLine
             ChestDef d = ChestCatalog.Get(_meta.ChestTierOf(_slot));
             var board = PanelKit.Board(dim, d.Name, Vector2.zero, new Vector2(BoardW, BoardH), Pin.Center, Close);
 
-            var art = UiKit.Icon(board, InkSprites.Load("Ui/chest_" + d.Key), new Vector2(0f, 150f), 200f);
+            // 字卡开放后，开箱另有几率掉金箔；银箱、金箱有几率掉一枚印章，皇家箱必掉一枚。
+            // 种类和品质开之前不知道，章面用问号。木箱不掉印章。
+            bool foil = _meta.StudyOpen;
+            bool seal = _meta.SealDropOpen && d.Tier != ChestTier.Wood;
+            bool bonus = foil || seal;
+            var art = UiKit.Icon(board, InkSprites.Load("Ui/chest_" + d.Key),
+                new Vector2(0f, bonus ? 178f : 150f), bonus ? 168f : 200f);
             UiAnim.On(this).Breathe(art.transform, 0f, 0.03f, 0.8f);
 
-            var row = new Vector2(0f, 10f);
-            ContentChip(board, "ink", $"{d.InkMin}~{d.InkMax}", row + new Vector2(-130f, 0f));
-            ContentChip(board, "card", "×" + d.Cards, row + new Vector2(130f, 0f));
+            float rowY = bonus ? 42f : 10f;
+            ContentChip(board, "ink", $"{d.InkMin}~{d.InkMax}", new Vector2(-130f, rowY));
+            ContentChip(board, "card", "×" + d.Cards, new Vector2(130f, rowY));
+            if (bonus)
+            {
+                bool both = foil && seal;
+                float y = rowY - 74f;
+                if (foil) ContentChip(board, "foil", "有机会", new Vector2(both ? -130f : 0f, y));
+                if (seal) SealChip(board, d.Tier == ChestTier.Royal ? "必得" : "有机会", new Vector2(both ? 130f : 0f, y));
+            }
             string extra = d.PurpleChance >= 1f ? "必出稀有道具卡"
                 : d.PurpleChance > 0f ? "有机会出稀有道具卡"
                 : d.Tier == ChestTier.Silver ? "含高级道具卡" : "普通道具卡为主";
-            var hint = UiKit.Label(board, "hint", extra, 22, new Vector2(0f, -48f), new Vector2(BoardW - 60f, 30f));
+            float hintY = bonus ? -104f : -48f;
+            var hint = UiKit.Label(board, "hint", extra, 22, new Vector2(0f, hintY), new Vector2(BoardW - 60f, 30f));
             hint.color = InkTheme.TextMid;
 
-            _state = UiKit.Label(board, "state", "", 30, new Vector2(0f, -100f), new Vector2(BoardW - 60f, 40f));
+            _state = UiKit.Label(board, "state", "", 30, new Vector2(0f, bonus ? -150f : -100f), new Vector2(BoardW - 60f, 40f));
             _state.color = InkTheme.TextDark;
             UiKit.Bold(_state);
 
@@ -109,6 +123,16 @@ namespace InkLine
         {
             var t = UiKit.Chip(board, "c_" + icon, InkSprites.Ui(icon), text, pos, new Vector2(210f, 60f), Pin.Center);
             t.fontSize = 28;
+        }
+
+        // 左边放问号章，右边写有没有把握开出来。药丸自己不带图标，问号占图标原来的位置。
+        static void SealChip(RectTransform board, string text, Vector2 pos)
+        {
+            const float w = 210f, h = 60f;
+            var t = UiKit.Chip(board, "c_seal", null, text, pos, new Vector2(w, h), Pin.Center);
+            t.fontSize = 28;
+            float r = h * 1.06f;
+            SealArt.Unknown(t.transform.parent, "q", new Vector2(-w * 0.5f + r * 0.42f, 0f), r);
         }
 
         void Update()
