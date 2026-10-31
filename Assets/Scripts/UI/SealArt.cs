@@ -3,43 +3,58 @@ using UnityEngine.UI;
 
 namespace InkLine
 {
-    // 印章的样子：品质色章面 + 金边 + 类型纹样，三层叠出来。详情槽、背包、结算、开箱共用。
+    // 印章的样子：金边釉面章底按品质换色，中间压一枚白色纹样，纹样按类型各画一枚。
+    // 详情槽、背包、结算、开箱共用。
     public static class SealArt
     {
         public static Sprite Icon(SealType t) => InkSprites.Load(SealCatalog.IconKey(t));
 
-        // 一枚镶好的印章。返回根节点，金印外面多一圈慢转的光。
+        // 纹样占章面的比例。章底的金边约占外径的三成，纹样落在釉面里面。
+        const float IconShare = 0.52f;
+
+        // 一枚镶好的印章。金印后面多一圈慢转的光。
         public static RectTransform Medal(Transform parent, string name, SealType t, SealQuality q, Vector2 pos, float size)
         {
             var root = Holder(parent, name, pos, size);
             if (q == SealQuality.Gold)
             {
-                var rays = UiKit.Icon(root, InkSprites.Load("Ui/result_rays"), Vector2.zero, size * 1.9f);
-                rays.color = new Color(1f, 0.8f, 0.35f, 0.75f);
-                UiAnim.On(rays).Spin(rays.transform, 30f);
+                var rays = UiKit.Icon(root, InkSprites.Load("Ui/seal_burst"), Vector2.zero, size * 1.9f);
+                rays.color = Color.white;
+                UiAnim.On(rays).Spin(rays.transform, 22f);
             }
-            var face = UiKit.Icon(root, InkSprites.Load("Ui/seal_face"), Vector2.zero, size);
-            face.color = SealCatalog.QualityColor(q);
-            UiKit.Icon(root, InkSprites.Load("Ui/seal_rim"), Vector2.zero, size);
-            UiKit.Icon(root, Icon(t), Vector2.zero, size * 0.5f);
+            UiKit.Icon(root, InkSprites.Load(FaceKey(q)), Vector2.zero, size);
+            UiKit.Icon(root, Icon(t), Vector2.zero, size * IconShare);
             return root;
         }
 
-        // 刷出了类型、还空着的槽：一枚金币，中间压着淡淡的类型纹样。
+        // 刷出了类型、还空着：一圈金边围着凹下去的深棕槽，纹样淡淡地刻在里面。
         public static RectTransform Empty(Transform parent, string name, SealType t, Vector2 pos, float size)
         {
             var root = Holder(parent, name, pos, size);
             UiKit.Icon(root, InkSprites.Load("Ui/seal_empty"), Vector2.zero, size);
-            var mark = UiKit.Icon(root, Icon(t), Vector2.zero, size * 0.46f);
-            mark.color = new Color(0.62f, 0.4f, 0.1f, 0.85f);
+            var mark = UiKit.Icon(root, Icon(t), Vector2.zero, size * IconShare);
+            mark.color = new Color(1f, 0.92f, 0.78f, 0.42f);
             return root;
         }
 
-        // 还没到等级的槽：一颗灰石钉。
+        static string FaceKey(SealQuality q)
+        {
+            switch (q)
+            {
+                case SealQuality.Blue: return "Ui/seal_q_blue";
+                case SealQuality.Purple: return "Ui/seal_q_purple";
+                case SealQuality.Gold: return "Ui/seal_q_gold";
+                default: return "Ui/seal_q_green";
+            }
+        }
+
+        // 还没到等级的槽：灰铁边的锁槽，中间一把小锁。
         public static RectTransform Stud(Transform parent, string name, Vector2 pos, float size)
         {
             var root = Holder(parent, name, pos, size);
             UiKit.Icon(root, InkSprites.Load("Ui/seal_stud"), Vector2.zero, size);
+            var lockIcon = UiKit.Icon(root, InkSprites.Load("Ui/seal_ico_lock"), Vector2.zero, size * 0.44f);
+            lockIcon.color = new Color(0.62f, 0.60f, 0.58f, 1f);
             return root;
         }
 

@@ -320,7 +320,7 @@ namespace InkLine
             SealDrop[] seals = info.Seals;
             bool seal = seals != null && seals.Length > 0;
             int cards = list.Count + (seal ? 1 : 0);
-            // 第五章起首通多一张金箔、再加印章，并排要收窄，否则撑出 720。
+            // 金箔和印章并排时收窄，否则撑出 720。关卡首通不再塞印章，有 Seals 才出那张卡。
             float W = cards >= 4 ? 112f : cards >= 3 ? 140f : 168f;
             float ChestW = cards >= 4 ? 160f : 200f;
             int n = cards + (chest ? 1 : 0);

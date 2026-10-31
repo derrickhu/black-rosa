@@ -8,12 +8,15 @@ namespace InkLine
     // 每天由日期定死：开局第一排 0～2 个空格、不摆字、停用两张字、一条魔气词缀、
     // 兵种和出场顺序、战场底图。字池固定用第四章章底那一份。通关第三章就开，
     // 但这一关的 Chapter 仍记成第四章：怪的移速和掉墨读的是它。
-    // 格子靠改装里随机刷出的铲子挖。难度按无尽的曲线走得更快：
-    // 第 n 波相当于无尽第 1.6n 波，第 20 波约 9 倍血。第 10、20 波各压一只关底。不渗魔气。
+    // 格子靠改装里随机刷出的铲子挖。难度按无尽曲线再往深处走：
+    // 第 n 波（从 1 数）读无尽第 round(2.2*(n-1))+4 波。第 1 波约 2.9 倍血，第 20 波约 13.8 倍。
+    // 第 10、20 波各压一只关底。不渗魔气。
     public static partial class StageCatalog
     {
         public const int DailyWaves = 20;
-        const float DailyDepthStep = 1.6f;
+        const float DailyDepthStep = 2.2f;
+        // 第 1 波就不从无尽开头读，整局都比旧的 1.6 倍深度更硬。
+        const int DailyDepthOpen = 4;
         // 字池、移速、掉墨都取第四章。和开放门槛（第三章）分开，改开放不改这一局的内容。
         const int DailyContentChapter = 3;
         const int DailyPoolStage = GameConstants.ChapterSize * (DailyContentChapter + 1) - 1;
@@ -55,7 +58,7 @@ namespace InkLine
             int shift = rng.Next(GameConstants.Columns);
             for (int w = 0; w < DailyWaves; w++)
             {
-                int depth = Mathf.RoundToInt(w * DailyDepthStep);
+                int depth = Mathf.RoundToInt(w * DailyDepthStep) + DailyDepthOpen;
                 EnemyId? boss = null;
                 if ((w + 1) % DailyBossEvery == 0) boss = w + 1 >= DailyWaves ? end : mid;
                 SurvivalWave(depth, boss, new System.Random(rng.Next()), countMul, w + shift, out waves[w], out bodies[w]);

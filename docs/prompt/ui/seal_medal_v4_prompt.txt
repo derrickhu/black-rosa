@@ -1,0 +1,14 @@
+Game UI sprite sheet for a cozy Chinese ink mobile game. Six round medal coins arranged in a neat grid, 3 columns and 2 rows, evenly spaced with wide gaps, every coin the same size and fully inside its cell, on a flat solid magenta background (#FF00FF) that fills the whole picture.
+
+Drawing style: the same flat cartoon game style as the attached picture: thick dark-brown outline (#3A2A20) around every shape, flat color fills, one soft white gloss arc at the upper left of each face, a thin darker inner ring where the bezel meets the face. Clean vector look, crisp edges, front view, perfectly round.
+
+Every coin has the same bezel: a thick polished bezel the yellow of a brand-new gold coin, with a lighter rim line on top and a slightly deeper amber band on the lower half, and a small bevel step on its inner edge. The face inside the bezel is a smooth plain disc of enamel that fills about 70 percent of the coin.
+
+Row 1, left: face is jade green, like a polished jade bangle.
+Row 1, middle: face is sapphire blue, like a blue porcelain bowl.
+Row 1, right: face is amethyst purple, like a ripe grape skin.
+Row 2, left: face is warm sunflower orange-gold, brighter and richer than the bezel, like an egg yolk.
+Row 2, middle: an open socket: the same gold bezel, and the face is a deep recessed hollow the brown of dark roasted chestnut, with a soft inner shadow along its upper edge.
+Row 2, right: a locked socket: a smaller coin, about 70 percent of the others, its bezel is matte pewter gray like an old iron pot, its face is a pale stone gray like river pebble, and a tiny dark-brown padlock sits in the center.
+
+NO TEXT, no labels, no captions, no writing anywhere in the image.

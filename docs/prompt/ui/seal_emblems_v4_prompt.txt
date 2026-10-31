@@ -1,0 +1,14 @@
+Game UI sprite sheet for a cozy Chinese ink mobile game. Eight bold emblem symbols arranged in a neat grid, 4 columns and 2 rows, evenly spaced with wide gaps, each symbol the same size and fully inside its cell, on a flat solid magenta background (#FF00FF) that fills the whole picture.
+
+Every symbol is a single chunky silhouette filled in warm ivory white, like fresh rice paper, with a thick dark-brown outline (#3A2A20) and one small pale-cream highlight stroke. Flat cartoon vector style, crisp edges, the same weight as the white flame on the blue medal in the attached picture. Each symbol is compact and round-ish in overall shape so it fits inside a coin.
+
+Row 1, first: a big four-pointed sparkle star with two tiny sparkle stars beside it.
+Row 1, second: a sharp spear blade pointing up, with a short crossguard.
+Row 1, third: a tall licking flame with two tongues.
+Row 1, fourth: a small dot with three widening ripple arcs spreading outward on both sides, like a splash.
+Row 2, first: an hourglass with a little sand pile in the bottom bulb.
+Row 2, second: a gust of wind made of three curling swoosh strokes moving right.
+Row 2, third: an arrow flying right straight through the middle of a ring.
+Row 2, fourth: a small padlock with a round body and an arched shackle.
+
+NO TEXT, no labels, no captions, no writing anywhere in the image.

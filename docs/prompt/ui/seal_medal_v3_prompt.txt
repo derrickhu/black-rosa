@@ -1,0 +1,18 @@
+A sprite sheet of 6 casual mobile-game item medallions, arranged in a strict grid of 3 columns and 2 rows. Each medallion is the same outer diameter, centered in its own cell, with a wide empty margin around it. Seen straight on.
+
+Chunky sticker finish: thick dark brown outline the color of ink (#3A2A20), flat colors, one soft cel highlight, crisp edges. A smooth round coin, a thin raised lip, a flat center disc. The lip is a single clean ring, the same family as a small cartoon gold coin.
+
+Top left, an empty socket: new-coin gold (#F6BE3C). The center is one flat disc of a slightly deeper antique gold (#E0A020), smooth and empty, a clear place for a small emblem.
+
+Top middle, a green seal: pale jade green, the green of a pale celadon pendant. Thin new-coin gold lip. The center is one flat, slightly lighter jade disc, smooth and empty.
+
+Top right, a blue seal: porcelain blue, the blue of a blue-and-white china plate. Thin new-coin gold lip. The center is one flat, slightly lighter blue disc, smooth and empty.
+
+Bottom left, a purple seal: ripe-grape purple. Thin new-coin gold lip. The center is one flat, slightly lighter purple disc, smooth and empty.
+
+Bottom middle, a gold seal: rich antique gold (#C4922A) with a brighter new-coin gold center disc (#F6BE3C), smooth and empty. Thin darker gold lip. It reads as the precious one of the set.
+
+Bottom right, a locked stud: one small smooth river-pebble gray sphere (#B7B1A6), a single cream highlight, thick ink outline. Same sticker family, round, quiet, shut.
+
+The whole background is one flat solid magenta highlighter color (#FF00FF), edge to edge.
+NO TEXT, no letters, no numbers, no labels anywhere in the image.

@@ -1,0 +1,22 @@
+A sprite sheet of 8 small casual mobile-game emblems, arranged in a strict grid of 4 columns and 2 rows. Each emblem is centered in its own cell with a wide empty margin, about the same visual size, seen straight on.
+
+Chunky sticker finish: thick dark brown outline the color of ink (#3A2A20), flat colors, crisp edges, the same language as a cartoon item icon. Each emblem is one clear symbol, easy to read at a tiny size.
+
+Top left, luck: a four-pointed star of pale new-coin gold (#FFE58A) with two tiny companion sparks, one at the upper right and one at the lower left.
+
+Top middle-left, edge: a single sharp spearhead pointing up, steel gray with a pale gold cutting edge.
+
+Top middle-right, fierce: one cartoon fire tongue, the orange of a ripe persimmon, a pale yellow core, the same shape as a small campfire flame.
+
+Top right, wide: three nested open arcs spreading upward, new-coin gold, like a ripple opening out.
+
+Bottom left, last: a small hourglass, antique gold frame, pale sand in the lower bulb.
+
+Bottom middle-left, move: three curved wind strokes sweeping to the right, the teal of a shallow sea.
+
+Bottom middle-right, keep: one clean arrow pointing up and to the right, new-coin gold, a simple diamond head and a straight shaft.
+
+Bottom right, dust: one tiny round bead of warm gold light, a cream highlight, the smallest emblem on the sheet.
+
+The whole background is one flat solid magenta highlighter color (#FF00FF), edge to edge.
+NO TEXT, no letters, no numbers, no labels anywhere in the image.

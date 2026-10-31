@@ -711,7 +711,7 @@ namespace InkLine
             return true;
         }
 
-        // 第 10 波一只木箱，20 波全部打完一只银箱。
+        // 第 10 波一只木箱，20 波全部打完一只银箱。通关第五章之后不再给箱子。
         public static int DailyChestTier(int waves)
         {
             if (waves >= StageCatalog.DailyWaves) return (int)ChestTier.Silver;
@@ -719,24 +719,38 @@ namespace InkLine
             return -1;
         }
 
-        // 每日残局结算：拾到的墨 + 每波的墨，到档给箱子。新纪录按当天算。
+        // 每日残局结算：拾到的墨 + 每波的墨。
+        // 通关第五章前按波数给箱子。通关第五章后，20 波全部守住才给一枚印章，不再给箱子。
         public EndlessResult ApplyDaily(int waves, int collected)
         {
             RollDaily();
             waves = Mathf.Clamp(waves, 0, StageCatalog.DailyWaves);
+            bool cleared = waves >= StageCatalog.DailyWaves;
+            bool sealReward = SealOpen;
+            SealDrop seal = default;
+            int chest = -1;
+            if (sealReward)
+            {
+                if (cleared)
+                    seal = SealCatalog.RollDaily();
+            }
+            else chest = DailyChestTier(waves);
             var r = new EndlessResult
             {
                 Waves = waves,
                 OldBest = DailyBest,
                 NewBest = waves > DailyBest,
                 Ink = Mathf.Max(0, collected) + waves * GameConstants.DailyInkPerWave,
-                Chest = DailyChestTier(waves),
+                Chest = chest,
                 ChestSlot = -2,
+                HasSeal = sealReward && cleared,
+                Seal = seal,
             };
             if (r.NewBest) DailyBest = waves;
             if (waves > DailyRecord) DailyRecord = waves;
             Ink += r.Ink;
-            if (r.Chest >= 0) r.ChestSlot = GrantChest((ChestTier)r.Chest);
+            if (r.HasSeal) GrantSeals(new List<SealDrop> { seal });
+            else if (r.Chest >= 0) r.ChestSlot = GrantChest((ChestTier)r.Chest);
             Save();
             return r;
         }
@@ -1293,13 +1307,6 @@ namespace InkLine
                 Diamond += r.Diamonds;
                 r.Foil = StudyCatalog.FirstClearFoil(def);
                 Foil += r.Foil;
-                if (SealDropOpen)
-                {
-                    var seals = new List<SealDrop>();
-                    SealCatalog.RollFirstClear(def, seals);
-                    GrantSeals(seals);
-                    r.Seals = seals.ToArray();
-                }
             }
             ChestTier tier = ChestCatalog.ForStage(def, r.FirstClear, ChestCycle);
             if (!def.Finale && !def.HasBoss) ChestCycle++;

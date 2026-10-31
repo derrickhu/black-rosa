@@ -47,7 +47,6 @@ namespace InkLine
             SwapAdDone = false;
             SwapGemDone = false;
             TrialCount = 0;
-            SealAdCount = 0;
             // 试用只在当天有效。挂着没打出来的，过天清掉，不带到第二天。
             TrialKind = 0;
             TrialId = 0;

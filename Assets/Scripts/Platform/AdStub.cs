@@ -27,8 +27,7 @@ namespace InkLine
             switch (slot)
             {
                 case "glyph_trial":
-                case "foil_double":
-                case "seal_reroll": return Glyph;
+                case "foil_double": return Glyph;
                 case "double": return Double;
                 case "reroll": return Reroll;
                 case "revive": return Revive;

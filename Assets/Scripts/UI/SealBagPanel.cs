@@ -144,7 +144,7 @@ namespace InkLine
             if (shown == 0)
             {
                 string tip = _meta.SealTotal == 0
-                    ? "还没有印章\n首通第四章以后的关卡、精英首通\n开银、金、皇家宝箱会掉"
+                    ? "还没有印章\n通关第五章后，残局全部守住得一枚\n银箱、金箱、皇家箱也会掉"
                     : "这一类还没有";
                 var e = UiKit.Label(_content, "empty", tip, 22, new Vector2(0f, 180f), new Vector2(520f, 140f),
                     TextAnchor.MiddleCenter, Pin.Top);

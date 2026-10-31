@@ -12,8 +12,6 @@ namespace InkLine
         public int[] SlotSeal = new int[SealCatalog.SlotCount];
         // 背包按 类型 × 品质 叠，见 SealCatalog.BagIndex。
         public int[] SealBag = new int[SealCatalog.BagSize];
-        // 当天看广告刷槽用了几次，跟着 StudyDay 一起过天清零。
-        public int SealAdCount;
         // 背包里有几枚是打开背包之后才拿到的，字卡页「印章」挂红点。
         public int SealNew;
 
@@ -35,7 +33,6 @@ namespace InkLine
                 if (SlotSeal[i] < 0 || SlotSeal[i] > SealCatalog.QualityCount || SlotType[i] == 0) SlotSeal[i] = 0;
             }
             for (int i = 0; i < SealBag.Length; i++) SealBag[i] = Mathf.Max(0, SealBag[i]);
-            SealAdCount = Mathf.Clamp(SealAdCount, 0, SealCatalog.RerollAdPerDay);
             SealNew = Mathf.Max(0, SealNew);
         }
 
@@ -190,7 +187,7 @@ namespace InkLine
 
         // ---- 改 ----
 
-        public enum SealBlock { None, Locked, NoSlot, Empty, Diamond, AdUsed }
+        public enum SealBlock { None, Locked, NoSlot, Empty, Diamond }
 
         public bool Socket(CodexEntry e, int k, SealQuality q)
         {
@@ -222,29 +219,35 @@ namespace InkLine
             SlotSeal[s] = 0;
         }
 
-        public int SealAdLeft => Mathf.Max(0, SealCatalog.RerollAdPerDay - SealAdCount);
-
-        public SealBlock RerollBlock(CodexEntry e, int k, bool ad)
+        public SealBlock RerollBlock(CodexEntry e)
         {
             if (!SealOpen) return SealBlock.Locked;
-            if (k < 0 || k >= SlotsOpen(e) || SlotTypeOf(e, k) == SealType.None) return SealBlock.NoSlot;
-            if (ad) return SealAdLeft > 0 ? SealBlock.None : SealBlock.AdUsed;
+            if (SlotsOpen(e) <= 0) return SealBlock.NoSlot;
             return Diamond >= SealCatalog.RerollDiamond ? SealBlock.None : SealBlock.Diamond;
         }
 
-        // 只换类型。槽里的印章退回背包。可能刷出同一种。
-        public SealType Reroll(CodexEntry e, int k, bool ad)
+        // 一次换掉这个字上所有已开的槽，只换类型。先把镶着的印章卸回背包，再重抽。可能刷出同一种。
+        // 先清空再按顺序重抽，字运才不会因为旧类型占着名额、刷完又一个都不剩。
+        public int Reroll(CodexEntry e)
         {
             if (RollStudy()) Save();
-            if (RerollBlock(e, k, ad) != SealBlock.None) return SealType.None;
-            if (ad) SealAdCount++;
-            else if (!SpendDiamond(SealCatalog.RerollDiamond)) return SealType.None;
+            if (RerollBlock(e) != SealBlock.None) return 0;
+            if (!SpendDiamond(SealCatalog.RerollDiamond)) return 0;
             int key = SealCatalog.KeyOf(e);
-            int s = key * SealCatalog.SlotsPer + k;
-            ReturnSeal(s);
-            SlotType[s] = (int)SealCatalog.RollSlot(key, HasLuck(key, k));
+            int open = SlotsOpen(e);
+            for (int k = 0; k < open; k++)
+            {
+                int s = key * SealCatalog.SlotsPer + k;
+                ReturnSeal(s);
+                SlotType[s] = 0;
+            }
+            for (int k = 0; k < open; k++)
+            {
+                int s = key * SealCatalog.SlotsPer + k;
+                SlotType[s] = (int)SealCatalog.RollSlot(key, HasLuck(key, k));
+            }
             Save();
-            return (SealType)SlotType[s];
+            return open;
         }
 
         // 分解：picks 是背包下标 → 分几枚。返回得到的金箔。

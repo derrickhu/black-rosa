@@ -23,9 +23,8 @@ namespace InkLine
         public const int SlotsPer = 3;
         public const int TypeCount = 7;
         public const int QualityCount = 4;
-        // 刷新一个槽的类型。钻石比金箔紧，定在一章章底的首通钻石附近，广告每天另给 3 次。
+        // 一次刷新这个字上所有已开的槽。只花钻石，不限次数，不按槽数加价。
         public const int RerollDiamond = 10;
-        public const int RerollAdPerDay = 3;
 
         public static int KeyCount => CardCatalog.IdCount + CardCatalog.WordCount;
         public static int SlotCount => KeyCount * SlotsPer;
@@ -192,19 +191,8 @@ namespace InkLine
             }
         }
 
-        // 首通掉几枚：第五章起主线每关 1、章底 2；精英每关 1，品质走皇家箱那一档。
-        public static void RollFirstClear(StageDef s, List<SealDrop> into)
-        {
-            if (s == null || s.Endless || s.Daily || s.Event) return;
-            if (s.Hard)
-            {
-                into.Add(Roll(Source.Rare));
-                return;
-            }
-            if (s.Chapter < 4) return;
-            into.Add(Roll(Source.Normal));
-            if (s.Finale) into.Add(Roll(Source.Normal));
-        }
+        // 通关第五章后，每日残局 20 波全部守住才给一枚。品质走普通档：绿 60 / 蓝 28 / 紫 10 / 金 2。种类七种平均。
+        public static SealDrop RollDaily() => Roll(Source.Normal);
 
         // ---- 文案和颜色 ----
 
@@ -275,16 +263,94 @@ namespace InkLine
         // 「烈度 · 绿」
         public static string DropName(SealDrop d) => TypeName(d.Type) + " · " + QualityName(d.Quality);
 
-        // 槽边上那行数：「烈度 +10%」「字运 ×1.6」「广域 溅射 0.55 格」
-        public static string ValueText(int key, SealType t, SealQuality q)
+        // 槽边上和品质格里的短说明：提高的是什么（几个字）+ 这个品质加多少。
+        // 「整发伤害 +5%」「裂弹衰减 -10%」「出现率 ×1.6」。what 不依赖品质，空槽也用它。
+        public static void Line(int key, SealType t, SealQuality q, out string what, out string amount)
         {
-            float v = Value(t, q, t == SealType.Wide && !HasRadius(key));
+            what = WhatOf(key, t);
+            bool splash = t == SealType.Wide && !HasRadius(key);
+            float v = Value(t, q, splash);
+            int pct = Mathf.RoundToInt(v * 100f);
+            if (t == SealType.Luck) amount = "×" + v.ToString("0.0#");
+            else if (splash) amount = v.ToString("0.0#") + " 格";
+            else if (t == SealType.Keep && key != (int)CardId.Explode) amount = "-" + pct + "%";
+            else amount = "+" + pct + "%";
+        }
+
+        public static string WhatOf(int key, SealType t)
+        {
             switch (t)
             {
-                case SealType.Luck: return "×" + v.ToString("0.0#");
-                case SealType.Keep: return "+" + Mathf.RoundToInt(v * 100f);
-                case SealType.Wide when !HasRadius(key): return "溅射 " + v.ToString("0.0#") + " 格";
-                default: return "+" + Mathf.RoundToInt(v * 100f) + "%";
+                case SealType.Luck: return "出现率";
+                case SealType.Edge: return "整发伤害";
+                case SealType.Fierce: return FierceWhat(key);
+                case SealType.Wide:
+                    if (!HasRadius(key)) return "溅射范围";
+                    switch ((CardId)key)
+                    {
+                        case CardId.Water: return "减速范围";
+                        case CardId.Thunder: return "连带范围";
+                        case CardId.Gather: return "拉怪范围";
+                        default: return "爆炸范围";
+                    }
+                case SealType.Last: return key == (int)CardId.Earth ? "硬直时长" : "状态时长";
+                case SealType.Move:
+                    if (key == KeyOf(WordId.Knockback)) return "击退距离";
+                    switch ((CardId)key)
+                    {
+                        case CardId.Earth: return "推开距离";
+                        case CardId.Wind: return "多吹几率";
+                        default: return "拉怪距离";
+                    }
+                case SealType.Keep:
+                    if (key == KeyOf(WordId.Cleave)) return "每跳衰减";
+                    switch ((CardId)key)
+                    {
+                        case CardId.Split: return "裂弹衰减";
+                        case CardId.Pierce: return "穿透衰减";
+                        default: return "溅射份额";
+                    }
+                default: return "";
+            }
+        }
+
+        static string FierceWhat(int key)
+        {
+            if (key >= CardCatalog.IdCount)
+            {
+                switch ((WordId)(key - CardCatalog.IdCount))
+                {
+                    case WordId.InstantKill: return "斩杀血线";
+                    case WordId.ArrowRain: return "每箭伤害";
+                    case WordId.Knockback: return "退后易伤";
+                    case WordId.Cleave: return "每跳伤害";
+                    case WordId.Crush: return "追加伤害";
+                    default: return "强度";
+                }
+            }
+            switch ((CardId)key)
+            {
+                case CardId.Gold: return "加算伤害";
+                case CardId.Heavy: return "重击倍率";
+                case CardId.Wood: return "吸血比例";
+                case CardId.Fire: return "灼烧伤害";
+                case CardId.Poison: return "中毒伤害";
+                case CardId.Ice: return "冻住易伤";
+                case CardId.Water: return "减速幅度";
+                case CardId.Thunder: return "雷击易伤";
+                case CardId.Stun: return "晕住易伤";
+                case CardId.Confuse: return "惑乱强度";
+                case CardId.Break: return "易伤比例";
+                case CardId.Earth: return "推后易伤";
+                case CardId.Wind: return "吹后易伤";
+                case CardId.Gather: return "拉后易伤";
+                case CardId.Split: return "裂弹伤害";
+                case CardId.Track: return "追踪弹伤害";
+                case CardId.Accel: return "加速弹伤害";
+                case CardId.Pierce: return "穿透伤害";
+                case CardId.Rebound: return "折返伤害";
+                case CardId.Explode: return "爆炸伤害";
+                default: return "强度";
             }
         }
 

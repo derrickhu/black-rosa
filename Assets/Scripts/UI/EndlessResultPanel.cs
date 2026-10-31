@@ -7,7 +7,7 @@ namespace InkLine
     public sealed class EndlessResultArgs
     {
         public bool Win;
-        public bool Daily;      // 每日残局：纪录、次数、宝箱档都按当天算
+        public bool Daily;      // 每日残局：纪录和次数按当天算，结算转盘必得一枚印章
         public int Total;       // 这局一共几波
         public EndlessResult Result;
         public Action Double;
@@ -72,7 +72,8 @@ namespace InkLine
             var stage = ResultKit.Group(_root, "stage", Vector2.zero, new Vector2(ScreenFit.DesignW, ScreenFit.DesignH));
             if (win) PlayWin(stage);
             else PlayLose(stage);
-            BuildLoot(stage, win ? 1.45f : 1.15f);
+            if (_a.Daily && _a.Result.HasSeal) BuildWheel(stage, win ? 1.05f : 0.9f);
+            else BuildLoot(stage, win ? 1.45f : 1.15f);
             BuildButtons(stage, win ? 1.7f : 1.4f);
             if (win)
                 _anim.At(1.55f, () =>
@@ -151,10 +152,19 @@ namespace InkLine
         }
 
         // 进度对着下一只箱子。已经是最高档了，就对着全部守住。
+        // 每日残局通关第五章后不再发箱子，没守住只对着全部守住。
         void BuildRemain(RectTransform stage, float at)
         {
             int total = Total;
             int waves = Mathf.Clamp(_a.Result.Waves, 0, total);
+            if (_a.Daily && _meta.SealOpen)
+            {
+                string dailyTip = waves >= total ? $"共 {total} 波" : $"再撑 {total - waves} 波就全部守住";
+                var line = UiKit.Label(stage, "remain", dailyTip, 22, new Vector2(0f, BarY), new Vector2(520f, 32f));
+                line.color = Cream;
+                _anim.Fade(line, at, 0.25f, 0f, 1f);
+                return;
+            }
             int step = _a.Daily ? StageCatalog.DailyBossEvery : StageCatalog.EndlessBossEvery;
             if (step < 1) step = total;
             int next = (waves / step + 1) * step;
@@ -262,6 +272,90 @@ namespace InkLine
         {
             if (_a.Daily) return (ChestTier)MetaProgress.DailyChestTier(wave);
             return (ChestTier)MetaProgress.EndlessChestTier(wave);
+        }
+
+        // 每日残局的转盘。奖已经入账，转盘只是转到那一枚。指针停在正上方。
+        void BuildWheel(RectTransform stage, float at)
+        {
+            const int n = 8;
+            const float radius = 70f;
+            const float medal = 44f;
+            const float hubY = -168f;
+            var hub = new Vector2(0f, hubY);
+            SealDrop prize = _a.Result.Seal;
+            var faces = new SealDrop[n];
+            faces[0] = prize;
+            for (int i = 1; i < n; i++) faces[i] = SealCatalog.RollDaily();
+            int win = UnityEngine.Random.Range(0, n);
+            if (win != 0)
+            {
+                SealDrop tmp = faces[win];
+                faces[win] = faces[0];
+                faces[0] = tmp;
+            }
+
+            float step = 360f / n;
+            var glow = UiKit.Icon(stage, InkSprites.Load("Ui/seal_burst"), hub + new Vector2(0f, radius), medal * 1.85f);
+            glow.color = new Color(1f, 0.95f, 0.75f, 0.95f);
+            glow.raycastTarget = false;
+
+            var wheel = ResultKit.Group(stage, "wheel", hub, new Vector2(radius * 2f + medal, radius * 2f + medal));
+            var medals = new RectTransform[n];
+            for (int i = 0; i < n; i++)
+            {
+                float deg = 90f - i * step;
+                float rad = deg * Mathf.Deg2Rad;
+                var p = new Vector2(Mathf.Cos(rad), Mathf.Sin(rad)) * radius;
+                medals[i] = SealArt.Medal(wheel, "m" + i, faces[i].Type, faces[i].Quality, p, medal);
+            }
+
+            var plate = UiKit.Stroke(stage, "hub", hub, new Vector2(112f, 76f), Pin.Center, 3f,
+                Gold, InkTheme.Hex("FFF8EC"), 38f);
+            plate.GetComponent<Image>().raycastTarget = false;
+            _ink = UiKit.Label(plate, "ink", "墨 +0", 22, new Vector2(0f, 14f), new Vector2(104f, 28f));
+            UiKit.Bold(_ink);
+            _ink.color = InkTheme.TextDark;
+            _ink.raycastTarget = false;
+            var prizeT = UiKit.Label(plate, "prize", "印章", 18, new Vector2(0f, -14f), new Vector2(104f, 26f));
+            UiKit.Bold(prizeT);
+            prizeT.color = InkTheme.TextMid;
+            prizeT.raycastTarget = false;
+
+            float endZ = win * step;
+            float startZ = endZ + 360f * 4f + 180f;
+            wheel.localRotation = Quaternion.Euler(0f, 0f, startZ);
+            for (int i = 0; i < n; i++)
+                medals[i].localRotation = Quaternion.Euler(0f, 0f, -startZ);
+            int shown = -1;
+            _anim.Pop(wheel, at, 0.32f)
+                 .CountUp(_ink, 0, _a.Result.Ink, at + 0.1f, 0.45f, "墨 +{0}", AudioBus.CountTick)
+                 .Tween(at + 0.15f, 2.5f, k =>
+                 {
+                     if (wheel == null) return;
+                     float z = Mathf.Lerp(startZ, endZ, Ease.OutCubic(k));
+                     wheel.localRotation = Quaternion.Euler(0f, 0f, z);
+                     for (int i = 0; i < n; i++)
+                         if (medals[i] != null) medals[i].localRotation = Quaternion.Euler(0f, 0f, -z);
+                     int idx = Mathf.RoundToInt(Mathf.Repeat(z, 360f) / step) % n;
+                     if (idx == shown) return;
+                     shown = idx;
+                     AudioBus.CountTick();
+                 })
+                 .At(at + 2.7f, () =>
+                 {
+                     if (medals[win] != null) medals[win].localScale = Vector3.one * 1.22f;
+                     if (prizeT != null)
+                     {
+                         prizeT.text = SealCatalog.DropName(prize);
+                         prizeT.color = SealCatalog.QualityDeep(prize.Quality);
+                     }
+                     AudioBus.Stamp();
+                     if (prize.Quality == SealQuality.Gold)
+                     {
+                         UiConfetti.Burst(_root, 48);
+                         AudioBus.Confetti();
+                     }
+                 });
         }
 
         static float Swing(float k) => 1f - Mathf.Cos(k * Mathf.PI * 3.2f) * Mathf.Pow(1f - k, 2.2f);

@@ -12,7 +12,7 @@ namespace InkLine
         const float BoardH = 900f;
         const float CardW = BoardW - 48f;
         const float Tile = 66f;
-        // 上半张只放今日词缀和开局字。成绩、宝箱、次数、开始都在纸面上，照无尽页排。
+        // 上半张只放今日词缀和开局字。成绩、印章、次数、开始都在纸面上，照无尽页排。
         const float CardTop = 122f;
         const float CardH = 228f;
         const float ScoreY = 398f;
@@ -65,7 +65,8 @@ namespace InkLine
             reset.color = InkTheme.TextMid;
             BuildBoard();
             BuildScore();
-            BuildChests();
+            if (_meta.SealOpen) BuildReward();
+            else BuildChests();
             BuildPlays();
             BuildGo();
         }
@@ -112,17 +113,22 @@ namespace InkLine
             bestT.rectTransform.sizeDelta = new Vector2(CardW, 64f);
         }
 
-        // 10 波木箱、20 波银箱。拿到的盖红，下一档描绿、箱子轻轻呼吸。
-        void BuildChests()
+        void RewardRule()
         {
-            var head = UiKit.Label(_body, "chesthead", "守 波 奖 励", 22, new Vector2(0f, Y(RewardHeadY)), new Vector2(300f, 30f));
-            UiKit.Bold(head);
-            head.color = JadeDeep;
             for (int side = -1; side <= 1; side += 2)
             {
                 var line = UiKit.Panel(_body, "rule" + side, new Vector2(side * 150f, Y(RewardHeadY)), new Vector2(110f, 3f), JadeLine);
                 line.GetComponent<Image>().raycastTarget = false;
             }
+        }
+
+        // 通关第五章前：10 波木箱、20 波银箱。拿到的盖红，下一档描绿。
+        void BuildChests()
+        {
+            var head = UiKit.Label(_body, "chesthead", "守 波 奖 励", 22, new Vector2(0f, Y(RewardHeadY)), new Vector2(300f, 30f));
+            UiKit.Bold(head);
+            head.color = JadeDeep;
+            RewardRule();
 
             int best = _meta.DailyBestToday;
             int[] need = { StageCatalog.DailyBossEvery, StageCatalog.DailyWaves };
@@ -149,6 +155,35 @@ namespace InkLine
                 Color ink = got ? InkTheme.Seal : aim ? JadeDeep : InkTheme.TextDark;
                 name.color = ink;
                 at.color = ink;
+            }
+        }
+
+        // 通关第五章后：全部守住才给一枚。四格是品质比例，种类另外都会有。
+        void BuildReward()
+        {
+            var head = UiKit.Label(_body, "chesthead", "结 算 奖 励", 22, new Vector2(0f, Y(RewardHeadY)), new Vector2(300f, 30f));
+            UiKit.Bold(head);
+            head.color = JadeDeep;
+            RewardRule();
+
+            const float W = 516f, H = 156f;
+            var card = UiKit.Stroke(_body, "seal", new Vector2(0f, Y(ChestY)), new Vector2(W, H), Pin.Center, 4f,
+                Jade, JadeFace, 20f);
+            card.GetComponent<Image>().raycastTarget = false;
+            var title = UiKit.Label(card, "title", "全部守住得一枚 · 七种类型都会有", 20,
+                new Vector2(0f, 52f), new Vector2(W - 24f, 28f));
+            UiKit.Bold(title);
+            title.color = JadeDeep;
+
+            SealQuality[] qs = { SealQuality.Green, SealQuality.Blue, SealQuality.Purple, SealQuality.Gold };
+            string[] pct = { "60%", "28%", "10%", "2%" };
+            for (int i = 0; i < qs.Length; i++)
+            {
+                float x = (i - 1.5f) * 112f;
+                SealArt.Medal(card, "q" + i, SealType.Edge, qs[i], new Vector2(x, 4f), 56f);
+                var p = UiKit.Label(card, "p" + i, pct[i], 20, new Vector2(x, -48f), new Vector2(90f, 26f));
+                UiKit.Bold(p);
+                p.color = SealCatalog.QualityDeep(qs[i]);
             }
         }
 

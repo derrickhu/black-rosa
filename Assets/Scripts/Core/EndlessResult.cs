@@ -9,5 +9,7 @@ namespace InkLine
         public int Ink;         // 已入账的墨：局内拾到的 + 每波给的
         public int Chest;       // 宝箱品阶，-1 没有
         public int ChestSlot;   // 进了哪个位；-1 位满先寄着，-3 寄不下折成墨，-2 没箱子
+        public bool HasSeal;    // 每日残局必得的那一枚，已经进背包
+        public SealDrop Seal;
     }
 }
