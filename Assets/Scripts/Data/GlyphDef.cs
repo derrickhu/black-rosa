@@ -322,7 +322,7 @@ namespace InkLine
         {
             new WordDef
             {
-                Id = WordId.InstantKill, Charge = 3,
+                Id = WordId.InstantKill, Charge = 4,
                 ExecuteHp = new Tri(0.35f, 0.45f, 0.60f),
                 ExecuteBoss = new Tri(0.22f, 0.30f, 0.40f),
                 Form = ShotFx.FormKill, Hit = HitFx.Kill
@@ -338,13 +338,13 @@ namespace InkLine
             },
             new WordDef
             {
-                Id = WordId.Knockback, Charge = 2,
+                Id = WordId.Knockback, Charge = 3,
                 Move = new Tri(0.55f, 0.85f, 1.2f),
                 Form = ShotFx.FormKnock, Hit = HitFx.Knock
             },
             new WordDef
             {
-                Id = WordId.Cleave, Charge = 3,
+                Id = WordId.Cleave, Charge = 4,
                 Count = new Tri(1f, 2f, 3f),
                 Decay = new Tri(0.84f),
                 Form = ShotFx.FormCleave, Hit = HitFx.Cleave
@@ -353,7 +353,7 @@ namespace InkLine
             // 越肉越疼 —— 专拆第二幕的高血关底，打残血的就不如秒杀。
             new WordDef
             {
-                Id = WordId.Crush, Charge = 3,
+                Id = WordId.Crush, Charge = 4,
                 Damage = new Tri(0.08f, 0.12f, 0.16f),
                 Form = ShotFx.FormCrush, Hit = HitFx.Heavy
             }

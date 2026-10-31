@@ -15,14 +15,14 @@ namespace InkLine
             new CardDef(CardId.Explode, "炸", "蓄满的那发命中爆炸", InkShape.Burst, CardWake.Charge, WordId.None, 2),
             new CardDef(CardId.Heavy, "重", "蓄满的那发变粗必暴", InkShape.Square, CardWake.Charge, WordId.None, 2),
             new CardDef(CardId.Stun, "晕", "蓄满的那发把敌人定住", InkShape.Ring, CardWake.Charge, WordId.None, 2),
-            new CardDef(CardId.Sec, "秒", "和「杀」同列才醒", InkShape.Star, CardWake.WordPart, WordId.InstantKill, 3),
-            new CardDef(CardId.Kill, "杀", "和「秒」同列才醒", InkShape.Star, CardWake.WordPart, WordId.InstantKill, 3),
-            new CardDef(CardId.Myriad, "万", "和「箭」同列才醒", InkShape.Burst, CardWake.WordPart, WordId.ArrowRain, 4),
-            new CardDef(CardId.Arrow, "箭", "和「万」同列才醒", InkShape.Bar, CardWake.WordPart, WordId.ArrowRain, 4),
-            new CardDef(CardId.Strike, "击", "和「退」同列才醒", InkShape.Square, CardWake.WordPart, WordId.Knockback, 2),
-            new CardDef(CardId.Back, "退", "和「击」同列才醒", InkShape.Square, CardWake.WordPart, WordId.Knockback, 2),
-            new CardDef(CardId.Link, "连", "和「斩」同列才醒", InkShape.Arc, CardWake.WordPart, WordId.Cleave, 3),
-            new CardDef(CardId.Slash, "斩", "和「连」同列才醒", InkShape.Bar, CardWake.WordPart, WordId.Cleave, 3),
+            new CardDef(CardId.Sec, "秒", "和「杀」同列才醒", InkShape.Star, CardWake.WordPart, WordId.InstantKill, 4),
+            new CardDef(CardId.Kill, "杀", "和「秒」同列才醒", InkShape.Star, CardWake.WordPart, WordId.InstantKill, 4),
+            new CardDef(CardId.Myriad, "万", "和「箭」同列才醒", InkShape.Burst, CardWake.WordPart, WordId.ArrowRain, 6),
+            new CardDef(CardId.Arrow, "箭", "和「万」同列才醒", InkShape.Bar, CardWake.WordPart, WordId.ArrowRain, 6),
+            new CardDef(CardId.Strike, "击", "和「退」同列才醒", InkShape.Square, CardWake.WordPart, WordId.Knockback, 3),
+            new CardDef(CardId.Back, "退", "和「击」同列才醒", InkShape.Square, CardWake.WordPart, WordId.Knockback, 3),
+            new CardDef(CardId.Link, "连", "和「斩」同列才醒", InkShape.Arc, CardWake.WordPart, WordId.Cleave, 4),
+            new CardDef(CardId.Slash, "斩", "和「连」同列才醒", InkShape.Bar, CardWake.WordPart, WordId.Cleave, 4),
             new CardDef(CardId.Gold, "金", "过格加伤，最先算", InkShape.Diamond),
             new CardDef(CardId.Wood, "木", "伤害转吸血，不加伤", InkShape.Arc),
             new CardDef(CardId.Water, "水", "命中处一圈减速", InkShape.Circle),
@@ -34,8 +34,8 @@ namespace InkLine
             new CardDef(CardId.Break, "破", "破防：挨打更痛", InkShape.Burst),
             new CardDef(CardId.Gather, "聚", "把身边的敌人拉成一团", InkShape.Circle),
             new CardDef(CardId.Rebound, "返", "飞到头折返再打一遍", InkShape.Arrow),
-            new CardDef(CardId.Qian, "千", "和「钧」同列才醒", InkShape.Square, CardWake.WordPart, WordId.Crush, 3),
-            new CardDef(CardId.Jun, "钧", "和「千」同列才醒", InkShape.Square, CardWake.WordPart, WordId.Crush, 3)
+            new CardDef(CardId.Qian, "千", "和「钧」同列才醒", InkShape.Square, CardWake.WordPart, WordId.Crush, 4),
+            new CardDef(CardId.Jun, "钧", "和「千」同列才醒", InkShape.Square, CardWake.WordPart, WordId.Crush, 4)
         };
 
         // 给按 CardId 索引的数组用，加字时跟着枚举一起长。
