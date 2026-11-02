@@ -364,14 +364,14 @@ namespace InkLine
             {
                 EnemyActor e = Enemies[i];
                 if (e.Dead) continue;
-                if (Mathf.Abs(e.Pos.x - bx) > GameConstants.CellWidth * 0.55f) continue;
+                if (Mathf.Abs(e.Pos.x - bx) > GameConstants.CellWidth * ItemCatalog.SplashHalf) continue;
                 e.BurnDps = Mathf.Max(e.BurnDps, dps);
                 e.BurnTime = Mathf.Max(e.BurnTime, time);
             }
             Bursts.Add(new FxBurst
             {
                 Pos = new Vector2(bx, GameConstants.GridCenterY),
-                Kind = HitFx.Poison, Tint = InkTheme.PoisonHi, Scale = 2f
+                Kind = HitFx.Poison, Tint = InkTheme.PoisonHi, Scale = 3.4f
             });
         }
 

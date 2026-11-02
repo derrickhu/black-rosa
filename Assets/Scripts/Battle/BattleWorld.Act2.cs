@@ -75,16 +75,14 @@ namespace InkLine
             }
             if (m.Pin) PinDown(hit);
             if (n == 0 && !m.Pin) return;
-            Bursts.Add(new FxBurst
-            {
-                Pos = c, Kind = HitFx.Wind, Tint = InkTheme.GatherHi, Scale = 0.9f + m.GatherR
-            });
+            // 定海针的蓝爆在命中时已经播过，这里不再铺一层风圈。
+            if (!m.Pin)
+                Bursts.Add(new FxBurst
+                {
+                    Pos = c, Kind = HitFx.Wind, Tint = InkTheme.GatherHi, Scale = 0.9f + m.GatherR
+                });
             if (m.Whirl) PairPop(PairFx.Whirl, c, m.GatherR);
-            if (m.Pin)
-            {
-                PairPop(PairFx.Needle, c, Mathf.Max(0.8f, m.GatherR));
-                AddShake(0.18f);
-            }
+            if (m.Pin) AddShake(0.18f);
             ShowFloat(c + Vector2.up * 0.22f, m.Pin ? "针" : m.Whirl ? "旋" : "聚",
                 m.Pin ? InkTheme.Ice : InkTheme.Gather, m.Pin ? 1.4f : m.Whirl ? 1.2f : 0.95f);
         }

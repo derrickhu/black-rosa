@@ -647,7 +647,7 @@ namespace InkLine
             return T + 1.2f;
         }
 
-        // 亮相完，辣椒酱飞到那一列顶上倒扣，一道红酱浇下去，整列腾起火柱，烧到灼烧结束。
+        // 亮相完，辣椒酱飞到最密那列顶上倒扣。红酱浇开三列，火柱烧到灼烧结束。
         float Splash(Stage s, ItemDef d, BattleWorld.ItemCast c, BattleWorld w, Vector2 key)
         {
             float T = c.Impact;
@@ -655,8 +655,16 @@ namespace InkLine
             Image hero = Showcase(s, d, key, Go);
             int col = c.Column >= 0 ? c.Column : GameConstants.Columns / 2;
             float x = BattleHud.WorldToCanvas(_layer, new Vector3(FieldLayout.ColumnX(col), 0f, 0f)).x;
+            float xStep = BattleHud.WorldToCanvas(_layer, new Vector3(FieldLayout.ColumnX(0) + GameConstants.CellWidth, 0f, 0f)).x
+                          - BattleHud.WorldToCanvas(_layer, new Vector3(FieldLayout.ColumnX(0), 0f, 0f)).x;
+            float band = Mathf.Abs(xStep) * ItemCatalog.SplashHalf * 2f;
+            // 火只铺怪走的那一段：上到出怪线，下到棋盘上沿。再往下就会盖住字。
+            float yGrid = BattleHud.WorldToCanvas(_layer, new Vector3(0f, FieldLayout.GridTop, 0f)).y;
+            float ySpawn = BattleHud.WorldToCanvas(_layer, new Vector3(0f, GameConstants.SpawnY, 0f)).y;
+            float flame = 150f * s.Pow;
+            float yLow = yGrid + flame * 0.55f;
+            float yHigh = Mathf.Max(yLow + flame, ySpawn);
             float yTop = s.Half.y - 210f;
-            float yBot = BattleHud.WorldToCanvas(_layer, new Vector3(0f, FieldLayout.GridTop, 0f)).y;
             Vector2 pour = new Vector2(x, yTop);
             s.A.Tween(Go, 0.14f, k =>
             {
@@ -669,17 +677,18 @@ namespace InkLine
             s.A.Fade(hero, T + 0.25f, 0.3f, 1f, 0f);
 
             Color sauce = InkTheme.Hex("D8261C");
-            var stream = Bar(s.G, new Vector2(46f * s.Pow, 10f), sauce);
+            float pourW = Mathf.Max(46f, band) * s.Pow;
+            var stream = Bar(s.G, new Vector2(pourW, 10f), sauce);
             var srt = stream.rectTransform;
             srt.pivot = new Vector2(0.5f, 1f);
             srt.anchoredPosition = pour + new Vector2(0f, -50f);
-            float len = Mathf.Max(80f, pour.y - 50f - yBot);
+            float len = Mathf.Max(80f, pour.y - 50f - yLow);
             s.A.Tween(Go + 0.16f, T + 0.4f - (Go + 0.16f), k =>
             {
                 float now = Go + 0.16f + k * (T + 0.4f - Go - 0.16f);
                 float grow = Mathf.Clamp01((now - Go - 0.16f) / (T - Go - 0.16f));
                 float thin = now > T ? 1f - (now - T) / 0.4f : 1f;
-                srt.sizeDelta = new Vector2(46f * s.Pow * thin, len * Ease.InQuad(grow));
+                srt.sizeDelta = new Vector2(pourW * thin, len * Ease.InQuad(grow));
                 stream.enabled = thin > 0.02f && grow > 0f;
             });
 
@@ -688,19 +697,24 @@ namespace InkLine
             {
                 AudioBus.HitFire();
                 Flash(s, InkTheme.Hex("FF5A2A"), T, 0.38f, 0.35f);
-                var glow = Pic(s.G, InkFx.SoftDisc(), new Vector2(x, (pour.y + yBot) * 0.5f - 60f), 10f, Alpha(InkTheme.Fire, 0f));
+                float span = Mathf.Max(flame, yHigh - yLow);
+                var glow = Pic(s.G, InkFx.SoftDisc(), new Vector2(x, (yHigh + yLow) * 0.5f), 10f, Alpha(InkTheme.Fire, 0f));
                 glow.preserveAspect = false;
-                glow.rectTransform.sizeDelta = new Vector2(320f * s.Pow, len + 360f);
+                glow.rectTransform.sizeDelta = new Vector2(pourW * 1.15f, span);
                 glow.transform.SetAsFirstSibling();
                 Sprite[] fire = Frames("Vfx/burn_body_", 4);
-                int n = Mathf.Max(3, Mathf.CeilToInt((pour.y - yBot + 200f) / 100f));
+                int rows = Mathf.Clamp(Mathf.RoundToInt(span / (flame * 0.72f)), 4, 8);
+                float step = (yHigh - yLow) / (rows - 1);
+                int n = rows * 3;
                 var flames = new Image[n];
                 for (int i = 0; i < n; i++)
                 {
-                    float y = yBot - 140f + i * 100f;
-                    flames[i] = Pic(s.G, fire.Length > 0 ? fire[i % fire.Length] : null, new Vector2(x + UnityEngine.Random.Range(-14f, 14f), y),
+                    int lane = i % 3 - 1;
+                    float y = yLow + (i / 3) * step;
+                    float fx = x + lane * xStep + UnityEngine.Random.Range(-10f, 10f);
+                    flames[i] = Pic(s.G, fire.Length > 0 ? fire[i % fire.Length] : null, new Vector2(fx, y),
                         150f * s.Pow, Alpha(Color.white, 0f));
-                    Boom(s, "Vfx/fire_hit_", 4, new Vector2(x, y), 200f * s.Pow, Color.white, T + i * 0.025f, 0.3f);
+                    Boom(s, "Vfx/fire_hit_", 4, new Vector2(fx, y), 200f * s.Pow, Color.white, T + i * 0.012f, 0.3f);
                 }
                 s.A.Tween(Rel(s, T), burn, k =>
                 {
@@ -715,7 +729,7 @@ namespace InkLine
                         flames[i].rectTransform.localScale = new Vector3(wob, 2f - wob, 1f);
                     }
                 });
-                Embers(s, new Vector2(x, yBot), 70f * s.Pow, Mathf.Max(100f, pour.y - yBot), 10 + s.Lv * 4, T, burn);
+                Embers(s, new Vector2(x, yLow), pourW * 0.48f, Mathf.Max(100f, yHigh - yLow), 16 + s.Lv * 4, T, burn);
             });
             return T + burn + 0.3f;
         }

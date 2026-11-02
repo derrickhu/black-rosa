@@ -305,7 +305,7 @@ namespace InkLine
                 Rebound = new Tri(0.6f, 0.75f, 0.9f),
                 Trail = ShotFx.TrailRebound
             },
-            // 影：这一发爬完列之后，再从炮口补一发。影弹只吃常驻字，不再套影。
+            // 影：这一列每 4 发，补一发紧跟在后面的影弹。影弹只吃常驻字，不再套影。
             new GlyphDef
             {
                 Id = CardId.Shadow, Family = GlyphFamily.Ballistic,

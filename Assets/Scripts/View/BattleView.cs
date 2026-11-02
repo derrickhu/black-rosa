@@ -437,7 +437,8 @@ namespace InkLine
                     glow.Sync(b);
                     if (neo != null) neo.Hide();
                 }
-                else if (GlowShot.Wants(b.Mods))
+                else if (!ShotLook.Resolve(b.Mods).Hidden
+                    && (GlowShot.Wants(b.Mods) || (b.Ghost && GlowShot.ArtReady("shadow_shot_00"))))
                 {
                     if (glow != null) glow.Hide();
                     if (neo == null) neo = shot.gameObject.AddComponent<GlowShot>();
@@ -509,17 +510,14 @@ namespace InkLine
         public const float DartScale = 0.64f;
         static readonly Color DemonTint = InkTheme.Hex("E040B8");
 
-        // ward_shield.png 里笔触圈占画布的比例。用来把圈缩到刚好套住这只怪。
-        const float WardFill = 0.82f;
-
-        // 别人挂上去的盾（墨僧、钟魔、魔化）：一圈墨笔水纹，慢慢转，挨一发就碎。
+        // 别人挂上去的盾（墨僧、钟魔、魔化）：一面金光盾立在身前，朝向打过来的炮弹。
         // 盾兵自己那面盾画在贴图里，不再罩。
         static void PaintWard(SpriteRenderer host, EnemyActor e)
         {
             Transform t = host.transform.Find("ward");
             SpriteRenderer sr = t != null ? t.GetComponent<SpriteRenderer>() : null;
             bool on = e.Shield && e.ShieldGiven;
-            Sprite art = on ? InkSprites.Load("Vfx/ward_shield") : null;
+            Sprite art = on ? InkSprites.Load("Vfx/ward_gold") : null;
             if (!on || art == null)
             {
                 if (sr != null) sr.enabled = false;
@@ -533,21 +531,20 @@ namespace InkLine
             }
             sr.sprite = art;
             sr.enabled = true;
-            sr.sortingOrder = host.sortingOrder + 1;
+            sr.sortingOrder = host.sortingOrder + 3;
             float a = 0.9f + 0.08f * Mathf.Sin(Time.unscaledTime * 2.4f + e.Id);
             if (e.Hidden) a *= 0.4f;
             sr.color = new Color(1f, 1f, 1f, a);
             Vector3 p = host.transform.localScale;
-            float bw = host.sprite != null ? host.sprite.bounds.size.x * Mathf.Abs(p.x) : e.Radius * 2.6f;
-            float bh = host.sprite != null ? host.sprite.bounds.size.y * Mathf.Abs(p.y) : e.Radius * 2.6f;
-            float full = Mathf.Max(bw, bh) * 1.22f / WardFill;
-            float w = Mathf.Max(0.01f, art.bounds.size.x);
-            sr.transform.localScale = new Vector3(
-                full / (w * Mathf.Max(0.01f, Mathf.Abs(p.x))),
-                full / (w * Mathf.Max(0.01f, Mathf.Abs(p.y))),
-                1f);
-            sr.transform.localPosition = Vector3.zero;
-            sr.transform.localRotation = Quaternion.Euler(0f, 0f, Time.unscaledTime * 22f + e.Id * 40f);
+            float bodyH = host.sprite != null ? host.sprite.bounds.size.y : e.Radius * 2.6f;
+            float artH = Mathf.Max(0.01f, art.bounds.size.y);
+            float local = bodyH * 0.86f / artH;
+            float pulse = 1f + 0.035f * Mathf.Sin(Time.unscaledTime * 3.1f + e.Id);
+            float sx = Mathf.Max(0.01f, Mathf.Abs(p.x));
+            float sy = Mathf.Max(0.01f, Mathf.Abs(p.y));
+            sr.transform.localScale = new Vector3(local * pulse * sy / sx, local * pulse, 1f);
+            sr.transform.localPosition = new Vector3(0f, -bodyH * 0.16f, 0f);
+            sr.transform.localRotation = Quaternion.identity;
         }
 
         // 命中白闪。原来是整只换成纯白剪影，射速快的时候敌人大半时间都是一团白，

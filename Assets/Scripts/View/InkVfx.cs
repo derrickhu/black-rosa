@@ -227,7 +227,13 @@ namespace InkLine
                 case ShotFx.FormRamEarth:   body = Pair("ramearth_shot", 0.109f, 0.70f); return true;
                 case ShotFx.FormColdWind:   body = Pair("coldwind_shot", 0.087f, 0.61f); return true;
                 case ShotFx.FormBlaze:      body = Pair("blaze_shot", -0.113f, 0.90f); return true;
-                case ShotFx.FormThunderCut: body = Pair("thundercut_shot", 0.103f, 1.06f); return true;
+                case ShotFx.FormThunderCut:
+                    body = new FlatBody
+                    {
+                        Frames = "thundercut_shot", Count = 5, Window = 5,
+                        MaxStar = 3, Sink = 0f, Scale = 1.05f
+                    };
+                    return true;
 
                 default:
                     body = default;
@@ -323,6 +329,22 @@ namespace InkLine
         }
 
         static readonly Dictionary<string, Sprite[]> Sequences = new Dictionary<string, Sprite[]>();
+        static readonly Dictionary<string, int> FrameCounts = new Dictionary<string, int>();
+
+        // 连着数到第一张缺的。三字诀的火环、枪、爆点帧数都不止四张。
+        public static int CountFrames(string baseName, int max = 12)
+        {
+            if (string.IsNullOrEmpty(baseName)) return 0;
+            if (FrameCounts.TryGetValue(baseName, out int cached)) return cached;
+            int n = 0;
+            for (int i = 0; i < max; i++)
+            {
+                if (InkSprites.Load($"Vfx/{baseName}_{i:00}") == null) break;
+                n++;
+            }
+            if (n > 0) FrameCounts[baseName] = n;
+            return n;
+        }
 
         // 默认 4 帧一组，缺帧就当这套图不存在，交给调用方回落。
         public static Sprite[] Frames(string baseName) => Frames(baseName, 4);

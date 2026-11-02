@@ -139,19 +139,21 @@ namespace InkLine
             int have = _meta.ItemCardCount(_item);
             int need = ItemCatalog.NextCards(d, rank);
             int price = ItemCatalog.NextPrice(d, rank);
-            var row = UiKit.Panel(board, "cost", new Vector2(0f, y), new Vector2(BoardW - 80f, 88f), Color.clear, Pin.Top);
+            float rowH = price > 0 ? 124f : 88f;
+            var row = UiKit.Panel(board, "cost", new Vector2(0f, y), new Vector2(BoardW - 80f, rowH), Color.clear, Pin.Top);
             row.GetComponent<Image>().raycastTarget = false;
-            var head = UiKit.Label(row, "need", rank <= 0 ? "解锁需要" : "升级需要", 22, new Vector2(-190f, 0f),
+            float cy = price > 0 ? 26f : 0f;
+            var head = UiKit.Label(row, "need", rank <= 0 ? "解锁需要" : "升级需要", 22, new Vector2(-190f, cy),
                 new Vector2(140f, 34f), TextAnchor.MiddleLeft);
             head.color = InkTheme.TextMid;
-            CardIcon(row, d.Id, new Vector2(-82f, 0f), 80f);
-            var cards = UiKit.Label(row, "cards", have + "/" + need, 26, new Vector2(4f, 0f), new Vector2(90f, 34f),
+            CardIcon(row, d.Id, new Vector2(-70f, cy), 64f);
+            var cards = UiKit.Label(row, "cards", have + "/" + need, 26, new Vector2(50f, cy), new Vector2(200f, 34f),
                 TextAnchor.MiddleLeft);
             cards.color = have >= need ? InkTheme.TextDark : InkTheme.Rose;
             UiKit.Bold(cards);
             if (price <= 0) return;
-            UiKit.Icon(row, InkSprites.Ui("ink"), new Vector2(100f, 0f), 40f);
-            var ink = UiKit.Label(row, "ink", price.ToString(), 26, new Vector2(164f, 0f), new Vector2(90f, 34f),
+            UiKit.Icon(row, InkSprites.Ui("ink"), new Vector2(-210f, -30f), 40f);
+            var ink = UiKit.Label(row, "ink", price.ToString(), 26, new Vector2(-70f, -30f), new Vector2(200f, 34f),
                 TextAnchor.MiddleLeft);
             ink.color = _meta.Ink >= price ? InkTheme.TextDark : InkTheme.Rose;
             UiKit.Bold(ink);

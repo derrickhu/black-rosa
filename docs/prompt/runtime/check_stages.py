@@ -776,16 +776,56 @@ check(0.6 * study_full <= foil_main <= 1.1 * study_full,
 item_src = read("Data", "ItemCatalog.cs")
 chest_src = read("Data", "ChestCatalog.cs")
 forge_cost = sum(int(x) for grp in re.findall(r"Cost = new\[\] \{([^}]*)\}", forge_src) for x in re.findall(r"\d+", grp))
-# 道具：解锁只要卡，2~满级每级花墨，复刻 ItemCatalog.NextPrice。
+# 道具：解锁只要卡，2~5 级花墨，复刻 ItemCatalog.NextPrice。
+# 6 级起是通关后的墨坑（按 5 级价的固定倍数），不进首通比，否则买满永远超线。
 max_lv = int(re.search(r"MaxLevel = (\d+)", item_src).group(1))
 ink_base = int(re.search(r"InkBase = (\d+)", item_src).group(1))
 ink_grow = float(re.search(r"InkGrow\s*=\s*([\d.]+)f", item_src).group(1))
+ink_curve = int(re.search(r"InkCurve = (\d+)", item_src).group(1))
 ink_mul = [float(x) for x in re.search(r"InkMul = \{([^}]*)\}", item_src).group(1).replace("f", "").split(",")]
+ink_tail = [float(x) for x in re.search(r"InkTail = \{([^}]*)\}", item_src).group(1).replace("f", "").split(",")]
 q_of = {"Green": 0, "Blue": 1, "Purple": 2}
 quals = [q_of[q] for q in re.findall(r"Quality = ItemQuality\.(\w+), Cooldown", item_src)]
 check(len(quals) == 10, f"道具 10 件，读到 {len(quals)} 件")
-item_cost = sum(round(ink_base * ink_mul[q] * (1 + ink_grow * (lv - 1)) / 5) * 5
-                for q in quals for lv in range(1, max_lv))
+check(max_lv == ink_curve + len(ink_tail), f"道具满级 {max_lv} = 曲线 {ink_curve} + 后段 {len(ink_tail)} 级")
+
+
+def item_price(q, level):
+    step = ink_base * ink_mul[q]
+    raw = (step * (1 + ink_grow * (level - 1)) if level < ink_curve
+           else step * (1 + ink_grow * 3) * ink_tail[level - ink_curve])
+    return round(raw / 5) * 5
+
+
+item_cost = sum(item_price(q, lv) for q in quals for lv in range(1, ink_curve))
+item_tail = sum(item_price(q, lv) for q in quals for lv in range(ink_curve, max_lv))
+for q, name in enumerate(("普通", "高级", "稀有")):
+    prices = [item_price(q, lv) for lv in range(1, max_lv)]
+    check(prices == sorted(prices) and len(prices) == len(set(prices)),
+          f"道具{name}升级价逐级上涨: {' / '.join(str(p) for p in prices)}")
+    check(prices[ink_curve - 1] >= prices[ink_curve - 2] * 1.4,
+          f"道具{name} 5→6 级 {prices[ink_curve - 1]} 至少是 4→5 级 {prices[ink_curve - 2]} 的 1.4 倍")
+check(2 <= item_tail / item_cost <= 4,
+      f"道具 6～满级墨价 {item_tail} / 1～5 级 {item_cost} = {item_tail / item_cost:.2f}（要 2～4，后三级比前五级贵，但不按早期余墨定价）")
+card_body = re.search(r"CardNeed =\s*\{(.*?)\};", item_src, re.S).group(1)
+card_rows = [[int(n) for n in re.findall(r"\d+", row)]
+             for row in re.findall(r"new\[\] \{([^}]*)\}", card_body)]
+check(len(card_rows) == 3 and all(len(row) == max_lv for row in card_rows),
+      f"道具卡表 3 行、每行 {max_lv} 级")
+for q, name in enumerate(("普通", "高级", "稀有")):
+    row = card_rows[q]
+    check(row == sorted(row) and len(row) == len(set(row)),
+          f"道具{name}卡数逐级上涨: {' / '.join(str(n) for n in row)}")
+    check(row[ink_curve] > row[ink_curve - 1],
+          f"道具{name} 5→6 级要 {row[ink_curve]} 张，多于 4→5 级的 {row[ink_curve - 1]} 张")
+for idx in range(max_lv):
+    triple = [card_rows[q][idx] for q in range(3)]
+    check(triple[0] >= triple[1] >= triple[2],
+          f"升到 {idx + 1} 级的卡 普通 ≥ 高级 ≥ 稀有: {' / '.join(str(n) for n in triple)}")
+for idx in range(ink_curve, max_lv):
+    triple = [card_rows[q][idx] for q in range(3)]
+    check(triple[0] > triple[1] > triple[2],
+          f"升到 {idx + 1} 级的卡 普通 > 高级 > 稀有: {' / '.join(str(n) for n in triple)}")
 skin_cost = sum(int(x) for x in re.findall(r"Name = \"[^\"]+\",[^\n]*Price = (\d+)", item_src))
 sink = forge_cost + item_cost + skin_cost
 # 胜利宝箱：普通关按轮换表发，boss 关金箱，章底首通皇家箱。首通一遍拿到的箱子墨算额外收入。
@@ -821,7 +861,7 @@ check(0.9 <= forge_open / doubled <= 1.3,
       f"改装（{chapters * size} 关内开放的级）/ 首通墨收入（每关都看双倍）= {forge_open} / {doubled} = {forge_open / doubled:.2f}（要 0.9~1.3）")
 chest_share = chest_ink / max(1, income)
 check(chest_share <= 0.2, f"宝箱墨占首通墨收入 {chest_share:.0%}（要 ≤20%，箱子是添头，主收入还是打怪）")
-print(f"  墨价明细：锻造 {forge_cost}  道具 {item_cost}  皮肤 {skin_cost}")
+print(f"  墨价明细：锻造 {forge_cost}  道具1～5级 {item_cost}  道具6～满级 {item_tail}  皮肤 {skin_cost}")
 print("  首通宝箱: " + "  ".join(f"{k} {v}" for k, v in got.items()))
 # 钻石：首通全关 + 新手礼包 + 一轮签到，够开几次箱、补几次体力。
 const_dia = {k: int(v) for k, v in re.findall(r"(Diamond(?:Stage|Boss|Finale)|GiftDiamond)\s*=\s*(\d+)", const_src)}

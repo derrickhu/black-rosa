@@ -249,43 +249,17 @@ namespace InkLine
             Anim("hitv_wind", to, s * 0.8f, s * 1.2f, 0.36f, OrderHit, 0.04f);
         }
 
-        // 雷决：斩下去那一刀是一道从天而降的雷刃。
+        // 雷决：斩下去播电击那五帧，亮头朝上。
         void ThunderCut(Vector2 at, float r)
         {
-            float s = Mathf.Max(1f, r * 2.6f);
-            Sprite blade = Pic("word_kill_blade");
-            if (blade != null)
-            {
-                Bit b = Add(blade, at + Vector2.up * 0.4f, OrderTop, InkTheme.ThunderHi, false);
-                Vector2 full = Size(blade, s * 1.9f);
-                b.S0 = new Vector2(full.x * 1.4f, full.y * 0.2f);
-                b.S1 = full;
-                b.Life = 0.34f;
-                b.A0 = 1f;
-            }
-            Anim("hitv_thunder", at, s, s * 1.6f, 0.38f, OrderHit, 0.05f);
-            Flash(at, s * 0.4f, s * 2f, 0.22f);
-            Spray(at, 10, InkFx.Star(), 0.24f, 2.4f, 4.4f, 0.4f, InkTheme.Thunder, OrderTop, 0f, 0.05f);
+            Cartoon("thundercut_shot", at, 1.65f);
         }
 
-        // 崩山：甲当场崩成碎块。
+        // 崩山：晶体裂开那四帧。
         void Crumble(Vector2 at, float r)
         {
-            float s = Mathf.Max(1f, r * 2.4f);
-            Glow("crumble_burst", at, s * 0.3f, s * 1.5f, 0.42f, OrderTop, 0f);
-            Anim("hitv_earth", at, s * 0.8f, s * 1.2f, 0.36f, OrderHit);
-            Sprite shard = Pic("crumble_shards");
-            if (shard == null) return;
-            for (int i = 0; i < 6; i++)
-            {
-                Bit b = Add(shard, at, OrderTop, Color.white, false);
-                float a = (i / 6f + Random.Range(-0.06f, 0.06f)) * Mathf.PI * 2f;
-                b.Vel = new Vector2(Mathf.Cos(a), Mathf.Sin(a) * 0.6f + 0.7f) * Random.Range(2.4f, 3.6f);
-                b.Gravity = -9f;
-                b.Life = 0.5f;
-                b.S0 = b.S1 = Size(shard, Random.Range(0.3f, 0.45f));
-                b.Spin = Random.Range(-480f, 480f);
-            }
+            Cartoon("crumble_shot", at, 1.45f);
+            Flash(at, 0.15f, 0.7f, 0.14f);
         }
 
         // 坍缩：先往里一吸，一圈墨光收成一点，再炸开。
@@ -307,19 +281,15 @@ namespace InkLine
                 b.S1 = Vector2.one * 0.08f;
                 b.HoldAlpha = true;
             }
-            Glow("collapse_burst", at, d * 0.2f, d * 1.05f, 0.42f, OrderTop, 0.16f);
+            Cartoon("collapse_shot", at, 1.4f);
             Flash(at, d * 0.1f, d * 0.8f, 0.2f, 0.16f);
         }
 
         // 旋风：一团怪被卷成一个旋。
         void Whirl(Vector2 at, float r)
         {
-            float d = Mathf.Max(1.2f, r * 2f);
-            Bit a = Glow("whirl_burst", at, d * 1.2f, d * 0.7f, 0.6f, OrderHit, 0f);
-            if (a != null) a.Spin = 520f;
-            Bit b = Glow("whirl_burst", at, d * 0.7f, d * 0.35f, 0.5f, OrderHit + 1, 0.06f);
-            if (b != null) b.Spin = -680f;
-            Ring(at, d * 1.3f, d * 0.4f, 0.45f, InkTheme.Wind, 0.75f, OrderGround);
+            Cartoon("whirl_shot", at, 1.4f);
+            Ring(at, Mathf.Max(1.2f, r * 2f) * 1.1f, 0.35f, 0.4f, InkTheme.Wind, 0.55f, OrderGround);
         }
 
         // 回锋：折返那一下亮一道锋。
@@ -327,21 +297,19 @@ namespace InkLine
         {
             Vector2 dir = toward - at;
             float rot = Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg - 90f;
-            Bit b = Glow("riposte_burst", at, 0.4f, 1.5f, 0.36f, OrderTop, 0f);
-            if (b != null) b.Sr.transform.localRotation = Quaternion.Euler(0f, 0f, rot);
-            Flash(at, 0.2f, 1.1f, 0.16f);
-            Sprite shard = Pic("riposte_shards");
-            if (shard == null) return;
-            for (int i = 0; i < 4; i++)
+            int n = InkVfx.CountFrames("riposte_shot");
+            Sprite[] frames = n > 0 ? InkVfx.Frames("riposte_shot", n) : null;
+            if (frames != null && frames[0] != null)
             {
-                Bit s = Add(shard, at, OrderTop, Color.white, false);
-                float a = Random.Range(0f, Mathf.PI * 2f);
-                s.Vel = new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * Random.Range(1.8f, 3f);
-                s.Life = 0.35f;
-                s.S0 = Size(shard, 0.4f);
-                s.S1 = Size(shard, 0.12f);
-                s.Spin = Random.Range(-360f, 360f);
+                Bit b = Add(frames[0], at, OrderTop, Color.white, false);
+                b.Frames = frames;
+                b.S0 = b.S1 = Size(frames[0], 1.5f);
+                b.Life = 0.4f;
+                b.A0 = 1f;
+                b.HoldAlpha = true;
+                b.Sr.transform.localRotation = Quaternion.Euler(0f, 0f, rot);
             }
+            Flash(at, 0.2f, 1.1f, 0.16f);
         }
 
         // ---------- 火地 ----------
@@ -627,119 +595,58 @@ namespace InkLine
             b.A0 = 0.9f;
         }
 
-        // 风火轮：折返那一下是大轮，横推带出的是小轮。
+        // 三字诀的击中用素材包里的爆点，播一遍，不再放大成一圈圈程序环。
+        static float ToonSize(float size)
+        {
+            if (size >= 3f) return 1.75f;
+            if (size >= 2f) return 1.5f;
+            return 1.28f;
+        }
+
+        void Cartoon(string set, Vector2 at, float size)
+        {
+            int n = InkVfx.CountFrames(set);
+            if (n <= 0) return;
+            Sprite[] frames = InkVfx.Frames(set, n);
+            if (frames == null || frames[0] == null) return;
+            Bit b = Add(frames[0], at, OrderTop, Color.white, false);
+            b.Frames = frames;
+            b.S0 = Size(frames[0], size);
+            b.S1 = b.S0;
+            b.Life = Mathf.Max(0.42f, n * 0.08f);
+            b.A0 = 1f;
+            b.HoldAlpha = true;
+        }
+
         void FireWheel(Vector2 at, float size)
         {
-            float s = Mathf.Max(1.8f, size) * 1.45f;
-            bool big = size >= 2.2f;
-            Anim("hitv_fire", at, s * 0.85f, s * 1.55f, 0.48f, OrderHit);
-            if (big) Anim("hitv_fire", at, s * 0.4f, s * 1.15f, 0.36f, OrderTop, 0.06f);
-            Mark(at, s * 0.35f, s * (big ? 1.35f : 0.7f), big ? 0.7f : 0.4f, Ember, 0.55f);
-            Ring(at, s * 0.25f, s * 1.7f, 0.42f, Ember, 0.95f, OrderHit);
-            Ring(at, s * 0.45f, s * 2.15f, 0.55f, InkTheme.CoinFace, 0.75f, OrderGround, 0.04f);
-            if (big) Ring(at, s * 0.2f, s * 2.6f, 0.62f, Color.white, 0.55f, OrderTop, 0.08f);
-            Flash(at, s * 0.35f, s * 1.7f, 0.2f);
-            int n = big ? 14 : 8;
-            for (int i = 0; i < n; i++)
-            {
-                Bit b = Add(InkFx.Star(), at, OrderTop, i % 2 == 0 ? Ember : Color.white, true);
-                b.Orbit = true;
-                b.From = at;
-                b.Lift = s * (0.34f + (i % 3) * 0.12f);
-                b.OrbitAng = i / (float)n * Mathf.PI * 2f;
-                b.OrbitRate = 11f;
-                b.Life = big ? 0.78f : 0.5f;
-                b.S0 = Vector2.one * (0.28f + (i % 2) * 0.14f);
-                b.S1 = b.S0 * 0.3f;
-                b.Spin = i % 2 == 0 ? 520f : -520f;
-            }
-            if (big)
-            {
-                for (int i = 0; i < 8; i++)
-                {
-                    Bit b = Add(InkFx.Star(), at, OrderMote, InkTheme.CoinFace, true);
-                    b.Orbit = true;
-                    b.From = at;
-                    b.Lift = s * 0.72f;
-                    b.OrbitAng = i / 8f * Mathf.PI * 2f;
-                    b.OrbitRate = -7f;
-                    b.Life = 0.84f;
-                    b.S0 = Vector2.one * 0.22f;
-                    b.S1 = b.S0 * 0.4f;
-                }
-            }
-            Spray(at, big ? 16 : 8, InkFx.Dot(), 0.12f, 1.8f, 4.2f, 0.46f, Ember, OrderTop, -4f);
+            Cartoon("firewheel_hit", at, ToonSize(size));
         }
 
-        void GoldBeam(Vector2 at, float s, float delay)
-        {
-            Bit b = Anim("hitv_thunder", at, s, s * 1.3f, 0.4f, OrderTop, delay);
-            if (b == null) return;
-            b.C = new Color(1f, 0.9f, 0.45f, 1f);
-            b.S0 = new Vector2(b.S0.x * 0.34f, b.S0.y * 3.1f);
-            b.S1 = new Vector2(b.S1.x * 0.12f, b.S1.y * 4.2f);
-        }
-
-        // 穿云箭：齐射是一道金柱，打中单只只闪一下。
+        // 穿云箭打中：万箭那下命中之外，再溅几颗发光粒子。
         void Cloud(Vector2 at, float size)
         {
-            float s = Mathf.Max(1.4f, size) * 1.55f;
-            bool big = size >= 2.4f;
-            GoldBeam(at, s, 0f);
-            if (big) GoldBeam(at + Vector2.up * 0.35f, s * 0.72f, 0.05f);
-            Flash(at, s * 0.22f, s * (big ? 1.6f : 0.9f), 0.16f);
-            Ring(at, s * 0.15f, s * (big ? 1.35f : 0.7f), 0.32f, InkTheme.CoinFace, 0.9f, OrderHit);
-            if (big) Ring(at, s * 0.4f, s * 2.1f, 0.48f, Color.white, 0.45f, OrderTop, 0.06f);
-            Color gold = new Color(1f, 0.92f, 0.55f, 1f);
-            int n = big ? 9 : 4;
-            for (int i = 0; i < n; i++)
+            float s = Mathf.Clamp(size, 0.4f, 0.8f);
+            Color gold = new Color(1f, 0.88f, 0.4f, 1f);
+            for (int i = 0; i < 5; i++)
             {
-                float x = (i - (n - 1) * 0.5f) * (big ? 0.16f : 0.1f);
-                Bit b = Add(InkFx.Star(), at, OrderTop, i % 2 == 0 ? gold : Color.white, true);
+                Bit b = Add(i % 2 == 0 ? InkFx.Star() : InkFx.Mote(), at, OrderTop, i % 2 == 0 ? gold : Color.white, true);
+                float ang = i / 5f * Mathf.PI * 2f;
                 b.Travel = true;
-                b.From = at + new Vector2(x, -0.05f);
-                b.To = b.From + Vector2.up * (big ? 2.4f : 1.1f);
-                b.Life = big ? 0.34f : 0.22f;
-                b.Delay = i * 0.018f;
-                b.S0 = Vector2.one * (big ? 0.28f : 0.16f);
-                b.S1 = b.S0 * 0.35f;
-                b.A0 = 0.95f;
+                b.From = at;
+                b.To = at + new Vector2(Mathf.Cos(ang) * s * 0.45f, Mathf.Sin(ang) * s * 0.28f + s * 0.35f);
+                b.Life = 0.26f;
+                b.Delay = i * 0.015f;
+                b.S0 = Vector2.one * (i % 2 == 0 ? 0.18f : 0.12f);
+                b.S1 = b.S0 * 0.25f;
+                b.A0 = 0.9f;
             }
-            Spray(at, big ? 12 : 5, InkFx.Star(), big ? 0.16f : 0.1f, 2.4f, 5.4f, 0.34f, gold, OrderTop, 8f);
         }
 
-        void IceSpike(Vector2 at, float s, float delay)
-        {
-            Bit b = Anim("hitv_ice", at, s * 0.45f, s * 0.8f, 0.46f, OrderHit, delay);
-            if (b == null) return;
-            b.S0 = new Vector2(b.S0.x * 0.2f, b.S0.y * 2.8f);
-            b.S1 = new Vector2(b.S1.x * 0.1f, b.S1.y * 3.3f);
-        }
-
-        // 定海针：冰柱钉下去，脚下留下一圈不散的冰。
+        // 定海针：钉在怪身上的是一朵蓝爆。
         void Needle(Vector2 at, float size)
         {
-            float s = Mathf.Max(1.8f, size * 3.1f);
-            IceSpike(at, s, 0f);
-            IceSpike(at + Vector2.up * 0.12f, s * 0.72f, 0.05f);
-            Mark(at, s * 0.2f, s * 0.85f, 0.85f, InkTheme.Ice, 0.7f);
-            Ring(at, s * 0.16f, s * 1.45f, 0.52f, InkTheme.Ice, 0.95f, OrderGround);
-            Ring(at, s * 0.55f, s * 0.22f, 0.48f, Color.white, 0.8f, OrderHit, 0.04f);
-            Ring(at, s * 0.35f, s * 1.05f, 0.7f, InkTheme.GatherHi, 0.65f, OrderGround, 0.08f);
-            Flash(at, s * 0.2f, s * 0.85f, 0.16f);
-            for (int i = 0; i < 8; i++)
-            {
-                Bit b = Add(InkFx.Star(), at, OrderTop, i % 2 == 0 ? InkTheme.Ice : Color.white, true);
-                b.Orbit = true;
-                b.From = at;
-                b.Lift = s * 0.42f;
-                b.OrbitAng = i / 8f * Mathf.PI * 2f;
-                b.OrbitRate = 5.5f;
-                b.Life = 0.72f;
-                b.S0 = Vector2.one * 0.2f;
-                b.S1 = b.S0 * 0.45f;
-            }
-            Spray(at, 14, InkFx.Star(), 0.16f, 0.6f, 2.2f, 0.55f, InkTheme.Ice, OrderTop, -11f);
+            Cartoon("needle_hit", at, ToonSize(size));
         }
 
         // 封：一圈紫环收紧。
@@ -747,7 +654,9 @@ namespace InkLine
         {
             float s = Mathf.Max(0.95f, size * 2.3f);
             Ring(at, s * 0.95f, s * 0.28f, 0.42f, InkTheme.SealHi, 0.95f, OrderHit);
-            Sprite zap = Pic("stun_ring");
+            // 环在贴图里只占中间一圈，放大后才罩得住怪。
+            Bit flick = Anim("seal_mark", at, s * 1.9f, s * 1.15f, 0.5f, OrderTop);
+            Sprite zap = flick == null ? Pic("stun_ring") : null;
             if (zap != null)
             {
                 Bit b = Add(zap, at, OrderTop, InkTheme.GlyphSeal, false);
@@ -760,60 +669,86 @@ namespace InkLine
             Flash(at, s * 0.28f, s * 0.12f, 0.18f);
         }
 
-        // 失魂：一大圈紫光把人罩住，中间一道魂火。
+        // 失魂：紫火往上窜，旁边飘粉色心。
         void Soul(Vector2 at, float size)
         {
-            float s = Mathf.Max(1.8f, size) * 1.7f;
-            Mark(at, s * 0.25f, s * 1.15f, 0.7f, new Color(0.72f, 0.28f, 1f, 1f), 0.75f);
-            Ring(at, s * 0.2f, s * 1.7f, 0.5f, new Color(0.85f, 0.4f, 1f, 1f), 0.95f, OrderHit);
-            Ring(at, s * 0.55f, s * 2.3f, 0.62f, new Color(0.45f, 0.85f, 1f, 1f), 0.7f, OrderGround, 0.05f);
-            Ring(at, s * 0.15f, s * 0.55f, 0.4f, Color.white, 0.9f, OrderTop, 0.04f);
-            Flash(at, s * 0.25f, s * 1.4f, 0.2f);
-            for (int i = 0; i < 10; i++)
+            float s = Mathf.Clamp(size, 0.6f, 1f);
+            Ring(at, s * 0.95f, s * 0.2f, 0.36f, new Color(0.72f, 0.32f, 1f, 1f), 0.9f, OrderHit);
+            Ring(at, s * 0.5f, s * 0.12f, 0.3f, new Color(1f, 0.46f, 0.72f, 1f), 0.75f, OrderTop, 0.04f);
+            Flash(at, s * 0.16f, s * 0.04f, 0.1f);
+            Sprite flame = GlowShot.Poster("soul");
+            if (flame != null)
             {
-                Bit b = Add(InkFx.Star(), at, OrderTop, i % 2 == 0 ? new Color(0.85f, 0.45f, 1f, 1f) : Color.white, true);
-                b.Orbit = true;
-                b.From = at;
-                b.Lift = s * (0.4f + (i % 3) * 0.12f);
-                b.OrbitAng = i / 10f * Mathf.PI * 2f;
-                b.OrbitRate = 8f;
-                b.Life = 0.7f;
-                b.S0 = Vector2.one * 0.26f;
-                b.S1 = b.S0 * 0.35f;
+                Bit flick = Add(flame, at, OrderTop, Color.white, false);
+                flick.Travel = true;
+                flick.From = at;
+                flick.To = at + Vector2.up * s * 0.48f;
+                flick.Lift = 0.1f;
+                flick.Life = 0.34f;
+                flick.S0 = Size(flame, s * 0.38f);
+                flick.S1 = Size(flame, s * 0.07f);
+                flick.Spin = 36f;
             }
-            Spray(at, 12, InkFx.Dot(), 0.14f, 1.2f, 3.4f, 0.5f, new Color(0.8f, 0.4f, 1f, 1f), OrderTop, 2f);
+            for (int i = 0; i < 7; i++)
+            {
+                float a = i / 7f * Mathf.PI * 2f;
+                Color c = i % 2 == 0 ? new Color(0.82f, 0.4f, 1f, 1f) : new Color(1f, 0.48f, 0.74f, 1f);
+                Bit b = Add(InkFx.Star(), at, OrderTop, c, true);
+                b.Travel = true;
+                b.From = at + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * s * 0.5f;
+                b.To = at + Vector2.up * s * 0.12f;
+                b.Lift = (i % 2 == 0 ? 0.14f : -0.14f) * s;
+                b.Life = 0.32f;
+                b.Delay = i * 0.018f;
+                b.S0 = Vector2.one * 0.09f;
+                b.S1 = Vector2.one * 0.025f;
+                b.Spin = 220f;
+            }
         }
 
-        // 影弹打中：影子罩在这只怪身上。鬼火再加大成紫火。光点绕着身子散，不往炮的方向掉。
+        // 影弹打在怪身上。鬼火是一小团窜起的火舌和火星，单独的影只留一点淡光。
         void Ghost(Vector2 at, float size)
         {
-            float s = Mathf.Max(0.7f, size);
-            bool blaze = s >= 1.6f;
-            if (blaze)
+            bool blaze = size >= 0.9f;
+            float s = blaze ? 0.92f : 0.55f;
+            Flash(at, s * (blaze ? 0.18f : 0.1f), s * 0.04f, 0.1f);
+            if (!blaze)
             {
-                Mark(at, s * 0.35f, s * 1.35f, 0.55f, new Color(1f, 0.45f, 0.15f, 1f), 0.7f);
-                Ring(at, s * 0.2f, s * 1.6f, 0.42f, new Color(1f, 0.55f, 0.2f, 1f), 0.95f, OrderHit);
-                Ring(at, s * 0.45f, s * 2.2f, 0.55f, new Color(0.7f, 0.35f, 1f, 1f), 0.7f, OrderGround, 0.04f);
-                Flash(at, s * 0.3f, s * 1.5f, 0.18f);
+                Ring(at, s * 0.12f, s * 0.5f, 0.26f, InkTheme.ShadowHi, 0.8f, OrderHit);
+                return;
             }
-            else
+            Ring(at, s * 0.1f, s * 0.72f, 0.24f, new Color(1f, 0.48f, 0.12f, 1f), 0.85f, OrderHit);
+            Ring(at, s * 0.2f, s * 0.48f, 0.3f, new Color(0.7f, 0.32f, 1f, 1f), 0.55f, OrderHit, 0.04f);
+            Sprite flame = GlowShot.Poster("ghostfire");
+            for (int i = 0; i < 3; i++)
             {
-                Ring(at, s * 0.18f, s * 0.85f, 0.36f, InkTheme.ShadowHi, 0.9f, OrderHit);
-                Flash(at, s * 0.12f, s * 0.45f, 0.14f);
+                if (flame == null) break;
+                float side = (i - 1) * s * 0.18f;
+                Bit tongue = Add(flame, at, OrderTop, Color.white, false);
+                tongue.Travel = true;
+                tongue.From = at + new Vector2(side * 0.25f, 0.02f);
+                tongue.To = at + new Vector2(side, s * (0.42f + i * 0.08f));
+                tongue.Lift = side * 0.35f;
+                tongue.Life = 0.28f;
+                tongue.Delay = i * 0.03f;
+                tongue.S0 = Size(flame, s * 0.32f);
+                tongue.S1 = Size(flame, s * 0.05f);
+                tongue.Spin = Random.Range(-70f, 70f);
             }
-            int n = blaze ? 8 : 5;
-            for (int i = 0; i < n; i++)
+            for (int i = 0; i < 8; i++)
             {
-                float a = i / (float)n * Mathf.PI * 2f;
-                Color c = i == 0 ? Color.white : blaze
-                    ? (i % 2 == 0 ? new Color(1f, 0.55f, 0.15f, 1f) : new Color(0.75f, 0.4f, 1f, 1f))
-                    : InkTheme.ShadowHi;
-                Bit b = Add(InkFx.Dot(), at + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * s * 0.16f, OrderHit, c, blaze);
-                b.S0 = Vector2.one * s * (blaze ? 0.42f : 0.28f);
-                b.S1 = b.S0 * (blaze ? 1.6f : 1.35f);
-                b.Life = blaze ? 0.46f : 0.34f;
-                b.Delay = i * 0.03f;
-                b.A0 = 0.9f;
+                float a = i / 8f * Mathf.PI * 2f + Random.Range(-0.3f, 0.3f);
+                bool star = i % 3 == 0;
+                Color c = star ? Color.white : i % 2 == 0
+                    ? new Color(1f, 0.46f, 0.1f, 1f) : new Color(0.74f, 0.34f, 1f, 1f);
+                Bit b = Add(star ? InkFx.Star() : InkFx.Mote(), at, OrderTop, c, true);
+                b.Vel = new Vector2(Mathf.Cos(a) * Random.Range(0.7f, 1.6f), Mathf.Sin(a) * Random.Range(0.5f, 1.2f) + 0.7f);
+                b.Gravity = -1.8f;
+                b.Life = Random.Range(0.2f, 0.36f);
+                b.S0 = Vector2.one * (star ? 0.11f : 0.07f);
+                b.S1 = b.S0 * 0.2f;
+                b.Spin = Random.Range(-280f, 280f);
+                b.Delay = Random.Range(0f, 0.05f);
             }
         }
 

@@ -277,10 +277,12 @@ namespace InkLine
             else if (e.Kind == CodexKind.Enemy)
                 Put(card, "art", InkSprites.Person((EnemyId)e.Index), 136f,
                     known ? Color.white : new Color(0.3f, 0.26f, 0.22f, 0.6f));
+            else if (e.Kind == CodexKind.Trio && e.Index == 1)
+                ShowArt(card, CloudArrowFrames(), 156f, tint, 180f);
             else if (e.Kind == CodexKind.Trio)
                 Put(card, "art", TrioFrame(e.Index), 156f, tint);
             else
-                Put(card, "art", PairFrame(e.Index), 124f, tint);
+                ShowArt(card, PairFrames(e.Index), 124f, tint);
 
             name.text = CodexCatalog.Title(e);
             name.color = known ? InkTheme.TextDark : InkTheme.TextDim;
@@ -295,8 +297,51 @@ namespace InkLine
             var img = t.GetComponent<Image>();
             img.sprite = sprite;
             img.color = tint;
+            img.preserveAspect = false;
+            img.rectTransform.localEulerAngles = Vector3.zero;
             img.rectTransform.sizeDelta = new Vector2(size, size);
+            CodexReel reel = img.GetComponent<CodexReel>();
+            if (reel != null) reel.enabled = false;
             t.gameObject.SetActive(true);
+        }
+
+        static void ShowArt(Transform card, Sprite[] frames, float size, Color tint, float spin = 0f)
+        {
+            if (frames == null || frames.Length == 0 || frames[0] == null) return;
+            Put(card, "art", frames[0], size, tint);
+            Image img = card.Find("art").GetComponent<Image>();
+            string spriteName = frames[0].name;
+            img.preserveAspect = spin != 0f || spriteName.StartsWith("thundercut") || spriteName.StartsWith("riposte")
+                || spriteName.StartsWith("ghostfire") || spriteName.StartsWith("crumble")
+                || spriteName.StartsWith("collapse") || spriteName.StartsWith("whirl")
+                || spriteName.StartsWith("soul");
+            img.rectTransform.localEulerAngles = new Vector3(0f, 0f, spin);
+            if (frames.Length < 2) return;
+            CodexReel reel = img.GetComponent<CodexReel>();
+            if (reel == null) reel = img.gameObject.AddComponent<CodexReel>();
+            reel.Frames = frames;
+            reel.Tint = tint;
+            reel.enabled = true;
+        }
+
+        public static Sprite[] PairFrames(int pair)
+        {
+            ShotFx form = SignaturePairs.All[pair].Form;
+            if (InkVfx.Flat(form, out InkVfx.FlatBody body))
+            {
+                Sprite[] frames = InkVfx.Frames(body.Frames, body.Count);
+                if (frames != null && frames.Length > 0 && frames[0] != null) return frames;
+            }
+            string key = GlowShot.FormKey(form);
+            if (key == null) return null;
+            int n = InkVfx.CountFrames(key + "_shot");
+            if (n > 1)
+            {
+                Sprite[] frames = InkVfx.Frames(key + "_shot", n);
+                if (frames != null && frames[0] != null) return frames;
+            }
+            Sprite one = GlowShot.Poster(key);
+            return one != null ? new[] { one } : null;
         }
 
         void Open(CodexEntry e, CodexState st)
@@ -316,13 +361,25 @@ namespace InkLine
         public static Sprite PairFrame(int pair)
         {
             ShotFx form = SignaturePairs.All[pair].Form;
-            if (!InkVfx.Flat(form, out InkVfx.FlatBody body))
+            if (InkVfx.Flat(form, out InkVfx.FlatBody body))
             {
-                string key = GlowShot.FormKey(form);
-                return key != null ? GlowShot.Art(key + "_shot") : null;
+                Sprite[] frames = InkVfx.Frames(body.Frames, body.Count);
+                if (frames != null && frames.Length > 0 && frames[0] != null) return frames[0];
             }
-            Sprite[] frames = InkVfx.Frames(body.Frames, body.Count);
-            return frames != null && frames.Length > 0 ? frames[0] : null;
+            string key = GlowShot.FormKey(form);
+            return key != null ? GlowShot.Poster(key) : null;
+        }
+
+        public static Sprite[] CloudArrowFrames()
+        {
+            int n = InkVfx.CountFrames("cloud_arrow");
+            if (n > 0)
+            {
+                Sprite[] frames = InkVfx.Frames("cloud_arrow", n);
+                if (frames != null && frames[0] != null) return frames;
+            }
+            Sprite one = GlowShot.Poster("cloudarrow");
+            return one != null ? new[] { one } : null;
         }
 
         public static Sprite TrioFrame(int trio)
@@ -331,7 +388,7 @@ namespace InkLine
                 : trio == 1 ? ShotFx.FormCloudArrow
                 : ShotFx.FormNeedle;
             string key = GlowShot.FormKey(form);
-            return key != null ? GlowShot.Art(key + "_shot") : null;
+            return key != null ? GlowShot.Poster(key) : null;
         }
     }
 
@@ -491,23 +548,26 @@ namespace InkLine
                 SignaturePair p = SignaturePairs.All[_e.Index];
                 parts = new[] { p.A, p.B };
             }
-            CodexPanel.Put(card, "ga", InkArt.Glyph(parts[0], 160), parts.Length > 2 ? 72f : 84f, tint);
-            CodexPanel.Put(card, "gb", InkArt.Glyph(parts[1], 160), parts.Length > 2 ? 72f : 84f, tint);
-            if (parts.Length > 2)
+            bool trio = parts.Length > 2;
+            // 卡面宣纸大约 x ±77、y -69～106。两字仍上下叠。
+            // 三字摆成三角形，加号放在三颗字的中心，不贴在底边。
+            CodexPanel.Put(card, "ga", InkArt.Glyph(parts[0], 160), trio ? 58f : 84f, tint);
+            CodexPanel.Put(card, "gb", InkArt.Glyph(parts[1], 160), trio ? 48f : 84f, tint);
+            if (trio)
             {
+                card.Find("ga").GetComponent<RectTransform>().anchoredPosition = new Vector2(0f, 54f);
+                card.Find("gb").GetComponent<RectTransform>().anchoredPosition = new Vector2(-48f, -36f);
                 Transform gc = card.Find("gc");
                 if (gc == null)
                 {
-                    Transform gb = card.Find("gb");
-                    if (gb != null)
-                    {
-                        gc = UnityEngine.Object.Instantiate(gb, card);
-                        gc.name = "gc";
-                        var rt = gc.GetComponent<RectTransform>();
-                        rt.anchoredPosition += new Vector2(78f, 0f);
-                    }
+                    gc = UnityEngine.Object.Instantiate(card.Find("gb"), card);
+                    gc.name = "gc";
                 }
-                CodexPanel.Put(card, "gc", InkArt.Glyph(parts[2], 160), 72f, tint);
+                CodexPanel.Put(card, "gc", InkArt.Glyph(parts[2], 160), 48f, tint);
+                gc.GetComponent<RectTransform>().anchoredPosition = new Vector2(48f, -36f);
+                var plusRt = card.Find("plus").GetComponent<RectTransform>();
+                plusRt.anchoredPosition = new Vector2(0f, -6f);
+                plusRt.GetComponent<Text>().fontSize = 24;
             }
             card.Find("plus").gameObject.SetActive(_e.Kind == CodexKind.Pair || _e.Kind == CodexKind.Trio);
         }
@@ -585,6 +645,28 @@ namespace InkLine
             Lab("pair/effect/v").text = _e.Kind == CodexKind.Trio
                 ? SignatureTrios.All[_e.Index].Note
                 : SignaturePairs.All[_e.Index].Note;
+        }
+    }
+
+    // 图鉴格子里的秘卷原来只贴第一帧，看起来像一张静图。有序列的就按帧转。
+    public sealed class CodexReel : MonoBehaviour
+    {
+        public Sprite[] Frames;
+        public Color Tint = Color.white;
+        Image _img;
+
+        void OnEnable()
+        {
+            _img = GetComponent<Image>();
+        }
+
+        void Update()
+        {
+            if (!enabled || Frames == null || Frames.Length < 2 || _img == null) return;
+            int i = Mathf.FloorToInt(Time.unscaledTime * 8f) % Frames.Length;
+            Sprite s = Frames[i];
+            if (s != null) _img.sprite = s;
+            _img.color = Tint;
         }
     }
 }

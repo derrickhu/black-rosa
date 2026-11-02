@@ -71,8 +71,15 @@ namespace InkLine
                 flat = false;
                 formSprite = InkVfx.Shot(v.Form.Fx);
             }
+            // 影弹只留后面那团半透明的影子。火球是母弹的，不要再贴在影子上。
+            if (b.Ghost && !glowBody && GlowShot.ArtReady("shadow_shot_00"))
+            {
+                formSprite = null;
+                flat = false;
+            }
+            bool ghostGlow = formSprite == null && !glowBody && b.Ghost && GlowShot.ArtReady("shadow_shot_00");
             // 发光体和平涂体一样自带完整配色，不再垫柔光、不露墨点。
-            bool hasBody = formSprite != null || glowBody;
+            bool hasBody = formSprite != null || glowBody || ghostGlow;
             if (glowBody) flat = true;
             // 没吃字的弹按炮台皮肤走。钢珠是黑铁球，糖果是粉红糖球，机甲是青蓝能量球，黄金才用紫芯金边。
             // 赤焰、福袋、霜晶换成画好的弹体贴图。新皮肤也要在 SkinShot / NakedOf 各补一条。

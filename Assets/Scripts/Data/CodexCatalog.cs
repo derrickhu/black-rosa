@@ -289,7 +289,7 @@ namespace InkLine
         public static string WakeNote(WordId word)
         {
             if (word == WordId.ArrowRain)
-                return "1 星每 6 发蓄满一次。两个字都升到 2 星后每 5 发，都到 3 星后每 4 发";
+                return "每 6 发蓄满一次";
             return $"每 {CardCatalog.WordChargeNeed(word)} 发经过才生效一次";
         }
 
@@ -317,7 +317,7 @@ namespace InkLine
                 case CardId.Break: return "命中让敌人破防，之后挨的每一下都更痛，灼烧和中毒也算。3 星打中带盾的敌人，盾碎了这一发照样打进去。";
                 case CardId.Gather: return "命中把身边一圈敌人往中间拉，攒成一团好让炸和斩一起吃。头目和推不动的拉不动。";
                 case CardId.Rebound: return "炮弹飞到头（或穿透用完）会折回来往下再打一遍，回程伤害打折。";
-                case CardId.Shadow: return "这一发爬完列之后，炮口再补一发影弹。影弹只带这一列的常驻字，不带蓄力字和词，也不会再套一发。";
+                case CardId.Shadow: return "这一列每 4 发经过，紧跟着补一发影弹。影弹只带这一列的常驻字，不带蓄力字和词，也不会再套一发。";
                 case CardId.Seal: return "打中后对方的光环、分裂、隐身和狂化停一会儿。甲还在，推不动的也还是推不动。头目被封的时间减半。";
                 default: return CardCatalog.Get(id).Desc;
             }
@@ -371,7 +371,7 @@ namespace InkLine
                 case CardId.Rebound:
                     return $"折返一次，回程伤害 ×{F(g.Rebound.At(s))}";
                 case CardId.Shadow:
-                    return $"打出后 0.2 秒再补一发，伤害 ×{F(g.Power.At(s))}";
+                    return $"每 4 发补一发，伤害 ×{F(g.Power.At(s))}";
                 case CardId.Seal:
                     return $"封技能 {F(g.Time.At(s))} 秒，头目减半";
                 default:
@@ -387,7 +387,7 @@ namespace InkLine
             switch (word)
             {
                 case WordId.InstantKill: return pair + $"每 {need} 发蓄满一次，那一发命中时，血量低于斩杀线的敌人直接倒下。";
-                case WordId.ArrowRain: return pair + "蓄满的那一发化成从底下往上射的满屏发光箭。每支箭打中一只就散，场上每只敌人挨一箭。单支从这一发普通炮弹的一半起，星级升高后逐步提到一整发。1 星每 6 发；两个字都升到 2 星后冷却减 1，都到 3 星再减 1。";
+                case WordId.ArrowRain: return pair + "蓄满的那一发化成从底下往上射的满屏发光箭。每支箭打中一只就散，场上每只敌人挨一箭。单支从这一发普通炮弹的一半起，星级升高后逐步提到一整发。每 6 发蓄满一次。";
                 case WordId.Knockback: return pair + $"每 {need} 发蓄满一次，那一发把敌人远远击退。";
                 case WordId.Cleave: return pair + $"每 {need} 发蓄满一次，那一发命中后接连斩向身边的敌人。";
                 case WordId.Crush: return pair + $"每 {need} 发蓄满一次，那一发按敌人眼下的血量再砸掉一截，越肉越疼；头目减半。";

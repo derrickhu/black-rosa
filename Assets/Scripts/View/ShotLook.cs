@@ -101,13 +101,17 @@ namespace InkLine
                     Fx = pair, Tint = v.Mixed, Star = v.Form.Star, Card = pairA
                 };
 
-            // 三字诀盖过两两和单字，炮弹换成那张大发光体。
+            // 三字诀盖过两两和单字。发光四帧由 GlowShot 循环。
             ShotFx trio = TrioForm(m);
-            if (trio != ShotFx.None && GlowShot.HasBody(trio))
+            if (trio != ShotFx.None && TrioShown(trio))
                 v.Form = new SlotLook { Fx = trio, Tint = v.Mixed, Star = Mathf.Max(1, v.Form.Star) };
 
-            Motes(m, ref v, pairA, pairB);
+            // 三字诀的图自己就是完整一发，不再绕小卫星。
+            // 穿云箭仍用万箭那支箭，炮筒里的弹体留空，粒子挂在落箭上。
+            bool trioOn = trio != ShotFx.None && TrioShown(trio);
+            if (!trioOn) Motes(m, ref v, pairA, pairB);
             if (word == WordId.ArrowRain) v.Hidden = true;
+            if (trioOn && trio != ShotFx.FormCloudArrow) v.Hidden = false;
             return v;
         }
 
@@ -169,6 +173,16 @@ namespace InkLine
                 return p.Form;
             }
             return ShotFx.None;
+        }
+
+        static bool TrioShown(ShotFx fx)
+        {
+            if (InkVfx.Flat(fx, out InkVfx.FlatBody body))
+            {
+                Sprite[] frames = InkVfx.Frames(body.Frames, body.Count);
+                if (frames != null && frames[0] != null) return true;
+            }
+            return GlowShot.HasBody(fx);
         }
 
         static ShotFx TrioForm(ShotMods m)

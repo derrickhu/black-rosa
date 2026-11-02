@@ -140,6 +140,9 @@ namespace InkLine
             _canvas = UiKit.CreateCanvas("InkUI");
             _layer = _canvas.GetComponent<RectTransform>();
             GmBar.Preview = GmPreview;
+            GmBar.Look = StartLook;
+            GmBar.Trio = StartTrio;
+            GmBar.Fresh = StartFresh;
             ScreenFit.Apply(Camera.main, _canvas);
             string force = Path.Combine(Application.dataPath, "../Library/ink_shot_preview.force");
             if (File.Exists(force))
@@ -341,6 +344,13 @@ namespace InkLine
                 AudioBus.Tap();
                 _askingRetreat = false;
                 if (dim != null) Destroy(dim.gameObject);
+                if (BattleWorld.GmLook)
+                {
+                    BattleWorld.GmLook = false;
+                    BattleWorld.GmLookKind = -1;
+                    ShowHome();
+                    return;
+                }
                 // 无尽撤退也按已打完的波数结算、上榜，不白打。
                 if (_endless)
                 {
@@ -358,7 +368,8 @@ namespace InkLine
 
             UiKit.Btn(board, "stay", "继续游戏", new Vector2(0f, 108f), new Vector2(400f, 92f), Stay, true, Pin.Top);
             UiKit.Btn(board, "leave", "撤退", new Vector2(0f, 214f), new Vector2(400f, 80f), Leave, false, Pin.Top);
-            string leaveNote = _endless ? "撤退按已打完的波数结算，次数不退还"
+            string leaveNote = BattleWorld.GmLook ? "这局只是预览，撤退不记进度"
+                : _endless ? "撤退按已打完的波数结算，次数不退还"
                 : _eventTier >= 0 ? "撤退不存金币，次数也不退还" : "撤退后没有奖励，体力也不退还";
             var note = UiKit.Label(board, "note", leaveNote, 22, new Vector2(0f, 316f),
                 new Vector2(440f, 32f), TextAnchor.MiddleCenter, Pin.Top);
@@ -832,13 +843,184 @@ namespace InkLine
             _world.ShowToast("本周词缀 · " + rule.Name + "：" + rule.Desc + best, 3f);
         }
 
+        // 首页 GM：盘上已经是鬼火和失魂，两门炮对准这两列。不扣体力，不记进度。
+        void StartLook()
+        {
+            _guide = false;
+            _teach = 0;
+            _pickStage = 0;
+            _eventTier = -1;
+            _endless = false;
+            _daily = false;
+            _hard = false;
+            _teachAim = false;
+            BeginBattle(LookStage(), true);
+        }
+
+        // 首页 GM：三门炮分别是风火轮、穿云箭、定海针。不扣体力，不记进度。
+        void StartTrio()
+        {
+            _guide = false;
+            _teach = 0;
+            _pickStage = 0;
+            _eventTier = -1;
+            _endless = false;
+            _daily = false;
+            _hard = false;
+            _teachAim = false;
+            BeginBattle(TrioStage(), true, 1);
+        }
+
+        // 首页 GM：五门炮从左到右是雷诀、崩山、坍缩、旋风、回锋。
+        void StartFresh()
+        {
+            _guide = false;
+            _teach = 0;
+            _pickStage = 0;
+            _eventTier = -1;
+            _endless = false;
+            _daily = false;
+            _hard = false;
+            _teachAim = false;
+            BeginBattle(FreshStage(), true, 2);
+        }
+
+        static StageDef FreshStage()
+        {
+            const int each = 18;
+            var spawns = new SpawnSpec[each * 5];
+            var bodies = new int[spawns.Length];
+            int n = 0;
+            for (int i = 0; i < each; i++)
+            {
+                float t = 0.35f + i * 3.6f;
+                spawns[n] = new SpawnSpec(t, EnemyId.Ball, 0);
+                bodies[n++] = 1;
+                spawns[n] = new SpawnSpec(t + 0.15f, EnemyId.Chubby, 1);
+                bodies[n++] = 1;
+                spawns[n] = new SpawnSpec(t + 0.3f, EnemyId.Chubby, 2);
+                bodies[n++] = 1;
+                spawns[n] = new SpawnSpec(t + 0.45f, EnemyId.Chubby, 3);
+                bodies[n++] = 1;
+                spawns[n] = new SpawnSpec(t + 0.6f, EnemyId.Chubby, 4);
+                bodies[n++] = 1;
+            }
+            return new StageDef
+            {
+                Index = 0,
+                Chapter = 0,
+                Title = "看特效",
+                Name = "雷诀 · 崩山 · 坍缩 · 旋风 · 回锋",
+                Mask = new[] { "XXXXXX", "XXXXXX" },
+                Pool = new CardId[0],
+                Waves = new[] { new WaveDef(each * 3.6f + 12f, spawns) },
+                Bodies = new[] { bodies },
+                Hp = 1f,
+                Preset = new[]
+                {
+                    new PresetGlyph(0, 0, CardId.Thunder, 3),
+                    new PresetGlyph(0, 1, CardId.Slash, 3),
+                    new PresetGlyph(1, 0, CardId.Break, 3),
+                    new PresetGlyph(1, 1, CardId.Heavy, 3),
+                    new PresetGlyph(2, 0, CardId.Gather, 3),
+                    new PresetGlyph(2, 1, CardId.Explode, 3),
+                    new PresetGlyph(3, 0, CardId.Wind, 3),
+                    new PresetGlyph(3, 1, CardId.Gather, 3),
+                    new PresetGlyph(4, 0, CardId.Rebound, 3),
+                    new PresetGlyph(4, 1, CardId.Pierce, 3),
+                },
+                Backdrop = "Bg/battle_bg_13",
+            };
+        }
+
+        static StageDef LookStage()
+        {
+            const int each = 28;
+            var spawns = new SpawnSpec[each * 2];
+            var bodies = new int[spawns.Length];
+            int n = 0;
+            for (int i = 0; i < each; i++)
+            {
+                float t = 0.3f + i * 3.2f;
+                spawns[n] = new SpawnSpec(t, EnemyId.Chubby, 2);
+                bodies[n++] = 1;
+                spawns[n] = new SpawnSpec(t + 0.4f, EnemyId.Chubby, 3);
+                bodies[n++] = 1;
+            }
+            return new StageDef
+            {
+                Index = 0,
+                Chapter = 0,
+                Title = "看特效",
+                Name = "鬼火 · 失魂",
+                Mask = new[] { "XXXXXX", "XXXXXX" },
+                Pool = new CardId[0],
+                Waves = new[] { new WaveDef(each * 3.2f + 12f, spawns) },
+                Bodies = new[] { bodies },
+                Hp = 1f,
+                Preset = new[]
+                {
+                    new PresetGlyph(2, 0, CardId.Fire, 3),
+                    new PresetGlyph(2, 1, CardId.Shadow, 3),
+                    new PresetGlyph(3, 0, CardId.Confuse, 3),
+                    new PresetGlyph(3, 1, CardId.Seal, 3),
+                },
+                Backdrop = "Bg/battle_bg_13",
+            };
+        }
+
+        static StageDef TrioStage()
+        {
+            const int each = 24;
+            var spawns = new SpawnSpec[each * 3];
+            var bodies = new int[spawns.Length];
+            int n = 0;
+            for (int i = 0; i < each; i++)
+            {
+                float t = 0.4f + i * 3.4f;
+                spawns[n] = new SpawnSpec(t, EnemyId.Chubby, 2);
+                bodies[n++] = 1;
+                spawns[n] = new SpawnSpec(t + 0.35f, EnemyId.Chubby, 3);
+                bodies[n++] = 1;
+                spawns[n] = new SpawnSpec(t + 0.7f, EnemyId.Chubby, 4);
+                bodies[n++] = 1;
+            }
+            return new StageDef
+            {
+                Index = 0,
+                Chapter = 0,
+                Title = "看特效",
+                Name = "风火轮 · 穿云箭 · 定海针",
+                Mask = new[] { "XXXXXX", "XXXXXX", "XXXXXX" },
+                Pool = new CardId[0],
+                Waves = new[] { new WaveDef(each * 3.4f + 12f, spawns) },
+                Bodies = new[] { bodies },
+                Hp = 1f,
+                Preset = new[]
+                {
+                    new PresetGlyph(2, 0, CardId.Fire, 3),
+                    new PresetGlyph(2, 1, CardId.Wind, 3),
+                    new PresetGlyph(2, 2, CardId.Rebound, 3),
+                    new PresetGlyph(3, 0, CardId.Myriad, 3),
+                    new PresetGlyph(3, 1, CardId.Arrow, 3),
+                    new PresetGlyph(3, 2, CardId.Pierce, 3),
+                    new PresetGlyph(4, 0, CardId.Ice, 3),
+                    new PresetGlyph(4, 1, CardId.Earth, 3),
+                    new PresetGlyph(4, 2, CardId.Gather, 3),
+                },
+                Backdrop = "Bg/battle_bg_13",
+            };
+        }
+
         // 埋点里的关卡号。主线是正数，活动是 -1~-3，无尽、每日各一个，精英在主线号上加 1000。
         const int EndlessLevelId = -100;
         const int DailyLevelId = -101;
         const int HardLevelBase = 1000;
 
-        void BeginBattle(StageDef stage)
+        void BeginBattle(StageDef stage, bool look = false, int lookKind = 0)
         {
+            BattleWorld.GmLook = look;
+            BattleWorld.GmLookKind = look ? lookKind : -1;
             _home = null;
             _taughtStar = false;
             _taughtUp = false;
@@ -852,9 +1034,27 @@ namespace InkLine
             _world.Seals = _meta.TakeSeals(stage.Daily);
             _offerPool = !stage.Daily && _meta.StudyOpen ? _meta.AccountPool(stage) : null;
             _offerFresh = !stage.Endless && !stage.Event && !_meta.StageCleared(stage);
-            _world.Begin(stage, _meta.Forged, _meta.Equipped);
+            _world.Begin(stage, _meta.Forged, look ? new int[0] : _meta.Equipped);
             _world.ApplySkin(_meta.Skin);
-            _world.CodexHit = OnCodex;
+            if (look)
+            {
+                if (lookKind == 1)
+                {
+                    _world.GmWatch(3, FieldLayout.ColumnX(2), -1);
+                    _world.ShowToast("左炮风火轮，中炮穿云箭，右炮定海针。看完去设置里撤退", 3.4f);
+                }
+                else if (lookKind == 2)
+                {
+                    _world.GmWatch(5, FieldLayout.ColumnX(0), -1);
+                    _world.ShowToast("从左到右：雷诀、崩山、坍缩、旋风、回锋。看完去设置里撤退", 3.6f);
+                }
+                else
+                {
+                    _world.GmWatch(2, FieldLayout.ColumnX(2), 2);
+                    _world.ShowToast("左炮鬼火，右炮失魂。看完去设置里撤退", 3.2f);
+                }
+            }
+            _world.CodexHit = look ? null : OnCodex;
             _codexToasts.Clear();
             _discoveries.Clear();
             if (_view != null) _view.Dispose();
@@ -864,7 +1064,7 @@ namespace InkLine
             else _view.SetBackdrop(_world.Stage.Chapter);
             _view.EmitterSkin = _meta.Skin;
             _view.EmitterTint = _meta.SkinTint;
-            if (!BattleWorld.PreviewFill)
+            if (!BattleWorld.PreviewFill && !look)
             {
                 int levelId = stage.Daily ? DailyLevelId : stage.Endless ? EndlessLevelId
                     : stage.Event ? -(stage.EventTier + 1)
@@ -881,7 +1081,7 @@ namespace InkLine
             _dragging = false;
             // 每日关也标着 Endless。先看每日，不然会和无限播同一首。
             AudioBus.Music(stage.Daily ? "bgm_daily" : stage.Endless ? "bgm_endless" : "bgm_battle");
-            if (BattleWorld.PreviewFill)
+            if (BattleWorld.PreviewFill || look)
             {
                 _screen = Screen.Battle;
                 return;
@@ -896,7 +1096,7 @@ namespace InkLine
 
         void TickAutoDraft()
         {
-            if (_askingRetreat || _world == null || BattleWorld.PreviewFill || _world.Victory || _world.Defeat) return;
+            if (_askingRetreat || _world == null || BattleWorld.PreviewFill || BattleWorld.GmLook || _world.Victory || _world.Defeat) return;
             if (Time.realtimeSinceStartup < _inputQuietUntil) return;
             if (_screen != Screen.Battle || _teach >= 3) return;
             // 活动关的钱要攒着存进聚宝盆，买不买改装让玩家自己点。
@@ -962,7 +1162,7 @@ namespace InkLine
             ClearLayer();
             _hud = BattleHud.Build(_layer, _world, OpenSettings, () =>
             {
-                if (_screen != Screen.Battle || !_world.CanDraft || _teach >= 3) return;
+                if (_screen != Screen.Battle || BattleWorld.GmLook || !_world.CanDraft || _teach >= 3) return;
                 OpenDraft();
             }, () =>
             {
@@ -1467,6 +1667,13 @@ namespace InkLine
         // 输了先给续命页；没得续、不续、续了又死，才放失败动画和失败页。
         void Finish(bool win)
         {
+            if (BattleWorld.GmLook)
+            {
+                BattleWorld.GmLook = false;
+                BattleWorld.GmLookKind = -1;
+                ShowHome();
+                return;
+            }
             _screen = Screen.Result;
             _world.Paused = true;
             _inkDoubled = false;
@@ -1666,7 +1873,7 @@ namespace InkLine
         // 局后记功课。读的是 BattleWorld 自己数的计数，赢输撤退都记，同一局只记一次。
         void Tally(bool win)
         {
-            if (_tallied || _world == null || BattleWorld.PreviewFill) return;
+            if (_tallied || _world == null || BattleWorld.PreviewFill || BattleWorld.GmLook) return;
             _tallied = true;
             StageDef s = _world.Stage;
             _meta.NoteBattle(new BattleTally

@@ -54,6 +54,8 @@ namespace InkLine
         bool _flat;
         InkVfx.FlatBody _fb;
         Sprite _glow;
+        string _glowKey;
+        Sprite[] _cloudArrow;
         int _star;
         Unit[] _units;
         static float _k;
@@ -113,7 +115,22 @@ namespace InkLine
             _m = m;
             _star = star;
             _v = ShotLook.Resolve(m);
-            _glow = GlowShot.BodyOf(m, _v, out GlowShot.Look glow) ? GlowShot.Art(glow.Key + "_shot") : null;
+            _glowKey = null;
+            _cloudArrow = null;
+            if (GlowShot.BodyOf(m, _v, out GlowShot.Look glow))
+            {
+                // 穿云箭战场上已经换成万箭那套的加粗箭，图鉴不再贴旧的蓝旋。
+                if (glow.Key == "cloudarrow")
+                    _cloudArrow = CodexPanel.CloudArrowFrames();
+                if (_cloudArrow != null && _cloudArrow[0] != null)
+                    _glow = _cloudArrow[0];
+                else
+                {
+                    _glowKey = glow.Key;
+                    _glow = GlowShot.Poster(glow.Key);
+                }
+            }
+            else _glow = null;
             _flat = _glow == null && InkVfx.Flat(_v.Form.Fx, out _fb);
             _ornSets = ShotTrail.Ornaments(m, _orn);
             _trail.Reset();
@@ -196,6 +213,8 @@ namespace InkLine
                 float w = h * _glow.rect.width / Mathf.Max(1f, _glow.rect.height);
                 u.Body.rectTransform.sizeDelta = new Vector2(w, h);
                 u.Body.rectTransform.anchoredPosition = new Vector2(0f, h * 0.06f);
+                if (_cloudArrow != null)
+                    u.Body.rectTransform.localEulerAngles = new Vector3(0f, 0f, 180f);
             }
             else if (_flat)
             {
@@ -295,7 +314,18 @@ namespace InkLine
                 Unit u = _units[i];
                 if (u.Root == null) continue;
                 u.Root.anchoredPosition = u.Home + new Vector2(0f, Mathf.Sin(t * 3f + i * 0.9f) * 6f);
-                if (_flat && u.Body != null)
+                if (_cloudArrow != null && u.Body != null)
+                {
+                    int at = Mathf.FloorToInt(t * 8f) % _cloudArrow.Length;
+                    Sprite s = _cloudArrow[at] != null ? _cloudArrow[at] : _cloudArrow[0];
+                    if (s != null) u.Body.sprite = s;
+                }
+                else if (_glowKey != null && u.Body != null)
+                {
+                    Sprite s = GlowShot.Loop(_glowKey, t, i);
+                    if (s != null) u.Body.sprite = s;
+                }
+                else if (_flat && u.Body != null)
                 {
                     Sprite s = InkVfx.FlatFrame(_fb, _star, i);
                     if (s != null) u.Body.sprite = s;

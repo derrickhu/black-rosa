@@ -293,6 +293,9 @@ namespace InkLine
         public bool Victory;
         public bool Defeat;
         public static bool PreviewFill = false;
+        // GM 里看特效。不进结算、不记图鉴。0 鬼火失魂，1 三字诀，2 雷诀和四对新秘卷。
+        public static bool GmLook = false;
+        public static int GmLookKind = -1;
         public int PreviewPage;
         public float PreviewAge;
         public string PreviewLabel = "";
@@ -440,7 +443,8 @@ namespace InkLine
         const int ChHeavy = 2;
         const int ChStun = 3;
         const int ChWord = 4;
-        const int ChCount = 5;
+        const int ChShadow = 5;
+        const int ChCount = 6;
         int[,] _charge;
         float _critChance;
         float _goldGain = 1f;
@@ -449,12 +453,13 @@ namespace InkLine
         float _goldFrac;
         WordId[] _word;
         int[] _wordStar;
-        // 万箭冷却用两个字里较低的星。只升一张不算减冷却。
+        // 万箭固定每 6 发，升星不再缩短。
         int[] _wordGate;
         int[] _pierceStar;
         int[] _explodeStar;
         int[] _heavyStar;
         int[] _stunStar;
+        int[] _shadowStar;
 
         public int DraftCost => Stage != null
             ? Mathf.Max(1, Mathf.RoundToInt(Stage.DraftCostAt(DraftCount) * _draftMul))
@@ -582,6 +587,7 @@ namespace InkLine
             _explodeStar = new int[GameConstants.Columns];
             _heavyStar = new int[GameConstants.Columns];
             _stunStar = new int[GameConstants.Columns];
+            _shadowStar = new int[GameConstants.Columns];
             Gold = forge.StartGold;
             EmitterCount = Mathf.Clamp(forge.Emitters, 1, GameConstants.MaxEmitters);
             RailX = FieldLayout.ColumnX(Mathf.Max(0, (GameConstants.Columns - EmitterCount) / 2));
@@ -1245,6 +1251,44 @@ namespace InkLine
             RailX = Mathf.Clamp(RailX, min, max);
         }
 
+        // 预览局：两门炮对准指定列，影的蓄力差一发就满，怪漏下来也不容易把基地打穿。
+        public void GmWatch(int emitters, float railX, int shadowCol)
+        {
+            EmitterCount = Mathf.Clamp(emitters, 1, GameConstants.AdEmitterCap);
+            _emitterBase = EmitterCount;
+            RailX = railX;
+            ClampRail();
+            Gold = 0;
+            BaseHp = 30;
+            MaxBaseHp = 30;
+            if (_charge != null && shadowCol >= 0 && shadowCol < GameConstants.Columns)
+                _charge[shadowCol, ChShadow] = 3;
+            if (GmLookKind == 2 && _charge != null)
+            {
+                // 差一发就满，进场第一发就能看到击中那下。
+                _charge[1, ChHeavy] = Mathf.Max(0, CardCatalog.ChargeNeed(CardId.Heavy, 3) - 1);
+                _charge[2, ChExplode] = Mathf.Max(0, CardCatalog.Get(CardId.Explode).ChargeNeed - 1);
+                _charge[4, ChPierce] = Mathf.Max(0, CardCatalog.Get(CardId.Pierce).ChargeNeed - 1);
+            }
+            for (int i = 0; i < EmitterCount && i < _fireCd.Length; i++)
+                _fireCd[i] = 0.05f;
+        }
+
+        // 预览局把这一列的常驻字先标上，出膛就是三字诀的样子。伤害仍等炮弹爬过格子再结算一次。
+        void GmPreviewMods(BulletActor b, int col)
+        {
+            if (b.Mods == null || Grid == null) return;
+            for (int row = 0; row < OpenRows; row++)
+            {
+                if (!Open[col, row] || !Grid[col, row].HasValue) continue;
+                CardId id = Grid[col, row].Value;
+                // 新特效预览把蓄力字、词组字也先标上，出膛就是秘卷的样子。
+                if (GmLookKind != 2 && CardCatalog.Get(id).Wake != CardWake.Always) continue;
+                b.Mods.Mark(id, Stars[col, row]);
+            }
+            NotePairs(b.Mods);
+        }
+
         public bool AddEmitter(bool toast = true)
         {
             if (EmitterCount >= EmitterCap) return false;
@@ -1356,6 +1400,7 @@ namespace InkLine
         void StampColumn(BulletActor b, int col)
         {
             NoteTrios(col);
+            if (GmLook) GmPreviewMods(b, col);
             b.ChargedMask |= 1 << col;
             ShotMods m = b.Mods;
             // 图鉴按「这列摆过」记。这一发蓄满没有，跟收录无关。
@@ -1363,6 +1408,7 @@ namespace InkLine
             if (_explodeStar[col] > 0) NoteGlyph(CardId.Explode);
             if (_heavyStar[col] > 0) NoteGlyph(CardId.Heavy);
             if (_stunStar[col] > 0) NoteGlyph(CardId.Stun);
+            if (_shadowStar[col] > 0) NoteGlyph(CardId.Shadow);
             if (_word[col] != WordId.None) NoteWord(_word[col]);
 
             // 没蓄满就不算带上这个字：不换弹形，也不加它的伤、状态和招牌。
@@ -1400,6 +1446,12 @@ namespace InkLine
                 }));
                 TakeSplash(m, SealSplash((int)CardId.Stun));
             }
+            if (_shadowStar[col] > 0 && PullCharge(col, ChShadow, CardCatalog.Get(CardId.Shadow).ChargeNeed))
+            {
+                GlyphDef g = GlyphTable.Get(CardId.Shadow);
+                m.Mark(CardId.Shadow, _shadowStar[col]);
+                m.GhostShare = Mathf.Max(m.GhostShare, g.Power.At(_shadowStar[col]));
+            }
             int wordNeed = _word[col] == WordId.ArrowRain
                 ? CardCatalog.WordChargeNeed(_word[col], _wordGate[col])
                 : CardCatalog.WordChargeNeed(_word[col]);
@@ -1422,6 +1474,9 @@ namespace InkLine
                         m.ExecuteBoss = Mathf.Max(m.ExecuteBoss, Mathf.Min(0.95f, w.ExecuteBoss.At(ws) * (1f + f)));
                         break;
                     case WordId.ArrowRain:
+                        // 万、箭平时不写进炮弹。穿也在这一发上时，体槽才能换成穿云箭。
+                        m.Mark(CardId.Myriad, ws);
+                        m.Mark(CardId.Arrow, ws);
                         RainArrows(col, ws, b);
                         break;
                     case WordId.Knockback:
@@ -1539,6 +1594,9 @@ namespace InkLine
             // 同一波共用 Claimed，每只敌人仍然只挨一支。
             bool cloud = ColumnHas(col, CardId.Pierce);
             float dmg = RainDamage(src, col, star);
+            // 穿云箭打中不散，同一支能连着打上面的敌人，单支比万箭略低。
+            if (cloud) dmg *= 0.85f;
+            // 和万箭同一套支数：1 星 12、2 星 16、3 星 20。
             int n = 8 + star * 4;
             float left = FieldLayout.ColumnX(0);
             float right = FieldLayout.ColumnX(GameConstants.Columns - 1);
@@ -1551,7 +1609,7 @@ namespace InkLine
                 {
                     Id = ++_rainSeq,
                     Pos = new Vector2(x, GameConstants.EmitterY - UnityEngine.Random.Range(0.15f, 2.2f)),
-                    Speed = UnityEngine.Random.Range(cloud ? 6.4f : 4.6f, cloud ? 7.6f : 5.8f),
+                    Speed = UnityEngine.Random.Range(4.6f, 5.8f),
                     Dmg = dmg,
                     Mods = src.Mods,
                     Src = src,
@@ -1561,8 +1619,6 @@ namespace InkLine
             }
             if (cloud)
             {
-                // 齐射的金柱落在怪走的那一带。锚点太靠下时，放大后的光环会罩到炮上。
-                PairPop(PairFx.Cloud, new Vector2(0f, 3.6f), 2.5f);
                 ShowFloat(new Vector2(FieldLayout.ColumnX(col), 2.4f), "穿云", InkTheme.GoldHi, 1.55f);
                 AddShake(0.24f);
             }
@@ -1740,19 +1796,26 @@ namespace InkLine
             }
         }
 
-        // 影弹从炮口补出，不跟着母弹一起死。只继承这一列的常驻字。
+        // 影弹紧跟触发它的那一发，不跟母弹一起死。只继承这一列的常驻字。
+        // 以前要等爬完列再从炮口补，中间还空 0.2 秒。射速一快，下一发普通弹先出去，
+        // 影子就落在火后面，看起来像差了一个间隔。
         void ArmGhost(BulletActor b)
         {
-            if (b.Ghost || b.GhostArmed || b.Mods.GhostShare <= 0f || b.NextRow < OpenRows) return;
+            if (b.Ghost || b.GhostArmed || b.Mods.GhostShare <= 0f) return;
             b.GhostArmed = true;
             ShotMods mods = BuildGhostMods(b);
             Vector2 vel = PendingGhostSpeed.sqrMagnitude > 0.01f
                 ? PendingGhostSpeed
-                : Vector2.up * GameConstants.BulletSpeed;
+                : (b.Vel.sqrMagnitude > 0.01f ? b.Vel : Vector2.up * GameConstants.BulletSpeed);
+            Vector2 dir = vel.sqrMagnitude > 0.01f ? vel.normalized : Vector2.up;
+            const float follow = 0.72f;
+            Vector2 pos = b.Pos - dir * follow;
+            float muzzle = GameConstants.EmitterY + 0.24f;
+            if (pos.y < muzzle) pos.y = muzzle;
             _ghosts.Add(new PendingGhost
             {
-                In = 0.2f,
-                Pos = new Vector2(b.Pos.x, GameConstants.EmitterY + 0.24f),
+                In = 0f,
+                Pos = pos,
                 Vel = vel,
                 Mods = mods
             });
@@ -1786,7 +1849,9 @@ namespace InkLine
             ShotMods m = dummy.Mods;
             m.Decay *= share;
             m.AddDamage *= share;
-            bool fullBurn = src.Mods.Has(CardId.Fire) && src.Mods.Has(CardId.Shadow);
+            // 蓄力在进列那一下就记上了，火字可能还在上面一排。鬼火按这一列有没有火来认。
+            bool fullBurn = (src.Mods.Has(CardId.Fire) || ColumnHas(col, CardId.Fire))
+                && (src.Mods.Has(CardId.Shadow) || ColumnHas(col, CardId.Shadow));
             m.ScalePowers(share, fullBurn ? StatusKind.Burn : StatusKind.None);
             m.GhostShare = 0f;
             m.GhostFire = fullBurn;
@@ -2083,7 +2148,7 @@ namespace InkLine
 
             // 影弹的光效打在怪身上。鬼火是大团紫火，单独的影是一小团影子。
             if (from == HitSource.Direct && src != null && src.Ghost)
-                PairPop(PairFx.Ghost, e.Pos, m.GhostFire ? 2.4f : 1.15f);
+                PairPop(PairFx.Ghost, e.Pos, m.GhostFire ? 1f : 0.62f);
 
             // 0 盾：普通弹只破盾；斩杀破盾后继续；破 ★3 拆盾后也继续
             if (e.Shield)
@@ -2147,6 +2212,8 @@ namespace InkLine
                 PairPop(PairFx.Crumble, e.Pos, e.Radius);
                 ShowFloat(e.Pos + Vector2.up * 0.42f, "崩", InkTheme.Break, 1.25f);
             }
+            else if (GmLook && GmLookKind == 2 && m.Crumble && from == HitSource.Direct && !echo)
+                PairPop(PairFx.Crumble, e.Pos, Mathf.Max(0.45f, e.Radius));
 
             // 4.6 魔气护体：无尽按侵染进度减伤，满了是 12%；魔化的怪再加自己那份。排在斩杀前面，
             // 斩和秒杀仍把伤害抬回去，不会被这层削掉。
@@ -2171,6 +2238,8 @@ namespace InkLine
                 if (m.ThunderCut && (e.IsBoss || dmg >= e.Hp)) ThunderCutStrike(e);
                 else ShowFloat(e.Pos + Vector2.up * 0.32f, e.IsBoss ? "创" : "斩", InkTheme.Heart, 1.35f);
             }
+            else if (GmLook && GmLookKind == 2 && m.ThunderCut && from == HitSource.Direct && dmg >= e.Hp)
+                ThunderCutStrike(e);
             bool heavy = m.Has(CardId.Heavy);
             if (!echo && m.Shatter && e.Frozen)
             {
@@ -2225,6 +2294,10 @@ namespace InkLine
                         _cleaveStep++;
                     }
                 }
+                else if (!echo && m.FireWheel)
+                    PairPop(PairFx.FireWheel, e.Pos, 1.2f);
+                else if (!echo && m.Pin)
+                    PairPop(PairFx.Needle, e.Pos, 1.2f);
                 else if (!echo) Bursts.Add(BuildBurst(e.Pos, m, execute));
                 if (!echo)
                 {
@@ -2360,7 +2433,7 @@ namespace InkLine
                     if (e.SkillSeal <= 0f)
                     {
                         if (m.Has(CardId.Confuse) && m.Has(CardId.Seal))
-                            PairPop(PairFx.Soul, e.Pos, Mathf.Max(1.4f, e.Radius + 0.9f));
+                            PairPop(PairFx.Soul, e.Pos, 0.85f);
                         else
                         {
                             ShowFloat(e.Pos + Vector2.up * 0.2f, "封", InkTheme.SealHi, 1.15f);
@@ -2474,7 +2547,6 @@ namespace InkLine
                 if (m.ColdWind) PairPop(PairFx.ColdWind, was, e.Pos, e.Radius);
                 if (m.FireWheel)
                 {
-                    PairPop(PairFx.FireWheel, e.Pos, 1.6f);
                     float dps = m.StatusPower(StatusKind.Burn);
                     if (dps > 0f) LightField(e.Pos, 0.62f, dps * 0.5f, m.BurnLook);
                 }
@@ -3351,6 +3423,7 @@ namespace InkLine
             _explodeStar[col] = 0;
             _heavyStar[col] = 0;
             _stunStar[col] = 0;
+            _shadowStar[col] = 0;
             bool sec = false, kill = false, myriad = false, arrow = false, strike = false, back = false, link = false, slash = false;
             int secS = 0, killS = 0, myriadS = 0, arrowS = 0, strikeS = 0, backS = 0, linkS = 0, slashS = 0;
             bool qian = false, jun = false;
@@ -3364,6 +3437,7 @@ namespace InkLine
                 if (id == CardId.Explode) _explodeStar[col] = Mathf.Max(_explodeStar[col], star);
                 if (id == CardId.Heavy) _heavyStar[col] = Mathf.Max(_heavyStar[col], star);
                 if (id == CardId.Stun) _stunStar[col] = Mathf.Max(_stunStar[col], star);
+                if (id == CardId.Shadow) _shadowStar[col] = Mathf.Max(_shadowStar[col], star);
                 if (id == CardId.Sec) { sec = true; secS = star; }
                 if (id == CardId.Kill) { kill = true; killS = star; }
                 if (id == CardId.Myriad) { myriad = true; myriadS = star; }
@@ -3427,6 +3501,7 @@ namespace InkLine
             if (id == CardId.Explode) return ChExplode;
             if (id == CardId.Heavy) return ChHeavy;
             if (id == CardId.Stun) return ChStun;
+            if (id == CardId.Shadow) return ChShadow;
             return ChWord;
         }
 

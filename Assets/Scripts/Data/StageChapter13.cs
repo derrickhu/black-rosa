@@ -10,7 +10,7 @@ namespace InkLine
     {
         static void Chapter13(List<Plan> s)
         {
-            // 影：打出去之后再补一发淡的。
+            // 影：这一列每 4 发，再补一发淡的。
             s.Add(P("云门", G("XXXXXX", "XXXXXX", "XX..XX"),
                 W(S(0.3f, Monk, 2), S(0.9f, Runner, -1, 5), S(5f, Elite, 3), S(9f, Swarm, -1, 5)),
                 W(S(0.3f, Warden, 1), S(1.5f, Monk, 4), S(5f, Bulwark, -1, 2), S(9f, Shade, -1, 4)),

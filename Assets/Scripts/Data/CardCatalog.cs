@@ -36,7 +36,7 @@ namespace InkLine
             new CardDef(CardId.Rebound, "返", "飞到头折返再打一遍", InkShape.Arrow),
             new CardDef(CardId.Qian, "千", "和「钧」同列才醒", InkShape.Square, CardWake.WordPart, WordId.Crush, 4),
             new CardDef(CardId.Jun, "钧", "和「千」同列才醒", InkShape.Square, CardWake.WordPart, WordId.Crush, 4),
-            new CardDef(CardId.Shadow, "影", "打出后再补一发影弹", InkShape.Arc),
+            new CardDef(CardId.Shadow, "影", "每 4 发补一发影弹", InkShape.Arc, CardWake.Charge, WordId.None, 4),
             new CardDef(CardId.Seal, "封", "打中后封住对方的技能", InkShape.Ring)
         };
 
@@ -92,12 +92,10 @@ namespace InkLine
         }
 
         // 以下数值一律读 GlyphTable，这里只留调用点习惯的名字。
-        // 万箭的冷却看两个字里较低的那颗星：1 星 6 发，两张都到 2 星减到 5 发，都到 3 星再减到 4 发。
-        // 只升其中一张不算，所以传入的是这一列「万」「箭」的最低星。
+        // 万箭固定每 6 发。以前三星会缩到 4 发，满屏齐射太密，升星不再减这次数。
         public static int WordChargeNeed(WordId word, int gateStar = 1)
         {
-            if (word == WordId.ArrowRain)
-                return 7 - Mathf.Clamp(gateStar, 1, 3);
+            if (word == WordId.ArrowRain) return 6;
             return GlyphTable.Word(word).Charge;
         }
 

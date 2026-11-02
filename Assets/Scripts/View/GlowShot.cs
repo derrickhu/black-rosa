@@ -43,7 +43,7 @@ namespace InkLine
         readonly Vector2[] _bitVel = new Vector2[Bits];
         readonly Vector2[] _trail = new Vector2[Ghosts + 1];
         int _trailN, _bid = -1;
-        float _age, _trailAt, _bodyBitAt, _tailBitAt;
+        float _age, _trailAt, _bodyBitAt, _tailBitAt, _emberAt;
 
         static readonly Dictionary<string, Sprite> ArtCache = new Dictionary<string, Sprite>();
         static readonly List<Hit> Hits = new List<Hit>();
@@ -81,7 +81,89 @@ namespace InkLine
         public static bool HasBody(ShotFx fx)
         {
             string key = FormKey(fx);
-            return key != null && ArtReady(key + "_shot");
+            if (key == null) return false;
+            return ArtReady(key + "_shot_00") || ArtReady(key + "_shot");
+        }
+
+        // 图鉴和飞行都播这一套帧。没有帧时退回单张。
+        public static Sprite Poster(string key)
+        {
+            int n = InkVfx.CountFrames(key + "_shot");
+            if (n > 0)
+            {
+                Sprite[] frames = InkVfx.Frames(key + "_shot", n);
+                if (frames != null && frames[0] != null) return frames[0];
+            }
+            return Art(key + "_shot");
+        }
+
+        public static Sprite Loop(string key, float t, int id)
+        {
+            int n = InkVfx.CountFrames(key + "_shot");
+            if (n > 0)
+            {
+                Sprite[] frames = InkVfx.Frames(key + "_shot", n);
+                if (frames != null && frames[0] != null)
+                {
+                    float fps = key == "firewheel" ? 16f : key == "ghostfire" || key == "soul" ? 10f : 12f;
+                    int step = Mathf.FloorToInt(t * fps + id * 0.37f);
+                    for (int i = 0; i < n; i++)
+                    {
+                        Sprite s = frames[((step + i) % n + n) % n];
+                        if (s != null) return s;
+                    }
+                }
+            }
+            return Art(key + "_shot");
+        }
+
+        // 卡通序列帧自己带颜色，不再套大光晕和残影。
+        static bool Toon(string key) =>
+            key == "firewheel" || key == "cloudarrow" || key == "needle";
+
+        // 重新画的发光循环：颜色在图里，普通混合，不另加白热点。
+        static bool Painted(string key) =>
+            key == "crumble" || key == "collapse" || key == "whirl" || key == "riposte"
+            || key == "ghostfire" || key == "soul";
+
+        // 第二幕新字和秘卷比旧的发光弹更大、外晕更亮。
+        static bool Premium(string key)
+        {
+            switch (key)
+            {
+                case "ghostfire":
+                case "soul":
+                case "firewheel":
+                case "cloudarrow":
+                case "needle":
+                case "shadow":
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        static float BodyLen(string key)
+        {
+            switch (key)
+            {
+                case "ghostfire": return 1.05f;
+                case "soul": return 0.9f;
+                case "crumble":
+                case "collapse":
+                case "whirl": return 1.15f;
+                case "riposte": return 1.45f;
+                case "firewheel":
+                    return 0.86f;
+                case "cloudarrow":
+                    return 1.3f;
+                case "needle":
+                    return 1.8f;
+                case "shadow":
+                    return 0.72f;
+                default:
+                    return 1f;
+            }
         }
 
         static Color HaloOf(string key)
@@ -98,6 +180,7 @@ namespace InkLine
                 case "firewheel": return InkTheme.Hex("FF8A1A");
                 case "cloudarrow": return InkTheme.Hex("FFD24A");
                 case "needle": return InkTheme.Hex("7EE7FF");
+                case "shadow": return InkTheme.Hex("C9D4FF");
                 case "break": return BreakHalo;
                 case "gather": return GatherHalo;
                 default: return ReboundHalo;
@@ -114,7 +197,7 @@ namespace InkLine
             if (v.Form.On)
             {
                 string key = FormKey(v.Form.Fx);
-                if (key != null && ArtReady(key + "_shot")) look = Make(key);
+                if (key != null && HasBody(v.Form.Fx)) look = Make(key);
                 return look.On;
             }
             if (m.Has(CardId.Break) && ArtReady("break_shot")) look = Make("break");
@@ -126,13 +209,13 @@ namespace InkLine
         public static bool BodyOf(ShotMods m, out Look look) => BodyOf(m, ShotLook.Resolve(m), out look);
 
         static bool RingOn(ShotMods m, in Look body) =>
-            m.Has(CardId.Break) && body.Key != "break" && ArtReady("break_bit0");
+            !Toon(body.Key) && m.Has(CardId.Break) && body.Key != "break" && ArtReady("break_bit0");
 
         static bool OrbitOn(ShotMods m, in Look body) =>
-            m.Has(CardId.Gather) && body.Key != "gather" && ArtReady("gather_bit0");
+            !Toon(body.Key) && m.Has(CardId.Gather) && body.Key != "gather" && ArtReady("gather_bit0");
 
         static bool TailOn(ShotMods m, in Look body) =>
-            m.Has(CardId.Rebound) && body.Key != "rebound" && ArtReady("rebound_bit0");
+            !Toon(body.Key) && m.Has(CardId.Rebound) && body.Key != "rebound" && ArtReady("rebound_bit0");
 
         public static bool Wants(ShotMods m)
         {
@@ -172,6 +255,7 @@ namespace InkLine
             ShotMods m = b.Mods;
             ShotView v = ShotLook.Resolve(m);
             BodyOf(m, v, out Look body);
+            if (!body.On && b.Ghost && ArtReady("shadow_shot_00")) body = Make("shadow");
             _age += Time.deltaTime;
 
             Vector3 p = transform.localScale;
@@ -186,11 +270,12 @@ namespace InkLine
             float born = Ease.OutBack(Mathf.Clamp01(_age / 0.12f));
             float t = _age;
 
-            Body(body, born, t);
+            Body(body, born, t, b.Id);
+            if (body.Key == "ghostfire" || body.Key == "soul" || body.Key == "shadow") Ember(body.Key, b.Pos, dir, t);
             Ring(RingOn(m, body), born, t);
             Orbit(OrbitOn(m, body), born, t);
             Tail(TailOn(m, body), b.Pos, dir, t);
-            if (body.On && t >= _bodyBitAt)
+            if (body.On && !Painted(body.Key) && t >= _bodyBitAt)
             {
                 _bodyBitAt = t + 0.05f;
                 Sprite bit = Art(body.Key + "_shards");
@@ -211,21 +296,75 @@ namespace InkLine
             for (int i = 0; i < Bits; i++) _bit[i].enabled = false;
         }
 
-        void Body(in Look look, float born, float t)
+        void Body(in Look look, float born, float t, int id)
         {
-            Sprite sprite = look.On ? Art(look.Key + "_shot") : null;
+            Sprite sprite = look.On ? Loop(look.Key, t, id) : null;
             if (sprite == null)
             {
                 _body.enabled = _halo.enabled = _hot.enabled = false;
                 for (int i = 0; i < Ghosts; i++) _ghost[i].enabled = false;
                 return;
             }
-            float len = 1.0f * born;
-            float sink = -len * 0.12f;
-            Fit(_body, sprite, len, Color.white, sink);
-            Soft(_halo, look.Halo, new Vector2(0.8f, 1.3f) * born * (1f + 0.06f * Mathf.Sin(t * 16f)), 0.40f, sink);
-            Soft(_hot, Color.white, new Vector2(0.2f, 0.5f) * born, 0.5f, len * 0.1f);
-            Ghost(sprite, len, sink);
+            bool jewel = look.Key == "ghostfire" || look.Key == "soul";
+            bool wisp = look.Key == "ghostfire" || look.Key == "shadow";
+            bool toon = Toon(look.Key);
+            bool painted = Painted(look.Key);
+            float breathe = look.Key == "ghostfire" || look.Key == "soul" ? 1f + 0.05f * Mathf.Sin(t * 7f + id)
+                : wisp ? 1f + 0.06f * Mathf.Sin(t * 22f + id)
+                : look.Key == "needle" ? 1f + 0.05f * Mathf.Sin(t * 8f + id) : 1f;
+            float len = BodyLen(look.Key) * born * breathe;
+            float sink = toon || painted ? 0f : -len * 0.12f;
+            bool premium = Premium(look.Key);
+            // 影继续加色，暗边不会在浅地上描成一圈线。鬼火改回普通混合，橙和紫边才不会被浅地冲白。
+            if (look.Key == "shadow") InkFx.PaintAdd(_body, Color.white);
+            else InkFx.PaintSprite(_body, Color.white);
+            Color tint = Color.white;
+            if (look.Key == "shadow") tint = new Color(0.62f, 0.4f, 1f, 0.55f);
+            float shine = look.Key == "ghostfire" ? 0.55f
+                : look.Key == "shadow" ? 0.48f
+                : jewel ? 0.62f : premium ? 1.25f : 1f;
+            float haloA = look.Key == "ghostfire" ? 0.22f
+                : look.Key == "shadow" ? 0.2f
+                : jewel ? 0.26f : premium ? 0.55f : 0.40f;
+            Fit(_body, sprite, len, tint, sink);
+            if (look.Key == "shadow")
+            {
+                float wobble = Mathf.Sin(t * 11f + id);
+                Vector3 at = _body.transform.localPosition;
+                at.x += wobble * 0.05f;
+                _body.transform.localPosition = at;
+                _body.transform.localRotation = Quaternion.Euler(0f, 0f, wobble * 8f);
+                Color c = _body.color;
+                c.a *= 0.78f + 0.22f * wobble;
+                _body.color = c;
+            }
+            else if (look.Key == "firewheel")
+                _body.transform.localRotation = Quaternion.Euler(0f, 0f, -t * 420f);
+            else if (look.Key == "whirl")
+                _body.transform.localRotation = Quaternion.Euler(0f, 0f, -t * 160f);
+            else if (look.Key == "collapse")
+                _body.transform.localRotation = Quaternion.Euler(0f, 0f, t * 120f);
+            // 发光序列自己带着光。再垫大光晕、白热点和残影，浅地上会糊、会冲白。
+            if (toon || painted)
+            {
+                _halo.enabled = false;
+                _hot.enabled = false;
+                for (int i = 0; i < Ghosts; i++) _ghost[i].enabled = false;
+                return;
+            }
+            Soft(_halo, look.Halo, new Vector2(0.85f, 1.4f) * born * shine * (1f + 0.06f * Mathf.Sin(t * 16f)),
+                haloA, sink);
+            // 鬼火中心的白热点会把橙色盖掉，只留外圈那层淡光。
+            float hotA = look.Key == "ghostfire" ? 0f
+                : look.Key == "shadow" ? 0.12f
+                : jewel ? 0.22f : premium ? 0.32f : 0.5f;
+            if (hotA <= 0f) _hot.enabled = false;
+            else Soft(_hot, Color.white, new Vector2(0.16f, 0.38f) * born, hotA, len * 0.18f);
+            if (look.Key == "shadow")
+            {
+                for (int i = 0; i < Ghosts; i++) _ghost[i].enabled = false;
+            }
+            else Ghost(sprite, len, sink, false, look.Key == "ghostfire" ? 0.22f : 0.42f);
         }
 
         // 破：三片晶绕着弹体，半径和角度都按时间抖，读作「甲在碎」。
@@ -294,7 +433,28 @@ namespace InkLine
                 side * 540f);
         }
 
-        void Emit(Sprite sprite, Vector2 at, Vector2 vel, float life, float size, float spin = 0f)
+        // 鬼火甩橙紫火星，失魂甩紫火和粉色光点。跟着弹尾散开。
+        void Ember(string key, Vector2 pos, Vector2 dir, float t)
+        {
+            if (t < _emberAt) return;
+            bool shade = key == "shadow";
+            _emberAt = t + (shade ? 0.07f : key == "soul" ? 0.055f : 0.04f);
+            Sprite mote = InkFx.Mote();
+            Vector2 side = new Vector2(-dir.y, dir.x);
+            float flick = Random.Range(-1f, 1f);
+            bool warm = key == "ghostfire";
+            Color c = shade
+                ? new Color(0.55f, 0.32f, 1f, 0.65f)
+                : warm
+                ? (Random.value < 0.45f ? new Color(1f, 0.42f, 0.12f, 1f) : new Color(0.72f, 0.32f, 1f, 1f))
+                : (Random.value < 0.5f ? new Color(0.72f, 0.28f, 1f, 1f) : new Color(1f, 0.46f, 0.72f, 1f));
+            Vector2 at = pos - dir * Random.Range(0.02f, 0.16f) + side * flick * (shade ? 0.06f : 0.1f);
+            Vector2 vel = -dir * Random.Range(0.35f, 0.9f) + side * flick * Random.Range(0.4f, shade ? 0.8f : 1.3f);
+            if (warm) vel.y += Random.Range(0.2f, 0.7f);
+            Emit(mote, at, vel, Random.Range(0.18f, 0.32f), shade ? 0.07f : warm ? 0.11f : 0.09f, Random.Range(-240f, 240f), c);
+        }
+
+        void Emit(Sprite sprite, Vector2 at, Vector2 vel, float life, float size, float spin = 0f, Color? tint = null)
         {
             if (sprite == null) return;
             int slot = -1;
@@ -311,7 +471,7 @@ namespace InkLine
             SpriteRenderer sr = _bit[slot];
             sr.enabled = true;
             sr.sprite = sprite;
-            sr.color = Color.white;
+            sr.color = tint ?? Color.white;
             _bitPos[slot] = at;
             _bitVel[slot] = vel;
             _bitAge[slot] = 0f;
@@ -339,7 +499,9 @@ namespace InkLine
                 _bitVel[i] *= Mathf.Max(0f, 1f - 3f * dt);
                 _bitRot[i] += _bitSpin[i] * dt;
                 Place(i, 1f - u * 0.4f);
-                _bit[i].color = new Color(1f, 1f, 1f, 1f - u);
+                Color bit = _bit[i].color;
+                bit.a = 1f - u;
+                _bit[i].color = bit;
             }
         }
 
@@ -368,7 +530,7 @@ namespace InkLine
             _trailN = Mathf.Min(_trailN + 1, Ghosts + 1);
         }
 
-        void Ghost(Sprite sprite, float len, float sink)
+        void Ghost(Sprite sprite, float len, float sink, bool add, float alpha)
         {
             Quaternion rot = transform.rotation;
             Vector3 back = rot * new Vector3(0f, sink, 0f);
@@ -378,12 +540,14 @@ namespace InkLine
                 bool on = i + 1 < _trailN;
                 sr.enabled = on;
                 if (!on) continue;
+                if (add) InkFx.PaintAdd(sr, Color.white);
+                else InkFx.PaintSprite(sr, Color.white);
                 Vector2 at = _trail[i + 1];
                 float k = 1f - 0.22f * (i + 1);
                 sr.sprite = sprite;
                 sr.transform.SetPositionAndRotation(new Vector3(at.x, at.y, 0f) + back, rot);
                 SetWorldSize(sr.transform, len * k / Size(sprite));
-                sr.color = new Color(1f, 1f, 1f, 0.42f * k);
+                sr.color = new Color(1f, 1f, 1f, alpha * k);
             }
         }
 

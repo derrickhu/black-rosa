@@ -22,9 +22,9 @@ namespace InkLine
     public static class ItemCatalog
     {
         public const int Count = 10;
-        public const int MaxLevel = 5;
+        public const int MaxLevel = 8;
 
-        // 1 级冷却按品质分档，升一级大约短 6%（见 CooldownAt）。
+        // 1 级冷却按品质分档。每级大约短 5%，冷却短的至少再短 1 秒，所以每一级都变。
         // 档与档之间留了空：满级的普通仍短于 1 级高级，满级的高级仍短于 1 级稀有。
         static readonly ItemDef[] All =
         {
@@ -50,7 +50,7 @@ namespace InkLine
             },
             new ItemDef
             {
-                Id = ItemId.Splash, Name = "辣椒酱", Desc = "敌人最多那一列灼烧",
+                Id = ItemId.Splash, Name = "辣椒酱", Desc = "最密的三列一起灼烧",
                 When = "同一列有 3 个敌人", Quality = ItemQuality.Purple, Cooldown = 69f, Tint = InkTheme.Poison
             },
             new ItemDef
@@ -84,19 +84,23 @@ namespace InkLine
         public static ItemDef Get(ItemId id) => All[(int)id];
 
         // 下标是当前等级：[0] 是解锁要的卡，[1] 是 1→2 级，以此类推。
-        // 紫卡要 5 张才解锁。金箱随时可能掉一张，凑满一件仍得多开几箱。
+        // 同一品质越高要得越多。同一级越稀有要得越少，因为卡掉得少。
         static readonly int[][] CardNeed =
         {
-            new[] { 6, 10, 18, 30, 50 },
-            new[] { 5, 8, 12, 18, 28 },
-            new[] { 5, 8, 12, 18, 26 }
+            new[] { 6, 10, 18, 30, 50, 54, 58, 64 },
+            new[] { 5, 8, 12, 18, 28, 32, 36, 42 },
+            new[] { 5, 8, 12, 18, 26, 28, 32, 36 }
         };
 
-        // 普通 / 高级 / 稀有。同级大约 1 : 3 : 6，品质越高越贵。
+        // 普通 / 高级 / 稀有。1～5 级同级大约 1 : 3 : 6，品质越高越贵。
         // 普通 1→5：280 / 530 / 785 / 1035。稀有：1680 / 3190 / 4705 / 6215。
+        // 6～8 级按 4→5 那一档的 1.6 / 2.3 / 3.1 倍。后面的玩家没有早期那批余墨，不能按旧档的库存定价。
+        // 普通 1660 / 2385 / 3210。稀有 9945 / 14295 / 19270。
         static readonly float[] InkMul = { 1f, 3f, 6f };
         const int InkBase = 280;
         const float InkGrow = 0.9f;
+        const int InkCurve = 5;
+        static readonly float[] InkTail = { 1.6f, 2.3f, 3.1f };
 
         // 满级之后再开到的卡折成墨。
         static readonly int[] SpareInk = { 2, 6, 20 };
@@ -107,11 +111,15 @@ namespace InkLine
             return CardNeed[(int)d.Quality][Mathf.Max(0, level)];
         }
 
-        // 解锁只要卡，升级才花墨。每级在底数上再加九成，再乘品质。
+        // 解锁只要卡，升级才花墨。1～5 级每级在底数上再加九成，再乘品质。
+        // 6 级起改乘 5 级价的固定倍数，品质倍率不变。
         public static int NextPrice(ItemDef d, int level)
         {
             if (level <= 0 || level >= MaxLevel) return 0;
-            float raw = InkBase * InkMul[(int)d.Quality] * (1f + InkGrow * (level - 1));
+            float step = InkBase * InkMul[(int)d.Quality];
+            float raw = level < InkCurve
+                ? step * (1f + InkGrow * (level - 1))
+                : step * (1f + InkGrow * 3f) * InkTail[level - InkCurve];
             return Mathf.RoundToInt(raw / 5f) * 5;
         }
 
@@ -120,8 +128,10 @@ namespace InkLine
         public static float CooldownAt(ItemDef d, int level)
         {
             int lv = Mathf.Clamp(level, 1, MaxLevel);
-            float raw = d.Cooldown * (1f - 0.06f * (lv - 1));
-            return Mathf.Max(1, Mathf.RoundToInt(raw));
+            int opened = Mathf.RoundToInt(d.Cooldown);
+            int byPct = Mathf.RoundToInt(d.Cooldown * (1f - 0.05f * (lv - 1)));
+            int byStep = opened - (lv - 1);
+            return Mathf.Max(1, Mathf.Min(byPct, byStep));
         }
 
         // 持续时间一律整秒。文案、结算和演出都读这里。
@@ -130,13 +140,18 @@ namespace InkLine
         public static int RageTime(int lv) => 10 + lv;
         public static int SplashTime(int lv) => 8 + lv;
         public static int FrostTime(int lv) => 5 + lv;
-        // 胶水要够长，脚底下的水纹才看得出来。冷却 24 秒起，始终盖过这阵减速。
+        // 胶水要够长，脚底下的水纹才看得出来。冷却 24 秒起，满级 15 秒仍盖过这阵减速。
         public static int SlowTime(int lv) => 7 + lv;
-        // 光球穿过敌人，总伤靠多飞几个来回。冷却 75 秒起，满级 13 秒仍盖得过。
+        // 光球穿过敌人，总伤靠多飞几个来回。冷却 75 秒起，满级 16 秒仍盖得过。
         public static int DartTime(int lv) => 8 + lv;
-        // 1 级仍是两倍，之后每两级进一档，比原来提前一级翻上去。
-        public static int RageMul(int lv) => 2 + lv / 2;
-        public static int MendHeal(int lv) => 1 + lv / 2;
+        // 每级加 0.5 倍。1 级 2 倍，5 级 4 倍，和原来的 5 级一样；满级 5.5 倍、18 秒。
+        public static float RageMul(int lv) => 1.5f + 0.5f * Mathf.Clamp(lv, 1, MaxLevel);
+
+        // 回血和次数错开涨，每一级文案都变。2 级单次停在 1，先多给一次。
+        static readonly int[] MendHeals = { 1, 1, 2, 3, 3, 4, 5, 6 };
+        static readonly int[] MendCaps = { 1, 2, 2, 2, 3, 3, 3, 3 };
+
+        public static int MendHeal(int lv) => MendHeals[Mathf.Clamp(lv, 1, MaxLevel) - 1];
 
         public static string QualityName(ItemQuality q) =>
             q == ItemQuality.Purple ? "稀有" : q == ItemQuality.Blue ? "高级" : "普通";
@@ -151,27 +166,26 @@ namespace InkLine
             : q == ItemQuality.Blue ? InkTheme.Hex("2563A8")
             : InkTheme.Hex("2A7D40");
 
-        // 伤害类道具一律写成「基础弹伤的几倍」。倍数就放在这里，
-        // BattleItems 算伤害和道具页写文案读的是同一份，不会各写一遍再走岔。
-        // Effect 把十件道具的伤害一起抬 25%。按默认弹伤 1.8：
-        // 鞭炮 4/5/6/8/9。冰块削过一截后同级也是 4/5/6/8/9，打平；
-        // 冰块打的是全场，再靠减速补。范围小的鞭炮通常能炸到两个，总伤仍比单发弹弓高一截。
+        // 伤害按默认弹伤 1.8 写成点数，再除回去得到倍数。锻造把弹伤抬高以后，点数跟着涨。
+        // 前 5 级就是原来的点数。6 级起按同一档往上加，满级明显高于原来的 5 级。
+        // 鞭炮 / 飞镖：4 5 6 8 9 10 11 13。扫把：6 9 11 14 16 19 21 24。弹弓低 1 点。
         const float Effect = 1.25f;
-        public static float BurstMul(int lv) => (2f + lv) * Effect / ShotMods.DefaultBase;
-        public static float SweepMul(int lv) => (1.7f + 1.1f * lv) * Effect;
-        public static float FrostMul(int lv) => (1.46f + 0.47f * lv) * Effect;
-        // 冰块只是变慢，胶水才几乎走不动。1 级 72%，满级 56%。
-        public static float FrostFactor(int lv) => Mathf.Max(0.56f, 0.72f - 0.04f * (lv - 1));
-        // 胶水：1 级降到 35%，满级 19%。比冰块那阵轻减速狠一截，仍走得动。
-        public static float SlowFactor(int lv) => Mathf.Max(0.18f, 0.35f - 0.04f * (lv - 1));
-        // 按默认弹伤：1 级 5 点，之后约每级 +2.5（8/10/13/15）。单目标，满级仍低于紫色大扫把的 16。
-        public static float SnipeMul(int lv) => (2f + 2f * lv) * Effect / ShotMods.DefaultBase;
-        public static float SplashMul(int lv) => (1.1f + 0.55f * lv) * Effect;   // 每秒
-        // 单次擦过。按默认弹伤：1 级 4 点。一路能撞好几下，总伤靠来回飞出来。
-        public static float DartMul(int lv) => (2f + lv) * Effect / ShotMods.DefaultBase;
+        public static float BurstMul(int lv) => (2f + Mathf.Clamp(lv, 1, MaxLevel)) * Effect / ShotMods.DefaultBase;
+        public static float SweepMul(int lv) => (1.7f + 1.1f * Mathf.Clamp(lv, 1, MaxLevel)) * Effect;
+        public static float FrostMul(int lv) => (1.46f + 0.47f * Mathf.Clamp(lv, 1, MaxLevel)) * Effect;
+        // 冰块只是变慢。1 级 72%，每级少 4 个点，5 级 56%，满级 44%。
+        public static float FrostFactor(int lv) => 0.72f - 0.04f * (Mathf.Clamp(lv, 1, MaxLevel) - 1);
+        // 胶水比冰块狠。1 级 35%，每级少 4 个点，5 级 19%，满级 10%，仍走得动。
+        public static float SlowFactor(int lv) =>
+            Mathf.Max(0.10f, 0.35f - 0.04f * (Mathf.Clamp(lv, 1, MaxLevel) - 1));
+        public static float SnipeMul(int lv) => (2f + 2f * Mathf.Clamp(lv, 1, MaxLevel)) * Effect / ShotMods.DefaultBase;
+        // 浇在最密的一列，再盖住左右。半宽 1.5 格收到邻列外沿，再远的一列碰不到。
+        public const float SplashHalf = 1.5f;
+        // 每秒。默认弹伤下 8 / 10 / 12 / 14 / 16 / 18 / 20 / 22。
+        public static float SplashMul(int lv) => (2.67f + 0.89f * Mathf.Clamp(lv, 1, MaxLevel)) * Effect;
+        public static float DartMul(int lv) => BurstMul(lv);
 
-        // 4 级起每局能回两次，满级不用干等到最后一档。
-        public static int MendCap(int lv) => lv >= MaxLevel - 1 ? 2 : 1;
+        public static int MendCap(int lv) => MendCaps[Mathf.Clamp(lv, 1, MaxLevel) - 1];
 
         // shotBase 传玩家当前的基础弹伤（MetaProgress.ShotBase），
         // 文案上仍然显示点数 —— 「7.7 倍弹伤」玩家换算不过来。
@@ -186,13 +200,13 @@ namespace InkLine
                 case ItemId.Halt:
                     return "全场敌人定住 " + HaltTime(lv) + " 秒";
                 case ItemId.Rage:
-                    return RageTime(lv) + " 秒内炮弹伤害 " + RageMul(lv) + " 倍";
+                    return RageTime(lv) + " 秒内炮弹伤害 " + MulText(RageMul(lv)) + " 倍";
                 case ItemId.Sweep:
                     return "全屏 " + Pts(b * SweepMul(lv)) + " 点伤害并击退";
                 case ItemId.Splash:
-                    return "那一列灼烧 " + SplashTime(lv) + " 秒，每秒 " + Pts(b * SplashMul(lv)) + " 点";
+                    return "最密的三列灼烧 " + SplashTime(lv) + " 秒，每秒 " + Pts(b * SplashMul(lv)) + " 点";
                 case ItemId.Mend:
-                    return "基地回 " + MendHeal(lv) + " 血" + (MendCap(lv) > 1 ? "，每局两次" : "，每局一次");
+                    return "基地回 " + MendHeal(lv) + " 血，每局" + Times(MendCap(lv)) + "次";
                 case ItemId.Frost:
                     return "全场 " + Pts(b * FrostMul(lv)) + " 点冰伤，移速降到 " + Pct(FrostFactor(lv))
                            + "，持续 " + FrostTime(lv) + " 秒";
@@ -209,6 +223,13 @@ namespace InkLine
 
         static string Pts(float v) => Mathf.Max(1, Mathf.RoundToInt(v)).ToString();
         static string Pct(float factor) => Mathf.RoundToInt(factor * 100f) + "%";
+        static string MulText(float m)
+        {
+            int n = Mathf.RoundToInt(m * 2f);
+            return n % 2 == 0 ? (n / 2).ToString() : (n / 2) + ".5";
+        }
+
+        static string Times(int n) => n <= 1 ? "一" : n == 2 ? "两" : "三";
     }
 
     public struct SkinDef

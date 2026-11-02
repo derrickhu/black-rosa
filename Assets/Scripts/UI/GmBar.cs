@@ -15,6 +15,10 @@ namespace InkLine
 
         // 预览结算页：0 通关，1 续命，2 失败。GameFlow 启动时挂上。
         public static Action<int> Preview;
+        // 直接开一局已经摆好鬼火、失魂的预览。不扣体力，不记进度。
+        public static Action Look;
+        public static Action Trio;
+        public static Action Fresh;
 
         public static void Attach(RectTransform layer, MetaProgress meta, Action reload, Action refresh)
         {
@@ -43,13 +47,16 @@ namespace InkLine
             dimBtn.targetGraphic = dim.GetComponent<Image>();
             dimBtn.onClick.AddListener(() => UnityEngine.Object.Destroy(dim.gameObject));
 
-            var board = UiKit.Stroke(dim, "board", Vector2.zero, new Vector2(480f, 1240f), Pin.Center, 8f);
+            var board = UiKit.Stroke(dim, "board", Vector2.zero, new Vector2(480f, 1400f), Pin.Center, 8f);
             var boardImg = board.GetComponent<Image>();
             if (boardImg != null) boardImg.raycastTarget = true;
-            UiKit.Label(board, "title", "GM", 28, new Vector2(0f, 580f), new Vector2(200f, 40f));
+            UiKit.Label(board, "title", "GM", 28, new Vector2(0f, 650f), new Vector2(200f, 40f));
 
             var rows = new (string label, Action act)[]
             {
+                ("看鬼火失魂", () => { if (Look != null) Look(); }),
+                ("看三字诀", () => { if (Trio != null) Trio(); }),
+                ("看新特效", () => { if (Fresh != null) Fresh(); }),
                 ("墨 +200", () => meta.AddInk(InkGrant)),
                 ("体力补满", () => meta.FillStamina()),
                 ("钻石 +100", () => meta.AddDiamond(DiamondGrant)),
@@ -84,10 +91,10 @@ namespace InkLine
                 })
             };
 
-            float y = 528f;
+            float y = 596f;
             for (int i = 0; i < rows.Length; i++)
             {
-                if (i == 7) y = DrawChapters(board, meta, y, refresh);
+                if (i == 10) y = DrawChapters(board, meta, y, refresh);
                 int idx = i;
                 Button row = null;
                 row = UiKit.Btn(board, "g" + i, rows[i].label, new Vector2(0f, y), new Vector2(360f, 44f), () =>
