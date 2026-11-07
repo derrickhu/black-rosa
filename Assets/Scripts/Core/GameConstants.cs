@@ -53,6 +53,8 @@ namespace InkLine
         // 十一、十二章不新增字，开局格子少，靠铲子挖开。十三、十四章回到满盘，各给一个新字。
         // MetaProgress.Normalize 里的 Fit() 会把旧存档的星数组补齐到新长度，
         // 改这个数字不会打坏已有存档。
+        // 加章节必须同时改云函数通关榜上限：blackrosa-api/lib/rank.js 的 DEFAULT_MAX_CLEARED
+        // 等于这里的 StageCount。漏了的话，超过旧上限的关数上报会被拒绝，榜停在旧关数。
         public const int ChapterSize = 9;
         public const int Chapters = 14;
         public const int StageCount = ChapterSize * Chapters;

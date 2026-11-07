@@ -113,20 +113,25 @@ namespace InkLine
             dim.SetAsLastSibling();
         }
 
-        // 「没」和 1～12。点哪章，主线就通到那一章，再点「没」全部清掉。
+        // 「没」和每一章。点哪章，主线就通到那一章，再点「没」全部清掉。
+        // 两行按章数对半排，加章节不用再改列数。
         static float DrawChapters(RectTransform board, MetaProgress meta, float y, Action refresh)
         {
             var cap = UiKit.Label(board, "chcap", "", 22, new Vector2(0f, y), new Vector2(400f, 30f));
             UiKit.Bold(cap);
             cap.color = InkTheme.TextDark;
             y -= 34f;
-            var chips = new Button[GameConstants.Chapters + 1];
-            for (int n = 0; n <= GameConstants.Chapters; n++)
+            int total = GameConstants.Chapters + 1;
+            int topCount = (total + 1) / 2;
+            int botCount = total - topCount;
+            const float pitch = 52f;
+            var chips = new Button[total];
+            for (int n = 0; n < total; n++)
             {
-                bool top = n <= 6;
-                int col = top ? n : n - 7;
-                int cols = top ? 7 : 6;
-                float x = (col - (cols - 1) * 0.5f) * 54f;
+                bool top = n < topCount;
+                int col = top ? n : n - topCount;
+                int cols = top ? topCount : botCount;
+                float x = (col - (cols - 1) * 0.5f) * pitch;
                 float cy = top ? y : y - 46f;
                 int chapter = n;
                 chips[n] = ChapterChip(board, "ch" + n, n == 0 ? "没" : n.ToString(), new Vector2(x, cy), () =>

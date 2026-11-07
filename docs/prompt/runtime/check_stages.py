@@ -74,6 +74,9 @@ for ch in range(chapters):
 
 print("关卡数")
 check(len(rows) == want, f"{chapters} 章 × {size} 关 = {want}，实到 {len(rows)}")
+rank_src = open(os.path.join(REPO, "cloudfunctions", "blackrosa-api", "lib", "rank.js"), encoding="utf-8").read()
+rank_max = int(re.search(r"DEFAULT_MAX_CLEARED\s*=\s*(\d+)", rank_src).group(1))
+check(rank_max == want, f"通关榜上限 {rank_max} 要等于关卡总数 {want}（rank.js DEFAULT_MAX_CLEARED）")
 for ch in range(chapters):
     n = sum(1 for r in rows if r["ch"] == ch)
     if n != size:

@@ -206,6 +206,14 @@ namespace InkLine
         {
             bool empty = st == ChestState.Empty;
             bool ready = st == ChestState.Ready;
+            Sprite plateOn = InkSprites.Load("Ui/home_slot_on");
+            Sprite plateOff = InkSprites.Load("Ui/home_slot_off");
+            Sprite open = InkSprites.Load("Ui/home_open");
+            if (plateOn != null && plateOff != null && open != null)
+            {
+                PaintHome(c, st, restyle, empty, ready, plateOn, plateOff, open);
+                return;
+            }
             c.Ghost.gameObject.SetActive(empty);
             c.Art.gameObject.SetActive(!empty);
             c.Tag.gameObject.SetActive(!empty);
@@ -246,6 +254,44 @@ namespace InkLine
                     c.Label.color = TagCream;
                     break;
             }
+        }
+
+        static void PaintHome(Cell c, ChestState st, bool restyle, bool empty, bool ready,
+            Sprite plateOn, Sprite plateOff, Sprite open)
+        {
+            c.Ghost.gameObject.SetActive(false);
+            c.Glow.gameObject.SetActive(false);
+            c.Art.gameObject.SetActive(!empty);
+            c.Tag.gameObject.SetActive(!empty);
+            if (restyle)
+            {
+                c.Tray.sprite = empty ? plateOff : plateOn;
+                c.Tray.color = Color.white;
+                c.Tray.type = Image.Type.Simple;
+                c.Tray.preserveAspect = false;
+                c.Art.transform.localScale = Vector3.one;
+            }
+            if (empty) return;
+
+            ChestDef d = ChestCatalog.Get(c.Tier);
+            if (restyle)
+            {
+                Sprite art = InkSprites.Load("Ui/chest_" + d.Key + (ready ? "_open" : ""));
+                if (art != null) c.Art.sprite = art;
+                c.Art.color = Color.white;
+                c.Art.preserveAspect = true;
+            }
+            var tagImg = c.Tag.GetComponent<Image>();
+            tagImg.sprite = open;
+            tagImg.type = Image.Type.Simple;
+            tagImg.color = Color.white;
+            tagImg.preserveAspect = false;
+            if (c.TagFill != null) c.TagFill.gameObject.SetActive(false);
+            c.Label.color = InkTheme.Hex("1A1008");
+            c.Label.fontSize = 16;
+            if (st == ChestState.Ready) c.Label.text = "打开";
+            else if (st == ChestState.Timing) c.Label.text = ChestCatalog.Clock(c.Sec);
+            else c.Label.text = ChestCatalog.Span(d.Seconds);
         }
     }
 }

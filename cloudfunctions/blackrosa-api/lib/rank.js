@@ -30,8 +30,9 @@ const { httpError } = require('./http');
 const { readEnvPrefer, gameKeyUpper } = require('./config');
 const { sendMailOnce } = require('./mail');
 
-// 十二章 × 每章九关。和客户端 GameConstants.StageCount 对齐，超过这个数的上报直接拒绝。
-const DEFAULT_MAX_CLEARED = 108;
+// 必须等于客户端 GameConstants.StageCount（ChapterSize × Chapters）。加章节只改客户端、这里不跟着改，
+// 超过旧上限的通关数会被拒，榜就停在旧关数。check_stages.py 会核这一条。
+const DEFAULT_MAX_CLEARED = 126;
 const DEFAULT_MAX_ENDLESS = 70;
 const DEFAULT_MAX_DAILY = 20;
 const DEFAULT_LIST_LIMIT = 50;

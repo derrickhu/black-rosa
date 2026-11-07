@@ -77,6 +77,15 @@ namespace InkLine
             view.AdLabel = null;
             view.Help = null;
             SortiePageBuilder.Build(page, view);
+            SortiePageBuilder.EnsureSides(view, page);
+            HomeReskin.ApplyChrome(view);
+            var stam = view.Stamina != null ? view.Stamina.transform.parent as RectTransform : null;
+            var ink = view.Ink != null ? view.Ink.transform.parent as RectTransform : null;
+            var gem = ink != null && ink.parent != null ? ink.parent.Find("diamond") as RectTransform : null;
+            HomeReskin.FitBars(stam, ink, gem, view.StamTip);
+            HomeReskin.FitDock(view, view.Tabs, HomeScreen.TabSortie, HomeScreen.TabSlots);
+            HomeReskin.FitGo(view, true);
+            HomeReskin.FitChests(page.Find("chests") as RectTransform);
             PrefabUtility.SaveAsPrefabAsset(root, Out, out bool saved);
             PrefabUtility.UnloadPrefabContents(root);
             if (!saved)
@@ -279,7 +288,7 @@ namespace InkLine
 
         static Button[] BakeTabs(Transform root, HomeView view)
         {
-            view.TabDock = Pic(root, "tabbar", "tab_dock", new Vector2(0f, 0f),
+            view.TabDock = Pic(root, "tabbar", "home_dock_bar", new Vector2(0f, 0f),
                 new Vector2(720f, UiKit.DockH), Pin.Bottom);
             view.TabDock.raycastTarget = false;
             string[] names = { "炮台", "出征", "道具", "副本" };
@@ -303,7 +312,6 @@ namespace InkLine
             go.GetComponent<Image>().color = Color.clear;
             var btn = go.GetComponent<Button>();
             btn.transition = Selectable.Transition.None;
-            Pic(t, "plaque", "tab_plaque", new Vector2(0f, 42f), new Vector2(112f, 112f), Pin.Center);
             Icon(t, icon, new Vector2(0f, 42f), 80f);
             Label(t, "t", name, 28, new Vector2(0f, -36f), new Vector2(160, 36), Pin.Center);
             return btn;

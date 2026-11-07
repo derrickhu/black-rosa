@@ -48,7 +48,27 @@ namespace InkLine
 
         public static void Ensure(HomeView view, RectTransform page)
         {
-            if (view == null || page == null || view.Chapter != null) return;
+            if (view == null || page == null) return;
+            if (Spr("home_lawn") != null)
+            {
+                if (page.Find("home_reskin") != null && view.Chapter != null) return;
+                if (view.Chapter != null)
+                {
+                    view.Chapter.gameObject.name = "chapter_old";
+                    view.Chapter.gameObject.SetActive(false);
+                    UnityEngine.Object.Destroy(view.Chapter.gameObject);
+                    view.Chapter = null;
+                }
+                if (view.Logo != null) view.Logo.gameObject.SetActive(false);
+                if (view.Seals != null && view.Seals.Length > 0 && view.Seals[0] != null)
+                {
+                    Transform box = view.Seals[0].transform.parent;
+                    if (box != null && box.name == "seals") box.gameObject.SetActive(false);
+                }
+                BuildReskin(page, view);
+                return;
+            }
+            if (view.Chapter != null) return;
             if (view.Logo != null) view.Logo.gameObject.SetActive(false);
             if (view.Seals != null && view.Seals.Length > 0 && view.Seals[0] != null)
             {
@@ -68,6 +88,14 @@ namespace InkLine
 
         public static void Build(RectTransform page, HomeView view)
         {
+            if (Spr("home_lawn") != null)
+            {
+                BuildReskin(page, view);
+                view.SideActs = BuildSides(page);
+                if (page.Find("chests") == null)
+                    HomeChestRow.Build(page, new Vector2(0f, HomeChestRow.BarY), null);
+                return;
+            }
             float cardW = CardW;
 
             var boardRt = UiKit.Art(page, "chapter", "Ui/panel_chapter",
@@ -168,6 +196,115 @@ namespace InkLine
             swipe.Moved = null;
         }
 
+        // 首页稿：草地、章节条、九个圆点、两侧翻页。宝箱和侧栏沿用原来的逻辑，只改位置。
+        static void BuildReskin(RectTransform page, HomeView view)
+        {
+            var lawnGo = new GameObject("chapter", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image),
+                typeof(ChapterSwipe), typeof(HomeChapterBoard));
+            lawnGo.transform.SetParent(page, false);
+            var lawn = lawnGo.GetComponent<RectTransform>();
+            HomeReskin.TopLeft(lawn, 144f, 332f, 433f, 498f);
+            var lawnImg = lawnGo.GetComponent<Image>();
+            lawnImg.sprite = Spr("home_lawn");
+            lawnImg.type = Image.Type.Simple;
+            lawnImg.preserveAspect = true;
+            lawnImg.raycastTarget = true;
+            lawnImg.color = Color.white;
+            var chapter = lawnGo.GetComponent<HomeChapterBoard>();
+            chapter.Board = lawnImg;
+            chapter.Art = lawnImg;
+
+            var titleGo = new GameObject("title", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            titleGo.transform.SetParent(page, false);
+            var titleRt = titleGo.GetComponent<RectTransform>();
+            HomeReskin.TopLeft(titleRt, 212f, 189f, 285f, 99f);
+            var titleImg = titleGo.GetComponent<Image>();
+            titleImg.sprite = Spr("home_title");
+            titleImg.type = Image.Type.Simple;
+            titleImg.preserveAspect = false;
+            titleImg.raycastTarget = false;
+            chapter.Ribbon = titleImg;
+            chapter.Title = UiKit.Label(titleRt, "t", "第1章", 22, Vector2.zero, new Vector2(170f, 48f));
+            HomeReskin.FitTitle(chapter.Title);
+
+            var flag = new GameObject("reskin", typeof(RectTransform));
+            flag.transform.SetParent(lawn, false);
+
+            var routeGo = new GameObject("route", typeof(RectTransform), typeof(CanvasRenderer), typeof(UiPath));
+            routeGo.transform.SetParent(lawn, false);
+            routeGo.SetActive(false);
+            chapter.Route = routeGo.GetComponent<UiPath>();
+
+            var nodes = new HomeSealCell[PerChapter];
+            for (int i = 0; i < PerChapter; i++)
+            {
+                Vector2 dot = i < HomeReskin.Dots.Length ? HomeReskin.Dots[i] : Vector2.zero;
+                var plate = new GameObject("nd" + i, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+                plate.transform.SetParent(lawn, false);
+                var pr = plate.GetComponent<RectTransform>();
+                pr.anchorMin = pr.anchorMax = new Vector2(0f, 1f);
+                pr.pivot = HomeReskin.NodePivot;
+                pr.anchoredPosition = new Vector2(dot.x, -dot.y);
+                pr.sizeDelta = new Vector2(HomeReskin.NodeW, HomeReskin.NodeH);
+                var img = plate.GetComponent<Image>();
+                img.sprite = Spr("home_node_lock");
+                img.type = Image.Type.Simple;
+                img.preserveAspect = false;
+                img.raycastTarget = true;
+                var btn = plate.GetComponent<Button>();
+                btn.targetGraphic = img;
+                btn.transition = Selectable.Transition.None;
+                var num = UiKit.Label(plate.transform, "n", "", 18, Vector2.zero, new Vector2(36f, 24f));
+                num.gameObject.SetActive(false);
+                var slot = plate.AddComponent<HomeSealCell>();
+                slot.Plate = img;
+                slot.Button = btn;
+                slot.Number = num;
+                nodes[i] = slot;
+            }
+            chapter.Nodes = nodes;
+            chapter.Dots = null;
+
+            Retire(page.Find("prev"));
+            Retire(page.Find("next"));
+            chapter.Prev = MakeArrow(page, "prev", "home_arrow_off", HomeReskin.ArrowXLeft, 507f, out chapter.PrevLabel);
+            chapter.Next = MakeArrow(page, "next", "home_arrow_on", HomeReskin.ArrowXRight, 507f, out chapter.NextLabel);
+            BuildStarChest(page, chapter);
+            var chestRt = chapter.StarChest.transform as RectTransform;
+            HomeReskin.FitStarChest(chestRt, chapter.StarArt != null ? chapter.StarArt.rectTransform : null, chapter.StarLabel);
+
+            view.Chapter = chapter;
+            var mark = new GameObject("home_reskin", typeof(RectTransform));
+            mark.transform.SetParent(page, false);
+            lawnGo.GetComponent<ChapterSwipe>().Moved = null;
+        }
+
+        static void Retire(Transform node)
+        {
+            if (node == null) return;
+            node.name = node.name + "_old";
+            node.gameObject.SetActive(false);
+            UnityEngine.Object.Destroy(node.gameObject);
+        }
+
+        static Button MakeArrow(RectTransform page, string name, string file, float x, float y, out Text label)
+        {
+            var go = new GameObject(name, typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(Button));
+            go.transform.SetParent(page, false);
+            var rt = go.GetComponent<RectTransform>();
+            HomeReskin.TopLeft(rt, x, y, 62f, 67f);
+            var img = go.GetComponent<Image>();
+            img.sprite = Spr(file);
+            img.type = Image.Type.Simple;
+            img.preserveAspect = false;
+            var btn = go.GetComponent<Button>();
+            btn.targetGraphic = img;
+            btn.transition = Selectable.Transition.None;
+            label = UiKit.Label(go.transform, "t", "", 10, Vector2.zero, new Vector2(10f, 10f));
+            label.gameObject.SetActive(false);
+            return btn;
+        }
+
         static Image[] NodeStars(Transform node)
         {
             float size = NodeSize;
@@ -249,6 +386,7 @@ namespace InkLine
         public static void RepairChrome(HomeChapterBoard board)
         {
             if (board == null) return;
+            if (board.transform.Find("reskin") != null) return;
             FitDots(board);
             if (board.Dots != null)
                 for (int i = 0; i < board.Dots.Length; i++)
@@ -318,6 +456,8 @@ namespace InkLine
                     foreach (Button old in view.SideActs)
                         if (old != null) UnityEngine.Object.Destroy(old.gameObject);
                 view.SideActs = BuildSides(page);
+                for (int i = 0; i < view.SideActs.Length; i++)
+                    FitSide(view.SideActs[i], i);
                 return;
             }
             for (int i = 0; i < view.SideActs.Length; i++)
@@ -354,6 +494,7 @@ namespace InkLine
                 var cap = capRt.GetComponent<Text>();
                 if (cap != null) cap.text = label;
             }
+            if (Spr("home_lawn") != null) HomeReskin.FitSide(rt, i);
         }
 
         static void SideLook(int i, out string label, out string icon, out Vector2 size)

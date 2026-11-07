@@ -12,7 +12,7 @@ namespace InkLine
         public DungeonCard Endless;
 
         static readonly Color Dimmed = new Color(0.58f, 0.58f, 0.60f, 1f);
-        static readonly Color GoOff = InkTheme.Hex("B9B2A8");
+        static readonly Color GoOff = new Color(0.72f, 0.72f, 0.72f, 1f);
 
         public void Bind(MetaProgress meta, Action openDaily, Action openEndless)
         {
@@ -38,7 +38,7 @@ namespace InkLine
                 StageDef s = StageCatalog.DailyStage(DayClock.Today, DayClock.Week);
                 int hours = Mathf.Max(1, Mathf.CeilToInt(DayClock.SecondsToTomorrow / 3600f));
                 int best = meta.DailyBestToday;
-                Open(c, DungeonPageBuilder.Jade, $"{hours} 小时后换新",
+                Open(c, $"{hours} 小时后换新",
                     "今日 · " + s.Rule.Name + "：" + s.Rule.Desc,
                     best > 0 ? $"今日最好 第 {best} 波" : "今天还没打",
                     $"今日次数 {meta.DailyPlaysLeft}/{meta.DailyPlaysCap}",
@@ -65,7 +65,7 @@ namespace InkLine
                 int days = DayClock.DaysLeftInWeek;
                 int week = meta.EndlessWeek == DayClock.Week ? meta.EndlessWeekBest : 0;
                 string ever = meta.EndlessBest > 0 ? $" · 历史最好 {meta.EndlessBest} 波" : "";
-                Open(c, DungeonPageBuilder.Grape, days <= 1 ? "今晚零点换词缀" : $"{days} 天后换词缀",
+                Open(c, days <= 1 ? "今晚零点换词缀" : $"{days} 天后换词缀",
                     "本周 · " + rule.Name + "：" + rule.Desc,
                     week > 0 ? $"本周最好 第 {week} 波" : "本周还没打",
                     $"今日次数 {meta.EndlessPlaysLeft}/{meta.EndlessPlaysCap}{ever}",
@@ -74,21 +74,18 @@ namespace InkLine
             Wire(c, open);
         }
 
-        static void Open(DungeonCard c, Color accent, string chip, string rule, string best, string plays, bool ready)
+        static void Open(DungeonCard c, string chip, string rule, string best, string plays, bool ready)
         {
             if (c.Art != null) c.Art.color = Color.white;
             if (c.Lock != null) c.Lock.gameObject.SetActive(false);
-            if (c.Chip != null)
-            {
-                c.Chip.gameObject.SetActive(true);
-                c.Chip.color = accent;
-            }
+            if (c.Chip != null) c.Chip.gameObject.SetActive(true);
             Write(c.ChipLabel, chip);
             Write(c.Rule, rule);
             Write(c.Best, best);
             Write(c.Plays, plays);
             if (c.Plays != null) c.Plays.gameObject.SetActive(true);
-            if (c.Go != null && c.Go.targetGraphic != null) c.Go.targetGraphic.color = accent;
+            if (c.Go != null && c.Go.targetGraphic != null)
+                c.Go.targetGraphic.color = ready ? Color.white : GoOff;
             Write(c.GoLabel, "进入");
             if (c.Dot != null) c.Dot.gameObject.SetActive(ready);
             Breathe(c, ready);

@@ -43,12 +43,20 @@ public sealed class InkArtImporter : AssetPostprocessor
         bool panel = path.Contains("/panel_") || path.EndsWith("/tab_dock.png") || path.EndsWith("/tab_plaque.png");
         // 展台在炮台页上铺到 640 宽，256 会被拉糊。按两倍超采样留 2048。
         bool stage = path.EndsWith("/skin_stage.png");
+        // 首页整屏底是 720×1280。默认 256 会把它压糊，1024 也会把长边缩掉。
+        bool homeBg = path.EndsWith("/home_bg.png");
+        // 首页其余零件按设计稿两倍留，草地最长边不到 1024。
+        bool home = path.Contains("/Ui/home_");
+        // 玩法底板是 1280×480 的整张图，弧线不能九宫格拉，也不能压到 256。
+        bool modePlate = path.Contains("/mode_plate");
         // 图鉴底板铺满整屏、星级条拉到 570 宽，256 会糊。
         bool codexBig = path.EndsWith("/codex_board.png") || path.Contains("/codex_row");
         // 图鉴卡按原比例整张贴，不走九宫格；格子 190 宽、详情 196 宽，留两倍超采样。
         bool codexCard = path.Contains("/codex_face") || path.EndsWith("/codex_back.png")
                          || path.Contains("/Ui/loot_");
-        importer.maxTextureSize = stage ? 2048 : (panel || codexBig ? 1024 : codexCard ? 512 : 256);
+        int size = stage || homeBg || modePlate ? 2048
+            : (panel || codexBig || home ? 1024 : codexCard ? 512 : 256);
+        importer.maxTextureSize = size;
         if (panel) importer.spritePixelsPerUnit = 100;
         // 面板要给 Sprite.Create 做九宫格兜底，得留 CPU 副本。
         if (panel) importer.isReadable = true;
@@ -85,5 +93,25 @@ public sealed class InkArtImporter : AssetPostprocessor
             importer.spriteBorder = new Vector4(16f, 0f, 16f, 0f);
         else if (path.EndsWith("/codex_box.png"))
             importer.spriteBorder = new Vector4(48f, 48f, 48f, 48f);
+        // 写在 SetTextureSettings 后面。只改 maxTextureSize 时，微信目标仍用 meta 里的 256，草地会被压糊。
+        if (home || homeBg || stage || modePlate)
+            ApplyUiSize(importer, size);
+    }
+
+    static void ApplyUiSize(TextureImporter importer, int size)
+    {
+        var def = importer.GetDefaultPlatformTextureSettings();
+        def.maxTextureSize = size;
+        def.textureCompression = TextureImporterCompression.Uncompressed;
+        importer.SetPlatformTextureSettings(def);
+        foreach (string platform in new[] { "Standalone", "WebGL", "WeixinMiniGame" })
+        {
+            var plat = importer.GetPlatformTextureSettings(platform);
+            plat.overridden = true;
+            plat.maxTextureSize = size;
+            plat.textureCompression = TextureImporterCompression.Uncompressed;
+            plat.format = TextureImporterFormat.RGBA32;
+            importer.SetPlatformTextureSettings(plat);
+        }
     }
 }

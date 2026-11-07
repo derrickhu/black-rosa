@@ -14,7 +14,7 @@ namespace InkLine
         public const int TabDungeon = 3;
         // 后加的，编号接在最后，摆在最左边。
         public const int TabStudy = 4;
-        static readonly int[] TabSlots = { 1, 2, 3, 4, 0 };
+        public static readonly int[] TabSlots = { 1, 2, 3, 4, 0 };
 
         const float CardW = 322f;
         const float CardH = 152f;
@@ -115,8 +115,8 @@ namespace InkLine
                 _view.AdButton.onClick.AddListener(WatchStaminaAd);
             }
             BindTopBar();
+            HomeReskin.ApplyChrome(_view);
             RenameItemTab();
-            Paint(_view.TabDock, "Ui/tab_dock", new Vector4(88f, 70f, 88f, 70f));
             Paint(_view.Board, "Ui/panel_board");
             return true;
         }
@@ -150,31 +150,22 @@ namespace InkLine
 
         const float ChipStep = 232f;
 
-        // 预制体只烘了体力和墨两颗药丸。钻石照墨那颗复制一份，三颗等距排开。
+        // 预制体只烘了体力和墨两颗药丸。钻石照墨那颗复制一份。
+        // 新首页三颗改走 FitBars。这里若按旧的居中坐标去摆，体力会被推出屏幕左边。
         void BindTopBar()
         {
             var stam = _view.Stamina != null ? _view.Stamina.transform.parent as RectTransform : null;
             var ink = _view.Ink != null ? _view.Ink.transform.parent as RectTransform : null;
             if (stam == null || ink == null) return;
-            const float w = 210f;
-            stam.anchoredPosition = new Vector2(-ChipStep, stam.anchoredPosition.y);
-            stam.sizeDelta = new Vector2(w, stam.sizeDelta.y);
-            ink.anchoredPosition = new Vector2(0f, ink.anchoredPosition.y);
-            ink.sizeDelta = new Vector2(w, ink.sizeDelta.y);
-            if (_stamTip != null)
-            {
-                var tip = _stamTip.rectTransform;
-                tip.anchoredPosition = new Vector2(-ChipStep, tip.anchoredPosition.y);
-            }
             Transform old = ink.parent.Find("diamond");
             var gem = old != null ? (RectTransform)old
                 : (RectTransform)UnityEngine.Object.Instantiate(ink.gameObject, ink.parent).transform;
             gem.name = "diamond";
-            gem.anchoredPosition = new Vector2(ChipStep, ink.anchoredPosition.y);
             foreach (var img in gem.GetComponentsInChildren<Image>(true))
                 if (img.transform != gem) img.sprite = InkSprites.Ui("diamond");
             _diamond = gem.GetComponentInChildren<Text>(true);
             StaminaTap(stam);
+            HomeReskin.FitBars(stam, ink, gem, _stamTip);
         }
 
         // 点体力药丸弹补体力。右侧挂个小加号，告诉玩家这里能点。
@@ -187,7 +178,9 @@ namespace InkLine
             btn.transition = Selectable.Transition.None;
             btn.onClick.RemoveAllListeners();
             btn.onClick.AddListener(OpenStamina);
-            if (chip.Find("plus") != null) return;
+            Transform oldPlus = chip.Find("plus");
+            if (oldPlus != null) UnityEngine.Object.Destroy(oldPlus.gameObject);
+            if (HomeReskin.Ready) return;
             var ring = UiKit.Icon(chip, UiSprites.Disc(), new Vector2(chip.sizeDelta.x * 0.5f - 6f, 0f), 34f);
             ring.gameObject.name = "plus";
             ring.color = InkTheme.Outline;
@@ -259,7 +252,7 @@ namespace InkLine
             _tab = tab;
             for (int i = 0; i < _pages.Length; i++)
                 if (_pages[i] != null) _pages[i].gameObject.SetActive(i == tab);
-            UiKit.PaintTab(_tabs, tab, TabSlots);
+            HomeReskin.FitDock(_view, _tabs, tab, TabSlots);
             Rebuild(tab);
             TabPicked?.Invoke(tab);
         }
@@ -353,12 +346,12 @@ namespace InkLine
 
         float _fitW = -1f;
         float _fitH = -1f;
-        float _fitTop = -1f;
-        float _fitBot = -1f;
+        float _fitScale = -1f;
+        bool _fitFill;
 
-        // 预制体是按 720×1280 排的。画布一拉高，页会跟着变高，
-        // 顶上的牌子还钉在屏幕最上，多出来的高度就空在格子和底栏之间。
-        // 整页保持设计比例，能放下就按原大贴着安全区下沿，放不下再整体缩小。
+        // 设计稿是 720×1280。Unity 预览正好是这个尺寸，坐标原样。
+        // 手机更高时整页铺满，底栏以上的间距按原比例拉开，顶上的货币和底下的底栏仍贴着各自的边。
+        // 比设计稿更矮才整体缩小，避免裁切。
         void FitFrame()
         {
             if (_view == null) return;
@@ -374,36 +367,58 @@ namespace InkLine
             }
             if (cw < 2f || ch < 2f) return;
 
-            float top = 0f;
-            float bot = 0f;
-            if (WxBridge.IsMiniGame)
+            bool shortScreen = ch < ScreenFit.DesignH - 1f || cw < ScreenFit.DesignW - 1f;
+            if (shortScreen)
             {
-                top = ScreenFit.TopPad;
-                bot = ScreenFit.BottomPad;
+                float bot = WxBridge.IsMiniGame ? ScreenFit.BottomPad : 0f;
+                float availH = Mathf.Max(1f, ch - bot);
+                float scale = Mathf.Min(cw / ScreenFit.DesignW, availH / ScreenFit.DesignH);
+                if (scale < 0.01f) return;
+                HomeReskin.SetFrame(ScreenFit.DesignW, ScreenFit.DesignH, true);
+                if (Mathf.Approximately(scale, _fitScale) && Mathf.Approximately(cw, _fitW) && Mathf.Approximately(ch, _fitH))
+                {
+                    HomeReskin.FitStage(_view);
+                    return;
+                }
+                _fitFill = false;
+                _fitW = cw;
+                _fitH = ch;
+                _fitScale = scale;
+                rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
+                rt.pivot = new Vector2(0.5f, 0.5f);
+                rt.sizeDelta = new Vector2(ScreenFit.DesignW, ScreenFit.DesignH);
+                rt.localScale = new Vector3(scale, scale, 1f);
+                float half = ScreenFit.DesignH * scale * 0.5f;
+                bool laidOut = parent != null && parent.rect.height > 2f;
+                Rect prect = laidOut ? parent.rect : new Rect(-cw * 0.5f, -ch * 0.5f, cw, ch);
+                float centerY = (prect.yMin + prect.yMax) * 0.5f;
+                float pivotY = prect.yMin + bot + half;
+                rt.anchoredPosition = new Vector2(0f, pivotY - centerY);
             }
-            if (Mathf.Approximately(cw, _fitW) && Mathf.Approximately(ch, _fitH)
-                && Mathf.Approximately(top, _fitTop) && Mathf.Approximately(bot, _fitBot))
-                return;
-
-            float availH = Mathf.Max(1f, ch - top - bot);
-            float scale = Mathf.Min(cw / ScreenFit.DesignW, availH / ScreenFit.DesignH);
-            if (scale < 0.01f) return;
-            _fitW = cw;
-            _fitH = ch;
-            _fitTop = top;
-            _fitBot = bot;
-
-            rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
-            rt.pivot = new Vector2(0.5f, 0.5f);
-            rt.sizeDelta = new Vector2(ScreenFit.DesignW, ScreenFit.DesignH);
-            rt.localScale = new Vector3(scale, scale, 1f);
-            float half = ScreenFit.DesignH * scale * 0.5f;
-            bool laidOut = parent != null && parent.rect.height > 2f;
-            Rect prect = laidOut ? parent.rect : new Rect(-cw * 0.5f, -ch * 0.5f, cw, ch);
-            float centerY = (prect.yMin + prect.yMax) * 0.5f;
-            float pivotY = prect.yMin + bot + half;
-            rt.anchoredPosition = new Vector2(0f, pivotY - centerY);
-            Canvas.ForceUpdateCanvases();
+            else
+            {
+                HomeReskin.SetFrame(cw, ch, false);
+                if (!_fitFill || !Mathf.Approximately(cw, _fitW) || !Mathf.Approximately(ch, _fitH))
+                {
+                    _fitFill = true;
+                    _fitW = cw;
+                    _fitH = ch;
+                    _fitScale = 1f;
+                    rt.anchorMin = Vector2.zero;
+                    rt.anchorMax = Vector2.one;
+                    rt.pivot = new Vector2(0.5f, 0.5f);
+                    rt.offsetMin = Vector2.zero;
+                    rt.offsetMax = Vector2.zero;
+                    rt.localScale = Vector3.one;
+                    rt.anchoredPosition = Vector2.zero;
+                }
+            }
+            HomeReskin.FitStage(_view);
+            if (_chests != null) HomeReskin.FitChests(_chests.Root);
+            var stam = _stamina != null ? _stamina.rectTransform.parent as RectTransform : null;
+            var ink = _ink != null ? _ink.rectTransform.parent as RectTransform : null;
+            var gem = ink != null && ink.parent != null ? ink.parent.Find("diamond") as RectTransform : null;
+            if (stam != null || ink != null) HomeReskin.FitBars(stam, ink, gem, _stamTip);
         }
 
         public void Tick()
@@ -728,6 +743,9 @@ namespace InkLine
         {
             if (_pages[1] != null)
             {
+            HomeReskin.ApplyChrome(_view);
+            if (_pages[1] != null)
+            {
                 SortiePageBuilder.Ensure(_view, _pages[1]);
                 SortiePageBuilder.EnsureSides(_view, _pages[1]);
             }
@@ -738,15 +756,10 @@ namespace InkLine
             if (_view.GoButton != null)
             {
                 _view.GoButton.interactable = true;
-                var go = (RectTransform)_view.GoButton.transform;
-                go.anchoredPosition = new Vector2(go.anchoredPosition.x, GoY);
-                go.sizeDelta = new Vector2(go.sizeDelta.x, GoH);
                 _view.GoButton.onClick.RemoveAllListeners();
                 _view.GoButton.onClick.AddListener(() => Go(NextStage()));
-                if (_view.GoButton.targetGraphic != null)
-                    _view.GoButton.targetGraphic.color = canGo ? InkTheme.Cta : InkTheme.CtaOff;
+                HomeReskin.FitGo(_view, canGo);
             }
-            // 体力不够时点「继续」直接弹补体力，原来那颗看广告的按钮让位给宝箱托盘。
             if (_view.AdButton != null) _view.AdButton.gameObject.SetActive(false);
             EnsureChests(_pages[1]);
             if (_view.Help != null) _view.Help.gameObject.SetActive(false);
@@ -755,6 +768,7 @@ namespace InkLine
                 for (int i = 0; i < _view.Seals.Length && i < GameConstants.StageCount; i++)
                     BindSeal(_view.Seals[i], i);
             WireSides();
+            }
         }
 
         // 底下一排宝箱托盘，「继续」压在托盘上面、章节卡下面。
@@ -788,6 +802,7 @@ namespace InkLine
             PlaceWaitingChests();
             _chests.Refresh(_meta);
             SyncHoldChip(page);
+            HomeReskin.FitChests(_chests.Root);
         }
 
         // 之前寄着的箱子，只要有空位就放进去。挑选页还开着时格子是满的，这里放不进去。
@@ -879,7 +894,8 @@ namespace InkLine
             HomeChapterBoard board = _view.Chapter;
             if (_chapter < 0) _chapter = _hardView ? _hardChapter : SortiePageBuilder.ChapterOf(frontier);
             _chapter = Mathf.Clamp(_chapter, 0, SortiePageBuilder.ChapterCount - 1);
-            if (board.Art != null)
+            bool home = board.transform.Find("reskin") != null;
+            if (board.Art != null && !home)
             {
                 string art = "Ui/chapter_" + (_chapter + 1);
                 if (InkSprites.Load(art) == null) art = "Ui/chapter_1";
@@ -896,6 +912,7 @@ namespace InkLine
                 else _chapter = open;
             }
             if (_hardView) _hardChapter = _chapter;
+            if (home) HomeReskin.ApplyLawn(board.Art, _chapter);
             HideHardToggle(board);
             BindModeTabs(board);
             if (board.Title != null)
@@ -906,6 +923,7 @@ namespace InkLine
                     : SortiePageBuilder.ChapterTitle(_chapter);
             }
             BindStarChest(board);
+            if (home) HomeReskin.FitTitle(board.Title);
             if (board.StarChest != null)
             {
                 board.StarChest.gameObject.SetActive(true);
@@ -913,7 +931,7 @@ namespace InkLine
             }
             int count = Mathf.Min(SortiePageBuilder.PerChapter,
                 GameConstants.StageCount - _chapter * SortiePageBuilder.PerChapter);
-            if (board.Route != null)
+            if (board.Route != null && !home)
             {
                 board.Route.color = _hardView ? HardInk : InkTheme.Outline;
                 board.Route.SetPoints(SortiePageBuilder.RoutePoints(count));
@@ -944,11 +962,21 @@ namespace InkLine
             bool prevShown = _chapter > 0;
             bool prevOk = prevShown && CanShift(_chapter - 1);
             bool nextOk = _chapter + 1 < SortiePageBuilder.ChapterCount && CanShift(_chapter + 1);
-            if (board.Prev != null) board.Prev.gameObject.SetActive(prevShown);
-            if (board.PrevLabel != null)
-                board.PrevLabel.color = prevOk ? InkTheme.TextMid : InkTheme.TextDim;
-            if (board.NextLabel != null)
-                board.NextLabel.color = nextOk ? InkTheme.TextDark : InkTheme.TextDim;
+            if (home)
+            {
+                if (board.Prev != null) board.Prev.gameObject.SetActive(true);
+                if (board.Next != null) board.Next.gameObject.SetActive(true);
+                HomeReskin.PaintArrow(board.Prev, prevOk, false);
+                HomeReskin.PaintArrow(board.Next, nextOk, true);
+            }
+            else
+            {
+                if (board.Prev != null) board.Prev.gameObject.SetActive(prevShown);
+                if (board.PrevLabel != null)
+                    board.PrevLabel.color = prevOk ? InkTheme.TextMid : InkTheme.TextDim;
+                if (board.NextLabel != null)
+                    board.NextLabel.color = nextOk ? InkTheme.TextDark : InkTheme.TextDim;
+            }
             var swipe = board.GetComponent<ChapterSwipe>();
             if (swipe != null) swipe.Moved = ShiftChapter;
             if (board.Prev != null)
@@ -977,9 +1005,6 @@ namespace InkLine
 
         public Action<int> StartHard;
 
-        const float ModeTabW = 112f;
-        const float ModeTabDip = 4f;
-
         void HideHardToggle(HomeChapterBoard board)
         {
             Transform old = board.transform.Find("hardtog");
@@ -992,112 +1017,24 @@ namespace InkLine
         {
             var page = board.transform.parent as RectTransform;
             if (page == null) return;
-            float cardTop = 80f;
-            var boardRt = board.transform as RectTransform;
-            if (boardRt != null) cardTop = -boardRt.anchoredPosition.y;
             bool eliteOpen = _meta.AnyHardOpen;
-            PaintModeTab(page, "modetab0", "普通", -60f, cardTop, !_hardView, false, false, () => SelectMode(false));
+            PaintModeTab(page, "modetab0", "普通", false, false, () => SelectMode(false));
             bool fresh = false;
             if (eliteOpen && !_hardView)
             {
                 for (int c = 0; c < SortiePageBuilder.ChapterCount; c++)
                     if (_meta.HardOpen(c) && _meta.HardCleared(c) == 0) { fresh = true; break; }
             }
-            PaintModeTab(page, "modetab1", "精英", 60f, cardTop, _hardView, !eliteOpen, fresh, () => SelectMode(true));
+            PaintModeTab(page, "modetab1", "精英", !eliteOpen, fresh, () => SelectMode(true));
             Transform back = page.Find(_hardView ? "modetab0" : "modetab1");
             Transform front = page.Find(_hardView ? "modetab1" : "modetab0");
             if (back != null) back.SetAsLastSibling();
             if (front != null) front.SetAsLastSibling();
         }
 
-        void PaintModeTab(RectTransform page, string name, string label, float x, float cardTop, bool on, bool locked, bool dot, UnityEngine.Events.UnityAction click)
+        void PaintModeTab(RectTransform page, string name, string label, bool locked, bool dot, UnityEngine.Events.UnityAction click)
         {
-            Transform found = page.Find(name);
-            if (found != null && found.Find("face") != null)
-            {
-                found.name = name + "_old";
-                UnityEngine.Object.Destroy(found.gameObject);
-                found = null;
-            }
-            Button btn = found != null ? found.GetComponent<Button>() : null;
-            if (btn == null)
-            {
-                var go = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(Button));
-                go.transform.SetParent(page, false);
-                var made = go.GetComponent<RectTransform>();
-                made.anchorMin = made.anchorMax = new Vector2(0.5f, 1f);
-                made.pivot = new Vector2(0.5f, 1f);
-                var plate0 = go.GetComponent<Image>();
-                plate0.preserveAspect = true;
-                plate0.type = Image.Type.Simple;
-                btn = go.GetComponent<Button>();
-                btn.targetGraphic = plate0;
-                btn.transition = Selectable.Transition.None;
-                UiKit.Bold(UiKit.Label(go.transform, "t", label, 20, new Vector2(0f, -4f), new Vector2(96f, 28f)));
-            }
-            Sprite spr = InkSprites.Load(on ? "Ui/sortie_tab_on" : "Ui/sortie_tab_off");
-            float h = ModeTabW * 0.52f;
-            if (spr != null && spr.rect.width > 1f)
-                h = ModeTabW * spr.rect.height / spr.rect.width;
-            var rt = (RectTransform)btn.transform;
-            rt.sizeDelta = new Vector2(ModeTabW, h);
-            rt.anchoredPosition = new Vector2(x, -(cardTop - h + (on ? ModeTabDip : 0f)));
-            var plate = btn.GetComponent<Image>();
-            if (plate != null)
-            {
-                if (spr != null) plate.sprite = spr;
-                plate.preserveAspect = true;
-                plate.type = Image.Type.Simple;
-                plate.color = locked ? new Color(0.72f, 0.72f, 0.72f, 1f) : Color.white;
-            }
-            var text = btn.transform.Find("t")?.GetComponent<Text>();
-            if (text != null)
-            {
-                text.color = on ? InkTheme.CardFace : locked ? InkTheme.TextDim : InkTheme.TextDark;
-                text.rectTransform.anchoredPosition = new Vector2(locked ? -16f : 0f, -4f);
-            }
-            Transform mark = btn.transform.Find("lock");
-            if (locked && mark == null)
-            {
-                var icon = UiKit.Icon(btn.transform, InkSprites.Load("icon_lock"), new Vector2(30f, -2f), 32f);
-                icon.gameObject.name = "lock";
-                mark = icon.transform;
-            }
-            if (mark != null)
-            {
-                mark.gameObject.SetActive(locked);
-                var markRt = mark as RectTransform;
-                if (markRt != null)
-                {
-                    markRt.sizeDelta = new Vector2(32f, 32f);
-                    markRt.anchoredPosition = new Vector2(30f, -2f);
-                }
-            }
-            Transform badge = btn.transform.Find("dot");
-            if (dot && badge == null)
-            {
-                var ring = UiKit.Icon(btn.transform, UiSprites.Disc(), Vector2.zero, 18f);
-                ring.gameObject.name = "dot";
-                ring.color = InkTheme.CardFace;
-                UiKit.Icon(ring.transform, UiSprites.Disc(), Vector2.zero, 12f).color = InkTheme.Seal;
-                badge = ring.transform;
-            }
-            if (badge != null)
-            {
-                badge.gameObject.SetActive(dot);
-                var badgeRt = badge as RectTransform;
-                if (badgeRt != null)
-                {
-                    badgeRt.anchorMin = badgeRt.anchorMax = new Vector2(1f, 1f);
-                    badgeRt.pivot = new Vector2(0.5f, 0.5f);
-                    badgeRt.sizeDelta = new Vector2(18f, 18f);
-                    badgeRt.anchoredPosition = new Vector2(-8f, -18f);
-                    var inner = badgeRt.Find("icon") as RectTransform;
-                    if (inner != null) inner.sizeDelta = new Vector2(12f, 12f);
-                }
-            }
-            btn.onClick.RemoveAllListeners();
-            btn.onClick.AddListener(click);
+            HomeReskin.PaintTag(page, name, label, name == "modetab1", locked, dot, click);
         }
 
         void SelectMode(bool hard)
@@ -1136,20 +1073,15 @@ namespace InkLine
             bool last = (index % SortiePageBuilder.PerChapter) == SortiePageBuilder.PerChapter - 1
                 || index == GameConstants.StageCount - 1;
             string key = cleared ? "node_done" : current ? "node_now" : last ? "node_boss" : "node_lock";
-            Sprite face = InkSprites.Ui(key);
+            Sprite face = HomeReskin.NodeSprite(key) ?? InkSprites.Ui(key);
             if (slot.Plate != null)
             {
                 if (face != null) slot.Plate.sprite = face;
-                slot.Plate.color = HardPlate;
+                slot.Plate.color = HomeReskin.Ready ? Color.white : HardPlate;
             }
             if (slot.Lock != null) slot.Lock.gameObject.SetActive(false);
             NodeStars(slot, stars);
-            if (slot.Number != null)
-            {
-                slot.Number.gameObject.SetActive(current);
-                slot.Number.text = (index + 1).ToString();
-                slot.Number.color = InkTheme.CardFace;
-            }
+            SeatNode(slot, index, key);
             if (slot.Tag != null) slot.Tag.text = "";
             if (slot.Button == null) return;
             slot.Button.interactable = open;
@@ -1191,7 +1123,6 @@ namespace InkLine
             bool hard = _hardView;
             bool claimed = hard ? _meta.HardChapterChestClaimed(_chapter) : _meta.ChapterChestClaimed(_chapter);
             bool full = hard ? _meta.HardChapterCleared(_chapter) : _meta.ChapterFullStars(_chapter);
-            int gaps = hard ? _meta.HardChapterGaps(_chapter) : _meta.ChapterStarGaps(_chapter);
             string key = "chest_" + ChestCatalog.CannonArt + (claimed ? "_open" : "");
             Sprite art = InkSprites.Load("Ui/" + key);
             if (art == null) art = InkSprites.Load(claimed ? "Ui/chest_royal_open" : "Ui/chest_royal");
@@ -1200,13 +1131,14 @@ namespace InkLine
                 if (art != null) board.StarArt.sprite = art;
                 board.StarArt.color = full || claimed ? Color.white : new Color(0.55f, 0.55f, 0.58f, 1f);
             }
-            if (board.StarLabel != null)
-            {
-                board.StarLabel.text = claimed ? "已领" : full ? "领取" : "差" + gaps + "关";
-                board.StarLabel.color = full && !claimed ? InkTheme.Seal : InkTheme.TextMid;
-            }
+            if (board.StarLabel != null) board.StarLabel.gameObject.SetActive(false);
             board.StarChest.onClick.RemoveAllListeners();
             board.StarChest.onClick.AddListener(OnStarChest);
+            if (HomeReskin.Ready && board.StarChest != null)
+                HomeReskin.FitStarChest(
+                    board.StarChest.transform as RectTransform,
+                    board.StarArt != null ? board.StarArt.rectTransform : null,
+                    board.StarLabel);
         }
 
         void OnStarChest()
@@ -1263,6 +1195,19 @@ namespace InkLine
             BindChapter(NextStage());
         }
 
+        static void SeatNode(HomeSealCell slot, int index, string key)
+        {
+            if (slot == null) return;
+            HomeReskin.PlaceNode(slot.transform as RectTransform, index % SortiePageBuilder.PerChapter);
+            Text num = slot.Number;
+            if (num == null)
+            {
+                Transform found = slot.transform.Find("n");
+                if (found != null) num = found.GetComponent<Text>();
+            }
+            HomeReskin.PlaceNumber(num, index + 1, key == "node_boss");
+        }
+
         // 普通：往后必须这章已开，往前随便翻。精英：这一章的精英没开就不能翻过去。
         bool CanShift(int chapter)
         {
@@ -1282,6 +1227,7 @@ namespace InkLine
         // 第一次用到时现挂到节点上，之后复用。
         static void NodeStars(HomeSealCell slot, int stars)
         {
+            if (HomeReskin.LayoutStars(slot, stars)) return;
             if (slot.Stars == null || slot.Stars.Length < 3 || slot.Stars[0] == null)
             {
                 if (stars <= 0) return;
@@ -1318,17 +1264,12 @@ namespace InkLine
             if (cleared) key = "node_done";
             else if (current) key = "node_now";
             else if (last) key = "node_boss";
-            Sprite face = InkSprites.Ui(key);
+            Sprite face = HomeReskin.NodeSprite(key) ?? InkSprites.Ui(key);
             if (slot.Plate != null && face != null) slot.Plate.sprite = face;
             if (slot.Plate != null) slot.Plate.color = Color.white;
             if (slot.Lock != null) slot.Lock.gameObject.SetActive(false);
             NodeStars(slot, cleared ? _meta.Stars[index] : 0);
-            if (slot.Number != null)
-            {
-                slot.Number.gameObject.SetActive(current);
-                slot.Number.text = (index + 1).ToString();
-                slot.Number.color = InkTheme.CardFace;
-            }
+            SeatNode(slot, index, key);
             if (slot.Tag != null) slot.Tag.text = "";
             int cost = _meta.StageCost(index);
             bool live = open && _meta.Stamina >= cost;
@@ -1514,6 +1455,7 @@ namespace InkLine
                 mark = img.transform;
             }
             if (mark != null) mark.gameObject.SetActive(locked);
+            if (HomeReskin.Ready) return;
             var label = btn.Find("t")?.GetComponent<Text>();
             if (label != null)
                 label.color = locked ? InkTheme.TextDim : (_tab == tab ? InkTheme.Seal : InkTheme.TextMid);
@@ -1586,18 +1528,7 @@ namespace InkLine
         {
             if (_tabs == null || _tabs.Length <= TabStudy || _tabs[TabStudy] == null) return;
             Transform btn = _tabs[TabStudy].transform;
-            bool on = _meta.AnyStudyReady;
-            Transform dot = btn.Find("dot");
-            if (dot == null)
-            {
-                if (!on) return;
-                var ring = UiKit.Icon(btn, UiSprites.Disc(), new Vector2(42f, 88f), 28f);
-                ring.gameObject.name = "dot";
-                ring.color = InkTheme.CardFace;
-                UiKit.Icon(ring.transform, UiSprites.Disc(), Vector2.zero, 22f).color = InkTheme.Seal;
-                dot = ring.transform;
-            }
-            dot.gameObject.SetActive(on);
+            HomeReskin.PlaceDot(btn, _meta.AnyStudyReady);
         }
 
         // 每日副本或无尽副本还有今日次数时，底栏「副本」挂红点。没开放时不挂。
@@ -1605,18 +1536,7 @@ namespace InkLine
         {
             if (_tabs == null || _tabs.Length <= TabDungeon || _tabs[TabDungeon] == null) return;
             Transform btn = _tabs[TabDungeon].transform;
-            bool on = _meta.EndlessOpen && DungeonPage.HasPlay(_meta);
-            Transform dot = btn.Find("dot");
-            if (dot == null)
-            {
-                if (!on) return;
-                var ring = UiKit.Icon(btn, UiSprites.Disc(), new Vector2(42f, 88f), 28f);
-                ring.gameObject.name = "dot";
-                ring.color = InkTheme.CardFace;
-                UiKit.Icon(ring.transform, UiSprites.Disc(), Vector2.zero, 22f).color = InkTheme.Seal;
-                dot = ring.transform;
-            }
-            dot.gameObject.SetActive(on);
+            HomeReskin.PlaceDot(btn, _meta.EndlessOpen && DungeonPage.HasPlay(_meta));
         }
 
         // 有刚解锁、还没看过的词条时，底栏「炮台」的牌匾右上角挂红点。
@@ -1624,18 +1544,7 @@ namespace InkLine
         {
             if (_tabs == null || _tabs.Length <= TabForge || _tabs[TabForge] == null) return;
             Transform btn = _tabs[TabForge].transform;
-            bool on = _meta.ForgeNew != 0 || _meta.SkinNew != 0;
-            Transform dot = btn.Find("dot");
-            if (dot == null)
-            {
-                if (!on) return;
-                var ring = UiKit.Icon(btn, UiSprites.Disc(), new Vector2(42f, 88f), 28f);
-                ring.gameObject.name = "dot";
-                ring.color = InkTheme.CardFace;
-                UiKit.Icon(ring.transform, UiSprites.Disc(), Vector2.zero, 22f).color = InkTheme.Seal;
-                dot = ring.transform;
-            }
-            dot.gameObject.SetActive(on);
+            HomeReskin.PlaceDot(btn, _meta.ForgeNew != 0 || _meta.SkinNew != 0);
         }
 
         // 道具攒够了卡和墨、能解锁或升级时，底栏「道具」挂红点。
@@ -1643,35 +1552,13 @@ namespace InkLine
         {
             if (_tabs == null || _tabs.Length <= TabSpell || _tabs[TabSpell] == null) return;
             Transform btn = _tabs[TabSpell].transform;
-            bool on = _meta.AnyItemReady;
-            Transform dot = btn.Find("dot");
-            if (dot == null)
-            {
-                if (!on) return;
-                var ring = UiKit.Icon(btn, UiSprites.Disc(), new Vector2(42f, 88f), 28f);
-                ring.gameObject.name = "dot";
-                ring.color = InkTheme.CardFace;
-                UiKit.Icon(ring.transform, UiSprites.Disc(), Vector2.zero, 22f).color = InkTheme.Seal;
-                dot = ring.transform;
-            }
-            dot.gameObject.SetActive(on);
+            HomeReskin.PlaceDot(btn, _meta.AnyItemReady);
         }
 
         static void RedDot(Button btn, bool on)
         {
             if (btn == null) return;
-            Transform dot = btn.transform.Find("dot");
-            if (dot == null)
-            {
-                if (!on) return;
-                var rt = (RectTransform)btn.transform;
-                var ring = UiKit.Icon(btn.transform, UiSprites.Disc(), new Vector2(rt.sizeDelta.x * 0.5f - 14f, 52f), 26f);
-                ring.gameObject.name = "dot";
-                ring.color = InkTheme.CardFace;
-                UiKit.Icon(ring.transform, UiSprites.Disc(), Vector2.zero, 20f).color = InkTheme.Seal;
-                dot = ring.transform;
-            }
-            dot.gameObject.SetActive(on);
+            HomeReskin.PlaceDot(btn.transform, on);
         }
 
         // 出征页侧边贴纸，顺序同 SortiePageBuilder.BuildSides。
