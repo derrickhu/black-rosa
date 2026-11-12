@@ -45,6 +45,12 @@ namespace InkLine
 
         static Sprite Bake(string key, int border, System.Func<float, float, float> alpha)
         {
+            int b = Mathf.Clamp(border, 2, Cell / 2 - 1);
+            return Bake(key, new Vector4(b, b, b, b), alpha);
+        }
+
+        static Sprite Bake(string key, Vector4 border, System.Func<float, float, float> alpha)
+        {
             Sprite s;
             if (Cache.TryGetValue(key, out s) && s != null) return s;
             var tex = new Texture2D(Cell, Cell, TextureFormat.RGBA32, false)
@@ -62,9 +68,13 @@ namespace InkLine
             }
             tex.SetPixels32(px);
             tex.Apply(false, false);
-            int b = Mathf.Clamp(border, 2, Cell / 2 - 1);
+            float cap = Cell / 2f - 1f;
+            border.x = Mathf.Clamp(border.x, 2f, cap);
+            border.y = Mathf.Clamp(border.y, 2f, cap);
+            border.z = Mathf.Clamp(border.z, 2f, cap);
+            border.w = Mathf.Clamp(border.w, 2f, cap);
             s = Sprite.Create(tex, new Rect(0, 0, Cell, Cell), new Vector2(0.5f, 0.5f), Ppu,
-                0, SpriteMeshType.FullRect, new Vector4(b, b, b, b));
+                0, SpriteMeshType.FullRect, border);
             s.name = key;
             Cache[key] = s;
             return s;
@@ -76,6 +86,47 @@ namespace InkLine
             radius = Tier(radius);
             return Bake("fill" + radius, radius + 1,
                 (x, y) => 0.5f - Sd(x, y, radius, 0.5f));
+        }
+
+        // 不进三档。28 高的字框如果被抬到半径 12，直边只剩几像素，看起来就是椭圆。
+        public static Sprite FillExact(int radius)
+        {
+            radius = Mathf.Clamp(radius, 2, 40);
+            return Bake("fillex" + radius, radius + 1,
+                (x, y) => 0.5f - Sd(x, y, radius, 0.5f));
+        }
+
+        // 只圆上沿。底边是直的，拉高时圆角停在九宫格顶边上，不会被拉成台阶。
+        public static Sprite FillTop(int radius)
+        {
+            radius = Mathf.Clamp(radius, 4, 40);
+            int edge = radius + 1;
+            return Bake("filltop" + radius, new Vector4(edge, 2f, edge, edge),
+                (x, y) => 0.5f - SdTop(x, y, radius, 0.5f));
+        }
+
+        // 上沿两个角是圆，下沿是直角。y 向上，圆角贴在贴图顶边。
+        static float SdTop(float x, float y, float rad, float inset)
+        {
+            float left = inset;
+            float right = Cell - inset;
+            float bottom = inset;
+            float top = Cell - inset;
+            float innerL = left + rad;
+            float innerR = right - rad;
+            float cornerY = top - rad;
+            if (y <= cornerY || (x >= innerL && x <= innerR))
+            {
+                float dx = Mathf.Max(left - x, x - right);
+                float dy = Mathf.Max(bottom - y, y - top);
+                float ax = Mathf.Max(dx, 0f);
+                float ay = Mathf.Max(dy, 0f);
+                return Mathf.Sqrt(ax * ax + ay * ay) + Mathf.Min(Mathf.Max(dx, dy), 0f);
+            }
+            float cx = x < innerL ? innerL : innerR;
+            float ddx = x - cx;
+            float ddy = y - cornerY;
+            return Mathf.Sqrt(ddx * ddx + ddy * ddy) - rad;
         }
 
         // 实心圆，当头像遮罩和圆底用。Fill 的圆角最大 28，拼不出正圆。
@@ -95,6 +146,19 @@ namespace InkLine
             radius = Tier(radius);
             outline = Mathf.Clamp(outline, 2, 10);
             return Bake("line" + radius + "_" + outline, radius + outline + 1, (x, y) =>
+            {
+                float d = Sd(x, y, radius, 0.5f);
+                float outer = Mathf.Clamp01(0.5f - d);
+                float inner = Mathf.Clamp01(0.5f - (d + outline));
+                return outer - inner;
+            });
+        }
+
+        public static Sprite LineExact(int radius, int outline)
+        {
+            radius = Mathf.Clamp(radius, 2, 40);
+            outline = Mathf.Clamp(outline, 2, 8);
+            return Bake("linex" + radius + "_" + outline, radius + outline + 1, (x, y) =>
             {
                 float d = Sd(x, y, radius, 0.5f);
                 float outer = Mathf.Clamp01(0.5f - d);

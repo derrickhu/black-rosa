@@ -14,6 +14,19 @@ namespace InkLine
         HomeItemView _view;
         Button _cancel;
         int _swap = -1;
+        static Material _grayIcon;
+
+        static Material GrayIcon
+        {
+            get
+            {
+                if (_grayIcon != null) return _grayIcon;
+                var shader = Resources.Load<Shader>("Shaders/UiGray");
+                if (shader == null) return null;
+                _grayIcon = new Material(shader);
+                return _grayIcon;
+            }
+        }
 
         public static HomeItemPage Ensure(RectTransform page, RectTransform layer, MetaProgress meta, Action changed)
         {
@@ -22,6 +35,11 @@ namespace InkLine
             if (host._view == null)
             {
                 host._view = page.GetComponentInChildren<HomeItemView>(true);
+                if (host._view != null && host._view.transform.Find(ItemPageBuilder.Mark) == null)
+                {
+                    Destroy(host._view.gameObject);
+                    host._view = null;
+                }
                 if (host._view == null) host._view = ItemPageBuilder.Build(page);
                 ItemPageBuilder.Grow(host._view);
                 for (int i = 0; i < page.childCount; i++)
@@ -43,6 +61,7 @@ namespace InkLine
             var anim = UiAnim.On(this);
             anim.Finish();
             anim.Clear();
+            if (_view != null) ItemPageBuilder.PaintPanel(_view.Panel != null ? _view.Panel.GetComponent<Image>() : null);
             BindSlots(anim);
             BindHead();
             BindCards(anim);
@@ -65,39 +84,76 @@ namespace InkLine
                 bool open = _meta.ItemSlotOpen(s);
                 int id = open && s < _meta.Equipped.Length ? _meta.Equipped[s] : -1;
                 bool picking = _swap >= 0 && open;
+                bool has = id >= 0;
                 slot.transform.localScale = Vector3.one;
 
-                Soft(slot.Glow);
-                slot.Glow.gameObject.SetActive(picking);
-                if (picking)
+                if (slot.Glow != null)
                 {
-                    slot.Glow.color = new Color(1f, 0.82f, 0.3f, 0.8f);
-                    anim.Breathe(slot.Glow.transform, s * 0.15f, 0.1f, 1.6f)
-                        .Breathe(slot.transform, s * 0.15f, 0.05f, 1.6f);
+                    Soft(slot.Glow);
+                    slot.Glow.gameObject.SetActive(picking);
+                    if (picking)
+                    {
+                        slot.Glow.color = new Color(1f, 0.82f, 0.3f, 0.55f);
+                        anim.Breathe(slot.transform, s * 0.15f, 0.04f, 1.6f);
+                    }
                 }
-                slot.Frame.sprite = Spr(!open ? "item_slot_lock" : picking ? "item_slot_on" : "item_slot");
-                slot.Lock.gameObject.SetActive(!open);
-                slot.Note.gameObject.SetActive(!open);
-                if (!open) slot.Note.text = "通关第" + (GameConstants.ItemSlotChapter[s] + 1) + "章";
-                slot.Plus.gameObject.SetActive(open && id < 0);
-
-                bool has = id >= 0;
-                slot.Icon.gameObject.SetActive(has);
-                slot.Halo.gameObject.SetActive(has);
-                slot.Badge.gameObject.SetActive(has);
-                if (has)
+                if (slot.Frame != null)
+                    slot.Frame.sprite = Spr(has ? EquipFrame(ItemCatalog.Get(id).Quality) : "item_card_empty");
+                if (slot.Lock != null) slot.Lock.gameObject.SetActive(!open);
+                if (slot.Plus != null) slot.Plus.gameObject.SetActive(false);
+                if (slot.Icon != null)
                 {
-                    ItemDef d = ItemCatalog.Get(id);
-                    Color q = ItemCatalog.QualityColor(d.Quality);
-                    slot.Icon.sprite = InkSprites.Ui(d.Id);
-                    Soft(slot.Halo);
-                    slot.Halo.color = new Color(q.r, q.g, q.b, 0.55f);
-                    slot.Lv.text = "Lv." + _meta.ItemRank(id);
+                    slot.Icon.gameObject.SetActive(has);
+                    slot.Icon.color = Color.white;
+                    if (has) slot.Icon.sprite = InkSprites.Ui(ItemCatalog.Get(id).Id);
+                }
+                if (slot.Halo != null) slot.Halo.gameObject.SetActive(false);
+                if (slot.Badge != null) slot.Badge.gameObject.SetActive(false);
+                if (slot.Lv != null) slot.Lv.gameObject.SetActive(false);
+                if (slot.Fill != null) slot.Fill.gameObject.SetActive(false);
+                if (slot.BarText != null) slot.BarText.gameObject.SetActive(false);
+                if (slot.Note != null)
+                {
+                    bool caption = !open || has;
+                    slot.Note.gameObject.SetActive(caption);
+                    if (!open)
+                    {
+                        slot.Note.fontSize = 16;
+                        slot.Note.text = LockText(s);
+                        HomeReskin.TopLeft(slot.Note.rectTransform, 8f, 124f, ItemPageBuilder.CardW - 16f, 36f);
+                    }
+                    else if (has)
+                    {
+                        ItemDef worn = ItemCatalog.Get(id);
+                        slot.Note.fontSize = 20;
+                        slot.Note.text = worn.Name + " " + _meta.ItemRank(id) + "级";
+                        HomeReskin.TopLeft(slot.Note.rectTransform, 4f, ItemPageBuilder.BandY,
+                            ItemPageBuilder.CardW - 8f, ItemPageBuilder.BandH);
+                    }
                 }
                 int idx = s;
                 slot.Button.onClick.RemoveAllListeners();
                 slot.Button.onClick.AddListener(() => TapSlot(idx));
             }
+            if (_view.Title != null) _view.Title.text = "装备道具";
+        }
+
+        static string EquipFrame(ItemQuality q) =>
+            q == ItemQuality.Purple ? "item_card_equip_purple"
+            : q == ItemQuality.Blue ? "item_card_equip_blue" : "item_card_equip_green";
+
+        static string LockText(int slot)
+        {
+            int need = GameConstants.ItemSlotChapter[slot];
+            if (need == GameConstants.ItemSlotClosed) return "后续开放";
+            return "通关第" + (need + 1) + "章解锁";
+        }
+
+        static string LockToast(int slot)
+        {
+            int need = GameConstants.ItemSlotChapter[slot];
+            if (need == GameConstants.ItemSlotClosed) return "这一格后续开放";
+            return "通关第" + (need + 1) + "章解锁这一格";
         }
 
         void TapSlot(int s)
@@ -105,7 +161,7 @@ namespace InkLine
             if (!_meta.ItemSlotOpen(s))
             {
                 AudioBus.Deny();
-                InkToast.Show(_layer, "通关第" + (GameConstants.ItemSlotChapter[s] + 1) + "章解锁这一格");
+                InkToast.Show(_layer, LockToast(s));
                 return;
             }
             if (_swap >= 0)
@@ -147,9 +203,9 @@ namespace InkLine
             for (int i = 0; i < ItemCatalog.Count; i++)
                 if (_meta.ItemRank(i) > 0) owned++;
             bool swapping = _swap >= 0;
-            _view.HeadTitle.gameObject.SetActive(!swapping);
+            if (_view.HeadTitle != null) _view.HeadTitle.gameObject.SetActive(true);
             _view.HeadCount.gameObject.SetActive(!swapping);
-            _view.HeadCount.text = "已拥有 " + owned + "/" + ItemCatalog.Count;
+            _view.HeadCount.text = "道具总数 <color=#7DD354>" + owned + "/" + ItemCatalog.Count + "</color>";
             _view.SwapHint.gameObject.SetActive(swapping);
             if (swapping) _view.SwapHint.text = "点上面一格，换上 " + ItemCatalog.Get(_swap).Name;
             if (_cancel == null)
@@ -206,62 +262,90 @@ namespace InkLine
         }
 
         static string FrameOf(ItemQuality q) =>
-            q == ItemQuality.Purple ? "panel_item_card_purple" : q == ItemQuality.Blue ? "panel_item_card_blue" : "panel_item_card_green";
+            q == ItemQuality.Purple ? "item_card_purple" : q == ItemQuality.Blue ? "item_card_blue" : "item_card_green";
 
         void BindCard(HomeItemCard card, int i, UiAnim anim)
         {
             ItemDef d = ItemCatalog.Get(i);
             int rank = _meta.ItemRank(i);
             bool owned = rank > 0;
-            bool maxed = rank >= ItemCatalog.MaxLevel;
             bool ready = _meta.CanUpgradeItem(i, out _);
-            Color q = ItemCatalog.QualityColor(d.Quality);
             card.transform.localScale = Vector3.one;
 
-            card.Frame.sprite = Spr(owned ? FrameOf(d.Quality) : "panel_item_card_lock");
-            card.Quality.text = ItemCatalog.QualityName(d.Quality);
-            card.Quality.color = owned ? InkTheme.CardFace : Color.Lerp(q, Color.white, 0.35f);
-            Soft(card.Halo);
-            card.Halo.gameObject.SetActive(owned);
-            card.Halo.color = new Color(q.r, q.g, q.b, 0.4f);
-            card.Icon.sprite = InkSprites.Ui(d.Id);
-            if (card.CardItem != null) card.CardItem.sprite = InkSprites.Ui(d.Id);
-            card.Icon.color = owned ? Color.white : new Color(0.55f, 0.55f, 0.55f, 0.8f);
-            card.Badge.gameObject.SetActive(owned);
-            card.Lv.text = "Lv." + rank;
-            if (card.Worn.sprite == null) card.Worn.sprite = Pill(14f);
-            card.Worn.type = Image.Type.Sliced;
-            card.Worn.gameObject.SetActive(_meta.EquippedSlot(i) >= 0);
-            card.Name.text = d.Name;
-            card.Name.color = owned ? InkTheme.TextDark : InkTheme.TextMid;
+            if (card.Frame != null)
+                card.Frame.sprite = Spr(owned ? FrameOf(d.Quality) : "item_card_gray");
+            if (card.Quality != null) card.Quality.gameObject.SetActive(false);
+            if (card.Halo != null) card.Halo.gameObject.SetActive(false);
+            if (card.Badge != null) card.Badge.gameObject.SetActive(false);
+            if (card.Name != null) card.Name.gameObject.SetActive(false);
+            if (card.Track != null) card.Track.gameObject.SetActive(false);
+            if (card.CardIcon != null) card.CardIcon.gameObject.SetActive(false);
+            if (card.Icon != null)
+            {
+                card.Icon.sprite = InkSprites.Ui(d.Id);
+                card.Icon.color = Color.white;
+                card.Icon.material = owned ? null : GrayIcon;
+            }
+            if (card.Lv != null)
+            {
+                card.Lv.gameObject.SetActive(owned);
+                card.Lv.text = rank.ToString();
+            }
+            if (card.Seal == null && card.Disc != null) card.Seal = ItemPageBuilder.LevelLock(card.Disc.rectTransform);
+            if (card.Seal != null) card.Seal.gameObject.SetActive(!owned);
+            int wornSlot = _meta.EquippedSlot(i);
+            if (card.Worn != null)
+            {
+                if (card.Worn.sprite == null) card.Worn.sprite = Spr("item_badge");
+                card.Worn.type = Image.Type.Simple;
+                card.Worn.color = Color.white;
+                card.Worn.gameObject.SetActive(wornSlot >= 0);
+                if (card.WornText != null && wornSlot >= 0) card.WornText.text = "已装";
+            }
+            if (card.Arrow != null)
+            {
+                card.Arrow.sprite = Spr(ready ? "item_arrow_green" : "item_arrow_yellow");
+                card.Arrow.color = Color.white;
+                card.Arrow.preserveAspect = true;
+            }
+            PaintBar(card.Fill, card.BarText, i);
 
-            int have = _meta.ItemCardCount(i);
-            int need = maxed ? 1 : ItemCatalog.NextCards(d, rank);
-            float k = maxed ? 1f : Mathf.Clamp01(have / (float)Mathf.Max(1, need));
-            if (card.Track.sprite == null) card.Track.sprite = Pill(13f);
-            card.Track.type = Image.Type.Sliced;
-            if (card.Fill.sprite == null) card.Fill.sprite = Pill(13f);
-            card.Fill.type = Image.Type.Sliced;
-            var fr = card.Fill.rectTransform;
-            float w = card.Track.rectTransform.sizeDelta.x;
-            float h = card.Track.rectTransform.sizeDelta.y;
-            float fw = k > 0f ? Mathf.Max(h, w * k) : 0f;
-            fr.anchorMin = fr.anchorMax = fr.pivot = new Vector2(0f, 0.5f);
-            fr.anchoredPosition = Vector2.zero;
-            fr.sizeDelta = new Vector2(fw, h);
-            card.Fill.gameObject.SetActive(k > 0f);
-            card.Fill.color = ready ? InkTheme.Cta : maxed ? InkTheme.Gold : InkTheme.Accel;
-            card.BarText.text = maxed ? "已满级" : ready ? (owned ? "可升级!" : "可解锁!") : have + "/" + need;
-
-            if (ready)
-                anim.Breathe(card.transform, 0.1f * (i % 3), 0.025f, 1.2f)
-                    .Breathe(card.CardIcon.transform, 0f, 0.12f, 2.4f);
-            else card.CardIcon.transform.localScale = Vector3.one;
+            if (ready) anim.Breathe(card.transform, 0.08f * (i % 4), 0.02f, 1.3f);
 
             int idx = i;
             card.Item = i;
             card.Button.onClick.RemoveAllListeners();
             card.Button.onClick.AddListener(() => TapCard(idx));
+        }
+
+        void PaintBar(Image fill, Text label, int item)
+        {
+            if (fill == null && label == null) return;
+            if (item < 0)
+            {
+                if (fill != null) fill.gameObject.SetActive(false);
+                if (label != null) label.text = "";
+                return;
+            }
+            ItemDef d = ItemCatalog.Get(item);
+            int rank = _meta.ItemRank(item);
+            bool owned = rank > 0;
+            bool maxed = rank >= ItemCatalog.MaxLevel;
+            bool ready = _meta.CanUpgradeItem(item, out _);
+            int have = _meta.ItemCardCount(item);
+            int need = maxed ? 1 : ItemCatalog.NextCards(d, rank);
+            float k = maxed ? 1f : Mathf.Clamp01(have / (float)Mathf.Max(1, need));
+            if (fill != null)
+            {
+                if (fill.sprite == null) fill.sprite = Pill(ItemPageBuilder.FillH * 0.5f);
+                fill.type = Image.Type.Sliced;
+                fill.color = (maxed || have >= need) ? ItemPageBuilder.FillGreen : ItemPageBuilder.FillYellow;
+                float fw = k > 0f ? Mathf.Clamp(Mathf.Max(ItemPageBuilder.FillH, ItemPageBuilder.FillMax * k), 0f, ItemPageBuilder.FillMax) : 0f;
+                HomeReskin.TopLeft(fill.rectTransform, ItemPageBuilder.FillX, ItemPageBuilder.FillY, fw, ItemPageBuilder.FillH);
+                fill.gameObject.SetActive(k > 0f);
+            }
+            if (label != null)
+                label.text = maxed ? "已满级" : ready ? (owned ? "可升级" : "可解锁") : have + "/" + Mathf.Max(1, need);
         }
 
         public RectTransform CardOf(int item)

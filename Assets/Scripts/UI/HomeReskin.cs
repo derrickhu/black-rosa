@@ -349,6 +349,76 @@ namespace InkLine
             if (t != null) t.SetAsLastSibling();
         }
 
+        // 货币条用 PlaceY(100) 跟着屏高下移。副本卡如果停在页顶固定处，标题会钻进货币里。
+        // 卡片稿是 640 宽，720 的页左右各空 40。整张按页宽放大，内部比例不动，底栏上面留一截。
+        public static void FitDungeon(HomeView view)
+        {
+            if (!Ready || view == null || view.DungeonPage == null) return;
+            var root = view.transform as RectTransform;
+            var page = view.DungeonPage.GetComponent<RectTransform>();
+            var host = view.DungeonPage.GetComponent<DungeonPage>();
+            if (root == null || page == null || host == null || host.Daily == null) return;
+            var corners = new Vector3[4];
+            page.GetWorldCorners(corners);
+            float pageTop = root.InverseTransformPoint(corners[1]).y;
+            float inset = root.rect.yMax - pageTop;
+            float local = Mathf.Max(8f, PlaceY(168f) - inset);
+            float span = page.rect.width > 64f ? page.rect.width : ScreenW;
+            float scaleW = (span - 16f) / DungeonPageBuilder.CardW;
+            float block = DungeonPageBuilder.CardH * 2f + DungeonPageBuilder.CardGap;
+            float room = page.rect.height - local - 16f;
+            float scaleH = room / Mathf.Max(1f, block);
+            float scale = Mathf.Clamp(Mathf.Min(scaleW, scaleH), 1f, 1.12f);
+            PlaceCard(host.Daily.transform as RectTransform, local, scale);
+            float step = (DungeonPageBuilder.CardH + DungeonPageBuilder.CardGap) * scale;
+            PlaceCard(host.Endless != null ? host.Endless.transform as RectTransform : null, local + step, scale);
+        }
+
+        static void PlaceCard(RectTransform rt, float y, float scale)
+        {
+            if (rt == null) return;
+            rt.anchoredPosition = new Vector2(rt.anchoredPosition.x, -y);
+            rt.localScale = new Vector3(scale, scale, 1f);
+        }
+
+        // 道具页跟首页同一套：设计稿坐标锚在左上。高屏时上阵和字牌跟着拉开，图鉴底铺到 dock 上面。
+        public static void FitItems(HomeView view)
+        {
+            if (view == null || view.SpellPage == null) return;
+            var page = view.SpellPage.GetComponent<RectTransform>();
+            if (page == null) return;
+            page.anchorMin = Vector2.zero;
+            page.anchorMax = Vector2.one;
+            page.offsetMin = Vector2.zero;
+            page.offsetMax = Vector2.zero;
+            var items = page.GetComponentInChildren<HomeItemView>(true);
+            if (items == null) return;
+            float bottom = ScreenH - BottomExtra() - ItemPageBuilder.DockH;
+            if (items.PlateOn != null)
+                TopLeft(items.PlateOn, PlaceX(28f), PlaceY(ItemPageBuilder.TitleY),
+                    ItemPageBuilder.PlateW, ItemPageBuilder.PlateH);
+            if (items.Shelf != null)
+                TopLeft(items.Shelf.rectTransform, PlaceX(ItemPageBuilder.GridX), PlaceY(ItemPageBuilder.LineupY),
+                    ItemPageBuilder.LineupW, ItemPageBuilder.LineupH);
+            float panelTop = PlaceY(ItemPageBuilder.PanelTop);
+            if (items.Panel != null)
+            {
+                TopLeft(items.Panel, PlaceX(0f), panelTop, ScreenFit.DesignW, Mathf.Max(200f, bottom - panelTop));
+                ItemPageBuilder.PaintPanel(items.Panel.GetComponent<Image>());
+            }
+            if (items.PlateCodex != null)
+                TopLeft(items.PlateCodex, PlaceX(24f), PlaceY(ItemPageBuilder.PanelTop + 12f),
+                    ItemPageBuilder.PlateW, ItemPageBuilder.PlateH);
+            if (items.CountRt != null)
+                TopLeft(items.CountRt, PlaceX(360f), PlaceY(ItemPageBuilder.PanelTop + 18f), 336f, 40f);
+            if (items.Scroll != null)
+            {
+                float y = PlaceY(ItemPageBuilder.CodexY);
+                TopLeft(items.Scroll.transform as RectTransform, PlaceX(ItemPageBuilder.GridX), y,
+                    ItemPageBuilder.LineupW, Mathf.Max(160f, bottom - 8f - y));
+            }
+        }
+
         public static void FitBars(RectTransform stam, RectTransform ink, RectTransform gem, Text tip)
         {
             if (!Ready) return;

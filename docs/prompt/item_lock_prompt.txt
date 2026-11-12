@@ -1,0 +1,7 @@
+A single square game icon, 1:1. One closed padlock standing straight, centered, large in the frame the way a sticker sits on a card.
+
+The drawing matches the reference tile: rounded toy forms, a clean dark outline, flat color with one hard highlight step, readable at phone-card size.
+
+The shackle is a thick rounded arch, filled with coin-silver #C8CCD2, with a bright lip #F4F6F8 along the top of the arch. The body is a rounded rectangle wider than the shackle, filled with the same coin-silver #C8CCD2. A lighter band #E8EAEE runs across the top of the body, and a deeper shade #8E939C sits along the bottom edge. A keyhole is centered on the body: a small circle sitting on a short tapered slot, filled with ink black #1A120C. The outline around the whole padlock is a thick even ink line #1A120C.
+
+The field behind the padlock is one flat solid #F6C7A4, peach paper, edge to edge. Even light, solid colors, clean closed edges. The padlock is the only object in the frame.

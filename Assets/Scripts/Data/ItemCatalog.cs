@@ -230,6 +230,75 @@ namespace InkLine
         }
 
         static string Times(int n) => n <= 1 ? "一" : n == 2 ? "两" : "三";
+
+        public struct ItemPeek
+        {
+            public string Label;
+            public string Now;
+            public string Gain;
+        }
+
+        // 详情面板上那一格短读数，和升级奖励里的增量。点数算法和 Blurb 同一套。
+        public static ItemPeek Peek(ItemDef d, int level, float shotBase)
+        {
+            float b = shotBase > 0f ? shotBase : ShotMods.DefaultBase;
+            int lv = Mathf.Clamp(level <= 0 ? 1 : level, 1, MaxLevel);
+            int nx = Mathf.Min(MaxLevel, lv + 1);
+            bool up = level > 0 && level < MaxLevel;
+            switch (d.Id)
+            {
+                case ItemId.Halt:
+                    return TimePeek("时长", HaltTime(lv), HaltTime(nx), "秒", up);
+                case ItemId.Rage:
+                    return new ItemPeek
+                    {
+                        Label = "增伤",
+                        Now = MulText(RageMul(lv)) + "倍",
+                        Gain = up && RageMul(nx) - RageMul(lv) > 0.01f ? "+" + MulText(RageMul(nx) - RageMul(lv)) + "倍" : ""
+                    };
+                case ItemId.Mend:
+                    return TimePeek("回复", MendHeal(lv), MendHeal(nx), "血", up);
+                case ItemId.Slow:
+                {
+                    int pa = Mathf.RoundToInt(SlowFactor(lv) * 100f);
+                    int pb = Mathf.RoundToInt(SlowFactor(nx) * 100f);
+                    return new ItemPeek
+                    {
+                        Label = "减速",
+                        Now = pa + "%",
+                        Gain = up && pa != pb ? "+" + (pa - pb) + "%" : ""
+                    };
+                }
+                default:
+                    return TimePeek(d.Id == ItemId.Splash ? "每秒" : "伤害",
+                        Points(d, lv, b), Points(d, nx, b), "点", up);
+            }
+        }
+
+        static ItemPeek TimePeek(string label, int now, int next, string unit, bool up)
+        {
+            return new ItemPeek
+            {
+                Label = label,
+                Now = now + unit,
+                Gain = up && next != now ? "+" + (next - now) + unit : ""
+            };
+        }
+
+        static int Points(ItemDef d, int lv, float b)
+        {
+            float mul;
+            switch (d.Id)
+            {
+                case ItemId.Sweep: mul = SweepMul(lv); break;
+                case ItemId.Splash: mul = SplashMul(lv); break;
+                case ItemId.Frost: mul = FrostMul(lv); break;
+                case ItemId.Snipe: mul = SnipeMul(lv); break;
+                case ItemId.Dart: mul = DartMul(lv); break;
+                default: mul = BurstMul(lv); break;
+            }
+            return Mathf.Max(1, Mathf.RoundToInt(b * mul));
+        }
     }
 
     public struct SkinDef

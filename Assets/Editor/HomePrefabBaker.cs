@@ -178,15 +178,15 @@ namespace InkLine
             view.Board = null;
             view.Skins = null;
             view.GunSummary = null;
-            SkinShowcase.Create(page, 8f);
+            SkinShowcase.Create(page, SkinShowcase.ScreenToPage(page, 0f));
 
             var viewGo = new GameObject("boostView", typeof(RectTransform), typeof(Image), typeof(RectMask2D), typeof(ScrollRect));
             viewGo.transform.SetParent(page, false);
             var viewRt = viewGo.GetComponent<RectTransform>();
             viewRt.anchorMin = Vector2.zero;
             viewRt.anchorMax = Vector2.one;
-            float top = 8f + SkinShowcase.H + 12f;
-            viewRt.offsetMin = new Vector2(0f, 52f);
+            float top = SkinShowcase.ScreenToPage(page, SkinShowcase.ListScreenY);
+            viewRt.offsetMin = new Vector2(0f, 0f);
             viewRt.offsetMax = new Vector2(0f, -top);
             var hit = viewGo.GetComponent<Image>();
             hit.color = new Color(1f, 1f, 1f, 0f);
@@ -201,8 +201,8 @@ namespace InkLine
             box.GetComponent<Image>().raycastTarget = false;
             var layout = box.gameObject.AddComponent<VerticalLayoutGroup>();
             layout.childAlignment = TextAnchor.UpperCenter;
-            layout.spacing = 10f;
-            layout.padding = new RectOffset(0, 0, 4, 20);
+            layout.spacing = 12f;
+            layout.padding = new RectOffset(0, 0, 20, 20);
             layout.childControlWidth = true;
             layout.childControlHeight = true;
             layout.childForceExpandWidth = true;

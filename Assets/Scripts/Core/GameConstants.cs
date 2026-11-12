@@ -100,9 +100,13 @@ namespace InkLine
         // 局内墨是这一局拾到的墨，通关时整笔入账。每只怪掉多少写在 EnemyCatalog 里，
         // 紫钱袋另给一份。道具不花金币也不花墨。
         public const int InkMax = 9999;
-        // 道具栏：开局一格，通关第三章开第二格，通关第六章开第三格。值是要通关的章下标。
-        public const int ItemSlots = 3;
-        public static readonly int[] ItemSlotChapter = { -1, 2, 5 };
+        // 装备道具两行共八格。前五格开局就能装，后三格先锁着，文案写后续开放。
+        // 章下标 -1 是开局就开，ItemSlotClosed 是先锁住。
+        public const int ItemSlots = 8;
+        public const int ItemSlotClosed = -2;
+        public static readonly int[] ItemSlotChapter = {
+            -1, -1, -1, -1, -1, ItemSlotClosed, ItemSlotClosed, ItemSlotClosed
+        };
 
         public const float WorldHalfHeight = 8f;
         public const float CellWidth = 1.16f;

@@ -5,50 +5,60 @@ using UnityEngine.UI;
 
 namespace InkLine
 {
-    // 炮台页顶上的皮肤展台：一次只摆一门大炮，左右箭头或横划切换，底下木托架上一排头像。
-    // 圆台下面那颗按钮就是装备 / 购买，没开放的炮在炮身上写开放条件。
-    // 展台、头像框、箭头是生成图，坐标按展台原图里圆台和托条的位置量出来的。
+    // 炮台页上半：整张露台底从屏幕顶铺到词条区，正中一门炮，两边是词条数值，底下横滑皮肤。
+    // 坐标按 720×1280 的稿，从屏幕顶算。炮台页本身让开了顶栏，用 ScreenToPage 换到页内。
+    // 正在用的不放按钮；没装上的，炮和皮肤之间留一颗装备 / 解锁。
     public sealed class SkinShowcase
     {
-        public const float W = 640f;
-        public const float H = 480f;
+        public const float W = 720f;
+        public const float H = 660f;
+        // 词条列表从这行起，上面留出专属标伸出卡片的那一截。
+        public const float ListScreenY = 712f;
+        public const float PanelScreenY = 660f;
 
-        // 以展台中心为原点。转台顶面中心约在 -44，炮的底边落在顶面中心略下。
-        const float GunSize = 172f;
-        const float GunFoot = -64f;
-        const float GunPad = 18f / 480f;     // ico_skin 画布底边留白占比
-        const float NameY = 186f;
-        const float PerkY = 156f;
-        const float ActY = -108f;
-        const float ShelfY = -178f;
-        const float AvatarStep = 72f;
-        const float ArrowX = 262f;
-        const float ArrowY = 24f;
+        const float SlotX = 31f;
+        const float SlotY = 522f;
+        const float SlotW = 96f;
+        const float SlotH = 128f;
+        const float SlotStep = 108f;
+        const float GunW = 162f;
+        const float GunH = 168f;
+        // 根节点高 660，中心距顶 330。炮心在距顶 402，所以停在中心下方 72。
+        const float GunRestY = -72f;
 
+        // 页顶相对整屏下移了多少。设计稿从屏幕顶量，页内坐标要减掉这段。
+        public static float ScreenToPage(RectTransform page, float screenY)
+        {
+            float origin = 96f;
+            if (page != null) origin = Mathf.Max(0f, -page.offsetMax.y);
+            return screenY - origin;
+        }
+
+        static readonly Color Ink = new Color(0.051f, 0.020f, 0.039f, 1f);
         static readonly Color Shadow = new Color(0.16f, 0.12f, 0.10f, 0.88f);
+        static readonly Color GoldDeep = new Color(0.878f, 0.627f, 0.125f, 1f);
+
+        static readonly float[] BarX = { 18f, 18f, 18f, 18f, 526f, 526f, 526f, 526f, 526f };
+        static readonly float[] BarY = { 278f, 314f, 350f, 386f, 278f, 314f, 350f, 386f, 422f };
 
         readonly MetaProgress _meta;
         readonly Action<int> _focusChanged;
         readonly Action _changed;
         readonly RectTransform _root;
         Image _gun;
-        Image _lock;
         Text _lockText;
-        Text _name;
-        RectTransform _rankTag;
-        Image _rankBg;
-        Text _rank;
-        Text _perk;
         Button _act;
         Text _actText;
         Image[] _frames;
         Image[] _faces;
-        RectTransform[] _used;
-        RectTransform[] _dots;
+        RectTransform[] _locks;
+        RectTransform[] _worn;
+        Text[] _slotName;
+        Text[] _barName;
+        Text[] _barVal;
+        RectTransform _skinRow;
         SkinStageMotion _motion;
         int _focus;
-        Text[] _fxName;
-        Text[] _fxVal;
 
         public RectTransform Root => _root;
         public int Focus => _focus;
@@ -61,7 +71,6 @@ namespace InkLine
             _changed = changed;
         }
 
-        // 烘预制时搭一份壳。圆角标签和圆章的图是运行时生成的，进游戏再补。
         public static void Create(RectTransform page, float top)
         {
             var root = MakeRoot(page, top);
@@ -69,7 +78,6 @@ namespace InkLine
             s.Build(false);
         }
 
-        // 预制里已经有展台就接着用；没有才现搭。
         public static SkinShowcase Ensure(SkinShowcase have, RectTransform page, float top, MetaProgress meta,
             Action<int> focusChanged, Action changed)
         {
@@ -84,6 +92,7 @@ namespace InkLine
                     baked.Rewire();
                     return baked;
                 }
+                existing.name = "showcase_old";
                 UnityEngine.Object.Destroy(existing.gameObject);
             }
             var root = MakeRoot(page, top);
@@ -94,261 +103,228 @@ namespace InkLine
 
         static RectTransform MakeRoot(RectTransform page, float top)
         {
-            var root = UiKit.Art(page, "showcase", "Ui/skin_stage", new Vector2(0f, top), new Vector2(W, H), Pin.Top);
+            var root = UiKit.Panel(page, "showcase", new Vector2(0f, top), new Vector2(W, H), Color.clear, Pin.Top);
             root.GetComponent<Image>().raycastTarget = false;
             return root;
         }
 
         void Build(bool motion)
         {
-            // 横划区垫在炮下面，箭头、按钮和头像在它上层，点它们不会被吞。
-            // 滑动脚本进游戏再挂。这个脚本资源没有稳定的 guid，烘进预制会变成丢失脚本，整份预制就存不了。
-            var swipe = UiKit.Panel(_root, "swipe", new Vector2(0f, 40f), new Vector2(460f, 320f),
-                new Color(1f, 1f, 1f, 0f));
+            var upper = SpriteBox(_root, "upper", InkSprites.Load("Ui/turret_upper"),
+                Vector2.zero, new Vector2(W, H), Pin.TopLeft);
+            upper.preserveAspect = false;
+
+            var swipe = UiKit.Panel(_root, "swipe", new Vector2(0f, 150f), new Vector2(W, 360f),
+                new Color(1f, 1f, 1f, 0f), Pin.TopLeft);
+            swipe.GetComponent<Image>().raycastTarget = true;
             if (motion) AttachMotion(swipe);
 
-            _name = UiKit.Label(_root, "name", "", 34, new Vector2(0f, NameY), new Vector2(220f, 44f));
-            _name.color = InkTheme.TextDark;
-            UiKit.Bold(_name);
-            _rankTag = UiKit.Panel(_root, "rank", new Vector2(0f, NameY), new Vector2(54f, 26f), InkTheme.Hex("3A8EE6"));
-            _rankBg = _rankTag.GetComponent<Image>();
-            _rankBg.sprite = UiSprites.Fill(8);
-            _rankBg.type = Image.Type.Sliced;
-            _rankBg.raycastTarget = false;
-            _rank = UiKit.Label(_rankTag, "t", "", 16, Vector2.zero, new Vector2(54f, 26f));
-            _rank.color = Color.white;
-            UiKit.Bold(_rank);
-            _perk = UiKit.Label(_root, "perk", "", 19, new Vector2(0f, PerkY), new Vector2(520f, 28f));
-            _perk.color = InkTheme.Seal;
-            UiKit.Bold(_perk);
-
-            _gun = UiKit.Icon(_root, null, new Vector2(0f, GunCenter), GunSize);
-            _gun.gameObject.name = "gun";
+            _gun = Picture(_root, "gun", null, Vector2.zero, new Vector2(GunW, GunH));
+            _gun.rectTransform.anchoredPosition = new Vector2(0f, GunRestY);
             if (_motion != null)
             {
                 _motion.Gun = _gun.rectTransform;
-                _motion.BaseY = GunCenter;
+                _motion.BaseY = GunRestY;
             }
-            _lock = UiKit.Icon(_root, InkSprites.Ui("lock"), new Vector2(0f, GunCenter + 8f), 72f);
-            _lock.gameObject.name = "lock";
-            _lockText = UiKit.Label(_root, "need", "", 26, new Vector2(0f, GunCenter - 44f), new Vector2(460f, 36f));
-            _lockText.color = InkTheme.CardFace;
+
+            int lines = ForgeCatalog.LineCount;
+            _barName = new Text[lines];
+            _barVal = new Text[lines];
+            var pill = InkSprites.Load("Ui/stat_pill");
+            for (int i = 0; i < lines && i < BarX.Length; i++)
+            {
+                var box = SpriteBox(_root, "bar" + i, pill,
+                    new Vector2(BarX[i], BarY[i]), new Vector2(176f, 28f), Pin.TopLeft);
+                box.preserveAspect = false;
+                _barName[i] = PillText(box.rectTransform, "n", "", 10f, 66f, TextAnchor.MiddleLeft);
+                _barVal[i] = PillText(box.rectTransform, "v", "", 78f, 98f, TextAnchor.MiddleCenter);
+            }
+
+            _lockText = UiKit.Label(_root, "need", "", 16, new Vector2(0f, 448f), new Vector2(280f, 28f),
+                TextAnchor.MiddleCenter, Pin.Top);
+            _lockText.color = Ink;
             UiKit.Bold(_lockText);
-            var lo = _lockText.gameObject.AddComponent<Outline>();
-            lo.effectColor = new Color(0.12f, 0.08f, 0.06f, 0.95f);
-            lo.effectDistance = new Vector2(2f, -2f);
+            _lockText.gameObject.SetActive(false);
 
-            _act = UiKit.Btn(_root, "act", "", new Vector2(0f, ActY), new Vector2(200f, 58f), OnAct, true);
+            _act = UiKit.Btn(_root, "act", "", new Vector2(0f, 456f), new Vector2(176f, 63f), OnAct, true, Pin.Top);
             _actText = _act.GetComponentInChildren<Text>();
-            if (_actText != null) _actText.fontSize = 24;
+            if (_actText != null) _actText.fontSize = 22;
+            _act.gameObject.SetActive(false);
 
-            Arrow("prev", -1);
-            Arrow("next", 1);
+            BuildSkinBar();
+        }
+
+        void BuildSkinBar()
+        {
+            var bar = UiKit.Panel(_root, "skins", new Vector2(0f, SlotY), new Vector2(W, SlotH),
+                new Color(1f, 1f, 1f, 0f), Pin.TopLeft);
+            bar.GetComponent<Image>().raycastTarget = true;
+            bar.gameObject.AddComponent<RectMask2D>();
 
             int n = SkinCatalog.Count;
+            float contentW = SlotX + Mathf.Max(0, n - 1) * SlotStep + SlotW + 24f;
+            var row = UiKit.Panel(bar, "row", Vector2.zero, new Vector2(contentW, SlotH), Color.clear, Pin.TopLeft);
+            row.GetComponent<Image>().raycastTarget = false;
+            _skinRow = row;
+
+            var scroll = bar.gameObject.AddComponent<ScrollRect>();
+            scroll.viewport = bar;
+            scroll.content = row;
+            scroll.horizontal = true;
+            scroll.vertical = false;
+            scroll.movementType = ScrollRect.MovementType.Clamped;
+            scroll.scrollSensitivity = 28f;
+            scroll.inertia = true;
+
             _frames = new Image[n];
             _faces = new Image[n];
-            _used = new RectTransform[n];
-            _dots = new RectTransform[n];
-            for (int i = 0; i < n; i++) MakeAvatar(i);
-            LayAvatars();
-            BuildFx();
+            _locks = new RectTransform[n];
+            _worn = new RectTransform[n];
+            _slotName = new Text[n];
+            for (int i = 0; i < n; i++) MakeSlot(row, i);
         }
 
-        // 炮右边列当前生效的词条，和进战斗的结算同一套：点过级、装着的专属才算。
-        // 名字靠左，数值靠右一列，字号更大、各用各的颜色，扫一眼不用翻下面的列表。
-        const int FxSlots = 7;
-        const float FxTop = 138f;
-        const float FxStep = 30f;
-        const float FxNameX = 137f;
-        const float FxValX = 214f;
-
-        void BuildFx()
+        void MakeSlot(RectTransform row, int i)
         {
-            _fxName = new Text[FxSlots];
-            _fxVal = new Text[FxSlots];
-            for (int i = 0; i < FxSlots; i++)
-            {
-                float y = FxTop - i * FxStep;
-                _fxName[i] = UiKit.Label(_root, "fxn" + i, "", 17,
-                    new Vector2(FxNameX, y), new Vector2(74f, 30f), TextAnchor.MiddleLeft);
-                _fxName[i].color = InkTheme.TextDark;
-                UiKit.Bold(_fxName[i]);
-                _fxVal[i] = UiKit.Label(_root, "fxv" + i, "", 22,
-                    new Vector2(FxValX, y), new Vector2(84f, 32f), TextAnchor.MiddleLeft);
-                UiKit.Bold(_fxVal[i]);
-                var shade = _fxVal[i].gameObject.AddComponent<Shadow>();
-                shade.effectColor = new Color(0.22f, 0.13f, 0.08f, 0.28f);
-                shade.effectDistance = new Vector2(1f, -1f);
-                _fxName[i].gameObject.SetActive(false);
-                _fxVal[i].gameObject.SetActive(false);
-            }
-        }
+            SkinDef d = SkinCatalog.Get(i);
+            var cell = UiKit.Panel(row, "av" + i, new Vector2(SlotX + i * SlotStep, 0f),
+                new Vector2(SlotW, SlotH), Color.clear, Pin.TopLeft);
+            cell.GetComponent<Image>().raycastTarget = false;
 
-        void PaintFx()
-        {
-            if (_fxName == null) return;
-            int n = 0;
-            int[] order = new int[ForgeCatalog.LineCount];
-            int skin = _meta.Skin;
-            for (int i = 0; i < ForgeCatalog.LineCount; i++)
-            {
-                ForgeDef d = ForgeCatalog.Get(i);
-                if (_meta.ForgeLevel(i) <= 0) continue;
-                if (d.Exclusive && d.Skin != skin) continue;
-                order[n++] = i;
-            }
-            for (int a = 1; a < n; a++)
-            {
-                int v = order[a];
-                int b = a;
-                while (b > 0 && ForgeCatalog.Rank(order[b - 1]) > ForgeCatalog.Rank(v))
-                {
-                    order[b] = order[b - 1];
-                    b--;
-                }
-                order[b] = v;
-            }
-            int shown = Mathf.Min(n, FxSlots);
-            for (int s = 0; s < FxSlots; s++)
-            {
-                bool on = s < shown;
-                _fxName[s].gameObject.SetActive(on);
-                _fxVal[s].gameObject.SetActive(on);
-                if (!on) continue;
-                ForgeDef d = ForgeCatalog.Get(order[s]);
-                _fxName[s].text = d.Stat;
-                _fxVal[s].text = ForgeCatalog.Value(order[s], _meta.ForgeLevel(order[s]));
-                _fxVal[s].color = FxColor(d.Line);
-            }
-        }
+            var hex = SpriteBox(cell, "hex", HexSprite(d.Rarity),
+                new Vector2(0f, 0f), new Vector2(SlotW, 110f), Pin.TopLeft, true);
+            hex.preserveAspect = true;
+            _frames[i] = hex;
 
-        static Color FxColor(ForgeLine line)
-        {
-            switch (line)
-            {
-                case ForgeLine.Damage: return InkTheme.Hex("E25B2A");
-                case ForgeLine.FireRate: return InkTheme.Hex("1E8E4E");
-                case ForgeLine.StartGold: return InkTheme.Hex("C98416");
-                case ForgeLine.BaseHp: return InkTheme.Hex("D23B4A");
-                case ForgeLine.Emitters: return InkTheme.Hex("1C8C8C");
-                case ForgeLine.Crit: return InkTheme.Hex("7A3EC8");
-                case ForgeLine.GoldGain: return InkTheme.Hex("B86E12");
-                case ForgeLine.DraftCut: return InkTheme.Hex("2F5D9E");
-                case ForgeLine.ItemCd: return InkTheme.Hex("2E9C8C");
-                default: return InkTheme.TextDark;
-            }
-        }
+            _faces[i] = Picture(cell, "face", InkSprites.Ui("skin_" + d.Key), new Vector2(0f, 8f), new Vector2(78f, 78f));
+            _faces[i].rectTransform.anchorMin = _faces[i].rectTransform.anchorMax = new Vector2(0.5f, 1f);
+            _faces[i].rectTransform.pivot = new Vector2(0.5f, 0.5f);
+            _faces[i].rectTransform.anchoredPosition = new Vector2(0f, -52f);
 
-        RectTransform MakeAvatar(int i)
-        {
-            var cell = UiKit.Art(_root, "av" + i, "Ui/skin_frame", Vector2.zero, new Vector2(62f, 74f));
-            _frames[i] = cell.GetComponent<Image>();
-            _frames[i].preserveAspect = false;
+            var lk = SpriteBox(cell, "lock", InkSprites.Load("Ui/item_lock"),
+                new Vector2(SlotW - 26f, 4f), new Vector2(22f, 22f), Pin.TopLeft);
+            lk.preserveAspect = true;
+            _locks[i] = lk.rectTransform;
+
+            var worn = SpriteBox(cell, "worn", InkSprites.Load("Ui/item_badge"),
+                new Vector2(55f, 2f), new Vector2(39f, 26f), Pin.TopLeft);
+            worn.preserveAspect = true;
+            var wornText = UiKit.Label(worn.rectTransform, "t", "使用", 12, Vector2.zero, new Vector2(39f, 26f));
+            wornText.color = ItemPageBuilder.Paper;
+            wornText.alignment = TextAnchor.MiddleCenter;
+            UiKit.Bold(wornText);
+            var edge = wornText.gameObject.AddComponent<Outline>();
+            edge.effectColor = HomeReskin.Ink;
+            edge.effectDistance = new Vector2(1.2f, -1.2f);
+            worn.gameObject.SetActive(false);
+            _worn[i] = worn.rectTransform;
+
+            _slotName[i] = UiKit.Label(cell, "name", d.Name, 14, new Vector2(0f, 108f), new Vector2(SlotW, 20f),
+                TextAnchor.MiddleCenter, Pin.TopLeft);
+            _slotName[i].color = Ink;
+            UiKit.Bold(_slotName[i]);
+
             var btn = cell.gameObject.AddComponent<Button>();
-            btn.targetGraphic = _frames[i];
+            btn.targetGraphic = hex;
             btn.transition = Selectable.Transition.None;
             int idx = i;
             btn.onClick.AddListener(() => Show(idx, 0, true));
-            _faces[i] = UiKit.Icon(cell, null, new Vector2(0f, 5f), 54f);
-            _faces[i].gameObject.name = "face";
-            _used[i] = Seal(cell, "used", "用", new Vector2(22f, 28f), 26f, InkTheme.Seal);
-            _dots[i] = Seal(cell, "dot", "", new Vector2(24f, 30f), 16f, InkTheme.Rose);
-            return cell;
         }
 
-        // 九门炮挤在原来的托条上，间距收一档，左右还落在展台里面。
-        void LayAvatars()
+        static Image Picture(RectTransform parent, string name, Sprite spr, Vector2 pos, Vector2 size)
         {
-            int n = _frames.Length;
-            float step = n >= 9 ? 64f : AvatarStep;
-            float span = (n - 1) * step;
-            for (int i = 0; i < n; i++)
-                _frames[i].rectTransform.anchoredPosition = new Vector2(-span * 0.5f + i * step, ShelfY);
+            var go = new GameObject(name, typeof(RectTransform), typeof(Image));
+            go.transform.SetParent(parent, false);
+            var rt = go.GetComponent<RectTransform>();
+            rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = pos;
+            rt.sizeDelta = size;
+            var img = go.GetComponent<Image>();
+            img.sprite = spr;
+            img.preserveAspect = true;
+            img.raycastTarget = false;
+            return img;
         }
 
-        static float GunCenter => GunFoot + GunSize * 0.5f - GunSize * GunPad;
-
-        void Arrow(string name, int dir)
+        static Image SpriteBox(RectTransform parent, string name, Sprite spr, Vector2 pos, Vector2 size, Pin pin, bool raycast = false)
         {
-            var rt = UiKit.Art(_root, name, "Ui/skin_arrow", new Vector2(dir * ArrowX, ArrowY), new Vector2(66f, 66f));
-            if (dir < 0) rt.localScale = new Vector3(-1f, 1f, 1f);
+            var rt = UiKit.Panel(parent, name, pos, size, Color.white, pin);
             var img = rt.GetComponent<Image>();
-            var btn = rt.gameObject.AddComponent<Button>();
-            btn.targetGraphic = img;
-            btn.onClick.AddListener(() => Step(dir));
+            img.sprite = spr;
+            img.type = Image.Type.Simple;
+            img.preserveAspect = true;
+            img.raycastTarget = raycast;
+            if (spr == null) img.color = new Color(1f, 1f, 1f, 0f);
+            return img;
+        }
+
+        static Text PillText(RectTransform pill, string name, string text, float x, float w, TextAnchor align)
+        {
+            var t = UiKit.Label(pill, name, text, 14, new Vector2(x, 0f), new Vector2(w, 28f), align, Pin.TopLeft);
+            t.color = Ink;
+            UiKit.Bold(t);
+            return t;
+        }
+
+        static Sprite HexSprite(SkinRarity r)
+        {
+            string key = r == SkinRarity.Rare ? "Ui/skin_hex_purple"
+                : r == SkinRarity.Advanced ? "Ui/skin_hex_blue"
+                : "Ui/skin_hex_green";
+            return InkSprites.Load(key);
         }
 
         bool Capture()
         {
+            if (_root.Find("upper") == null || _root.Find("skins") == null) return false;
             var swipe = _root.Find("swipe") as RectTransform;
             _motion = swipe != null ? swipe.GetComponent<SkinStageMotion>() : null;
-            _name = _root.Find("name")?.GetComponent<Text>();
-            _rankTag = _root.Find("rank") as RectTransform;
-            _rankBg = _rankTag != null ? _rankTag.GetComponent<Image>() : null;
-            _rank = _rankTag != null ? _rankTag.Find("t")?.GetComponent<Text>() : null;
-            _perk = _root.Find("perk")?.GetComponent<Text>();
             _gun = _root.Find("gun")?.GetComponent<Image>();
-            _lock = _root.Find("lock")?.GetComponent<Image>();
             _lockText = _root.Find("need")?.GetComponent<Text>();
             _act = _root.Find("act")?.GetComponent<Button>();
             _actText = _act != null ? _act.GetComponentInChildren<Text>() : null;
-            if (swipe == null || _name == null || _rankBg == null || _gun == null || _lock == null
-                || _lockText == null || _act == null || _actText == null)
+            _skinRow = _root.Find("skins/row") as RectTransform;
+            if (_gun == null || _lockText == null || _act == null || _actText == null || _skinRow == null)
                 return false;
 
             int n = SkinCatalog.Count;
             _frames = new Image[n];
             _faces = new Image[n];
-            _used = new RectTransform[n];
-            _dots = new RectTransform[n];
+            _locks = new RectTransform[n];
+            _worn = new RectTransform[n];
+            _slotName = new Text[n];
             for (int i = 0; i < n; i++)
             {
-                Transform cell = _root.Find("av" + i);
-                if (cell == null)
-                {
-                    MakeAvatar(i);
-                    continue;
-                }
-                _frames[i] = cell.GetComponent<Image>();
+                Transform cell = _skinRow.Find("av" + i);
+                if (cell == null) return false;
+                _frames[i] = cell.Find("hex")?.GetComponent<Image>();
                 _faces[i] = cell.Find("face")?.GetComponent<Image>();
-                _used[i] = cell.Find("used") as RectTransform;
-                _dots[i] = cell.Find("dot") as RectTransform;
-                if (_frames[i] == null || _faces[i] == null || _used[i] == null || _dots[i] == null) return false;
+                _locks[i] = cell.Find("lock") as RectTransform;
+                _worn[i] = cell.Find("worn") as RectTransform;
+                _slotName[i] = cell.Find("name")?.GetComponent<Text>();
+                if (_frames[i] == null || _faces[i] == null || _locks[i] == null || _worn[i] == null || _slotName[i] == null)
+                    return false;
             }
-            LayAvatars();
-            _fxName = new Text[FxSlots];
-            _fxVal = new Text[FxSlots];
-            for (int i = 0; i < FxSlots; i++)
+            int lines = ForgeCatalog.LineCount;
+            _barName = new Text[lines];
+            _barVal = new Text[lines];
+            for (int i = 0; i < lines; i++)
             {
-                _fxName[i] = _root.Find("fxn" + i)?.GetComponent<Text>();
-                _fxVal[i] = _root.Find("fxv" + i)?.GetComponent<Text>();
-                if (_fxName[i] == null || _fxVal[i] == null) return false;
+                Transform bar = _root.Find("bar" + i);
+                if (bar == null) return false;
+                _barName[i] = bar.Find("n")?.GetComponent<Text>();
+                _barVal[i] = bar.Find("v")?.GetComponent<Text>();
+                if (_barName[i] == null || _barVal[i] == null) return false;
             }
             return true;
         }
 
         void Repair()
         {
-            if (_rankBg.sprite == null)
-            {
-                _rankBg.sprite = UiSprites.Fill(8);
-                _rankBg.type = Image.Type.Sliced;
-            }
-            if (_perk != null) _perk.rectTransform.sizeDelta = new Vector2(520f, 28f);
-            for (int i = 0; i < _used.Length; i++)
-            {
-                RepairDisc(_used[i]);
-                RepairDisc(_dots[i]);
-            }
+            var upper = _root.Find("upper")?.GetComponent<Image>();
+            if (upper != null && upper.sprite == null) upper.sprite = InkSprites.Load("Ui/turret_upper");
             UiKit.RepairBtn(_act);
-        }
-
-        static void RepairDisc(RectTransform seal)
-        {
-            if (seal == null) return;
-            var img = seal.GetComponent<Image>();
-            if (img != null && img.sprite == null) img.sprite = UiSprites.Disc();
         }
 
         void AttachMotion(RectTransform swipe)
@@ -360,50 +336,23 @@ namespace InkLine
             if (_gun != null)
             {
                 _motion.Gun = _gun.rectTransform;
-                _motion.BaseY = GunCenter;
+                _motion.BaseY = GunRestY;
             }
         }
 
         void Rewire()
         {
-            var swipe = _root.Find("swipe") as RectTransform;
-            AttachMotion(swipe);
-            WireArrow("prev", -1);
-            WireArrow("next", 1);
+            AttachMotion(_root.Find("swipe") as RectTransform);
             _act.onClick.RemoveAllListeners();
             _act.onClick.AddListener(OnAct);
             for (int i = 0; i < _frames.Length; i++)
             {
-                var btn = _frames[i].GetComponent<Button>();
+                var btn = _frames[i].GetComponentInParent<Button>();
                 if (btn == null) continue;
                 btn.onClick.RemoveAllListeners();
                 int idx = i;
                 btn.onClick.AddListener(() => Show(idx, 0, true));
             }
-        }
-
-        void WireArrow(string name, int dir)
-        {
-            var btn = _root.Find(name)?.GetComponent<Button>();
-            if (btn == null) return;
-            btn.onClick.RemoveAllListeners();
-            btn.onClick.AddListener(() => Step(dir));
-        }
-
-        static RectTransform Seal(RectTransform parent, string name, string text, Vector2 pos, float size, Color fill)
-        {
-            var b = UiKit.Panel(parent, name, pos, new Vector2(size, size), fill);
-            var img = b.GetComponent<Image>();
-            img.sprite = UiSprites.Disc();
-            img.raycastTarget = false;
-            if (text.Length > 0)
-            {
-                var t = UiKit.Label(b, "t", text, Mathf.RoundToInt(size * 0.62f), Vector2.zero, new Vector2(size, size));
-                t.color = InkTheme.CardFace;
-                UiKit.Bold(t);
-            }
-            b.gameObject.SetActive(false);
-            return b;
         }
 
         void Step(int dir)
@@ -412,7 +361,6 @@ namespace InkLine
             Show(((_focus + dir) % n + n) % n, dir, true);
         }
 
-        // 外面重绑用这个，不回调 focusChanged，免得「换焦点 → 刷列表 → 重绑」绕圈。
         public void Bind(int focus)
         {
             _focus = Mathf.Clamp(focus, 0, SkinCatalog.Count - 1);
@@ -421,6 +369,7 @@ namespace InkLine
 
         void Show(int i, int dir, bool notify)
         {
+            if (_meta == null) return;
             if (dir == 0 && i != _focus) dir = i > _focus ? 1 : -1;
             bool moved = i != _focus;
             _focus = i;
@@ -429,48 +378,47 @@ namespace InkLine
             bool owned = _meta.SkinOwned[i];
             bool shard = d.Way == SkinWay.Shard;
             int have = shard ? _meta.SkinShardCount(i) : 0;
-            int need = Mathf.Max(1, d.Shards);
-            // 看广告的也先按没解锁画：暗影加锁。碎片还是 0 的同样锁成灰色，攒到了才亮出这门炮。
             bool shown = owned || _meta.SkinOpened(i) || (shard && have > 0);
-            bool ad = !owned && d.Way == SkinWay.Ad;
-            bool progress = !owned && shard;
-            _gun.sprite = InkSprites.Ui("skin_" + d.Key);
-            _gun.color = shown ? Color.white : Shadow;
-            _lock.gameObject.SetActive(!shown);
-            _lockText.gameObject.SetActive(progress || (!owned && !shown && !ad));
-            _lockText.fontSize = progress ? 20 : 26;
-            _lockText.text = progress
-                ? "碎片 " + have + "/" + need + " 通过" + ChestCatalog.CannonName + "获取"
-                : SkinCatalog.LockText(d);
-            _name.text = d.Name;
-            _name.color = SkinCatalog.RankDeep(d.Rarity);
-            _rank.text = SkinCatalog.RankName(d.Rarity);
-            _rankBg.color = SkinCatalog.RankColor(d.Rarity);
-            PlaceTitle();
-            _motion.Alpha = _gun.color.a;
-            _motion.SlideIn(dir);
 
-            bool plain = SkinCatalog.PerkOf(i) == "无特殊效果";
-            _perk.gameObject.SetActive(!plain);
-            _perk.text = SkinCatalog.PerkOf(i);
+            _gun.sprite = InkSprites.CannonSkin(i);
+            _gun.color = shown ? Color.white : Shadow;
+            _lockText.gameObject.SetActive(false);
+            if (_motion != null)
+            {
+                _motion.Alpha = _gun.color.a;
+                _motion.SlideIn(dir);
+                _motion.BaseY = GunRestY;
+            }
 
             BindAct(i, d, owned, shown);
-            for (int k = 0; k < _frames.Length; k++) BindAvatar(k);
-            PaintFx();
+            for (int k = 0; k < _frames.Length; k++) BindSlot(k);
+            PaintBars();
+            ScrollTo(i);
             if (notify && moved) _focusChanged?.Invoke(i);
         }
 
-        // 名字始终钉在正中。标签贴在字的左侧，不参与居中。
-        void PlaceTitle()
+        void PaintBars()
         {
-            Canvas.ForceUpdateCanvases();
-            float nameW = _name.preferredWidth;
-            if (nameW < 8f) nameW = _name.text.Length * _name.fontSize;
-            const float tagW = 54f;
-            const float tagH = 26f;
-            const float gap = 8f;
-            _rankTag.sizeDelta = new Vector2(tagW, tagH);
-            _rankTag.anchoredPosition = new Vector2(-nameW * 0.5f - gap - tagW * 0.5f, NameY);
+            if (_barName == null || _meta == null) return;
+            int n = Mathf.Min(_barName.Length, ForgeCatalog.LineCount);
+            for (int i = 0; i < n; i++)
+            {
+                ForgeDef d = ForgeCatalog.Get(i);
+                _barName[i].text = d.Stat;
+                _barVal[i].text = ForgeCatalog.Value(i, _meta.ForgeLevel(i));
+                _barVal[i].color = Ink;
+            }
+        }
+
+        void ScrollTo(int i)
+        {
+            if (_skinRow == null) return;
+            float contentW = _skinRow.sizeDelta.x;
+            float max = Mathf.Max(0f, contentW - W);
+            float x = Mathf.Clamp(SlotX + i * SlotStep - (W - SlotW) * 0.5f, 0f, max);
+            var p = _skinRow.anchoredPosition;
+            p.x = -x;
+            _skinRow.anchoredPosition = p;
         }
 
         void BindAct(int i, SkinDef d, bool owned, bool ready)
@@ -492,29 +440,33 @@ namespace InkLine
             }
             else if (ready) { text = d.Price + "墨 购买"; live = _meta.CanBuySkin(i, out _); }
             else { text = "未开放"; live = false; }
+
+            bool show = text != "使用中";
+            _act.gameObject.SetActive(show);
+            if (!show) return;
             _actText.text = text;
             _act.interactable = live;
-            if (live) UiKit.PaintBtn(_act, InkTheme.Cta, InkTheme.CtaDeep, InkTheme.CardFace);
-            else if (on) UiKit.PaintBtn(_act, InkTheme.Plain, InkTheme.PlainDeep, InkTheme.Seal);
-            else UiKit.PaintBtn(_act, InkTheme.CardDim, InkTheme.LineDim, InkTheme.TextDark);
+            var rt = _act.transform as RectTransform;
+            if (rt != null)
+            {
+                rt.sizeDelta = new Vector2(176f, 63f);
+                rt.anchoredPosition = new Vector2(0f, -456f);
+            }
+            UiKit.PaintHex(_act, live, Ink);
         }
 
-        void BindAvatar(int k)
+        void BindSlot(int k)
         {
             bool owned = _meta.SkinOwned[k];
-            SkinDef dk0 = SkinCatalog.Get(k);
-            bool ready = owned || _meta.SkinReady(k)
-                || (dk0.Way == SkinWay.Shard && _meta.SkinShardCount(k) > 0);
-            string key = k == _focus ? "Ui/skin_frame_on" : (ready ? "Ui/skin_frame" : "Ui/skin_frame_lock");
-            Sprite spr = InkSprites.Load(key);
-            if (spr != null) _frames[k].sprite = spr;
-            _frames[k].rectTransform.localScale = Vector3.one * (k == _focus ? 1.12f : 1f);
-            _faces[k].sprite = InkSprites.Ui("skin_" + dk0.Key);
-            _faces[k].color = ready ? Color.white : Shadow;
-            _used[k].gameObject.SetActive(_meta.Skin == k);
-            bool ad = !owned && dk0.Way == SkinWay.Ad;
-            bool craft = !owned && dk0.Way == SkinWay.Shard && _meta.SkinShardCount(k) >= dk0.Shards;
-            _dots[k].gameObject.SetActive(ad || craft || (!owned && _meta.Skin != k && _meta.CanBuySkin(k, out _)));
+            SkinDef dk = SkinCatalog.Get(k);
+            _frames[k].sprite = HexSprite(dk.Rarity);
+            _faces[k].sprite = InkSprites.Ui("skin_" + dk.Key);
+            _faces[k].color = Color.white;
+            _locks[k].gameObject.SetActive(!owned);
+            if (_worn[k] != null) _worn[k].gameObject.SetActive(owned && _meta.Skin == k);
+            _slotName[k].text = dk.Name;
+            _slotName[k].color = k == _focus ? GoldDeep : Ink;
+            _faces[k].rectTransform.localScale = Vector3.one * (k == _focus ? 1.06f : 1f);
         }
 
         void FlySkin(int i)

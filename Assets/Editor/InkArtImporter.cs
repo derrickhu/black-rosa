@@ -43,10 +43,16 @@ public sealed class InkArtImporter : AssetPostprocessor
         bool panel = path.Contains("/panel_") || path.EndsWith("/tab_dock.png") || path.EndsWith("/tab_plaque.png");
         // 展台在炮台页上铺到 640 宽，256 会被拉糊。按两倍超采样留 2048。
         bool stage = path.EndsWith("/skin_stage.png");
+        // 炮台页上半底铺满 720×660，按两倍宽出。
+        bool terrace = path.EndsWith("/turret_terrace.png") || path.EndsWith("/turret_upper.png")
+                       || path.EndsWith("/skin_stripe.png");
+        bool skinHex = path.Contains("/skin_hex_") || path.EndsWith("/tag_exclusive.png") || path.EndsWith("/stat_pill.png");
         // 首页整屏底是 720×1280。默认 256 会把它压糊，1024 也会把长边缩掉。
         bool homeBg = path.EndsWith("/home_bg.png");
         // 首页其余零件按设计稿两倍留，草地最长边不到 1024。
         bool home = path.Contains("/Ui/home_");
+        // 道具卡、方形物品框、名称条、尖角按钮按两倍导出。默认 256 会把描边压糊。
+        bool itemKit = path.Contains("/Ui/item_") || path.Contains("/Ui/btn_hex") || path.Contains("/Ui/nameplate_");
         // 玩法底板是 1280×480 的整张图，弧线不能九宫格拉，也不能压到 256。
         bool modePlate = path.Contains("/mode_plate");
         // 图鉴底板铺满整屏、星级条拉到 570 宽，256 会糊。
@@ -54,8 +60,8 @@ public sealed class InkArtImporter : AssetPostprocessor
         // 图鉴卡按原比例整张贴，不走九宫格；格子 190 宽、详情 196 宽，留两倍超采样。
         bool codexCard = path.Contains("/codex_face") || path.EndsWith("/codex_back.png")
                          || path.Contains("/Ui/loot_");
-        int size = stage || homeBg || modePlate ? 2048
-            : (panel || codexBig || home ? 1024 : codexCard ? 512 : 256);
+        int size = stage || homeBg || modePlate || terrace ? 2048
+            : (panel || codexBig || home || itemKit || skinHex ? 1024 : codexCard ? 512 : 256);
         importer.maxTextureSize = size;
         if (panel) importer.spritePixelsPerUnit = 100;
         // 面板要给 Sprite.Create 做九宫格兜底，得留 CPU 副本。
@@ -93,8 +99,14 @@ public sealed class InkArtImporter : AssetPostprocessor
             importer.spriteBorder = new Vector4(16f, 0f, 16f, 0f);
         else if (path.EndsWith("/codex_box.png"))
             importer.spriteBorder = new Vector4(48f, 48f, 48f, 48f);
+        // 图鉴底只圆上沿。44 像素边对应设计稿上 22 的圆角（这张图 1 像素 = 0.5 设计单位）。
+        if (path.EndsWith("/item_panel.png"))
+        {
+            importer.spritePixelsPerUnit = 2f;
+            importer.spriteBorder = new Vector4(44f, 8f, 44f, 44f);
+        }
         // 写在 SetTextureSettings 后面。只改 maxTextureSize 时，微信目标仍用 meta 里的 256，草地会被压糊。
-        if (home || homeBg || stage || modePlate)
+        if (home || homeBg || stage || modePlate || itemKit || terrace || skinHex)
             ApplyUiSize(importer, size);
     }
 

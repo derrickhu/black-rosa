@@ -8,10 +8,14 @@ namespace InkLine
     // 右边升级键一直在。已经露面的线永远是亮的，只有缺的那项标红、按钮灰掉。
     public sealed class HomeForgeRow
     {
-        public const float Width = 620f;
-        public const float Height = 140f;
+        public const float Width = 658f;
+        public const float Height = 150f;
 
         const string Green = "2E9E55";
+        static readonly Color Ink = new Color(0.051f, 0.020f, 0.039f, 1f);
+        static readonly Color Cream = new Color(1f, 0.988f, 0.973f, 1f);
+        static readonly Color Bar = new Color(1f, 0.914f, 0.659f, 1f);
+        static readonly Color Gold = new Color(1f, 0.835f, 0.227f, 1f);
 
         public RectTransform Root;
         public Button Act => _act;
@@ -41,15 +45,14 @@ namespace InkLine
         public static HomeForgeRow Ensure(HomeBoostRow slot, RectTransform card)
         {
             if (slot == null || card == null) return null;
-            float w = card.rect.width;
-            if (w < 300f) w = Width;
+            float w = Width;
             var row = slot.Ui;
             if (row != null && row.Root != null && Mathf.Abs(row._builtW - w) < 1f) return row;
             var baked = card.Find("row") as RectTransform;
             if (baked != null)
             {
                 var got = Capture(baked);
-                if (got != null)
+                if (got != null && Mathf.Abs(got.Root.sizeDelta.y - Height) < 1f && Mathf.Abs(got._builtW - w) < 1f)
                 {
                     for (int i = card.childCount - 1; i >= 0; i--)
                     {
@@ -78,66 +81,128 @@ namespace InkLine
 
         static HomeForgeRow Build(RectTransform card, float w)
         {
+            if (w < Width - 1f) w = Width;
             var go = new GameObject("row", typeof(RectTransform));
             go.transform.SetParent(card, false);
             var root = go.GetComponent<RectTransform>();
             root.anchorMin = root.anchorMax = new Vector2(0.5f, 0.5f);
             root.sizeDelta = new Vector2(w, Height);
             root.anchoredPosition = Vector2.zero;
-            float left = -w * 0.5f;
-            float right = w * 0.5f;
             var r = new HomeForgeRow { Root = root, _builtW = w };
 
-            r._icon = UiKit.Icon(root, null, new Vector2(left + 58f, 10f), 76f);
+            var plate = UiKit.Panel(root, "plate", Vector2.zero, new Vector2(w, Height), Cream);
+            var face = plate.GetComponent<Image>();
+            face.sprite = UiSprites.FillExact(18);
+            face.type = Image.Type.Sliced;
+            face.raycastTarget = false;
+            var mask = plate.gameObject.AddComponent<Mask>();
+            mask.showMaskGraphic = true;
+            StretchLine(plate, "ln");
+
+            var bar = UiKit.Panel(plate, "bar", new Vector2(0f, 0f), new Vector2(w, 42f), Bar, Pin.TopLeft);
+            var barImg = bar.GetComponent<Image>();
+            barImg.sprite = UiSprites.FillTop(16);
+            barImg.type = Image.Type.Sliced;
+            barImg.raycastTarget = false;
+
+            var ring = UiKit.Icon(plate, UiSprites.Disc(), Vector2.zero, 72f);
+            ring.color = Ink;
+            ring.raycastTarget = false;
+            PinBox(ring.rectTransform, 34f, 48f, 72f);
+            var disc = UiKit.Icon(plate, UiSprites.Disc(), Vector2.zero, 68f);
+            disc.color = Gold;
+            disc.raycastTarget = false;
+            PinBox(disc.rectTransform, 36f, 50f, 68f);
+            r._icon = UiKit.Icon(plate, null, Vector2.zero, 46f);
             r._icon.gameObject.name = "ico";
+            PinBox(r._icon.rectTransform, 47f, 61f, 46f);
 
-            float x0 = left + 112f;
-            r._name = UiKit.Label(root, "name", "", 26, new Vector2(x0 + 60f, 42f), new Vector2(120f, 34f), TextAnchor.MiddleLeft);
+            r._name = UiKit.Label(plate, "name", "", 24, new Vector2(18f, 8f), new Vector2(160f, 32f), TextAnchor.MiddleLeft, Pin.TopLeft);
+            r._name.color = Ink;
             UiKit.Bold(r._name);
-            r._lv = UiKit.Label(root, "lv", "", 18, new Vector2(x0 + 160f, 40f), new Vector2(80f, 28f), TextAnchor.MiddleLeft);
-            r._lv.color = InkTheme.TextMid;
+            r._lv = UiKit.Label(plate, "lv", "", 20, new Vector2(76f, 13f), new Vector2(180f, 28f), TextAnchor.MiddleLeft, Pin.TopLeft);
+            r._lv.color = Ink;
             UiKit.Bold(r._lv);
-            r._live = UiKit.Panel(root, "live", new Vector2(x0 + 246f, 41f), new Vector2(76f, 28f), InkTheme.Accel);
-            var liveImg = r._live.GetComponent<Image>();
-            liveImg.sprite = UiSprites.Fill(12);
-            liveImg.type = Image.Type.Sliced;
-            liveImg.raycastTarget = false;
-            var liveText = UiKit.Label(r._live, "t", "生效中", 16, Vector2.zero, new Vector2(76f, 26f));
-            liveText.color = InkTheme.CardFace;
-            UiKit.Bold(liveText);
+            r._lv.rectTransform.pivot = new Vector2(0f, 1f);
 
-            float lineW = right - 170f - x0;
-            r._value = UiKit.Label(root, "value", "", 20, new Vector2(x0 + lineW * 0.5f, 10f), new Vector2(lineW, 30f), TextAnchor.MiddleLeft);
+            r._live = UiKit.Panel(plate, "live", new Vector2(-400f, 0f), new Vector2(4f, 4f), Color.clear);
+            r._live.GetComponent<Image>().raycastTarget = false;
+            r._live.gameObject.SetActive(false);
 
-            float needY = -22f;
-            r._needTag = UiKit.Label(root, "needTag", "升级需要", 16, new Vector2(x0 + 35f, needY), new Vector2(70f, 26f), TextAnchor.MiddleLeft);
-            r._needTag.color = InkTheme.TextMid;
-            r._gate = UiKit.Label(root, "gate", "", 18, new Vector2(x0 + 136f, needY), new Vector2(128f, 28f), TextAnchor.MiddleLeft);
-            UiKit.Bold(r._gate);
-            r._inkIco = UiKit.Icon(root, InkSprites.Ui("ink"), new Vector2(x0 + 214f, needY), 28f);
+            r._value = UiKit.Label(plate, "value", "", 18, new Vector2(136f, 50f), new Vector2(310f, 28f), TextAnchor.MiddleLeft, Pin.TopLeft);
+            r._value.color = Ink;
+            UiKit.Bold(r._value);
+            r._value.supportRichText = true;
+
+            var slot = UiKit.Panel(plate, "slot", new Vector2(136f, 82f), new Vector2(52f, 52f), Color.white, Pin.TopLeft);
+            var slotImg = slot.GetComponent<Image>();
+            slotImg.sprite = InkSprites.Load("Ui/item_frame_purple");
+            slotImg.preserveAspect = true;
+            slotImg.raycastTarget = false;
+            r._inkIco = UiKit.Icon(slot, InkSprites.Ui("ink"), Vector2.zero, 34f);
             r._inkIco.gameObject.name = "inkIco";
-            r._ink = UiKit.Label(root, "ink", "", 19, new Vector2(x0 + 262f, needY), new Vector2(64f, 28f), TextAnchor.MiddleLeft);
+            PinBox(r._inkIco.rectTransform, 9f, 9f, 34f);
+            r._ink = UiKit.Label(plate, "ink", "", 16, new Vector2(196f, 90f), new Vector2(90f, 36f), TextAnchor.MiddleLeft, Pin.TopLeft);
+            r._ink.color = Ink;
             UiKit.Bold(r._ink);
 
-            r._act = UiKit.Btn(root, "act", "升级", new Vector2(right - 84f, 8f), new Vector2(136f, 62f), () => { }, true);
+            r._needTag = UiKit.Label(plate, "needTag", "", 15, new Vector2(464f, 120f), new Vector2(176f, 24f), TextAnchor.MiddleCenter, Pin.TopLeft);
+            r._needTag.color = Ink;
+            UiKit.Bold(r._needTag);
+            r._gate = UiKit.Label(plate, "gate", "", 14, new Vector2(-400f, 0f), new Vector2(4f, 4f));
+            r._gate.gameObject.SetActive(false);
+
+            r._act = UiKit.Btn(plate, "act", "升级", new Vector2(464f, 52f), new Vector2(176f, 63f), () => { }, true, Pin.TopLeft);
             var t = r._act.GetComponentInChildren<Text>();
             if (t != null) t.fontSize = 26;
 
-            // 刚解锁的词条在图标左上角盖一枚「新」，炮台页看过一次就摘。
-            r._fresh = Badge(root, "fresh", "新", new Vector2(left + 28f, 46f), new Vector2(48f, 32f), InkTheme.Rose);
-            r._fresh.localRotation = Quaternion.Euler(0f, 0f, 12f);
-            r._own = Badge(root, "own", "专属", new Vector2(left + 58f, -42f), new Vector2(64f, 28f), InkTheme.Seal);
+            r._fresh = Badge(plate, "fresh", "新", new Vector2(22f, 52f), new Vector2(44f, 26f), InkTheme.Rose, Pin.TopLeft);
+            r._fresh.localRotation = Quaternion.Euler(0f, 0f, -8f);
+            var tag = UiKit.Panel(root, "own", new Vector2(w - 190f, -16f), new Vector2(196f, 69f), Color.white, Pin.TopLeft);
+            var tagImg = tag.GetComponent<Image>();
+            tagImg.sprite = InkSprites.Load("Ui/tag_exclusive");
+            tagImg.preserveAspect = true;
+            tagImg.raycastTarget = false;
+            tag.gameObject.SetActive(false);
+            r._own = tag;
+            Transform stroke = plate.Find("ln");
+            if (stroke != null) stroke.SetAsLastSibling();
+            tag.SetAsLastSibling();
             return r;
         }
 
-        static RectTransform Badge(RectTransform root, string name, string text, Vector2 pos, Vector2 size, Color fill)
+        static void PinBox(RectTransform rt, float x, float y, float size)
         {
-            var b = UiKit.Panel(root, name, pos, size, fill);
+            rt.anchorMin = rt.anchorMax = new Vector2(0f, 1f);
+            rt.pivot = new Vector2(0f, 1f);
+            rt.anchoredPosition = new Vector2(x, -y);
+            rt.sizeDelta = new Vector2(size, size);
+        }
+
+        static void StretchLine(RectTransform parent, string name)
+        {
+            var go = new GameObject(name, typeof(RectTransform), typeof(Image));
+            go.transform.SetParent(parent, false);
+            var rt = go.GetComponent<RectTransform>();
+            rt.anchorMin = Vector2.zero;
+            rt.anchorMax = Vector2.one;
+            rt.offsetMin = Vector2.zero;
+            rt.offsetMax = Vector2.zero;
+            var img = go.GetComponent<Image>();
+            img.sprite = UiSprites.LineExact(18, 2);
+            img.type = Image.Type.Sliced;
+            img.color = Ink;
+            img.raycastTarget = false;
+        }
+
+        static RectTransform Badge(RectTransform root, string name, string text, Vector2 pos, Vector2 size, Color fill, Pin pin = Pin.Center)
+        {
+            var b = UiKit.Panel(root, name, pos, size, fill, pin);
             var img = b.GetComponent<Image>();
             img.sprite = UiSprites.Fill(12);
             img.type = Image.Type.Sliced;
             img.raycastTarget = false;
-            var t = UiKit.Label(b, "t", text, 18, Vector2.zero, size);
+            var t = UiKit.Label(b, "t", text, 16, Vector2.zero, size);
             t.color = InkTheme.CardFace;
             UiKit.Bold(t);
             b.gameObject.SetActive(false);
@@ -162,36 +227,30 @@ namespace InkLine
             _fresh.gameObject.SetActive(fresh);
             _own.gameObject.SetActive(d.Exclusive);
             _name.text = d.Name;
-            _name.color = InkTheme.TextDark;
-            _lv.text = "Lv." + lv + "/" + d.MaxLevel;
-            // 专属词条只在装着那款皮肤时算数，换下来就写「未装备」，免得以为还在生效。
+            _name.color = Ink;
             bool worn = !d.Exclusive || meta.Skin == d.Skin;
-            _live.gameObject.SetActive(lv > 0);
-            _live.GetComponent<Image>().color = worn ? InkTheme.Accel : InkTheme.LineDim;
-            _live.GetComponentInChildren<Text>().text = worn ? "生效中" : "未装备";
+            _lv.text = "Lv." + lv + "/" + d.MaxLevel + (worn ? "" : " 未装备");
+            _live.gameObject.SetActive(false);
             FlowTitle();
 
             string cur = ForgeCatalog.Value(line, lv);
-            _value.color = InkTheme.TextDark;
+            _value.color = Ink;
             _value.text = max
                 ? d.Stat + " " + cur + "  <color=#8E806E>已满级</color>"
                 : d.Stat + " " + cur + "  <color=#" + Green + ">→ " + ForgeCatalog.Value(line, lv + 1) + "</color>";
 
-            _needTag.text = "升级需要";
             _needTag.gameObject.SetActive(!max);
-            _gate.gameObject.SetActive(!max && gate > 0);
-            _inkIco.gameObject.SetActive(!max);
+            _gate.gameObject.SetActive(false);
+            _inkIco.transform.parent.gameObject.SetActive(!max);
             _ink.gameObject.SetActive(!max);
             if (!max)
             {
-                _gate.text = "通关 " + Mathf.Min(cleared, gate) + "/" + gate + " 关";
-                _gate.color = gateOk ? InkTheme.TextDark : InkTheme.Rose;
+                _needTag.text = gate > 0
+                    ? "升级需要 通关 " + Mathf.Min(cleared, gate) + "/" + gate + " 关"
+                    : "升级需要";
+                _needTag.color = gateOk ? Ink : InkTheme.Rose;
                 _ink.text = cost.ToString();
-                _ink.color = inkOk ? InkTheme.TextDark : InkTheme.Rose;
-                float inkX = gate > 0 ? 214f : 110f;
-                float x0 = -Root.sizeDelta.x * 0.5f + 112f;
-                _inkIco.rectTransform.anchoredPosition = new Vector2(x0 + inkX, -22f);
-                _ink.rectTransform.anchoredPosition = new Vector2(x0 + inkX + 48f, -22f);
+                _ink.color = inkOk ? Ink : InkTheme.Rose;
             }
 
             SetText(max ? "已满级" : "升级");
@@ -209,17 +268,18 @@ namespace InkLine
             _fresh.gameObject.SetActive(false);
             _own.gameObject.SetActive(true);
             _name.text = d.Name;
-            _name.color = InkTheme.TextDark;
+            _name.color = Ink;
             _lv.text = "Lv.0/" + d.MaxLevel;
             _live.gameObject.SetActive(false);
             FlowTitle();
-            _value.color = InkTheme.TextDark;
+            _value.color = Ink;
             _value.text = d.Stat + " " + ForgeCatalog.Value(line, 0)
                 + "  <color=#" + Green + ">→ " + ForgeCatalog.Value(line, 1) + "</color>";
             _needTag.gameObject.SetActive(true);
+            _needTag.color = Ink;
             _needTag.text = "拥有" + SkinCatalog.Get(d.Skin).Name + "后可升级";
             _gate.gameObject.SetActive(false);
-            _inkIco.gameObject.SetActive(false);
+            _inkIco.transform.parent.gameObject.SetActive(false);
             _ink.gameObject.SetActive(false);
             SetText("未拥有");
             Paint(false);
@@ -236,17 +296,16 @@ namespace InkLine
             _fresh.gameObject.SetActive(false);
             _own.gameObject.SetActive(false);
             _name.text = d.Name;
-            _name.color = InkTheme.TextDim;
+            _name.color = Ink;
             _lv.text = "";
             _live.gameObject.SetActive(false);
-            _value.color = InkTheme.TextDim;
+            _value.color = Ink;
             _value.text = d.Stat + " " + ForgeCatalog.Value(line, 1);
             _needTag.gameObject.SetActive(true);
-            _needTag.text = "开放需要";
-            _gate.gameObject.SetActive(true);
-            _gate.text = "通关 " + Mathf.Min(cleared, d.Reveal) + "/" + d.Reveal + " 关";
-            _gate.color = InkTheme.Rose;
-            _inkIco.gameObject.SetActive(false);
+            _needTag.color = InkTheme.Rose;
+            _needTag.text = "通关 " + Mathf.Min(cleared, d.Reveal) + "/" + d.Reveal + " 关开放";
+            _gate.gameObject.SetActive(false);
+            _inkIco.transform.parent.gameObject.SetActive(false);
             _ink.gameObject.SetActive(false);
             SetText("未开放");
             Paint(false);
@@ -256,12 +315,12 @@ namespace InkLine
         // 等级和「生效中」紧跟在名字后面，四个字和两个字的名字都不留大空当。
         void FlowTitle()
         {
-            float x0 = -Root.sizeDelta.x * 0.5f + 112f;
-            float nameW = Mathf.Clamp(_name.preferredWidth, 20f, 120f);
-            float lvLeft = x0 + nameW + 10f;
-            _lv.rectTransform.anchoredPosition = new Vector2(lvLeft + 40f, 40f);
-            float lvW = Mathf.Clamp(_lv.preferredWidth, 0f, 80f);
-            _live.anchoredPosition = new Vector2(lvLeft + lvW + 12f + 38f, 41f);
+            if (_name.preferredWidth < 8f) Canvas.ForceUpdateCanvases();
+            float nameW = Mathf.Max(24f, _name.preferredWidth);
+            var lv = _lv.rectTransform;
+            lv.anchorMin = lv.anchorMax = new Vector2(0f, 1f);
+            lv.pivot = new Vector2(0f, 1f);
+            lv.anchoredPosition = new Vector2(18f + nameW + 10f, -13f);
         }
 
         void SetText(string s)
@@ -273,29 +332,32 @@ namespace InkLine
         void Paint(bool can)
         {
             _act.interactable = can;
-            if (can) UiKit.PaintBtn(_act, InkTheme.Cta, InkTheme.CtaDeep, InkTheme.CardFace);
-            else UiKit.PaintBtn(_act, InkTheme.CardDim, InkTheme.LineDim, InkTheme.TextDark);
+            var rt = _act.transform as RectTransform;
+            if (rt != null) rt.sizeDelta = new Vector2(176f, 63f);
+            UiKit.PaintHex(_act, can, Ink);
         }
 
         static HomeForgeRow Capture(RectTransform row)
         {
             if (row == null) return null;
+            Transform p = row.Find("plate");
+            if (p == null) return null;
             var r = new HomeForgeRow
             {
                 Root = row,
                 _builtW = row.sizeDelta.x > 300f ? row.sizeDelta.x : Width,
-                _icon = row.Find("ico")?.GetComponent<Image>(),
-                _name = row.Find("name")?.GetComponent<Text>(),
-                _lv = row.Find("lv")?.GetComponent<Text>(),
-                _live = row.Find("live") as RectTransform,
-                _value = row.Find("value")?.GetComponent<Text>(),
-                _needTag = row.Find("needTag")?.GetComponent<Text>(),
-                _gate = row.Find("gate")?.GetComponent<Text>(),
-                _inkIco = row.Find("inkIco")?.GetComponent<Image>(),
-                _ink = row.Find("ink")?.GetComponent<Text>(),
-                _act = row.Find("act")?.GetComponent<Button>(),
-                _fresh = row.Find("fresh") as RectTransform,
-                _own = row.Find("own") as RectTransform
+                _icon = p.Find("ico")?.GetComponent<Image>(),
+                _name = p.Find("name")?.GetComponent<Text>(),
+                _lv = p.Find("lv")?.GetComponent<Text>(),
+                _live = p.Find("live") as RectTransform,
+                _value = p.Find("value")?.GetComponent<Text>(),
+                _needTag = p.Find("needTag")?.GetComponent<Text>(),
+                _gate = p.Find("gate")?.GetComponent<Text>(),
+                _inkIco = p.Find("slot/inkIco")?.GetComponent<Image>(),
+                _ink = p.Find("ink")?.GetComponent<Text>(),
+                _act = p.Find("act")?.GetComponent<Button>(),
+                _fresh = p.Find("fresh") as RectTransform,
+                _own = (row.Find("own") as RectTransform) ?? (p.Find("own") as RectTransform)
             };
             if (r._icon == null || r._name == null || r._lv == null || r._live == null || r._value == null
                 || r._needTag == null || r._gate == null || r._inkIco == null || r._ink == null
@@ -306,10 +368,30 @@ namespace InkLine
 
         void Repair()
         {
-            UiKit.RepairSlice(_live.GetComponent<Image>(), UiSprites.Fill(12));
+            var plate = Root.Find("plate")?.GetComponent<Image>();
+            if (plate != null && plate.sprite == null)
+            {
+                plate.sprite = UiSprites.FillExact(18);
+                plate.type = Image.Type.Sliced;
+            }
+            var bar = Root.Find("plate/bar")?.GetComponent<Image>();
+            if (bar != null && bar.sprite == null)
+            {
+                bar.sprite = UiSprites.FillTop(16);
+                bar.type = Image.Type.Sliced;
+            }
+            var ln = Root.Find("plate/ln")?.GetComponent<Image>();
+            if (ln != null && ln.sprite == null)
+            {
+                ln.sprite = UiSprites.LineExact(18, 2);
+                ln.type = Image.Type.Sliced;
+            }
+            var own = _own != null ? _own.GetComponent<Image>() : null;
+            if (own != null && own.sprite == null) own.sprite = InkSprites.Load("Ui/tag_exclusive");
             UiKit.RepairSlice(_fresh.GetComponent<Image>(), UiSprites.Fill(12));
-            UiKit.RepairSlice(_own.GetComponent<Image>(), UiSprites.Fill(12));
             if (_inkIco.sprite == null) _inkIco.sprite = InkSprites.Ui("ink");
+            var slot = Root.Find("plate/slot")?.GetComponent<Image>();
+            if (slot != null && slot.sprite == null) slot.sprite = InkSprites.Load("Ui/item_frame_purple");
             UiKit.RepairBtn(_act);
         }
     }

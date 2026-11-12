@@ -146,12 +146,12 @@ namespace InkLine
             var c = UiKit.Panel(_orb, "c", Vector2.zero, new Vector2(GlyphBox, GlyphBox), Color.clear);
             c.GetComponent<Image>().raycastTarget = false;
             if (e.Kind == CodexKind.Glyph)
-                UiKit.Icon(c, Bare(InkArt.Glyph((CardId)e.Index, 256)), Vector2.zero, GlyphBox);
+                UiKit.Icon(c, InkArt.Bare(InkArt.Glyph((CardId)e.Index, 256)), Vector2.zero, GlyphBox);
             else
             {
                 CardId[] parts = CodexCatalog.PartsOf((WordId)e.Index);
                 for (int i = 0; i < parts.Length && i < 2; i++)
-                    UiKit.Icon(c, Bare(InkArt.Glyph(parts[i], 256)), new Vector2(i == 0 ? -72f : 72f, 0f), 160f);
+                    UiKit.Icon(c, InkArt.Bare(InkArt.Glyph(parts[i], 256)), new Vector2(i == 0 ? -72f : 72f, 0f), 160f);
             }
             _anim.Breathe(c, 0f, 0.02f, 0.4f);
 
@@ -274,42 +274,6 @@ namespace InkLine
             var l2 = UiKit.Label(_orb, "slot" + k + "_v", line2, 19, mid + new Vector2(0f, -15f), new Vector2(r.width, 26f), anchor);
             l2.color = valueColor;
             UiKit.Bold(l2);
-        }
-
-        // 字图的底是一块近白的纸。详情里抠掉，字才浮在放射光上。
-        static readonly Dictionary<int, Sprite> BareCache = new Dictionary<int, Sprite>();
-
-        static Sprite Bare(Sprite art)
-        {
-            if (art == null || art.texture == null) return art;
-            int id = art.GetInstanceID();
-            if (BareCache.TryGetValue(id, out Sprite cached) && cached != null) return cached;
-            Texture2D src = art.texture;
-            Rect rect = art.textureRect;
-            int x = Mathf.RoundToInt(rect.x);
-            int y = Mathf.RoundToInt(rect.y);
-            int w = Mathf.RoundToInt(rect.width);
-            int h = Mathf.RoundToInt(rect.height);
-            Color[] px;
-            try { px = src.GetPixels(x, y, w, h); }
-            catch (UnityException) { return art; }
-            for (int i = 0; i < px.Length; i++)
-            {
-                Color c = px[i];
-                float max = Mathf.Max(c.r, Mathf.Max(c.g, c.b));
-                float min = Mathf.Min(c.r, Mathf.Min(c.g, c.b));
-                float sat = max - min;
-                if (min > 0.90f && sat < 0.08f) c.a = 0f;
-                else if (min > 0.78f && sat < 0.07f) c.a *= Mathf.Clamp01((0.90f - min) / 0.12f);
-                px[i] = c;
-            }
-            var tex = new Texture2D(w, h, TextureFormat.RGBA32, false);
-            tex.filterMode = FilterMode.Bilinear;
-            tex.SetPixels(px);
-            tex.Apply();
-            cached = Sprite.Create(tex, new Rect(0, 0, w, h), new Vector2(0.5f, 0.5f), art.pixelsPerUnit);
-            BareCache[id] = cached;
-            return cached;
         }
 
         static void Hit(RectTransform node, float size, Action click)

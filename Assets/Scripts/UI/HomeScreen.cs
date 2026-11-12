@@ -378,6 +378,8 @@ namespace InkLine
                 if (Mathf.Approximately(scale, _fitScale) && Mathf.Approximately(cw, _fitW) && Mathf.Approximately(ch, _fitH))
                 {
                     HomeReskin.FitStage(_view);
+                    HomeReskin.FitDungeon(_view);
+                    FitStudy();
                     return;
                 }
                 _fitFill = false;
@@ -419,6 +421,9 @@ namespace InkLine
             var ink = _ink != null ? _ink.rectTransform.parent as RectTransform : null;
             var gem = ink != null && ink.parent != null ? ink.parent.Find("diamond") as RectTransform : null;
             if (stam != null || ink != null) HomeReskin.FitBars(stam, ink, gem, _stamTip);
+            HomeReskin.FitItems(_view);
+            HomeReskin.FitDungeon(_view);
+            FitStudy();
         }
 
         public void Tick()
@@ -520,8 +525,87 @@ namespace InkLine
         {
             LayoutForgeTray();
             var page = _view.Board != null ? _view.Board.transform.parent as RectTransform : _pages[TabForge];
-            if (page != null) BindShowcase(page, ShowcaseTop);
+            if (page != null)
+            {
+                BindShowcase(page, SkinShowcase.ScreenToPage(page, 0f));
+                EnsureForgeChrome(page);
+            }
             BindBoostList();
+        }
+
+        // 深色词条区和红色标题。数字是运行时写的，不进图。
+        void EnsureForgeChrome(RectTransform page)
+        {
+            float panelY = SkinShowcase.ScreenToPage(page, SkinShowcase.PanelScreenY);
+            var panel = page.Find("forgePanel") as RectTransform;
+            if (panel == null)
+                panel = UiKit.Panel(page, "forgePanel", Vector2.zero, new Vector2(720f, 400f), ItemPageBuilder.PanelInk, Pin.TopLeft);
+            panel.anchorMin = Vector2.zero;
+            panel.anchorMax = Vector2.one;
+            panel.pivot = new Vector2(0.5f, 0.5f);
+            panel.offsetMin = Vector2.zero;
+            panel.offsetMax = new Vector2(0f, -panelY);
+            var panelImg = panel.GetComponent<Image>();
+            ItemPageBuilder.PaintPanel(panelImg);
+            panelImg.raycastTarget = false;
+
+            var plate = page.Find("forgePlate") as RectTransform;
+            if (plate == null)
+            {
+                plate = UiKit.Panel(page, "forgePlate", Vector2.zero, new Vector2(260f, 52f), Color.white, Pin.TopLeft);
+                var img = plate.GetComponent<Image>();
+                img.sprite = InkSprites.Load("Ui/item_plate_codex");
+                img.type = Image.Type.Simple;
+                img.preserveAspect = false;
+                img.raycastTarget = false;
+                var title = UiKit.Label(plate, "t", "炮台词条", 28, Vector2.zero, new Vector2(244f, 48f));
+                title.color = ItemPageBuilder.Paper;
+                title.alignment = TextAnchor.MiddleCenter;
+                UiKit.Bold(title);
+                var edge = title.gameObject.AddComponent<Outline>();
+                edge.effectColor = HomeReskin.Ink;
+                edge.effectDistance = new Vector2(1.2f, -1.2f);
+                var tr = title.rectTransform;
+                tr.anchorMin = Vector2.zero;
+                tr.anchorMax = Vector2.one;
+                tr.offsetMin = new Vector2(8f, 2f);
+                tr.offsetMax = new Vector2(-8f, 0f);
+            }
+            HomeReskin.TopLeft(plate, 24f, SkinShowcase.ScreenToPage(page, 672f), 260f, 52f);
+
+            var count = page.Find("forgeCount") as RectTransform;
+            if (count == null)
+            {
+                count = new GameObject("forgeCount", typeof(RectTransform)).GetComponent<RectTransform>();
+                count.SetParent(page, false);
+                var n = UiKit.Label(count, "t", "", 18, Vector2.zero, new Vector2(336f, 40f), TextAnchor.MiddleRight, Pin.TopLeft);
+                n.color = ItemPageBuilder.Paper;
+                n.alignment = TextAnchor.MiddleRight;
+                UiKit.Bold(n);
+                var edge = n.gameObject.AddComponent<Outline>();
+                edge.effectColor = HomeReskin.Ink;
+                edge.effectDistance = new Vector2(1.2f, -1.2f);
+                HomeReskin.TopLeft(n.rectTransform, 0f, 0f, 336f, 40f);
+            }
+            HomeReskin.TopLeft(count, 360f, SkinShowcase.ScreenToPage(page, 678f), 336f, 40f);
+            SetForgeCount(page);
+
+            if (_showcase != null && _showcase.Root != null) _showcase.Root.SetAsFirstSibling();
+            panel.SetSiblingIndex(_showcase != null && _showcase.Root != null ? 1 : 0);
+            int above = panel.GetSiblingIndex() + 1;
+            plate.SetSiblingIndex(above);
+            count.SetSiblingIndex(above + 1);
+        }
+
+        void SetForgeCount(RectTransform page)
+        {
+            if (page == null) return;
+            var t = page.Find("forgeCount/t")?.GetComponent<Text>();
+            if (t == null) return;
+            int on = 0;
+            for (int i = 0; i < ForgeCatalog.LineCount; i++)
+                if (ListShown(i)) on++;
+            t.text = "生效词条 " + on + "/" + ForgeCatalog.LineCount;
         }
 
         // 专属词条不论买没买那款炮，都只跟着展台上正在看的那一款出现，排在列表最上面。
@@ -546,7 +630,7 @@ namespace InkLine
             if (old == null) return;
             old.name = "boosts_old";
             UnityEngine.Object.Destroy(old.gameObject);
-            BuildBoosts(page, 2f + SkinShowcase.H + 10f);
+            BuildBoosts(page, SkinShowcase.ScreenToPage(page, SkinShowcase.ListScreenY));
         }
 
         void BindBoostList()
@@ -574,6 +658,7 @@ namespace InkLine
             if (locked >= 0 && _view.Boosts[locked] != null) _view.Boosts[locked].transform.SetAsLastSibling();
             var list = _view.Boosts[0].transform.parent as RectTransform;
             if (list != null) LayoutRebuilder.ForceRebuildLayoutImmediate(list);
+            SetForgeCount(list != null ? list.parent.parent as RectTransform : null);
             for (int i = 0; i < _view.Boosts.Length && i < ForgeCatalog.LineCount; i++)
             {
                 var row = _view.Boosts[i];
@@ -625,18 +710,18 @@ namespace InkLine
             var layout = box.GetComponent<VerticalLayoutGroup>();
             if (layout != null)
             {
-                layout.spacing = 10f;
-                layout.padding = new RectOffset(0, 0, 4, 20);
+                layout.spacing = 12f;
+                layout.padding = new RectOffset(0, 0, 20, 20);
             }
-            float top = ShowcaseTop + SkinShowcase.H + 12f;
+            float top = SkinShowcase.ListScreenY;
             RectTransform view = box.parent != null && box.parent.name == "boostView" ? box.parent as RectTransform : null;
             if (view == null)
             {
-                var page = box.parent as RectTransform;
-                if (page == null) return;
+                var host = box.parent as RectTransform;
+                if (host == null) return;
                 var go = new GameObject("boostView", typeof(RectTransform), typeof(Image), typeof(RectMask2D));
                 view = go.GetComponent<RectTransform>();
-                view.SetParent(page, false);
+                view.SetParent(host, false);
                 var img = go.GetComponent<Image>();
                 img.color = new Color(1f, 1f, 1f, 0f);
                 img.raycastTarget = true;
@@ -652,8 +737,11 @@ namespace InkLine
             }
             view.anchorMin = Vector2.zero;
             view.anchorMax = Vector2.one;
-            view.offsetMin = new Vector2(0f, 52f);
-            view.offsetMax = new Vector2(0f, -top);
+            var page = view.parent as RectTransform;
+            float listTop = SkinShowcase.ScreenToPage(page, top);
+            view.offsetMin = new Vector2(0f, 0f);
+            view.offsetMax = new Vector2(0f, -listTop);
+            view.SetAsLastSibling();
             box.anchorMin = box.anchorMax = new Vector2(0.5f, 1f);
             box.pivot = new Vector2(0.5f, 1f);
             box.anchoredPosition = Vector2.zero;
@@ -662,7 +750,6 @@ namespace InkLine
 
         SkinShowcase _showcase;
         int _skinFocus = -1;
-        const float ShowcaseTop = 8f;
 
         // 展台记着上次看到哪一款；第一次进来、或者刚买完换上，停在正在用的那款。
         void BindShowcase(RectTransform page, float top)
@@ -688,8 +775,12 @@ namespace InkLine
 
         void BindBoost(HomeBoostRow slot, int line)
         {
-            Paint(slot.Row, "Ui/panel_skin", SkinSlice);
-            if (slot.Row != null) slot.Row.color = Color.white;
+            if (slot.Row != null)
+            {
+                slot.Row.sprite = null;
+                slot.Row.color = Color.clear;
+                slot.Row.type = Image.Type.Simple;
+            }
             var ui = HomeForgeRow.Ensure(slot, slot.transform as RectTransform);
             if (ui == null) return;
             ForgeDef d = ForgeCatalog.Get(line);
@@ -722,7 +813,12 @@ namespace InkLine
 
         void BindBoostTease(HomeBoostRow slot, int line)
         {
-            Paint(slot.Row, "Ui/panel_skin_dim", SkinSlice);
+            if (slot.Row != null)
+            {
+                slot.Row.sprite = null;
+                slot.Row.color = Color.clear;
+                slot.Row.type = Image.Type.Simple;
+            }
             var ui = HomeForgeRow.Ensure(slot, slot.transform as RectTransform);
             if (ui == null) return;
             ui.BindTease(_meta, line);
@@ -1435,7 +1531,7 @@ namespace InkLine
             if (page == null) return;
             DungeonPage view = page.GetComponent<DungeonPage>();
             if (view == null) view = DungeonPageBuilder.Build(page);
-            view.Bind(_meta, OpenDailyPuzzle, OpenEndless);
+            view.Bind(_meta, OpenDailyPuzzle, OpenEndless, AfterReward);
         }
 
         // 通关第二章之前，底栏「副本」一直锁着，点了只提示条件，不切页。
@@ -1509,6 +1605,13 @@ namespace InkLine
             tabs[TabStudy] = copy.GetComponent<Button>();
             _tabs = tabs;
             _view.Tabs = tabs;
+        }
+
+        void FitStudy()
+        {
+            if (_pages == null || _pages.Length <= TabStudy || _pages[TabStudy] == null) return;
+            var page = _pages[TabStudy].GetComponent<StudyPage>();
+            if (page != null) page.Relayout();
         }
 
         void BindStudy()
@@ -1643,7 +1746,7 @@ namespace InkLine
 
         // ---------- 炮台（无预制体时） ----------
 
-        const float RowGap = 8f;
+        const float RowGap = 12f;
 
         static readonly Vector4 CardSlice = new Vector4(18f, 18f, 18f, 18f);
         // 词条行底图自带白边、描边和底唇，边要比普通票面宽，拉长时唇才不会被拉扁。
@@ -1653,8 +1756,9 @@ namespace InkLine
         void BuildForge(RectTransform page)
         {
             _showcase = null;
-            BindShowcase(page, 2f);
-            BuildBoosts(page, 2f + SkinShowcase.H + 10f);
+            BindShowcase(page, SkinShowcase.ScreenToPage(page, 0f));
+            EnsureForgeChrome(page);
+            BuildBoosts(page, SkinShowcase.ScreenToPage(page, SkinShowcase.ListScreenY));
         }
 
         // 预制体里还烘着旧的棕盘和 2×2 皮肤卡，展台接管之后全部藏掉。
@@ -1678,9 +1782,9 @@ namespace InkLine
                     shown.Add(i);
             int locked = ForgeCatalog.NextLocked(stars, _meta.Forge);
             int n = shown.Count + (locked >= 0 ? 1 : 0);
-            float viewH = Mathf.Max(140f, PageH - topY - 6f);
+            float viewH = Mathf.Max(140f, PageH - topY);
             float gap = RowGap;
-            float contentH = n * HomeForgeRow.Height + Mathf.Max(0, n - 1) * gap + 8f;
+            float contentH = 20f + n * HomeForgeRow.Height + Mathf.Max(0, n - 1) * gap + 8f;
             var view = UiKit.Panel(page, "boosts", new Vector2(0f, topY), new Vector2(720f, viewH), Color.clear, Pin.Top);
             view.GetComponent<Image>().raycastTarget = true;
             view.gameObject.AddComponent<RectMask2D>();
@@ -1694,15 +1798,16 @@ namespace InkLine
             scroll.movementType = ScrollRect.MovementType.Clamped;
             scroll.scrollSensitivity = 48f;
             for (int i = 0; i < shown.Count; i++)
-                BindBoost(ForgeRow(list, "fg" + shown[i], i * (HomeForgeRow.Height + gap)), shown[i]);
+                BindBoost(ForgeRow(list, "fg" + shown[i], 20f + i * (HomeForgeRow.Height + gap)), shown[i]);
             if (locked >= 0)
-                BindBoostTease(ForgeRow(list, "lk" + locked, shown.Count * (HomeForgeRow.Height + gap)), locked);
+                BindBoostTease(ForgeRow(list, "lk" + locked, 20f + shown.Count * (HomeForgeRow.Height + gap)), locked);
+            SetForgeCount(page);
         }
 
         static HomeBoostRow ForgeRow(RectTransform page, string name, float y)
         {
-            var box = UiKit.Art(page, name, "Ui/panel_skin", new Vector2(0f, y),
-                new Vector2(HomeForgeRow.Width, HomeForgeRow.Height), Pin.Top, SkinSlice);
+            var box = UiKit.Panel(page, name, new Vector2(0f, y),
+                new Vector2(HomeForgeRow.Width, HomeForgeRow.Height), Color.clear, Pin.Top);
             var slot = box.gameObject.AddComponent<HomeBoostRow>();
             slot.Row = box.GetComponent<Image>();
             return slot;

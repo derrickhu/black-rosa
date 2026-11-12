@@ -9,6 +9,10 @@ namespace InkLine
         public Image Shelf;
         public Text Title;
         public HomeItemSlot[] Slots;
+        public RectTransform Panel;
+        public RectTransform PlateOn;
+        public RectTransform PlateCodex;
+        public RectTransform CountRt;
         public RectTransform Head;
         public Text HeadTitle;
         public Text HeadCount;

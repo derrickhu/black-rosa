@@ -485,6 +485,54 @@ namespace InkLine
             if (t != null) t.color = label;
         }
 
+        // 炮台页的升级、装备用六边形按钮，不走圆角方块。能点是黄的，不能点是灰的。
+        public static void PaintHex(Button btn, bool live, Color label)
+        {
+            if (btn == null) return;
+            var img = btn.GetComponent<Image>();
+            Sprite spr = InkSprites.Load(live ? "Ui/btn_hex_yellow" : "Ui/btn_hex_gray");
+            if (img != null && spr != null)
+            {
+                img.sprite = spr;
+                img.type = Image.Type.Simple;
+                img.preserveAspect = true;
+                img.color = Color.white;
+                btn.targetGraphic = img;
+            }
+            Transform line = btn.transform.Find("ln");
+            if (line != null) line.gameObject.SetActive(false);
+            Transform face = btn.transform.Find("face");
+            if (face != null)
+            {
+                var fi = face.GetComponent<Image>();
+                if (fi != null) fi.enabled = false;
+                Transform faceLine = face.Find("ln");
+                if (faceLine != null) faceLine.gameObject.SetActive(false);
+                if (face is RectTransform fr)
+                {
+                    fr.offsetMin = Vector2.zero;
+                    fr.offsetMax = Vector2.zero;
+                }
+            }
+            Transform parent = btn.transform.parent;
+            Transform shadow = parent != null ? parent.Find(btn.name + "_sh") : null;
+            if (shadow != null) shadow.gameObject.SetActive(false);
+            var t = btn.GetComponentInChildren<Text>(true);
+            if (t != null)
+            {
+                t.color = label;
+                var rt = btn.transform as RectTransform;
+                float h = rt != null ? rt.sizeDelta.y : 63f;
+                float w = rt != null ? rt.sizeDelta.x : 176f;
+                var tr = t.rectTransform;
+                tr.anchorMin = tr.anchorMax = new Vector2(0.5f, 0.5f);
+                tr.pivot = new Vector2(0.5f, 0.5f);
+                tr.anchoredPosition = new Vector2(0f, h * (4f / 63f));
+                tr.sizeDelta = new Vector2(w * 0.68f, h * 0.62f);
+            }
+            btn.transition = Selectable.Transition.None;
+        }
+
         // 圆角、描边、投影是运行时烘的图，预制体存不住。缺图时按按钮尺寸补上。
         public static void RepairBtn(Button btn)
         {

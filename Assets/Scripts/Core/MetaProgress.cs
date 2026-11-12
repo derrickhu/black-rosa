@@ -51,7 +51,7 @@ namespace InkLine
         // 道具：等级 0 是还没解锁；卡是攒着的、还没花掉的张数。
         public int[] ItemLevel = new int[ItemCatalog.Count];
         public int[] ItemCards = new int[ItemCatalog.Count];
-        public int[] Equipped = { -1, -1, -1 };
+        public int[] Equipped = { -1, -1, -1, -1, -1, -1, -1, -1 };
         public bool ItemStarterDone;
         // 1：取消开局白送道具。老档里那只还停在 1 级、旁边没有别的道具的鞭炮收回。
         public int ItemRulesVer;
@@ -2278,7 +2278,9 @@ namespace InkLine
         {
             int[] gate = GameConstants.ItemSlotChapter;
             if (slot < 0 || slot >= gate.Length) return false;
-            return gate[slot] < 0 || ChapterCleared(gate[slot]);
+            int need = gate[slot];
+            if (need == GameConstants.ItemSlotClosed) return false;
+            return need < 0 || ChapterCleared(need);
         }
 
         public int ItemSlotsOpen

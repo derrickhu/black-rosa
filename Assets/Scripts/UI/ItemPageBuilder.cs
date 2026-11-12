@@ -3,31 +3,63 @@ using UnityEngine.UI;
 
 namespace InkLine
 {
-    // 道具页的壳。烘「重排道具页」和运行时兜底走同一份坐标。
-    // 只挂工程里的图；光晕、进度条这类程序生成的图在 HomeItemPage 绑定时补上，存不进预制。
+    // 道具页的壳。坐标跟 720×1280 的稿一致，锚在左上。烘「重排道具页」和运行时兜底走同一份。
+    // 卡面、字牌、挂锁是工程里的图。图鉴底和进度填充是运行时画的圆角，存不进预制。
     public static class ItemPageBuilder
     {
-        public const string Mark = "items_v3";
+        public const string Mark = "items_v9";
 
-        public const float ShelfTop = 4f;
-        public const float ShelfW = 680f;
-        public const float ShelfH = 254f;
-        // 木架原图 900 宽，九宫格四角按这个倍率缩，和整张图缩到 680 宽时一样粗。
-        const float ShelfSrcW = 900f;
-        // 红牌子单独一张图，骑在木架上沿；标题挂在牌子下面，跟着牌子走。
-        const float PlaqueW = 168f;
-        const float PlaqueH = 59f;
-        const float ShelfDrop = 18f;
-        const float SlotSize = 128f;
-        const float SlotStep = 204f;
-        const float SlotY = -4f;
+        public const float CardW = 148f;
+        public const float CardH = 199f;
+        public const float GapX = 22f;
+        public const float GapY = 18f;
+        public const int Cols = 4;
+        public const float GridX = 31f;
+        public const float TitleY = 160f;
+        public const float PlateW = 260f;
+        public const float PlateH = 52f;
+        public const float LineupY = 222f;
+        public const float PanelGap = 22f;
+        public const float CodexDrop = 72f;
+        public const float DockH = 128f;
 
-        public const float HeadY = ShelfTop + ShelfH + 24f;
-        public const float ListTop = HeadY + 26f;
+        public static float LineupW => CardW * Cols + GapX * (Cols - 1);
+        public static float LineupH => CardH * 2f + GapY;
+        public static float PanelTop => LineupY + LineupH + PanelGap;
+        public static float CodexY => PanelTop + CodexDrop;
 
-        public const float CardW = 208f;
-        public const float CardH = 268f;
-        const float CardGap = 14f;
+        // 相对一张 148×199 的卡。底栏按 180 的物品卡底缩过来：等级圆、黑槽、窄箭头。
+        public const float FooterScale = 148f / 180f;
+        public const float DiscX = 10f * FooterScale;
+        public const float DiscY = 184f * FooterScale;
+        public const float Disc = 48f * FooterScale;
+        public const float FillX = 20f * FooterScale;
+        public const float FillY = 194f * FooterScale;
+        public const float FillH = 28f * FooterScale;
+        public const float FillMax = 135f * FooterScale;
+        public const float ArrowX = 140f * FooterScale;
+        public const float ArrowY = 184f * FooterScale;
+        public const float ArrowW = 32f * FooterScale;
+        public const float ArrowH = 40f * FooterScale;
+        public const float BarTextX = 60f * FooterScale;
+        public const float BarTextY = 192f * FooterScale;
+        public const float BarTextW = 80f * FooterScale;
+        public const float BarTextH = 32f * FooterScale;
+        public const float IconS = 108f;
+        public const float IconX = (34f + 56f) * FooterScale - IconS * 0.5f;
+        public const float IconY = (60f + 56f) * FooterScale - IconS * 0.5f;
+        public const float BandY = 159f;
+        public const float BandH = 40f;
+        public const float BadgeX = 101f;
+        public const float BadgeY = 12f;
+        public const float BadgeW = 39f;
+        public const float BadgeH = 26f;
+
+        public static readonly Color FillGreen = new Color(0.490f, 0.827f, 0.329f, 1f);
+        public static readonly Color FillYellow = new Color(252f / 255f, 197f / 255f, 74f / 255f, 1f);
+        public static readonly Color Paper = new Color(1f, 0.973f, 0.933f, 1f);
+        public static readonly Color PanelInk = new Color(42f / 255f, 36f / 255f, 38f / 255f, 1f);
+        public const int PanelRadius = 22;
 
         static Sprite Spr(string file)
         {
@@ -41,6 +73,16 @@ namespace InkLine
 
         public static HomeItemView Build(RectTransform page)
         {
+            page.anchorMin = Vector2.zero;
+            page.anchorMax = Vector2.one;
+            page.offsetMin = page.offsetMax = Vector2.zero;
+            var pageImg = page.GetComponent<Image>();
+            if (pageImg != null)
+            {
+                pageImg.color = new Color(1f, 1f, 1f, 0f);
+                pageImg.raycastTarget = false;
+            }
+
             var go = new GameObject("items", typeof(RectTransform));
             go.transform.SetParent(page, false);
             var root = go.GetComponent<RectTransform>();
@@ -49,60 +91,79 @@ namespace InkLine
             root.offsetMin = root.offsetMax = Vector2.zero;
             var view = go.AddComponent<HomeItemView>();
 
-            var shelf = Pic(root, "shelf", "panel_item_shelf", new Vector2(0f, ShelfTop + ShelfDrop),
-                new Vector2(ShelfW, ShelfH - ShelfDrop), Pin.Top);
-            shelf.type = Image.Type.Sliced;
-            shelf.pixelsPerUnitMultiplier = ShelfSrcW / ShelfW;
-            shelf.preserveAspect = false;
-            view.Shelf = shelf;
-            var plaque = Pic(root, "plaque", "panel_item_plaque", new Vector2(0f, ShelfTop), new Vector2(PlaqueW, PlaqueH), Pin.Top);
-            plaque.preserveAspect = false;
-            var title = UiKit.Label(plaque.rectTransform, "title", "道具栏", 26, new Vector2(0f, 1f), new Vector2(PlaqueW, PlaqueH));
-            title.color = InkTheme.CardFace;
-            Edge(title, InkTheme.Hex("7A1E14"));
-            view.Title = title;
+            view.Panel = StretchImage(root, "panel", null, 0f, PanelTop, 720f,
+                ScreenFit.DesignH - DockH - PanelTop);
+            PaintPanel(view.Panel.GetComponent<Image>());
 
+            view.PlateOn = StretchImage(root, "plate_on", "item_plate_on", 28f, TitleY, PlateW, PlateH);
+            view.Title = PlateText(view.PlateOn, "title", "装备道具");
+
+            view.PlateCodex = StretchImage(root, "plate_codex", "item_plate_codex", 24f, PanelTop + 12f, PlateW, PlateH);
+            view.HeadTitle = PlateText(view.PlateCodex, "title", "道具图鉴");
+
+            view.CountRt = new GameObject("count", typeof(RectTransform)).GetComponent<RectTransform>();
+            view.CountRt.SetParent(root, false);
+            HomeReskin.TopLeft(view.CountRt, 360f, PanelTop + 18f, 336f, 40f);
+            view.HeadCount = UiKit.Label(view.CountRt, "n", "", 18, Vector2.zero, new Vector2(220f, 40f),
+                TextAnchor.MiddleRight, Pin.Center);
+            HomeReskin.TopLeft(view.HeadCount.rectTransform, 0f, 0f, 220f, 40f);
+            view.HeadCount.color = Paper;
+            view.HeadCount.supportRichText = true;
+            view.HeadCount.alignment = TextAnchor.MiddleRight;
+            view.HeadCount.alignByGeometry = true;
+            UiKit.Bold(view.HeadCount);
+            Edge(view.HeadCount, HomeReskin.Ink);
+
+            view.SwapHint = UiKit.Label(view.CountRt, "swap", "", 18, Vector2.zero, new Vector2(220f, 40f),
+                TextAnchor.MiddleRight, Pin.Center);
+            HomeReskin.TopLeft(view.SwapHint.rectTransform, 0f, 0f, 220f, 40f);
+            view.SwapHint.color = Paper;
+            view.SwapHint.alignment = TextAnchor.MiddleRight;
+            view.SwapHint.alignByGeometry = true;
+            UiKit.Bold(view.SwapHint);
+            Edge(view.SwapHint, HomeReskin.Ink);
+            view.SwapHint.gameObject.SetActive(false);
+
+            view.SwapCancel = new GameObject("cancel", typeof(RectTransform)).GetComponent<RectTransform>();
+            view.SwapCancel.SetParent(view.CountRt, false);
+            HomeReskin.TopLeft(view.SwapCancel, 228f, 2f, 100f, 36f);
+            view.SwapCancel.gameObject.SetActive(false);
+
+            var lineup = new GameObject("lineup", typeof(RectTransform), typeof(Image));
+            lineup.transform.SetParent(root, false);
+            view.Shelf = lineup.GetComponent<Image>();
+            view.Shelf.color = new Color(1f, 1f, 1f, 0f);
+            view.Shelf.raycastTarget = false;
+            HomeReskin.TopLeft(view.Shelf.rectTransform, GridX, LineupY, LineupW, LineupH);
             view.Slots = new HomeItemSlot[GameConstants.ItemSlots];
             for (int s = 0; s < view.Slots.Length; s++)
-                view.Slots[s] = Slot(shelf.rectTransform, s, new Vector2((s - 1) * SlotStep, SlotY));
-
-            var head = Box(root, "head", new Vector2(0f, HeadY), new Vector2(ShelfW, 44f), Pin.Top);
-            view.Head = head;
-            view.HeadTitle = UiKit.Label(head, "t", "道具图鉴", 26, new Vector2(-ShelfW * 0.5f + 80f, 0f),
-                new Vector2(160f, 40f), TextAnchor.MiddleLeft);
-            UiKit.Bold(view.HeadTitle);
-            view.HeadCount = UiKit.Label(head, "n", "", 20, new Vector2(ShelfW * 0.5f - 90f, 0f),
-                new Vector2(180f, 30f), TextAnchor.MiddleRight);
-            view.HeadCount.color = InkTheme.TextMid;
-            view.SwapHint = UiKit.Label(head, "swap", "", 24, new Vector2(-60f, 0f), new Vector2(420f, 40f),
-                TextAnchor.MiddleLeft);
-            view.SwapHint.color = InkTheme.Seal;
-            UiKit.Bold(view.SwapHint);
-            view.SwapHint.gameObject.SetActive(false);
-            view.SwapCancel = Box(head, "cancel", new Vector2(ShelfW * 0.5f - 60f, 0f), new Vector2(110f, 48f), Pin.Center);
+                view.Slots[s] = Slot(view.Shelf.rectTransform, s);
 
             var port = new GameObject("view", typeof(RectTransform), typeof(Image), typeof(RectMask2D), typeof(ScrollRect));
             port.transform.SetParent(root, false);
             var pr = port.GetComponent<RectTransform>();
-            pr.anchorMin = Vector2.zero;
-            pr.anchorMax = Vector2.one;
-            pr.offsetMin = new Vector2(0f, 6f);
-            pr.offsetMax = new Vector2(0f, -ListTop);
-            port.GetComponent<Image>().color = new Color(1f, 1f, 1f, 0f);
+            float listW = LineupW;
+            float listH = ScreenFit.DesignH - DockH - CodexY - 8f;
+            HomeReskin.TopLeft(pr, GridX, CodexY, listW, listH);
+            var hit = port.GetComponent<Image>();
+            hit.color = new Color(1f, 1f, 1f, 0f);
+            hit.raycastTarget = true;
 
             var listGo = new GameObject("list", typeof(RectTransform), typeof(GridLayoutGroup), typeof(ContentSizeFitter));
             listGo.transform.SetParent(pr, false);
             var list = listGo.GetComponent<RectTransform>();
-            list.anchorMin = list.anchorMax = list.pivot = new Vector2(0.5f, 1f);
+            list.anchorMin = list.anchorMax = new Vector2(0.5f, 1f);
+            list.pivot = new Vector2(0.5f, 1f);
             list.anchoredPosition = Vector2.zero;
-            list.sizeDelta = new Vector2(3f * CardW + 2f * CardGap, 100f);
+            list.sizeDelta = new Vector2(listW, 100f);
             var grid = listGo.GetComponent<GridLayoutGroup>();
             grid.cellSize = new Vector2(CardW, CardH);
-            grid.spacing = new Vector2(CardGap, CardGap);
+            grid.spacing = new Vector2(GapX, GapY);
+            grid.startCorner = GridLayoutGroup.Corner.UpperLeft;
+            grid.startAxis = GridLayoutGroup.Axis.Horizontal;
             grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
-            grid.constraintCount = 3;
+            grid.constraintCount = 4;
             grid.childAlignment = TextAnchor.UpperCenter;
-            grid.padding = new RectOffset(0, 0, 8, 24);
             var fit = listGo.GetComponent<ContentSizeFitter>();
             fit.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
             var scroll = port.GetComponent<ScrollRect>();
@@ -111,138 +172,178 @@ namespace InkLine
             scroll.horizontal = false;
             scroll.vertical = true;
             scroll.movementType = ScrollRect.MovementType.Clamped;
-            scroll.scrollSensitivity = 48f;
+            scroll.scrollSensitivity = 28f;
             view.Scroll = scroll;
             view.List = list;
 
             view.Cards = new HomeItemCard[ItemCatalog.Count];
-            for (int i = 0; i < view.Cards.Length; i++) view.Cards[i] = Card(list, i);
+            for (int i = 0; i < view.Cards.Length; i++) view.Cards[i] = Card(list);
 
             var mark = new GameObject(Mark, typeof(RectTransform));
             mark.transform.SetParent(root, false);
             return view;
         }
 
-        // 预制里烘的是当时的张数。图鉴变多时把缺的卡补进同一条列表，格子布局会自己排开。
         public static void Grow(HomeItemView view)
         {
             if (view == null || view.List == null || view.Cards == null) return;
             if (view.Cards.Length >= ItemCatalog.Count) return;
             var next = new HomeItemCard[ItemCatalog.Count];
             for (int i = 0; i < view.Cards.Length; i++) next[i] = view.Cards[i];
-            for (int i = view.Cards.Length; i < next.Length; i++) next[i] = Card(view.List, i);
+            for (int i = view.Cards.Length; i < next.Length; i++) next[i] = Card(view.List);
             view.Cards = next;
         }
 
-        static HomeItemSlot Slot(RectTransform shelf, int s, Vector2 pos)
+        static HomeItemSlot Slot(RectTransform lineup, int s)
         {
-            var box = Box(shelf, "slot" + s, pos, new Vector2(SlotSize, SlotSize), Pin.Center);
-            var slot = box.gameObject.AddComponent<HomeItemSlot>();
-            slot.Glow = Pic(box, "glow", null, Vector2.zero, Vector2.one * SlotSize * 1.7f, Pin.Center);
+            int col = s % Cols;
+            int row = s / Cols;
+            var frame = Pic(lineup, "slot" + s, "item_card_empty",
+                new Vector2(col * (CardW + GapX), row * (CardH + GapY)),
+                new Vector2(CardW, CardH));
+            frame.raycastTarget = true;
+            var slot = frame.gameObject.AddComponent<HomeItemSlot>();
+            slot.Frame = frame;
+            slot.Button = frame.gameObject.AddComponent<Button>();
+            slot.Button.targetGraphic = frame;
+            slot.Button.transition = Selectable.Transition.None;
+            slot.Glow = Pic(frame.rectTransform, "glow", null, new Vector2(-6f, -6f),
+                new Vector2(CardW + 12f, CardH + 12f));
+            slot.Glow.transform.SetAsFirstSibling();
             slot.Glow.gameObject.SetActive(false);
-            slot.Frame = Pic(box, "frame", "item_slot", Vector2.zero, Vector2.one * SlotSize, Pin.Center);
-            slot.Frame.raycastTarget = true;
-            slot.Button = box.gameObject.AddComponent<Button>();
-            slot.Button.targetGraphic = slot.Frame;
-            slot.Halo = Pic(box, "halo", null, new Vector2(0f, 4f), Vector2.one * SlotSize * 0.9f, Pin.Center);
-            slot.Icon = Pic(box, "icon", "ico_item_burst", new Vector2(0f, 6f), Vector2.one * SlotSize * 0.7f, Pin.Center);
-            slot.Lock = Pic(box, "lock", "ico_lock", new Vector2(0f, 6f), Vector2.one * 56f, Pin.Center);
-            slot.Plus = UiKit.Label(box, "plus", "+", 60, new Vector2(0f, 6f), new Vector2(SlotSize, 70f));
-            slot.Plus.color = InkTheme.Hex("C9A57E");
-            UiKit.Bold(slot.Plus);
-            slot.Badge = Pic(box, "badge", "item_lv_badge", new Vector2(0f, -SlotSize * 0.5f + 4f), new Vector2(78f, 44f), Pin.Center);
-            slot.Badge.preserveAspect = false;
-            slot.Lv = UiKit.Label(slot.Badge.rectTransform, "t", "Lv.1", 20, new Vector2(0f, 1f), new Vector2(78f, 40f));
-            slot.Lv.color = InkTheme.CardFace;
-            Edge(slot.Lv, InkTheme.Hex("1F4A2A"));
-            slot.Note = UiKit.Label(box, "note", "", 19, new Vector2(0f, -SlotSize * 0.5f + 4f), new Vector2(SlotSize + 30f, 30f));
-            slot.Note.color = InkTheme.CardFace;
-            Edge(slot.Note, InkTheme.Outline);
+            FillChrome(frame.rectTransform, out slot.Icon, out slot.Lv, out slot.Fill, out slot.BarText);
+            slot.Plus = UiKit.Label(frame.rectTransform, "plus", "", 28, Vector2.zero, new Vector2(IconS, IconS));
+            HomeReskin.TopLeft(slot.Plus.rectTransform, IconX, IconY, IconS, IconS);
+            slot.Plus.gameObject.SetActive(false);
+            slot.Lock = Pic(frame.rectTransform, "lock", "item_lock",
+                new Vector2((CardW - 68f) * 0.5f, 36f), new Vector2(68f, 68f));
+            slot.Note = UiKit.Label(frame.rectTransform, "note", "", 16, Vector2.zero, new Vector2(CardW - 16f, BandH));
+            HomeReskin.TopLeft(slot.Note.rectTransform, 8f, BandY, CardW - 16f, BandH);
+            slot.Note.color = Paper;
+            slot.Note.alignment = TextAnchor.MiddleCenter;
+            slot.Note.alignByGeometry = true;
+            UiKit.Bold(slot.Note);
+            Edge(slot.Note, HomeReskin.Ink);
             return slot;
         }
 
-        static HomeItemCard Card(RectTransform list, int i)
+        static HomeItemCard Card(RectTransform list)
         {
-            var frame = Pic(list, "it" + i, "panel_item_card_green", Vector2.zero, new Vector2(CardW, CardH), Pin.Center);
-            frame.preserveAspect = false;
+            var frame = Pic(list, "it", "item_card_green", Vector2.zero, new Vector2(CardW, CardH));
             frame.raycastTarget = true;
-            var box = frame.rectTransform;
             var card = frame.gameObject.AddComponent<HomeItemCard>();
             card.Frame = frame;
             card.Button = frame.gameObject.AddComponent<Button>();
             card.Button.targetGraphic = frame;
             card.Button.transition = Selectable.Transition.None;
-
-            card.Quality = UiKit.Label(box, "q", "普通", 19, new Vector2(0f, 96f), new Vector2(CardW, 30f));
-            card.Quality.color = InkTheme.CardFace;
-            Edge(card.Quality, InkTheme.Outline);
-            card.Halo = Pic(box, "halo", null, new Vector2(0f, 28f), Vector2.one * 150f, Pin.Center);
-            card.Icon = Pic(box, "icon", "ico_item_burst", new Vector2(0f, 28f), Vector2.one * 104f, Pin.Center);
-            card.Badge = Pic(box, "badge", "item_lv_badge", new Vector2(-58f, 64f), new Vector2(62f, 38f), Pin.Center);
-            card.Badge.preserveAspect = false;
-            card.Lv = UiKit.Label(card.Badge.rectTransform, "t", "Lv.1", 17, new Vector2(0f, 1f), new Vector2(62f, 34f));
-            card.Lv.color = InkTheme.CardFace;
-            Edge(card.Lv, InkTheme.Hex("1F4A2A"));
-            card.Worn = Pic(box, "worn", null, new Vector2(58f, 64f), new Vector2(60f, 28f), Pin.Center);
-            card.Worn.color = InkTheme.Seal;
-            card.WornText = UiKit.Label(card.Worn.rectTransform, "t", "已装", 17, Vector2.zero, new Vector2(60f, 28f));
-            card.WornText.color = InkTheme.CardFace;
+            FillChrome(frame.rectTransform, out card.Icon, out card.Lv, out card.Fill, out card.BarText);
+            card.Disc = Pic(frame.rectTransform, "disc", "item_disc", new Vector2(DiscX, DiscY), new Vector2(Disc, Disc));
+            card.Disc.preserveAspect = true;
+            card.Seal = LevelLock(card.Disc.rectTransform);
+            card.Arrow = Pic(frame.rectTransform, "arrow", "item_arrow_yellow", new Vector2(ArrowX, ArrowY), new Vector2(ArrowW, ArrowH));
+            card.Arrow.preserveAspect = true;
+            card.Lv.transform.SetAsLastSibling();
+            card.BarText.transform.SetAsLastSibling();
+            card.Worn = Pic(frame.rectTransform, "worn", "item_badge", new Vector2(BadgeX, BadgeY), new Vector2(BadgeW, BadgeH));
+            card.WornText = UiKit.Label(card.Worn.rectTransform, "t", "", 12, Vector2.zero, new Vector2(BadgeW, BadgeH));
+            card.WornText.color = Paper;
+            card.WornText.alignment = TextAnchor.MiddleCenter;
+            card.WornText.alignByGeometry = true;
             UiKit.Bold(card.WornText);
-            card.Name = UiKit.Label(box, "name", "", 24, new Vector2(0f, -44f), new Vector2(CardW, 32f));
-            UiKit.Bold(card.Name);
-
-            card.Track = Pic(box, "bar", null, new Vector2(10f, -80f), new Vector2(148f, 26f), Pin.Center);
-            card.Track.color = InkTheme.Hex("4A3A30");
-            card.Fill = Pic(card.Track.rectTransform, "fill", null, Vector2.zero, new Vector2(148f, 26f), Pin.Center);
-            card.Fill.color = InkTheme.Accel;
-            card.BarText = UiKit.Label(card.Track.rectTransform, "t", "", 18, Vector2.zero, new Vector2(148f, 26f));
-            card.BarText.color = InkTheme.CardFace;
-            Edge(card.BarText, InkTheme.Outline);
-            card.CardIcon = Pic(box, "cardico", "ico_card_blank", new Vector2(-72f, -78f), Vector2.one * 48f, Pin.Center);
-            card.CardItem = Pic(card.CardIcon.rectTransform, "item", "ico_item_burst", Vector2.zero, Vector2.one * 48f * ItemPanel.CardInset, Pin.Center);
+            Edge(card.WornText, HomeReskin.Ink);
+            var wornRt = card.WornText.rectTransform;
+            wornRt.anchorMin = Vector2.zero;
+            wornRt.anchorMax = Vector2.one;
+            wornRt.offsetMin = Vector2.zero;
+            wornRt.offsetMax = Vector2.zero;
+            card.Worn.gameObject.SetActive(false);
             return card;
+        }
+
+        public static Image LevelLock(RectTransform disc)
+        {
+            float s = 26f;
+            var img = Pic(disc, "seal", "item_lock", new Vector2((Disc - s) * 0.5f, (Disc - s) * 0.5f), new Vector2(s, s));
+            img.preserveAspect = true;
+            img.raycastTarget = false;
+            img.gameObject.SetActive(false);
+            return img;
+        }
+
+        static void FillChrome(RectTransform card, out Image icon, out Text lv, out Image fill, out Text bar)
+        {
+            fill = Pic(card, "fill", null, new Vector2(FillX, FillY), new Vector2(FillH, FillH));
+            fill.color = FillGreen;
+            fill.gameObject.SetActive(false);
+            bar = UiKit.Label(card, "bar", "", 15, Vector2.zero, new Vector2(BarTextW, BarTextH));
+            HomeReskin.TopLeft(bar.rectTransform, BarTextX, BarTextY, BarTextW, BarTextH);
+            bar.color = Paper;
+            bar.alignment = TextAnchor.MiddleCenter;
+            bar.alignByGeometry = true;
+            UiKit.Bold(bar);
+            Edge(bar, HomeReskin.Ink);
+            icon = Pic(card, "icon", null, new Vector2(IconX, IconY), new Vector2(IconS, IconS));
+            icon.preserveAspect = true;
+            lv = UiKit.Label(card, "lv", "", 20, Vector2.zero, new Vector2(Disc, Disc));
+            HomeReskin.TopLeft(lv.rectTransform, DiscX, DiscY, Disc, Disc);
+            lv.color = Paper;
+            lv.alignment = TextAnchor.MiddleCenter;
+            lv.alignByGeometry = true;
+            UiKit.Bold(lv);
+            Edge(lv, HomeReskin.Ink);
+        }
+
+        static Text PlateText(RectTransform plate, string name, string text)
+        {
+            var t = UiKit.Label(plate, name, text, 28, Vector2.zero, plate.sizeDelta);
+            t.color = Paper;
+            t.alignment = TextAnchor.MiddleCenter;
+            t.alignByGeometry = true;
+            UiKit.Bold(t);
+            Edge(t, HomeReskin.Ink);
+            var rt = t.rectTransform;
+            rt.anchorMin = Vector2.zero;
+            rt.anchorMax = Vector2.one;
+            rt.offsetMin = new Vector2(8f, 2f);
+            rt.offsetMax = new Vector2(-8f, 0f);
+            return t;
         }
 
         static void Edge(Text t, Color c)
         {
-            UiKit.Bold(t);
-            var o = t.gameObject.AddComponent<Outline>();
+            var o = t.gameObject.GetComponent<Outline>();
+            if (o == null) o = t.gameObject.AddComponent<Outline>();
             o.effectColor = c;
-            o.effectDistance = new Vector2(1.6f, -1.6f);
+            o.effectDistance = new Vector2(1.2f, -1.2f);
         }
 
-        static RectTransform Box(Transform parent, string name, Vector2 pos, Vector2 size, Pin pin)
+        // 图鉴底是纯色，只圆上沿。运行时画，生成的图存不进预制，进页面时再补一次。
+        public static void PaintPanel(Image panel)
         {
-            var go = new GameObject(name, typeof(RectTransform));
-            go.transform.SetParent(parent, false);
-            var rt = go.GetComponent<RectTransform>();
-            Place(rt, pos, size, pin);
-            return rt;
+            if (panel == null) return;
+            if (panel.sprite == null) panel.sprite = UiSprites.FillTop(PanelRadius);
+            panel.type = Image.Type.Sliced;
+            panel.color = PanelInk;
+            panel.pixelsPerUnitMultiplier = 1f;
         }
 
-        static Image Pic(Transform parent, string name, string file, Vector2 pos, Vector2 size, Pin pin)
+        static RectTransform StretchImage(Transform parent, string name, string file, float x, float y, float w, float h)
+        {
+            var img = Pic(parent, name, file, new Vector2(x, y), new Vector2(w, h));
+            img.raycastTarget = false;
+            return img.rectTransform;
+        }
+
+        static Image Pic(Transform parent, string name, string file, Vector2 pos, Vector2 size)
         {
             var go = new GameObject(name, typeof(RectTransform), typeof(Image));
             go.transform.SetParent(parent, false);
-            Place(go.GetComponent<RectTransform>(), pos, size, pin);
+            HomeReskin.TopLeft(go.GetComponent<RectTransform>(), pos.x, pos.y, size.x, size.y);
             var img = go.GetComponent<Image>();
             if (file != null) img.sprite = Spr(file);
-            img.preserveAspect = file != null;
+            img.preserveAspect = file == "item_lock";
             img.raycastTarget = false;
             return img;
-        }
-
-        static void Place(RectTransform rt, Vector2 pos, Vector2 size, Pin pin)
-        {
-            rt.sizeDelta = size;
-            if (pin == Pin.Top)
-            {
-                rt.anchorMin = rt.anchorMax = rt.pivot = new Vector2(0.5f, 1f);
-                rt.anchoredPosition = new Vector2(pos.x, -pos.y);
-                return;
-            }
-            rt.anchorMin = rt.anchorMax = rt.pivot = new Vector2(0.5f, 0.5f);
-            rt.anchoredPosition = pos;
         }
     }
 }

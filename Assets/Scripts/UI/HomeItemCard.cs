@@ -18,6 +18,9 @@ namespace InkLine
         public Image Track;
         public Image Fill;
         public Text BarText;
+        public Image Disc;
+        public Image Seal;
+        public Image Arrow;
         public Image CardIcon;
         public Image CardItem;
         public Button Button;

@@ -98,6 +98,42 @@ namespace InkLine
             return s;
         }
 
+        // 字图方底是近白宣纸。贴到别的底色上时抠掉，只留墨。
+        static readonly Dictionary<int, Sprite> BareCache = new Dictionary<int, Sprite>();
+
+        public static Sprite Bare(Sprite art)
+        {
+            if (art == null || art.texture == null) return art;
+            int id = art.GetInstanceID();
+            if (BareCache.TryGetValue(id, out Sprite cached) && cached != null) return cached;
+            Texture2D src = art.texture;
+            Rect rect = art.textureRect;
+            int x = Mathf.RoundToInt(rect.x);
+            int y = Mathf.RoundToInt(rect.y);
+            int w = Mathf.RoundToInt(rect.width);
+            int h = Mathf.RoundToInt(rect.height);
+            Color[] px;
+            try { px = src.GetPixels(x, y, w, h); }
+            catch (UnityException) { return art; }
+            for (int i = 0; i < px.Length; i++)
+            {
+                Color c = px[i];
+                float max = Mathf.Max(c.r, Mathf.Max(c.g, c.b));
+                float min = Mathf.Min(c.r, Mathf.Min(c.g, c.b));
+                float sat = max - min;
+                if (min > 0.90f && sat < 0.08f) c.a = 0f;
+                else if (min > 0.78f && sat < 0.07f) c.a *= Mathf.Clamp01((0.90f - min) / 0.12f);
+                px[i] = c;
+            }
+            var tex = new Texture2D(w, h, TextureFormat.RGBA32, false);
+            tex.filterMode = FilterMode.Bilinear;
+            tex.SetPixels(px);
+            tex.Apply();
+            cached = Sprite.Create(tex, new Rect(0, 0, w, h), new Vector2(0.5f, 0.5f), art.pixelsPerUnit);
+            BareCache[id] = cached;
+            return cached;
+        }
+
         public static Sprite Card(int size = 128)
         {
             string key = "card:plate:" + size;

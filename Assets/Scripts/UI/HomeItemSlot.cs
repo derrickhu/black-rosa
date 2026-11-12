@@ -15,6 +15,8 @@ namespace InkLine
         public Image Badge;
         public Text Lv;
         public Text Note;
+        public Image Fill;
+        public Text BarText;
         public Button Button;
     }
 }
