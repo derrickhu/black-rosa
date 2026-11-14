@@ -1,0 +1,26 @@
+{
+  "v": 3,
+  "createdOnFiles": {
+    "v": 1,
+    "at": "2026-11-03T14:25:00Z"
+  },
+  "title": "墨字防线营地",
+  "launch": {
+    "view": "canvas"
+  },
+  "pages": [],
+  "boards": {
+    "Main.dc.html": {
+      "x": 0,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "title": "营地"
+    }
+  },
+  "order": [
+    "Main.dc.html"
+  ],
+  "notes": {},
+  "designSystems": []
+}

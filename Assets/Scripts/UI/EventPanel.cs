@@ -6,31 +6,222 @@ using UnityEngine.UI;
 
 namespace InkLine
 {
-    // 「招财进宝」活动页：聚宝盆进度、里程碑领取、庙会小地图、当天次数。
-    // 内容少，领一次奖、看一次广告就整块重画。
+    // 招财进宝活动页（Figma Panel/首页弹窗/07_招财进宝，预制体 Prefabs/Event）：
+    // 聚宝盆进度与 6 档里程碑（前 5 档通用 68×68 物品框，福袋炮台复用六边形皮肤框），下接庙会三档集市地图与尖角主按钮。
     public sealed class EventPanel : MonoBehaviour
     {
-        const float BoardW = 660f;
-        const float BoardH = 1160f;
-        const float Top = BoardH * 0.5f;
+        public const string PrefabPath = "Prefabs/Event";
+        public const string Mark = "event_v2";
+
+        const float BoardW = 648f;
+        const float BoardH = 988f;
+        const float ProgW = 556f;
+        const float ProgH = 26f;
+
+        static readonly string[] SpotArt = { "Ui/event_stall", "Ui/event_temple", "Ui/event_fair" };
 
         MetaProgress _meta;
         Action<int> _start;
         Action _changed;
+        RectTransform _layer;
+        RectTransform _board;
         RectTransform _body;
+        Text _infoLabel;
+        Text _slantLabel;
         bool _leaving;
+        int _selTier;
 
         public static void Show(RectTransform layer, MetaProgress meta, Action<int> start, Action changed)
         {
-            var dim = UiKit.Dimmer(layer);
-            dim.name = "event_panel";
+            var dim = ModalKit.SpawnPrefab(layer, PrefabPath, "event_panel", Mark, null, BuildPrefab, out RectTransform stage);
             var panel = dim.gameObject.AddComponent<EventPanel>();
             panel._meta = meta;
             panel._start = start;
             panel._changed = changed;
-            var board = PanelKit.Board(dim, EventCatalog.Title, Vector2.zero, new Vector2(BoardW, BoardH), Pin.Center, panel.Close);
-            panel._body = ResultKit.Group(board, "body", Vector2.zero, new Vector2(BoardW, BoardH));
-            panel.Refresh();
+            panel._layer = layer;
+            panel._selTier = panel.HighestOpenTier();
+            panel.Bind(stage);
+        }
+
+        public static RectTransform BuildPrefab()
+        {
+            var dim = ModalKit.Stage(null, "event_panel", 0.80f, null, out RectTransform stage);
+            var board = ModalKit.Shell(stage, BoardW, BoardH, EventCatalog.Title, "Ui/ico_act_event",
+                "活动关不掉墨 · 赢局钱袋全入聚宝盆", "magenta", $"每日 {EventCatalog.PlaysPerDay} 次",
+                () => { }, out _, out _, animate: false);
+            ModalKit.AddMark(board, Mark);
+
+            var bodyGo = new GameObject("body", typeof(RectTransform));
+            bodyGo.transform.SetParent(board, false);
+            var body = bodyGo.GetComponent<RectTransform>();
+            ModalKit.TopLeft(body, 0f, 0f, BoardW, BoardH);
+
+            // 1. 聚宝盆进度与 6 档里程碑
+            var basin = ModalKit.Sliced(body, "basin", "Ui/modal_sub_warm", ModalKit.BorderSub18,
+                24f, 152f, 600f, 246f, false);
+            ModalKit.Pic(basin, "pouch", "Ui/modal_ico_pouch", 18f, 14f, 36f, 36f, true);
+
+            int max = EventCatalog.Milestones[EventCatalog.Milestones.Length - 1].Need;
+            ModalKit.SolidText(basin, "bank", $"聚宝盆已攒：0 / {max} 金", 20,
+                62f, 16f, 290f, 30f, ModalKit.TextDark, TextAnchor.MiddleLeft, true);
+            ModalKit.Tag(basin, "Ui/modal_tag_slate", 356f, 16f, 226f, 28f, "赢局全入盆 · 输局看广告存半", false, 13);
+            ModalKit.ProgressBar(basin, 22f, 62f, ProgW, ProgH, 0f, $"0 / {max}", out _, out _);
+
+            int n = EventCatalog.Milestones.Length;
+            for (int i = 0; i < n; i++)
+            {
+                EventMilestone m = EventCatalog.Milestones[i];
+                bool isSkin = m.Prize == EventPrize.Skin;
+                float nx = 18f + i * 96f;
+
+                RectTransform hitRt;
+                if (isSkin)
+                {
+                    var hexImg = ModalKit.Pic(basin, "ms" + i, "Ui/skin_hex_purple", nx - 6f, 100f, 80f, 90f, true);
+                    hexImg.raycastTarget = true;
+                    hitRt = hexImg.rectTransform;
+                    ModalKit.Pic(hitRt, "art", EventCatalog.PrizeIcon(m), 11f, 13f, 58f, 58f, true);
+                    var ult = ModalKit.Tag(basin, "Ui/modal_tag_coral", nx - 2f, 92f, 72f, 22f, "终极炮台", false, 12);
+                    ult.name = "ult" + i;
+                }
+                else
+                {
+                    string tone = ToneOf(m);
+                    string cnt = m.Prize == EventPrize.Ink || m.Prize == EventPrize.Token ? m.Amount.ToString() : "1";
+                    hitRt = ModalKit.ItemSlot(basin, tone, 68, nx, 112f, ModalKit.Load(EventCatalog.PrizeIcon(m)), cnt);
+                    hitRt.name = "ms" + i;
+                    hitRt.GetComponent<Image>().raycastTarget = true;
+                }
+
+                var btn = hitRt.gameObject.AddComponent<Button>();
+                btn.transition = Selectable.Transition.None;
+                btn.targetGraphic = hitRt.GetComponent<Image>();
+
+                var chk = ModalKit.Pic(basin, "chk" + i, "Ui/checkin_check", nx + 44f, 102f, 28f, 28f, true);
+                chk.gameObject.SetActive(false);
+
+                var rdy = ModalKit.Tag(basin, "Ui/modal_tag_coral", nx + 16f, 100f, 54f, 22f, "可领", false, 13);
+                rdy.name = "rdy" + i;
+                rdy.gameObject.SetActive(false);
+
+                ModalKit.SolidText(basin, "req" + i, m.Need + "金", 14, nx - 6f, 192f, 80f, 24f,
+                    isSkin ? InkTheme.Hex("B85C14") : ModalKit.TextBody, TextAnchor.MiddleCenter, true);
+            }
+
+            // 2. 庙会三档集市地图
+            var card = ModalKit.Sliced(body, "stage_card", "Ui/modal_sub_charcoal", ModalKit.BorderSub16,
+                24f, 414f, 600f, 398f, false);
+
+            var maskGo = new GameObject("map_mask", typeof(RectTransform), typeof(Image), typeof(RectMask2D));
+            maskGo.transform.SetParent(card, false);
+            var mapRt = maskGo.GetComponent<RectTransform>();
+            ModalKit.TopLeft(mapRt, 4f, 4f, 592f, 334f);
+            maskGo.GetComponent<Image>().color = new Color(1f, 1f, 1f, 0f);
+
+            ModalKit.Pic(mapRt, "map", "Ui/event_map", 0f, -40f, 592f, 414f, false);
+
+            BuildSpotNode(mapRt, 0, 108f, 232f);
+            BuildSpotNode(mapRt, 1, 296f, 162f);
+            BuildSpotNode(mapRt, 2, 476f, 84f);
+
+            ModalKit.Tag(card, "Ui/modal_tag_dark", 16f, 16f, 256f, 34f, "点击集市开打 · 福袋炮台拾金+10%", false, 13);
+            ModalKit.SlantTag(card, "yellow", 458f, 14f, EventCatalog.Tier(0).Name + "·可进", out _);
+
+            var bot = ModalKit.Sliced(card, "bot_bar", "Ui/modal_sub_dark", ModalKit.BorderSub16,
+                4f, 338f, 592f, 56f, false);
+            ModalKit.OutlinedText(bot, "plays", $"今日免费挑战次数：{EventCatalog.PlaysPerDay} / {EventCatalog.PlaysPerDay}", 19,
+                0f, 0f, 592f, 56f, ModalKit.GoldLight, TextAnchor.MiddleCenter);
+
+            // 3. 底部按钮
+            var adBtn = ModalKit.HexBtn(body, "md_cyan", 46f, 846f, "", null, out _);
+            adBtn.gameObject.name = "ad_btn";
+            ModalKit.SetAdBtnLabel(adBtn, "md_cyan", $"+{EventCatalog.AdPlays} 次", true, 20);
+
+            var goBtn = ModalKit.HexBtn(body, "wide_yellow", 288f, 838f,
+                "开始打金 · " + EventCatalog.Tier(0).Name, null, out _);
+            goBtn.gameObject.name = "go_btn";
+
+            board.Find("close")?.SetAsLastSibling();
+            return dim;
+        }
+
+        static void BuildSpotNode(RectTransform mapRt, int t, float cx, float cy)
+        {
+            EventTierDef d = EventCatalog.Tier(t);
+            const float iconS = 104f;
+
+            var hitGo = new GameObject("spot" + t, typeof(RectTransform), typeof(Image), typeof(Button));
+            hitGo.transform.SetParent(mapRt, false);
+            var hit = hitGo.GetComponent<RectTransform>();
+            hit.anchorMin = hit.anchorMax = new Vector2(0f, 1f);
+            hit.pivot = new Vector2(0.5f, 0.5f);
+            hit.anchoredPosition = new Vector2(cx, -cy);
+            hit.sizeDelta = new Vector2(132f, 138f);
+            var hitImg = hitGo.GetComponent<Image>();
+            hitImg.color = new Color(1f, 1f, 1f, 0.01f);
+            var btn = hitGo.GetComponent<Button>();
+            btn.transition = Selectable.Transition.None;
+            btn.targetGraphic = hitImg;
+
+            ModalKit.Pic(hit, "art", SpotArt[t], (132f - iconS) * 0.5f, 4f, iconS, iconS, true);
+            var lk = ModalKit.Pic(hit, "lock", "Ui/item_lock", 46f, 36f, 40f, 40f, true);
+            lk.gameObject.SetActive(false);
+
+            var tag = ModalKit.Tag(hit, "Ui/modal_tag_dark", 16f, 106f, 100f, 26f, d.Name, false, 14);
+            tag.name = "spot_tag";
+        }
+
+        void Bind(RectTransform stage)
+        {
+            _board = stage.Find("board") as RectTransform;
+            _body = _board.Find("body") as RectTransform;
+            ModalKit.BindClose(_board, Close);
+
+            _infoLabel = _board.Find("info_strip/t")?.GetComponent<Text>();
+            _slantLabel = _board.Find("slant_tag/t")?.GetComponent<Text>();
+
+            var basin = _body.Find("basin");
+            for (int i = 0; i < EventCatalog.Milestones.Length; i++)
+            {
+                int idx = i;
+                ModalKit.BindBtn(basin, "ms" + i, () => Claim(idx));
+            }
+
+            var mapRt = _body.Find("stage_card/map_mask");
+            for (int t = 0; t < EventCatalog.TierCount; t++)
+            {
+                int tier = t;
+                var spot = mapRt.Find("spot" + t) as RectTransform;
+                if (spot == null) continue;
+                ModalKit.BindBtn(spot, "", () =>
+                {
+                    if (_meta.EventTierOpen(tier)) _selTier = tier;
+                    PressGo(spot, tier);
+                });
+
+                var trigger = spot.GetComponent<EventTrigger>() ?? spot.gameObject.AddComponent<EventTrigger>();
+                trigger.triggers.Clear();
+                var down = new EventTrigger.Entry { eventID = EventTriggerType.PointerDown };
+                down.callback.AddListener(_ => { if (_meta.EventTierOpen(tier)) spot.localScale = new Vector3(0.92f, 0.92f, 1f); });
+                var up = new EventTrigger.Entry { eventID = EventTriggerType.PointerUp };
+                up.callback.AddListener(_ => { if (!_leaving) spot.localScale = Vector3.one; });
+                trigger.triggers.Add(down);
+                trigger.triggers.Add(up);
+            }
+
+            ModalKit.BindBtn(_body, "ad_btn", OnAd);
+            ModalKit.BindBtn(_body, "go_btn", () => PressGo(null, _selTier));
+
+            Refresh();
+            PanelKit.Open(_board);
+        }
+
+        int HighestOpenTier()
+        {
+            int best = 0;
+            for (int i = 0; i < EventCatalog.TierCount; i++)
+                if (_meta.EventTierOpen(i)) best = i;
+            return best;
         }
 
         void Close()
@@ -41,72 +232,104 @@ namespace InkLine
 
         void Refresh()
         {
-            for (int i = _body.childCount - 1; i >= 0; i--) Destroy(_body.GetChild(i).gameObject);
-            BuildHead();
-            BuildMilestones();
-            BuildMap();
-            BuildPlays();
-        }
+            UiAnim.On(this).Clear();
 
-        static float Y(float fromTop) => Top - fromTop;
-
-        void BuildHead()
-        {
             bool done = _meta.EventDone;
-            var date = UiKit.Label(_body, "date",
-                done ? "奖励已全部领取，再打不会获得任何奖励" : $"常驻活动 · 每天 {EventCatalog.PlaysPerDay} 次", 20,
-                new Vector2(0f, Y(108f)), new Vector2(BoardW - 40f, 28f));
-            date.color = done ? InkTheme.Seal : InkTheme.TextMid;
+            if (_infoLabel != null)
+            {
+                _infoLabel.text = done
+                    ? "聚宝盆奖励已全部领完，再打不再产出奖励"
+                    : "活动关不掉墨 · 积满聚宝盆抱走福袋炮台";
+            }
+            if (_slantLabel != null)
+                _slantLabel.text = done ? "全部已领" : $"每日 {EventCatalog.PlaysPerDay} 次";
 
-            UiKit.Icon(_body, InkSprites.Ui("skin_lucky"), new Vector2(-214f, Y(176f)), 92f);
-            ResultKit.CoinAfter(_body, "hero", "聚宝盆攒满 " + EventCatalog.SkinTarget, 28,
-                new Vector2(-142f, Y(158f)), InkTheme.TextDark, false);
-            var sub = UiKit.Label(_body, "herosub", "福袋炮台到手：金币拾取 +10%", 20,
-                new Vector2(58f, Y(192f)), new Vector2(400f, 28f), TextAnchor.MiddleLeft);
-            sub.color = InkTheme.Seal;
-            var rule = UiKit.Label(_body, "rule", "活动关不掉墨。赢了钱袋全存进聚宝盆；输了看广告可存回一半", 18,
-                new Vector2(0f, Y(248f)), new Vector2(BoardW - 80f, 40f));
-            rule.horizontalOverflow = HorizontalWrapMode.Wrap;
-            rule.color = InkTheme.TextMid;
-
+            var basin = _body.Find("basin");
             int max = EventCatalog.Milestones[EventCatalog.Milestones.Length - 1].Need;
-            ResultKit.CoinAfter(_body, "bank", "聚宝盆 " + _meta.EventBank, 26,
-                new Vector2(0f, Y(284f)), InkTheme.CoinDeep, true);
-            var fill = ResultKit.Bar(_body, new Vector2(0f, Y(316f)), 560f, 22f, InkTheme.Gold);
-            ResultKit.SetBar(fill, Mathf.Min(_meta.EventBank, max) / (float)max);
-        }
+            var bankTxt = basin.Find("bank")?.GetComponent<Text>();
+            if (bankTxt != null) bankTxt.text = $"聚宝盆已攒：{_meta.EventBank} / {max} 金";
 
-        void BuildMilestones()
-        {
-            const float W = 90f, H = 104f, Gap = 6f;
+            float ratio = max > 0 ? Mathf.Min(_meta.EventBank, max) / (float)max : 0f;
+            ModalKit.SetProgress(basin.Find("prog/fill") as RectTransform, ProgW, ProgH, ratio);
+            var progTxt = basin.Find("prog/t")?.GetComponent<Text>();
+            if (progTxt != null) progTxt.text = $"{_meta.EventBank} / {max}";
+
             int n = EventCatalog.Milestones.Length;
             for (int i = 0; i < n; i++)
             {
-                EventMilestone m = EventCatalog.Milestones[i];
-                float x = (i - (n - 1) * 0.5f) * (W + Gap);
                 bool can = _meta.EventClaimable(i);
                 bool got = _meta.EventClaimed(i);
-                bool skin = m.Prize == EventPrize.Skin;
-                Color face = can ? InkTheme.Hex("FFF6E2") : skin ? InkTheme.Hex("FFE9D6") : InkTheme.CardFace;
-                var card = UiKit.Stroke(_body, "ms" + i, new Vector2(x, Y(392f)), new Vector2(W, H), Pin.Center, 4f,
-                    can ? InkTheme.Seal : (Color?)null, face, 16f);
-                UiKit.Icon(card, InkSprites.Load(EventCatalog.PrizeIcon(m)), new Vector2(0f, 20f), 46f);
-                var cnt = UiKit.Label(card, "n", EventCatalog.PrizeCount(m), 16, new Vector2(0f, -8f), new Vector2(W, 22f));
-                cnt.color = InkTheme.TextMid;
-                if (got || can)
+                var ms = basin.Find("ms" + i) as RectTransform;
+                if (ms != null)
                 {
-                    var need = UiKit.Label(card, "need", got ? "已领" : "领取", 18,
-                        new Vector2(0f, -32f), new Vector2(W, 24f));
-                    UiKit.Bold(need);
-                    need.color = got ? InkTheme.TextMid : InkTheme.Seal;
+                    ms.localScale = Vector3.one;
+                    var img = ms.GetComponent<Image>();
+                    if (img != null) img.color = got ? new Color(0.84f, 0.82f, 0.78f, 1f) : Color.white;
+                    if (can) UiAnim.On(this).Breathe(ms, 0.08f * i, 0.045f, 1.2f);
                 }
-                else
-                    ResultKit.CoinAfter(card, "need", m.Need.ToString(), 16, new Vector2(0f, -34f), InkTheme.TextDark, true);
-                if (got) card.GetComponent<Image>().color = InkTheme.Hex("EDE6DA");
-                int idx = i;
-                var btn = card.gameObject.AddComponent<Button>();
-                btn.transition = Selectable.Transition.None;
-                btn.onClick.AddListener(() => Claim(idx));
+                var chk = basin.Find("chk" + i);
+                if (chk != null) chk.gameObject.SetActive(got);
+                var rdy = basin.Find("rdy" + i);
+                if (rdy != null) rdy.gameObject.SetActive(!got && can);
+                var ult = basin.Find("ult" + i);
+                if (ult != null) ult.gameObject.SetActive(!got && !can);
+            }
+
+            var stageCard = _body.Find("stage_card");
+            var cardSlant = stageCard.Find("slant_tag/t")?.GetComponent<Text>();
+            if (cardSlant != null) cardSlant.text = EventCatalog.Tier(_selTier).Name + "·可进";
+
+            int cap = EventCatalog.PlaysPerDay + (_meta.EventAdDone ? EventCatalog.AdPlays : 0);
+            var playsTxt = stageCard.Find("bot_bar/plays")?.GetComponent<Text>();
+            if (playsTxt != null) playsTxt.text = $"今日免费挑战次数：{_meta.EventPlaysLeft} / {cap}";
+
+            var mapRt = stageCard.Find("map_mask");
+            for (int t = 0; t < EventCatalog.TierCount; t++)
+            {
+                EventTierDef d = EventCatalog.Tier(t);
+                bool open = _meta.EventTierOpen(t);
+                bool won = _meta.EventTierWon(t);
+                var spot = mapRt.Find("spot" + t);
+                if (spot == null) continue;
+
+                var art = spot.Find("art")?.GetComponent<Image>();
+                if (art != null)
+                {
+                    art.transform.localScale = Vector3.one;
+                    art.color = open ? Color.white : new Color(0.58f, 0.58f, 0.60f, 1f);
+                    if (open) UiAnim.On(this).Breathe(art.transform, 0.15f * t, 0.04f, 1.15f);
+                }
+                var lk = spot.Find("lock");
+                if (lk != null) lk.gameObject.SetActive(!open);
+
+                var tag = spot.Find("spot_tag") as RectTransform;
+                string tagKey = !open ? "Ui/modal_tag_gray" : (_selTier == t ? "Ui/modal_tag_gold" : "Ui/modal_tag_dark");
+                ModalKit.SetTag(tag, tagKey, won ? d.Name + " ★" : d.Name, open && _selTier == t);
+            }
+
+            bool hasAd = !_meta.EventAdDone;
+            var adTr = _body.Find("ad_btn");
+            if (adTr != null) adTr.gameObject.SetActive(hasAd);
+
+            var goBtn = _body.Find("go_btn")?.GetComponent<Button>();
+            if (goBtn != null)
+            {
+                float goX = hasAd ? 288f : (BoardW - 314f) * 0.5f;
+                ModalKit.TopLeft(goBtn.GetComponent<RectTransform>(), goX, 838f, 314f, 80f);
+                string kind = _meta.EventPlaysLeft <= 0 ? "wide_gray" : "wide_yellow";
+                ModalKit.SetHexBtnGray(goBtn, "wide_yellow", "wide_gray", _meta.EventPlaysLeft <= 0);
+                ModalKit.SetBtnLabel(goBtn, kind, "开始打金 · " + EventCatalog.Tier(_selTier).Name);
+            }
+        }
+
+        static string ToneOf(EventMilestone m)
+        {
+            switch (m.Prize)
+            {
+                case EventPrize.Ink: return ModalKit.InkTone;
+                case EventPrize.Token: return ModalKit.CurrencyTone;
+                case EventPrize.Chest: return ModalKit.ChestTone((ChestTier)m.Amount);
+                default: return ModalKit.CurrencyTone;
             }
         }
 
@@ -132,96 +355,24 @@ namespace InkLine
             {
                 AudioBus.Tap();
                 string what = EventCatalog.PrizeName(m);
-                InkToast.Show(transform.parent, _meta.EventClaimed(i) ? $"{what}已经领过了" : $"聚宝盆攒到 {m.Need} 金币可领{what}");
+                InkToast.Show(_layer, _meta.EventClaimed(i) ? $"{what}已经领过了" : $"聚宝盆攒到 {m.Need} 金币可领{what}");
                 return;
             }
-            Transform card = _body != null ? _body.Find("ms" + i) : null;
-            var layer = transform.parent as RectTransform;
-            Vector2 from = RewardFly.Local(layer, card);
+            Transform basin = _body != null ? _body.Find("basin") : null;
+            Transform card = basin != null ? basin.Find("ms" + i) : null;
+            Vector2 from = RewardFly.Local(_layer, card);
             if (!_meta.ClaimEvent(i, out bool refunded, out int chest)) return;
             AudioBus.CountTick();
             string got = refunded ? $"已有福袋炮台，折成活动币 ×{EventCatalog.SkinTokenRefund}"
                 : chest == -1 ? "宝箱位满了，选个位置放下"
-                : chest == -3 ? $"宝箱位满了，换成 {ChestCatalog.InkAvg((ChestTier)m.Amount)} 墨"
+                : chest == -3 ? $"宝箱位满了，换成 {ChestCatalog.InkAvg((ChestTier)m.Amount)} 灵墨"
                 : $"领到 {EventCatalog.PrizeName(m)} {EventCatalog.PrizeCount(m)}";
-            InkToast.Show(layer, got);
-            // 活动币已经记进钱包。飞到底栏炮台会像金币掉下去，数字却不在那儿涨。
+            InkToast.Show(_layer, got);
             if (m.Prize != EventPrize.Token && !refunded)
-                RewardFly.Play(layer, from, PrizePieces(layer, m, refunded, chest));
+                RewardFly.Play(_layer, from, PrizePieces(_layer, m, refunded, chest));
             _changed?.Invoke();
             Refresh();
-            if (chest == -1) ChestOverflowView.Show(layer, _meta, _changed);
-        }
-
-        static readonly string[] SpotArt = { "Ui/event_stall", "Ui/event_temple", "Ui/event_fair" };
-
-        // 空地图铺底，三处集市是单独的图，名字写在图下面。位置按地面三个圆台。
-        void BuildMap()
-        {
-            const float MapW = 600f, MapH = 450f;
-            var map = UiKit.Art(_body, "map", "Ui/event_map", new Vector2(0f, Y(710f)), new Vector2(MapW, MapH));
-            PlaceSpot(map, 0, new Vector2(-190f, -117f));
-            PlaceSpot(map, 1, new Vector2(0f, 0f));
-            PlaceSpot(map, 2, new Vector2(180f, 132f));
-        }
-
-        void PlaceSpot(RectTransform map, int t, Vector2 pos)
-        {
-            EventTierDef d = EventCatalog.Tier(t);
-            bool open = _meta.EventTierOpen(t);
-            bool won = _meta.EventTierWon(t);
-            const float Icon = 128f;
-            const float NameDrop = Icon * 0.5f + 22f;
-            // 图心对准圆台，名字写在图下面。
-            var hit = UiKit.Panel(map, "spot" + t, pos + new Vector2(0f, -NameDrop * 0.5f),
-                new Vector2(Icon + 24f, Icon + NameDrop + 24f), new Color(0f, 0f, 0f, 0f));
-            var btn = hit.gameObject.AddComponent<Button>();
-            btn.transition = Selectable.Transition.None;
-            int tier = t;
-            btn.onClick.AddListener(() => PressGo(hit, tier));
-            if (open)
-            {
-                var trigger = hit.gameObject.AddComponent<EventTrigger>();
-                var down = new EventTrigger.Entry { eventID = EventTriggerType.PointerDown };
-                down.callback.AddListener(_ => hit.localScale = new Vector3(0.92f, 0.92f, 1f));
-                var up = new EventTrigger.Entry { eventID = EventTriggerType.PointerUp };
-                up.callback.AddListener(_ => { if (!_leaving) hit.localScale = Vector3.one; });
-                trigger.triggers.Add(down);
-                trigger.triggers.Add(up);
-            }
-
-            Vector2 iconPos = new Vector2(0f, NameDrop * 0.5f);
-            var iconGo = new GameObject("art", typeof(RectTransform), typeof(Image));
-            iconGo.transform.SetParent(hit, false);
-            var ir = iconGo.GetComponent<RectTransform>();
-            ir.anchorMin = ir.anchorMax = new Vector2(0.5f, 0.5f);
-            ir.pivot = new Vector2(0.5f, 0.5f);
-            ir.anchoredPosition = iconPos;
-            ir.sizeDelta = new Vector2(Icon, Icon);
-            var img = iconGo.GetComponent<Image>();
-            img.sprite = InkSprites.Load(SpotArt[t]);
-            img.preserveAspect = true;
-            img.raycastTarget = false;
-            img.color = open ? Color.white : new Color(0.62f, 0.62f, 0.64f, 1f);
-            if (open)
-                UiAnim.On(this).Breathe(iconGo.transform, 0.15f * t, 0.045f, 1.15f);
-            else
-            {
-                var badge = UiKit.Stroke(hit, "lockbg", iconPos, new Vector2(56f, 56f), Pin.Center, 3f,
-                    InkTheme.Hex("FFF4E2"), new Color(0.24f, 0.17f, 0.12f, 0.82f), 28f);
-                UiKit.Icon(badge, InkSprites.Ui("lock"), Vector2.zero, 36f);
-            }
-
-            var name = UiKit.Label(hit, "name", d.Name, 32, iconPos + new Vector2(0f, -Icon * 0.5f - 24f), new Vector2(140f, 42f));
-            UiKit.Bold(name);
-            name.color = open ? (won ? InkTheme.CoinDeep : InkTheme.TextDark) : InkTheme.Hex("5C5148");
-            var edge = name.gameObject.AddComponent<Outline>();
-            edge.effectColor = InkTheme.Hex("FFF8EC");
-            edge.effectDistance = new Vector2(2f, -2f);
-
-            var graphics = hit.GetComponentsInChildren<Graphic>(true);
-            for (int i = 0; i < graphics.Length; i++)
-                if (graphics[i].gameObject != hit.gameObject) graphics[i].raycastTarget = false;
+            if (chest == -1) ChestOverflowView.Show(_layer, _meta, _changed);
         }
 
         void PressGo(RectTransform spot, int tier)
@@ -230,13 +381,14 @@ namespace InkLine
             if (!_meta.EventTierOpen(tier))
             {
                 AudioBus.Deny();
-                InkToast.Show(transform.parent, "先打下上一处");
+                InkToast.Show(_layer, "先打下上一处集市");
                 return;
             }
             AudioBus.Tap();
+            Refresh();
             if (_meta.EventPlaysLeft <= 0)
             {
-                InkToast.Show(transform.parent, _meta.EventAdDone
+                InkToast.Show(_layer, _meta.EventAdDone
                     ? "今天的次数用完了，明天再来"
                     : $"今天的次数用完了，看广告再开 {EventCatalog.AdPlays} 局");
                 return;
@@ -246,7 +398,8 @@ namespace InkLine
                 ConfirmDone(tier);
                 return;
             }
-            StartCoroutine(PopGo(spot, tier));
+            if (spot != null) StartCoroutine(PopGo(spot, tier));
+            else Launch(tier);
         }
 
         IEnumerator PopGo(RectTransform spot, int tier)
@@ -269,37 +422,12 @@ namespace InkLine
             _start?.Invoke(tier);
         }
 
-        // 奖励全领完还要打：先说清楚这局什么都拿不到，点了「照样开打」才进。
         void ConfirmDone(int tier)
         {
-            var dim = UiKit.Dimmer(transform);
-            var board = PanelKit.Board(dim, "提示", Vector2.zero, new Vector2(520f, 420f), Pin.Center,
-                () => Destroy(dim.gameObject));
-            var tip = UiKit.Label(board, "tip", "聚宝盆的奖励已全部领取\n再打不会获得任何奖励", 26,
-                new Vector2(0f, 20f), new Vector2(460f, 90f));
-            tip.color = InkTheme.TextDark;
-            UiKit.Btn(board, "cancel", "不打了", new Vector2(-110f, 56f), new Vector2(190f, 80f), () =>
+            ConfirmPanel.Ask(_layer, "聚宝盆的奖励已全部领取\n再打不会获得任何奖励", "不打了", "照样开打", () =>
             {
-                AudioBus.Tap();
-                Destroy(dim.gameObject);
-            }, false, Pin.Bottom);
-            UiKit.Btn(board, "go", "照样开打", new Vector2(110f, 56f), new Vector2(190f, 80f), () =>
-            {
-                AudioBus.Tap();
-                Launch(tier);
-            }, true, Pin.Bottom);
-        }
-
-        void BuildPlays()
-        {
-            int cap = EventCatalog.PlaysPerDay + (_meta.EventAdDone ? EventCatalog.AdPlays : 0);
-            var plays = UiKit.Label(_body, "plays", $"今日次数 {_meta.EventPlaysLeft}/{cap}", 26,
-                new Vector2(_meta.EventAdDone ? 0f : -150f, -Top + 70f), new Vector2(260f, 36f));
-            UiKit.Bold(plays);
-            if (_meta.EventAdDone) return;
-            var ad = UiKit.Btn(_body, "ad", $"+{EventCatalog.AdPlays} 次", new Vector2(150f, -Top + 70f),
-                new Vector2(220f, 80f), OnAd);
-            ResultKit.AdMark(ad, 34f);
+                if (this != null) Launch(tier);
+            });
         }
 
         void OnAd()

@@ -234,7 +234,7 @@ namespace InkLine
                 rows[i] = slot;
             }
             view.Boosts = rows;
-            var mark = new GameObject("forge_v2", typeof(RectTransform));
+            var mark = new GameObject("forge_v3", typeof(RectTransform));
             mark.transform.SetParent(page, false);
         }
 
@@ -300,7 +300,7 @@ namespace InkLine
             return tabs;
         }
 
-        const string DungeonTabIcon = "ico_act_endless";
+        const string DungeonTabIcon = "ico_tab_dungeon";
 
         static Button Tab(Transform dock, int i, string name, string icon)
         {
@@ -492,7 +492,7 @@ namespace InkLine
             {
                 if (!System.IO.File.Exists(Out)) return;
                 string text = System.IO.File.ReadAllText(Out);
-                if (text.Contains("\n  m_Name: forge_v2\n") || text.Contains("\r\n  m_Name: forge_v2\r\n"))
+                if (text.Contains("\n  m_Name: forge_v3\n") || text.Contains("\r\n  m_Name: forge_v3\r\n"))
                     return;
                 BakeForgeMenu();
             }

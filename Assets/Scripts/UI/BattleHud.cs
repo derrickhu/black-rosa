@@ -38,8 +38,6 @@ namespace InkLine
         readonly RectTransform _heartsWrap;
         readonly RectTransform _wavePlate;
         RectTransform _adGun;
-        Image _adGhost;
-        Image _adMark;
         RectTransform _gmClear;
 
         BattleHud(RectTransform layer, Text gold, RectTransform goldChip, Image[] hearts,
@@ -92,9 +90,9 @@ namespace InkLine
             toast.color = InkTheme.TextDark;
             toast.gameObject.SetActive(false);
 
-            // 左上角是设置。底栏左边是看广告加炮，右边是改装，技能在格子右侧。
-            var draftBtn = UiKit.Btn(layer, "draft", "改装", Vector2.zero, new Vector2(280, 84), draft, true, Pin.Bottom);
-            var draftLabel = draftBtn.GetComponentInChildren<Text>();
+            // 左上角是设置。底栏左边是看广告加炮，右边是改装，都用尖角主按钮，技能在格子右侧。
+            var draftBtn = ModalKit.HexBtn(layer, "wide_yellow", 0f, 0f, "改装", draft, out var draftLabel);
+            draftBtn.name = "draft";
             var settingsBtn = GearButton(layer, retreat);
 
             var keys = new ItemKey[GameConstants.ItemSlots];
@@ -227,7 +225,7 @@ namespace InkLine
             return btn;
         }
 
-        const float RowH = 84f;
+        const float RowH = 80f;
         const float KeyW = 64f;
         const float KeyH = 64f;
         const float KeySide = 6f;
@@ -237,7 +235,6 @@ namespace InkLine
         const float ReadH = 52f;
         const float ReadIcon = 46f;
         const float Side = 16f;
-        const float Gap = 10f;
 
         public void Layout()
         {
@@ -246,10 +243,6 @@ namespace InkLine
             float pad = ScreenFit.TopPad;
             float top = pad <= 36.1f ? 10f : pad;
             float row = top + Gear + 6f;
-            float canvasW = Mathf.Max(720f, _layer.rect.width);
-            float draftW = Mathf.Clamp(canvasW - 2f * (Side + Gap), 200f, 460f);
-            float draftX = 0f;
-
             PinTop(Settings.transform as RectTransform, new Vector2(Side, top),
                 new Vector2(Gear, Gear), 6f, Pin.TopLeft);
             if (_gmClear != null)
@@ -261,13 +254,8 @@ namespace InkLine
             if (Mire != null)
                 PinTop(Mire.rectTransform, new Vector2(0f, row), new Vector2(280f, ReadH), 0f, Pin.Top);
             PinTop(InkChip, new Vector2(Side, row), new Vector2(ReadW, ReadH), 0f, Pin.TopRight);
-            PinBottom(Draft.transform as RectTransform, new Vector2(draftX, bot),
-                new Vector2(draftW, RowH), 8f, Pin.Bottom);
-            if (DraftLabel != null)
-            {
-                var box = DraftLabel.GetComponent<RectTransform>();
-                if (box != null) box.sizeDelta = new Vector2(draftW, RowH);
-            }
+            PinBottom(Draft.transform as RectTransform, new Vector2(0f, bot),
+                new Vector2(DraftW, DraftH), 0f, Pin.Bottom);
             if (_heartsWrap != null)
             {
                 // 格子下沿居中。Pin.Center，世界坐标转画布中心偏移。
@@ -454,9 +442,10 @@ namespace InkLine
             if (_fx != null) _fx.Hold(world.Paused);
             bool can = world.CanDraft && inBattle;
             Draft.interactable = inBattle;
-            DraftLabel.text = can ? $"改装  {world.DraftCost}" : $"差  {Mathf.Max(0, world.DraftCost - world.Gold)}";
-            if (can) UiKit.PaintBtn(Draft, InkTheme.Cta, InkTheme.CtaDeep, InkTheme.CardFace);
-            else UiKit.PaintBtn(Draft, InkTheme.CardDim, InkTheme.LineDim, InkTheme.TextDark);
+            string draftKind = can ? "wide_yellow" : "wide_gray";
+            ModalKit.SetBtnLabel(Draft, draftKind,
+                can ? $"改装  {world.DraftCost}" : $"差  {Mathf.Max(0, world.DraftCost - world.Gold)}");
+            ModalKit.SetHexBtnGray(Draft, "wide_yellow", "wide_gray", !can);
             Draft.transform.localScale = can
                 ? Vector3.one * (1f + 0.04f * Mathf.Sin(Time.unscaledTime * 8f))
                 : Vector3.one;
@@ -473,24 +462,14 @@ namespace InkLine
             if (on) Mire.text = "魔气减伤 " + pct + "%";
         }
 
-        // 看广告加炮：改装左边的一颗按钮。左边放炮台图和播放章，右边写「加一门炮」。
-        // 和改装合成一组居中，不再单独贴在屏幕边上。
+        // 看广告加炮：改装左边的青色中号尖角按钮，场记板图标加「加一门炮」。
         void BuildAdGun(System.Action addEmitter)
         {
-            var btn = UiKit.Btn(_layer, "adgun", "加一门炮", Vector2.zero, new Vector2(AdW, RowH),
-                addEmitter, true, Pin.Bottom);
+            var btn = ModalKit.HexBtn(_layer, "md_cyan", 0f, 0f, "加一门炮", addEmitter, out _);
+            btn.name = "adgun";
+            ModalKit.SetAdBtnLabel(btn, "md_cyan", "加一门炮");
             _adGun = btn.transform as RectTransform;
-            var face = _adGun.Find("face");
-            var label = face.Find("t") as RectTransform;
-            label.pivot = new Vector2(0f, 0.5f);
-            label.sizeDelta = new Vector2(140f, RowH);
-            label.anchoredPosition = new Vector2(-AdW * 0.5f + 88f, 0f);
-            label.GetComponent<Text>().alignment = TextAnchor.MiddleLeft;
-            _adGhost = UiKit.Icon(face, InkSprites.CannonSkin(GunSkin), new Vector2(-AdW * 0.5f + 42f, 2f), 64f);
-            _adMark = UiKit.Icon(face, ResultKit.AdBadge(), new Vector2(-AdW * 0.5f + 64f, -16f), 30f);
             _adGun.gameObject.SetActive(false);
-            var sh = _layer.Find("adgun_sh");
-            if (sh != null) sh.gameObject.SetActive(false);
         }
 
         // 新手第一关：不给设置（里面有撤退）和看广告加炮，只留打仗要用的。
@@ -506,8 +485,10 @@ namespace InkLine
         bool _guided;
 
         public int GunSkin;
-        int _ghostSkin = -1;
-        const float AdW = 232f;
+        const float AdW = 176f;
+        const float AdH = 63f;
+        const float DraftW = 314f;
+        const float DraftH = 80f;
         const float PairGap = 16f;
 
         void PlaceAdGun(BattleWorld world, bool inBattle)
@@ -515,29 +496,13 @@ namespace InkLine
             if (_adGun == null) return;
             bool show = inBattle && !Guided && world.EmitterCount < world.EmitterCap;
             _adGun.gameObject.SetActive(show);
-            var sh = _adGun.parent != null ? _adGun.parent.Find("adgun_sh") : null;
-            if (sh != null) sh.gameObject.SetActive(show);
             if (!show) return;
-            if (_ghostSkin != GunSkin && _adGhost != null)
-            {
-                _ghostSkin = GunSkin;
-                _adGhost.sprite = InkSprites.CannonSkin(GunSkin);
-                _adGhost.color = Color.white;
-            }
             float bot = ScreenFit.BottomPad + 16f;
-            float canvasW = Mathf.Max(720f, _layer.rect.width);
-            float room = canvasW - 36f * 2f - PairGap;
-            float draftW = Mathf.Clamp(room - AdW, 200f, 400f);
-            float group = AdW + PairGap + draftW;
+            float group = AdW + PairGap + DraftW;
             float left = -group * 0.5f;
-            PinBottom(_adGun, new Vector2(left + AdW * 0.5f, bot), new Vector2(AdW, RowH), 8f, Pin.Bottom);
-            PinBottom(Draft.transform as RectTransform, new Vector2(left + AdW + PairGap + draftW * 0.5f, bot),
-                new Vector2(draftW, RowH), 8f, Pin.Bottom);
-            if (DraftLabel != null)
-            {
-                var box = DraftLabel.GetComponent<RectTransform>();
-                if (box != null) box.sizeDelta = new Vector2(draftW, RowH);
-            }
+            PinBottom(_adGun, new Vector2(left + AdW * 0.5f, bot), new Vector2(AdW, AdH), 0f, Pin.Bottom);
+            PinBottom(Draft.transform as RectTransform, new Vector2(left + AdW + PairGap + DraftW * 0.5f, bot),
+                new Vector2(DraftW, DraftH), 0f, Pin.Bottom);
         }
 
         // 收到一笔就把药丸顶一下、数字染一下色。飞过去的金币要在这儿落地有声，

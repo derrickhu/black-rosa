@@ -1130,7 +1130,8 @@ namespace InkLine
 
         void PaintModeTab(RectTransform page, string name, string label, bool locked, bool dot, UnityEngine.Events.UnityAction click)
         {
-            HomeReskin.PaintTag(page, name, label, name == "modetab1", locked, dot, click);
+            bool selected = (name == "modetab1") == _hardView;
+            HomeReskin.PaintTag(page, name, label, name == "modetab1", locked, dot, click, selected);
         }
 
         void SelectMode(bool hard)
@@ -1484,7 +1485,7 @@ namespace InkLine
 
         // ---------- 副本页 ----------
 
-        const string DungeonTabIcon = "act_endless";
+        const string DungeonTabIcon = "tab_dungeon";
 
         // 老预制体没烘副本页时，运行时照烘焙那套搭一份，换到新预制体后这段就只是取引用。
         RectTransform EnsureDungeonPage()

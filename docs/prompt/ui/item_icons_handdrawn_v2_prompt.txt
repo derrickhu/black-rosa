@@ -1,0 +1,39 @@
+# 10 枚道具图标重设计提示词（图二手绘墨线 + 柔和色彩过渡画风）
+
+## 画风锚点说明
+Use the attached reference image STRICTLY as a painting style swatch only (do NOT draw any square frame, bottle cap, or ball from the reference).
+Copy ONLY its charming 2D hand-drawn illustration technique:
+- Organic, slightly textured hand-inked dark charcoal-black outlines (#141216) — thicker around the outer silhouette and finer on interior details, with a warm hand-drawn feel rather than stiff vector plastic.
+- Soft painterly color transitions and gentle airbrushed shading across every surface (smooth warm-to-cool gradients, soft spherical/cylindrical volume shading, subtle diffused soft-white sheen rather than harsh glossy plastic dots).
+- NO white sticker border, NO square background box, NO frame, NO text, NO numbers.
+- Single isolated object centered on a pure flat white background (#FFFFFF), filling ~72% of the square canvas, angled at a lively 3/4 view.
+
+## 1. 弹弓 (ico_item_snipe)
+A sturdy hand-carved Y-shaped wooden slingshot tilted at a lively 3/4 angle: warm honey-oak wood grain with soft hand-painted shading from sunlit tan to rich chestnut brown, a stretchy crimson-red rubber band pulled slightly back holding a smooth rounded river pebble with soft grey-blue tonal shading. Hand-inked dark outlines, pure flat white background, no frame, no text.
+
+## 2. 胶水 (ico_item_slow)
+A chubby squeezable white craft glue bottle tilted slightly in 3/4 view: soft creamy-white body with gentle bluish-grey volume shading, a warm tangerine-orange band around the middle, a pointed orange nozzle cap at the top, and one plump, translucent milky-white glue droplet hanging from the tip with soft painterly highlights. Hand-inked dark outlines, pure flat white background, no frame, no text.
+
+## 3. 鞭炮 (ico_item_burst)
+A festive bundle of three plump red firecrackers tied snugly together at a slight tilt: rich vermilion-to-crimson hand-painted gradient paper tubes with warm golden-ochre end bands, bound by hemp twine, and a braided fuse on top fizzing with a soft warm-yellow and orange hand-drawn spark. Hand-inked dark outlines, pure flat white background, no frame, no text.
+
+## 4. 闹钟 (ico_item_halt)
+A charming retro twin-bell mechanical alarm clock in 3/4 view: round sky-blue metal body with soft cerulean-to-cobalt gradient shading, two brushed silver-blue bells on top with a little brass hammer between them, two stubby metal feet, and a warm ivory clock face with two simple dark clock hands. Hand-inked dark outlines, pure flat white background, no frame, no text.
+
+## 5. 冰块 (ico_item_frost)
+A chunky beveled block of magic glacier ice in isometric 3/4 view: soft hand-painted color transition from pale frosted mint-white on the top facet through clear sky-aqua in the middle to deep glacial blue at the base, with a delicate pale-white snowflake motif softly visible inside the front face. Hand-inked dark outlines, pure flat white background, no frame, no text.
+
+## 6. 能量饮料 (ico_item_rage)
+A slightly tilted aluminum energy drink can in 3/4 view: vibrant cobalt-to-cyan hand-painted gradient body, brushed silver-grey top rim with a pull tab, and a bold golden-yellow lightning bolt emblem painted on the front with warm orange-yellow tonal transition. Hand-inked dark outlines, pure flat white background, no frame, no text.
+
+## 7. 大扫把 (ico_item_sweep)
+A fuller, lively rustic witch-style straw broom angled diagonally: abundant fan-shaped golden-wheat bristles with soft straw-yellow to warm sienna painterly shading, bound tightly at the neck with a crimson cloth wrap, attached to a smooth plum-purple wooden handle with gentle wood-tone highlights. Hand-inked dark outlines, pure flat white background, no frame, no text.
+
+## 8. 辣椒酱 (ico_item_splash)
+A glass bottle of fiery chili hot sauce tilted slightly: rich chili-red to deep crimson sauce visible inside with soft glass shading, a ridged leaf-green screw cap at the top, and a small cream belly label featuring a simple hand-drawn orange-yellow flame emblem (no letters). Hand-inked dark outlines, pure flat white background, no frame, no text.
+
+## 9. 急救包 (ico_item_mend)
+A rounded, compact vintage red first-aid case in 3/4 view: warm coral-red to deep ruby hand-painted shading on the box body, a sturdy pale-silver top handle and two small metal clasps, and a clean ivory-white medical cross emblem centered on the front. Hand-inked dark outlines, pure flat white background, no frame, no text.
+
+## 10. 回旋镖 (ico_item_dart)
+A mystical curved three-wing boomerang chakram glowing with arcane energy in 3/4 view: sleek aerodynamic crescent blades with a soft hand-painted gradient from vibrant rose-magenta at the core through violet-purple to luminous sky-cyan along the outer bevels, with subtle hand-drawn wind-swirl sheen. Hand-inked dark outlines, pure flat white background, no frame, no text.

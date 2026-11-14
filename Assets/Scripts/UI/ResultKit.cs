@@ -16,7 +16,7 @@ namespace InkLine
             return rt;
         }
 
-        // 带深描边和下投影的大字。横幅、百分比这类要从彩色底上跳出来的字用。
+        // 带深描边和下投影的大字。战斗飘字还用这套。结算横幅不要走这里，描边加投影会把字挤糊。
         public static Text Headline(Transform parent, string name, string text, int size, Vector2 pos,
             Color face, Color edge, float edgePx = 3f)
         {
@@ -32,16 +32,40 @@ namespace InkLine
             return t;
         }
 
+        // 奶油、米白牌面上的标题：InkBold，实心深色，不另加描边和投影。
+        public static Text PlaqueTitle(Transform parent, string name, string text, int size, Vector2 pos, Color face)
+        {
+            var t = UiKit.Label(parent, name, text, size, pos, new Vector2(560f, size * 1.45f));
+            UiKit.Bold(t);
+            t.color = face;
+            return t;
+        }
+
+        // 暗底上的浅色标题：InkBold，只留一圈细墨线，不再叠投影。
+        public static Text LightTitle(Transform parent, string name, string text, int size, Vector2 pos, Color face)
+        {
+            var t = PlaqueTitle(parent, name, text, size, pos, face);
+            var o = t.gameObject.AddComponent<Outline>();
+            o.effectColor = InkTheme.Hex("0D050A");
+            o.effectDistance = new Vector2(1.35f, -1.35f);
+            return t;
+        }
+
         // 丝带横幅 + 压在上面的标题。原图 900x262 左右，按宽度等比缩。
         public static RectTransform Banner(Transform parent, bool win, string text, Vector2 pos, float width)
         {
-            float h = width * 262f / 900f;
+            string key = win ? "Ui/result_banner_win" : "Ui/result_banner_lose";
+            Sprite spr = InkSprites.Load(key);
+            float h = spr != null && spr.rect.width > 1f
+                ? width * spr.rect.height / spr.rect.width
+                : width * 262f / 900f;
             var holder = Group(parent, win ? "banner" : "banner_lose", pos, new Vector2(width, h));
-            UiKit.Art(holder, "art", win ? "Ui/result_banner_win" : "Ui/result_banner_lose",
-                Vector2.zero, new Vector2(width, h));
-            Color edge = win ? InkTheme.Hex("7A1E14") : InkTheme.Hex("23201E");
-            Color face = win ? InkTheme.Hex("FFF3C8") : InkTheme.Hex("EDE8DF");
-            Headline(holder, "t", text, Mathf.RoundToInt(h * 0.34f), new Vector2(0f, h * 0.06f), face, edge, 3f);
+            UiKit.Art(holder, "art", key, Vector2.zero, new Vector2(width, h));
+            int fs = Mathf.Clamp(Mathf.RoundToInt(h * 0.26f), 36, 48);
+            if (win)
+                PlaqueTitle(holder, "t", text, fs, new Vector2(0f, -h * 0.02f), InkTheme.TextDark);
+            else
+                LightTitle(holder, "t", text, fs, new Vector2(0f, -h * 0.02f), InkTheme.Hex("FFFDF1"));
             return holder;
         }
 
@@ -122,7 +146,7 @@ namespace InkLine
             if (t != null) t.rectTransform.anchoredPosition += new Vector2(size * 0.45f, 0f);
         }
 
-        // 按钮右侧的体力消耗「⚡ 5」。label 往左让一点。
+        // 按钮右侧的体力消耗「(-2 ⚡)」。
         public static Text CostTag(Button btn, int cost)
         {
             if (btn == null) return null;
@@ -130,13 +154,17 @@ namespace InkLine
             Transform host = face != null ? face : btn.transform;
             var rt = btn.GetComponent<RectTransform>();
             float right = rt.sizeDelta.x * 0.5f;
-            UiKit.Icon(host, InkSprites.Ui("stamina"), new Vector2(right - 92f, 0f), 40f);
-            var n = UiKit.Label(host, "cost", cost.ToString(), 28, new Vector2(right - 48f, 0f),
-                new Vector2(50f, 40f), TextAnchor.MiddleLeft);
+            var n = UiKit.Label(host, "cost", "(-" + cost, 28, new Vector2(right - 108f, 0f),
+                new Vector2(64f, 40f), TextAnchor.MiddleRight);
             UiKit.Bold(n);
             n.color = InkTheme.CardFace;
+            UiKit.Icon(host, InkSprites.Ui("stamina"), new Vector2(right - 56f, 0f), 36f);
+            var rp = UiKit.Label(host, "cost_r", ")", 28, new Vector2(right - 30f, 0f),
+                new Vector2(24f, 40f), TextAnchor.MiddleLeft);
+            UiKit.Bold(rp);
+            rp.color = InkTheme.CardFace;
             var t = btn.transform.Find("face/t");
-            if (t != null) ((RectTransform)t).anchoredPosition += new Vector2(-40f, 0f);
+            if (t != null) ((RectTransform)t).anchoredPosition += new Vector2(-56f, 0f);
             return n;
         }
 
@@ -146,6 +174,8 @@ namespace InkLine
 
         static Sprite AdSprite()
         {
+            Sprite art = InkSprites.Ui("ad");
+            if (art != null) return art;
             if (_ad != null) return _ad;
             const int S = 64;
             var tex = new Texture2D(S, S, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp };

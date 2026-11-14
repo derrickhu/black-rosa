@@ -3,140 +3,182 @@ using UnityEngine.UI;
 
 namespace InkLine
 {
-    // 图鉴两张弹窗的壳，只挂工程里的图。烘成 Resources/Prefabs/Codex、CodexDetail，
-    // 预制缺了就按这里当场搭一份。CodexPanel / CodexDetail 只按节点名找，两边要对得上。
+    // 图鉴主页与图鉴详情弹窗的 Figma 切图壳（Panel/首页弹窗/06_图鉴 & 06b_图鉴详情）。
+    // 可烘成 Resources/Prefabs/Codex、CodexDetail，运行时若检测到旧木框预制（缺 Mark）会自动重建新壳。
     public static class CodexLayout
     {
+        public const string Mark = "codex_figma_v7";
         public const string MainPrefab = "Prefabs/Codex";
         public const string DetailPrefab = "Prefabs/CodexDetail";
 
-        public const float BoardW = 700f;
-        // 木框原图边厚约 65px，按这个倍率压到 40px 左右，让开页签和格子。
-        const float FrameMul = 1.3f;
+        public const float BoardW = 648f;
+        public const float BoardH = 988f;
 
-        // 板子顶上那条「图鉴」飘带往下压到 80 左右，页签得排在它下面，红点才露得出来。
-        public const float TabY = 96f;
-        public const float TabW = 186f;
-        public const float TabH = 96f;
-        public const float TabStep = 200f;
-        public const float TrackY = 202f;
-        public const float TrackW = 600f;
-        public const float TrackH = 64f;
-        public const float MileY = 276f;
-        public const float MileW = 190f;
-        public const float MileH = 110f;
-        public const float MileStep = 204f;
-        const float HintY = 396f;
-        const float ListTop = 428f;
-        const float ListBottom = 46f;
-        const float ListSide = 38f;
-        public const int Cols = 3;
-        public const float CellW = 190f;
-        // 卡图宽高比 0.772，格子照着比例开，整张贴不拉伸。
-        public const float CellH = 246f;
-        public const float Gap = 12f;
-        // 卡图里字面中心比卡心高 7.5%，名字条中心在卡心下 36.5%。
-        // 字面底色就是字图的宣纸色 FCFCF6，字图那块方底贴上去看不出边。
-        public const float FaceUp = 0.075f;
-        public const float NameDown = 0.365f;
-        public const float FaceY = CellH * FaceUp;
-        const float FaceW = 196f;
-        const float FaceH = 254f;
+        public const float TrackW = 324f;
+        public const float TrackH = 30f;
 
-        public const float DetailW = 680f;
-        public const float DetailH = 940f;
-        public const float RowW = 560f;
-        public const float RowH = 90f;
-        public const float StarTop = 554f;
-        public const float ShotW = 330f;
-        public const float ShotH = 250f;
+        public const float MileY = 254f;
+        public const float MileH = 68f;
+        public const float MileStep = 80f;
+
+        public const int Cols = 4;
+        public const float CellW = 128f;
+        public const float CellH = 172f;
+        public const float GapX = 16f;
+        public const float Gap = 16f;
+        public const float GridPad = 20f;
+
+        public const float FaceW = 128f;
+        public const float FaceH = 172f;
+
+        public const float DetailW = 648f;
+        public const float DetailH = 720f;
+        public const float RowW = 592f;
+        public const float RowH = 64f;
+        public const float ShotW = 448f;
+        public const float ShotH = 172f;
 
         public static readonly CodexTab[] Tabs = { CodexTab.Glyph, CodexTab.Pair, CodexTab.Enemy };
 
-        public static RectTransform Main(Transform layer) => Spawn(layer, MainPrefab, "codex") ?? BuildMain(layer);
+        public static RectTransform Main(Transform layer) => Spawn(layer, MainPrefab, "codex", true) ?? BuildMain(layer);
 
         public static RectTransform Detail(Transform layer) =>
-            Spawn(layer, DetailPrefab, "codex_detail") ?? BuildDetail(layer);
+            Spawn(layer, DetailPrefab, "codex_detail", false) ?? BuildDetail(layer);
 
         public static void SetTitle(Transform board, string title)
         {
-            Transform t = board.Find("ribbon/t");
+            Transform t = board.Find("head/title") ?? board.Find("ribbon/t");
             if (t != null) t.GetComponent<Text>().text = title;
         }
 
-        static RectTransform Spawn(Transform layer, string path, string name)
+        static RectTransform Spawn(Transform layer, string path, string name, bool withClose)
         {
             var prefab = Resources.Load<GameObject>(path);
             if (prefab == null) return null;
+            // 老预制没有最新 Mark 节点，跳过它改走新 Figma 切图壳
+            if (prefab.transform.Find("stage/board/" + Mark) == null) return null;
             var go = Object.Instantiate(prefab, layer, false);
             go.name = name;
             UiKit.ApplyTo(go.transform);
+            Transform st = go.transform.Find("stage");
+            if (st != null) ModalKit.FitStage(st as RectTransform, layer as RectTransform);
+            // 烘预制时弹出动画的第一帧（缩到 0.72 并往右上偏）会被存进去，这里拉回设计稿正中。
+            ModalKit.SettleBoard(go.transform.Find("stage/board") as RectTransform);
+            if (!withClose)
+            {
+                Transform old = go.transform.Find("stage/board/close");
+                if (old != null) Object.DestroyImmediate(old.gameObject);
+            }
             return (RectTransform)go.transform;
         }
 
         public static RectTransform BuildMain(Transform parent)
         {
-            var dim = Shell(parent, "codex", "图鉴", new Vector2(0f, 120f), new Vector2(BoardW, 1000f), Pin.Top);
-            var board = (RectTransform)dim.Find("board");
+            var dim = ModalKit.Stage(parent, "codex", 0.80f, null, out RectTransform stage);
+            var board = ModalKit.Shell(stage, BoardW, BoardH, "图鉴", null,
+                "集齐可领灵墨", "yellow", "0 / 0", null, out _, out _, animate: parent != null);
+            ClearMarks(board);
+            var head = board.Find("head");
+            if (head != null)
+                ModalKit.Pic(head, "ico", "Ui/ico_act_codex", 56f, 18f, 44f, 44f, true);
+            ModalKit.CloseBtn(board, 0f, 0f, null);
 
+            ModalKit.AddMark(board, Mark);
+
+            // 三栏分段切换条（字谱 / 秘卷 / 墨谱，统一 54 高外槽 + 42 高滑块）
+            var tabBar = ModalKit.Sliced(board, "tabs", "Ui/modal_sub_charcoal", ModalKit.BorderSub16,
+                24f, 152f, 600f, 54f, false);
+            ModalKit.Sliced(tabBar, "tab_on", "Ui/modal_tab_on", ModalKit.BorderPill12,
+                6f, 6f, 192f, 42f, false);
             for (int i = 0; i < Tabs.Length; i++)
             {
-                var plate = UiKit.Art(board, "tab" + i, "Ui/codex_tab_off",
-                    new Vector2((i - 1) * TabStep, TabY), new Vector2(TabW, TabH), Pin.Top);
-                plate.gameObject.AddComponent<Button>().targetGraphic = plate.GetComponent<Image>();
-                Named(UiKit.Icon(plate, InkSprites.Load(CodexCatalog.TabIcon(Tabs[i])),
-                    new Vector2(-TabW * 0.5f + 44f, -6f), 40f), "ico");
-                UiKit.Bold(UiKit.Label(plate, "t", CodexCatalog.TabName(Tabs[i]), 28,
-                    new Vector2(18f, -6f), new Vector2(TabW - 76f, 40f)));
-                // 云头两侧的肩比中间低一截，红点放在右肩上。
-                Badge(plate, new Vector2(TabW * 0.5f - 22f, TabH * 0.5f - 26f));
+                float tx = 6f + i * 198f;
+                var plate = new GameObject("tab" + i, typeof(RectTransform), typeof(Image), typeof(Button));
+                plate.transform.SetParent(tabBar, false);
+                var prt = plate.GetComponent<RectTransform>();
+                ModalKit.TopLeft(prt, tx, 6f, 192f, 42f);
+                var hit = plate.GetComponent<Image>();
+                hit.color = new Color(1f, 1f, 1f, 0.01f);
+                plate.GetComponent<Button>().targetGraphic = hit;
+
+                ModalKit.SolidText(prt, "t", CodexCatalog.TabName(Tabs[i]), 18,
+                    0f, 0f, 192f, 42f, ModalKit.TextDark, TextAnchor.MiddleCenter, true);
+                var dot = ModalKit.Pic(prt, "dot", "Ui/home_dot", 168f, 2f, 18f, 18f, true);
+                dot.gameObject.SetActive(false);
             }
 
-            var track = CodexPanel.Slab(board, "track", "Ui/codex_track", new Vector2(0f, TrackY),
-                new Vector2(TrackW, TrackH));
-            CodexPanel.Slab(track, "fill", "Ui/codex_track_fill", Vector2.zero,
-                new Vector2(TrackH, TrackH * 0.44f - 2f), Pin.Center);
-            var count = UiKit.Bold(UiKit.Label(track, "count", "", 22,
-                new Vector2(0f, TrackH * 0.04f), new Vector2(TrackW - 80f, 30f)));
-            count.color = InkTheme.CardFace;
+            // 收集进度：标题一行，下面进度条和三档奖励同一行，数量标在各自物品框正下方。
+            const float cardX = 24f, cardY = 210f, cardW = 600f, cardH = 146f;
+            var mBar = ModalKit.Sliced(board, "mile_card", "Ui/modal_sub_cream", ModalKit.BorderSub18,
+                cardX, cardY, cardW, cardH, false);
+            ModalKit.SolidText(mBar, "cap", "收集进度", 20, 18f, 12f, 320f, 28f,
+                ModalKit.TextDark, TextAnchor.MiddleLeft, true);
+
+            var track = ModalKit.ProgressBar(mBar, 18f, 64f, TrackW, TrackH, 0f, "", out _, out Text cntText);
+            track.SetParent(board, true);
+            track.name = "track";
+            cntText.name = "count";
 
             for (int i = 0; i < 3; i++)
             {
-                var host = UiKit.Art(board, "mile" + i, "Ui/codex_mile_off",
-                    new Vector2((i - 1) * MileStep, MileY), new Vector2(MileW, MileH), Pin.Top);
-                host.gameObject.AddComponent<Button>().targetGraphic = host.GetComponent<Image>();
-                // 票右边那块奶油底才是写字的地方，约占票宽 60%、中心偏右 12%。
-                UiKit.Bold(UiKit.Label(host, "need", "", 18, new Vector2(MileW * 0.12f, -15f), new Vector2(104f, 26f)));
-                UiKit.Bold(UiKit.Label(host, "ink", "", 22, new Vector2(MileW * 0.12f, 13f), new Vector2(104f, 30f)));
+                float sx = cardX + 356f + i * MileStep;
+                float sy = cardY + 44f;
+                var slot = ModalKit.ItemSlot(board, ModalKit.InkTone, 68, sx, sy, ModalKit.Load("Ui/ico_ink"), "0", forceNodes: true);
+                slot.name = "mile" + i;
+                var sImg = slot.GetComponent<Image>();
+                sImg.raycastTarget = true;
+                slot.gameObject.AddComponent<Button>().targetGraphic = sImg;
+
+                Transform n = slot.Find("n");
+                if (n != null) n.name = "ink";
+
+                ModalKit.SolidText(slot, "need", "", 13, 0f, 70f, 68f, 20f,
+                    ModalKit.TextBody, TextAnchor.MiddleCenter, true);
+                var chk = ModalKit.Pic(slot, "done_chk", "Ui/checkin_check", 42f, -6f, 26f, 26f, true);
+                chk.gameObject.SetActive(false);
+                var rdy = ModalKit.Tag(slot, "Ui/modal_tag_coral", 8f, -8f, 52f, 22f, "可领", false, 12);
+                rdy.name = "ready_tag";
+                rdy.gameObject.SetActive(false);
             }
 
-            var hint = UiKit.Label(board, "hint", "", 20, new Vector2(0f, HintY),
-                new Vector2(BoardW - 100f, 28f), TextAnchor.MiddleCenter, Pin.Top);
-            hint.color = InkTheme.TextMid;
-
-            BuildList(board);
+            // 4 列字卡滚动列表（复用 Page/字卡/统一 128×172 卡面）
+            BuildList(board, 24f, 366f, 600f, 556f);
             BuildCell(board);
+
+            var hint = ModalKit.SolidText(board, "hint", "", 16, 24f, 934f, 600f, 32f,
+                ModalKit.TextMuted, TextAnchor.MiddleCenter, false);
+            hint.name = "hint";
+
             return dim;
         }
 
-        static void BuildList(RectTransform board)
+        static void ClearMarks(RectTransform board)
+        {
+            for (int i = board.childCount - 1; i >= 0; i--)
+            {
+                Transform c = board.GetChild(i);
+                if (!c.name.StartsWith("mark")) continue;
+                if (Application.isPlaying) Object.Destroy(c.gameObject);
+                else Object.DestroyImmediate(c.gameObject);
+            }
+        }
+
+        static void BuildList(RectTransform board, float x, float y, float w, float h)
         {
             var vp = new GameObject("list", typeof(RectTransform), typeof(Image), typeof(RectMask2D), typeof(ScrollRect));
             vp.transform.SetParent(board, false);
             var viewport = vp.GetComponent<RectTransform>();
-            viewport.anchorMin = Vector2.zero;
-            viewport.anchorMax = Vector2.one;
-            viewport.offsetMin = new Vector2(ListSide, ListBottom);
-            viewport.offsetMax = new Vector2(-ListSide, -ListTop);
-            vp.GetComponent<Image>().color = Color.clear;
+            ModalKit.TopLeft(viewport, x, y, w, h);
+            vp.GetComponent<Image>().color = new Color(1f, 1f, 1f, 0f);
 
             var go = new GameObject("cells", typeof(RectTransform));
             go.transform.SetParent(viewport, false);
             var content = go.GetComponent<RectTransform>();
             content.anchorMin = new Vector2(0f, 1f);
-            content.anchorMax = new Vector2(1f, 1f);
-            content.pivot = new Vector2(0.5f, 1f);
+            content.anchorMax = new Vector2(0f, 1f);
+            content.pivot = new Vector2(0f, 1f);
             content.anchoredPosition = Vector2.zero;
+            content.sizeDelta = new Vector2(w, 0f);
 
             var scroll = vp.GetComponent<ScrollRect>();
             scroll.content = content;
@@ -147,179 +189,197 @@ namespace InkLine
             scroll.scrollSensitivity = 30f;
         }
 
-        // 格子模板，藏在板子下面。CodexPanel 每格复制一份再填图。
         static void BuildCell(RectTransform board)
         {
-            var card = UiKit.Art(board, "cell", "Ui/codex_face", Vector2.zero, new Vector2(CellW, CellH), Pin.Top);
-            var img = card.GetComponent<Image>();
-            img.raycastTarget = true;
-            card.gameObject.AddComponent<Button>().targetGraphic = img;
+            var cardImg = ModalKit.Pic(board, "cell", "Ui/study_card_blue", 0f, 0f, CellW, CellH, false);
+            cardImg.raycastTarget = true;
+            var card = cardImg.rectTransform;
+            card.gameObject.AddComponent<Button>().targetGraphic = cardImg;
 
-            UiKit.Bold(UiKit.Label(card, "n", "", 20, new Vector2(0f, -CellH * NameDown), new Vector2(CellW - 60f, 28f)));
-            Hidden(UiKit.Icon(card, null, new Vector2(0f, FaceY), 144f), "art");
-            Hidden(UiKit.Icon(card, null, new Vector2(-37f, FaceY), 74f), "ga");
-            Hidden(UiKit.Icon(card, null, new Vector2(37f, FaceY), 74f), "gb");
-            Hidden(UiKit.Icon(card, InkSprites.Load("Ui/codex_lock"),
-                new Vector2(CellW * 0.5f - 30f, CellH * 0.5f - 30f), 36f), "lock");
-            Badge(card, new Vector2(CellW * 0.5f - 16f, CellH * 0.5f - 16f));
+            // 和字卡页同一套：米字格 12,12 的 104 方格，名字落在 116 以下的底栏。
+            const float face = 104f;
+            const float g = 58f;
+            const float gap = 2f;
+            float left = 12f + (face - (g * 2f + gap)) * 0.5f;
+            float top = 12f + (face - g) * 0.5f;
+            Hidden(FaceIcon(card, "art", 12f, 12f, face), "art");
+            Hidden(FaceIcon(card, "ga", left, top, g), "ga");
+            Hidden(FaceIcon(card, "gb", left + g + gap, top, g), "gb");
+            Hidden(ModalKit.OutlinedText(card, "q", "？", 44, 12f, 12f, face, face,
+                InkTheme.Hex("8A7F74"), TextAnchor.MiddleCenter), "q");
+
+            ModalKit.OutlinedText(card, "n", "", 20, 0f, 116f, CellW, 56f,
+                Color.white, TextAnchor.MiddleCenter, 1.25f);
+
+            Hidden(ModalKit.Pic(card, "lock", "Ui/item_lock", CellW - 32f, 8f, 24f, 24f, true), "lock");
+            var newTag = ModalKit.Tag(card, "Ui/modal_tag_coral", CellW - 58f, 6f, 50f, 22f, "新", false, 13);
+            newTag.name = "dot";
+            newTag.gameObject.SetActive(false);
+
             card.gameObject.SetActive(false);
         }
 
+        static Image FaceIcon(RectTransform parent, string name, float x, float y, float size)
+        {
+            var go = new GameObject(name, typeof(RectTransform), typeof(Image));
+            go.transform.SetParent(parent, false);
+            ModalKit.TopLeft(go.GetComponent<RectTransform>(), x, y, size, size);
+            var img = go.GetComponent<Image>();
+            img.preserveAspect = true;
+            img.raycastTarget = false;
+            return img;
+        }
+
+        static Image CenterIcon(RectTransform parent, string name, float cx, float cy, float size)
+        {
+            var go = new GameObject(name, typeof(RectTransform), typeof(Image));
+            go.transform.SetParent(parent, false);
+            var rt = go.GetComponent<RectTransform>();
+            rt.anchorMin = rt.anchorMax = new Vector2(0f, 1f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = new Vector2(cx, -cy);
+            rt.sizeDelta = new Vector2(size, size);
+            var img = go.GetComponent<Image>();
+            img.preserveAspect = true;
+            img.raycastTarget = false;
+            return img;
+        }
+
+        // 06c_图鉴详情（定稿版）：黄顶奶油面板（无右上角关闭按钮，点空白处关闭）+ 说明暗条
+        // + 左 128×172 字卡与右 448×172 弹形预览并排 + 单行简介 + 无外框大金星与浅黄文本框 + 底部加成说明。
         public static RectTransform BuildDetail(Transform parent)
         {
-            var dim = Shell(parent, "codex_detail", "", new Vector2(0f, -10f), new Vector2(DetailW, DetailH), Pin.Center);
-            var board = (RectTransform)dim.Find("board");
+            var dim = ModalKit.Stage(parent, "codex_detail", 0.82f, null, out RectTransform stage);
+            var board = ModalKit.Shell(stage, DetailW, DetailH, "", null, "", null, null, null,
+                out Text stripLabel, out _, animate: false);
+            if (stripLabel != null) stripLabel.gameObject.name = "note";
+            ModalKit.AddMark(board, Mark);
 
-            var face = UiKit.Art(board, "face", "Ui/codex_face", new Vector2(-170f, 108f),
-                new Vector2(FaceW, FaceH), Pin.Top);
-            face.GetComponent<Image>().raycastTarget = false;
-            float faceY = FaceH * FaceUp;
-            Hidden(UiKit.Icon(face, null, new Vector2(0f, faceY), 150f), "glyph");
-            Hidden(UiKit.Icon(face, null, new Vector2(0f, faceY + 43f), 84f), "ga");
-            Hidden(UiKit.Icon(face, null, new Vector2(0f, faceY - 43f), 84f), "gb");
-            Hidden(UiKit.Icon(face, null, new Vector2(0f, faceY), 140f), "person");
-            var plus = UiKit.Bold(UiKit.Label(face, "plus", "+", 30, new Vector2(58f, faceY), new Vector2(34f, 36f)));
-            plus.color = InkTheme.TextMid;
+            // 左侧标准 128×172 字卡展示（复用 Page/字卡/统一 卡面）
+            var faceImg = ModalKit.Pic(board, "face", "Ui/study_card_blue", 28f, 160f, FaceW, FaceH, false);
+            var face = faceImg.rectTransform;
+            Hidden(CenterIcon(face, "glyph", 64f, 64f, 92f), "glyph");
+            Hidden(CenterIcon(face, "ga", 64f, 44f, 50f), "ga");
+            Hidden(CenterIcon(face, "gb", 64f, 88f, 50f), "gb");
+            Hidden(CenterIcon(face, "person", 64f, 64f, 92f), "person");
+            var plus = ModalKit.OutlinedText(face, "plus", "+", 22, 82f, 50f, 28f, 28f,
+                Color.white, TextAnchor.MiddleCenter);
             plus.gameObject.SetActive(false);
-            UiKit.Bold(UiKit.Label(face, "n", "", 20, new Vector2(0f, -FaceH * NameDown), new Vector2(FaceW - 60f, 28f)));
+            ModalKit.OutlinedText(face, "n", "", 18, 6f, 122f, FaceW - 12f, 42f,
+                Color.white, TextAnchor.MiddleCenter, 1.25f);
 
-            var shot = Box(board, "shotBox", new Vector2(120f, 110f), new Vector2(ShotW, ShotH));
-            var cap = UiKit.Label(shot, "cap", "炮弹", 20, new Vector2(-ShotW * 0.5f + 46f, ShotH * 0.5f - 30f),
-                new Vector2(60f, 26f));
-            cap.color = InkTheme.TextMid;
-            Hidden(BigQ(shot, 110), "q");
-            var plain = UiKit.Label(shot, "plain", "不改炮弹外形", 20, new Vector2(0f, -ShotH * 0.5f + 48f),
-                new Vector2(ShotW - 60f, 26f));
-            plain.color = InkTheme.TextMid;
+            // 右侧 448×172 实时弹形预览暗窗
+            var shot = ModalKit.Sliced(board, "shotBox", "Ui/modal_sub_dark", ModalKit.BorderSub16,
+                172f, 160f, ShotW, ShotH, false);
+            ModalKit.SolidText(shot, "cap", "弹形预览", 15, 16f, 10f, 160f, 24f,
+                InkTheme.Hex("FFE455"), TextAnchor.MiddleLeft, true);
+            Hidden(ModalKit.OutlinedText(shot, "q", "？", 56, 0f, 32f, ShotW, 118f,
+                InkTheme.Hex("786E66"), TextAnchor.MiddleCenter), "q");
+            var plain = ModalKit.SolidText(shot, "plain", "不改炮弹外形", 15, 16f, 138f, ShotW - 32f, 24f,
+                InkTheme.Hex("CFC6B8"), TextAnchor.MiddleCenter, false);
             plain.gameObject.SetActive(false);
 
-            var note = UiKit.Label(board, "note", "", 22, new Vector2(0f, 376f), new Vector2(RowW, 30f),
-                TextAnchor.MiddleCenter, Pin.Top);
-            note.color = InkTheme.TextMid;
-            var lore = UiKit.Label(board, "lore", "", 26, new Vector2(0f, 418f), new Vector2(RowW, 120f),
-                TextAnchor.UpperLeft, Pin.Top);
+            // 直接居中排版的单行简介文字（无外围卡片框）
+            var lore = ModalKit.SolidText(board, "lore", "", 18, 36f, 342f, 576f, 40f,
+                ModalKit.TextBody, TextAnchor.MiddleCenter, true);
             lore.horizontalOverflow = HorizontalWrapMode.Wrap;
             lore.lineSpacing = 1.15f;
 
             BuildStars(board);
             BuildPair(board);
             BuildEnemy(board);
+
             return dim;
         }
 
         static void BuildStars(RectTransform board)
         {
             var g = Group(board, "stars");
-            Caption(g, "星级数值");
-            var tip = UiKit.Label(g, "tip", "点一行看对应星级的炮弹", 20, new Vector2(RowW * 0.5f - 130f, StarTop - 8f),
-                new Vector2(260f, 30f), TextAnchor.MiddleRight, Pin.Top);
-            tip.color = InkTheme.TextDim;
+
+            const float starSize = 56f;
+            const float starGap = 4f;
+            const float starZoneW = 196f;
+
             for (int s = 1; s <= GameConstants.MaxStar; s++)
             {
-                var row = CodexPanel.Slab(g, "s" + s, "Ui/codex_row",
-                    new Vector2(0f, StarTop + 28f + (s - 1) * (RowH + 8f)), new Vector2(RowW, RowH));
-                var img = row.GetComponent<Image>();
-                img.raycastTarget = true;
-                row.gameObject.AddComponent<Button>().targetGraphic = img;
+                float ry = 388f + (s - 1) * 90f;
+                var rowGo = new GameObject("s" + s, typeof(RectTransform), typeof(Image), typeof(Button));
+                rowGo.transform.SetParent(g, false);
+                var row = rowGo.GetComponent<RectTransform>();
+                ModalKit.TopLeft(row, 28f, ry, RowW, 64f);
+                var hitImg = rowGo.GetComponent<Image>();
+                hitImg.color = new Color(1f, 1f, 1f, 0f);
+                hitImg.raycastTarget = true;
+                var btn = rowGo.GetComponent<Button>();
+                btn.transition = Selectable.Transition.None;
+                btn.targetGraphic = hitImg;
+
+                float groupW = s * starSize + (s - 1) * starGap;
+                float ox0 = Mathf.Round((starZoneW - groupW) * 0.5f);
                 for (int k = 0; k < s; k++)
-                    UiKit.Icon(row, InkSprites.Ui("star"), new Vector2(-RowW * 0.5f + 44f + k * 30f, 0f), 30f);
-                var t = UiKit.Label(row, "v", "", 23, new Vector2(66f, 0f), new Vector2(RowW - 170f, RowH - 8f),
-                    TextAnchor.MiddleLeft);
-                t.horizontalOverflow = HorizontalWrapMode.Wrap;
+                {
+                    var st = ModalKit.Pic(row, "st" + k, "Ui/home_star", ox0 + k * (starSize + starGap), 4f, starSize, starSize, true);
+                    st.raycastTarget = false;
+                }
+
+                var box = ModalKit.Sliced(row, "box", "Ui/modal_sub_honey", ModalKit.BorderSub18,
+                    208f, 6f, 368f, 52f, false);
+                var v = ModalKit.SolidText(box, "v", "", 18, 16f, 4f, 336f, 44f,
+                    ModalKit.TextBody, TextAnchor.MiddleCenter, true);
+                v.horizontalOverflow = HorizontalWrapMode.Wrap;
             }
+
+            var note = ModalKit.SolidText(g, "tip", "说明：此处数值不含字卡等级和镶嵌加成", 16,
+                28f, 672f, RowW, 26f, ModalKit.TextMuted, TextAnchor.MiddleCenter, false);
+            note.name = "tip";
         }
 
         static void BuildPair(RectTransform board)
         {
             var g = Group(board, "pair");
-            Caption(g, "额外效果");
-            var box = CodexPanel.Slab(g, "effect", "Ui/codex_row_on", new Vector2(0f, StarTop + 28f),
-                new Vector2(RowW, 120f));
-            var t = UiKit.Bold(UiKit.Label(box, "v", "", 28, Vector2.zero, new Vector2(RowW - 80f, 100f)));
+            var box = ModalKit.Sliced(g, "effect", "Ui/modal_sub_honey", ModalKit.BorderSub18,
+                28f, 404f, RowW, 168f, false);
+            ModalKit.Tag(box, "Ui/modal_tag_coral", 18f, 16f, 72f, 28f, "效果", false, 13);
+            var t = ModalKit.SolidText(box, "v", "", 20, 22f, 54f, RowW - 44f, 98f,
+                ModalKit.TextDark, TextAnchor.MiddleLeft, true);
             t.horizontalOverflow = HorizontalWrapMode.Wrap;
-            var how = UiKit.Label(g, "how", "再叠第三个字也照样生效，炮弹会多挂一颗对应颜色的小珠。", 21,
-                new Vector2(0f, StarTop + 176f), new Vector2(RowW + 40f, 60f), TextAnchor.UpperCenter, Pin.Top);
+
+            var how = ModalKit.SolidText(g, "how", "同发炮弹再叠第三个字也照常生效，炮弹外圈会多挂一颗对应色小珠。",
+                16, 36f, 600f, RowW - 16f, 52f, ModalKit.TextMuted, TextAnchor.UpperCenter, false);
             how.horizontalOverflow = HorizontalWrapMode.Wrap;
-            how.color = InkTheme.TextMid;
         }
 
         static void BuildEnemy(RectTransform board)
         {
             var g = Group(board, "enemy");
-            var box = Box(g, "stat", new Vector2(120f, 110f), new Vector2(ShotW, ShotH));
-            Hidden(BigQ(box, 90), "q");
+            var box = ModalKit.Sliced(g, "stat", "Ui/modal_sub_dark", ModalKit.BorderSub16,
+                172f, 160f, ShotW, ShotH, false);
+            Hidden(ModalKit.OutlinedText(box, "q", "？", 56, 0f, 30f, ShotW, 114f,
+                InkTheme.Hex("786E66"), TextAnchor.MiddleCenter), "q");
             for (int i = 0; i < 4; i++)
-                UiKit.Bold(UiKit.Label(box, "s" + i, "", 26, new Vector2(16f, 60f - i * 40f),
-                    new Vector2(ShotW - 120f, 36f), TextAnchor.MiddleLeft));
-            var cap = UiKit.Bold(UiKit.Label(g, "cap", "本事", 24, new Vector2(-RowW * 0.5f + 40f, 530f),
-                new Vector2(80f, 30f), TextAnchor.MiddleCenter, Pin.Top));
-            cap.color = InkTheme.TextDark;
-            var trait = CodexPanel.Slab(g, "trait", "Ui/codex_row", new Vector2(0f, 566f), new Vector2(RowW, 130f));
-            var tv = UiKit.Label(trait, "v", "", 26, Vector2.zero, new Vector2(RowW - 90f, 80f));
+            {
+                float sx = 28f + (i % 2) * 204f;
+                float sy = 32f + (i / 2) * 64f;
+                ModalKit.SolidText(box, "s" + i, "", 20, sx, sy, 184f, 40f,
+                    ModalKit.CreamLight, TextAnchor.MiddleLeft, true);
+            }
+
+            var trait = ModalKit.Sliced(g, "trait", "Ui/modal_sub_honey", ModalKit.BorderSub18,
+                28f, 404f, RowW, 196f, false);
+            ModalKit.Tag(trait, "Ui/modal_tag_coral", 18f, 16f, 72f, 28f, "特性", false, 13);
+            var tv = ModalKit.SolidText(trait, "v", "", 20, 22f, 56f, RowW - 44f, 122f,
+                ModalKit.TextDark, TextAnchor.MiddleLeft, false);
             tv.horizontalOverflow = HorizontalWrapMode.Wrap;
         }
-
-        static RectTransform Shell(Transform parent, string name, string title, Vector2 pos, Vector2 size, Pin pin)
-        {
-            var dim = UiKit.Dimmer(parent);
-            dim.name = name;
-            var board = CodexPanel.Slab(dim, "board", "Ui/codex_board", pos, size, pin);
-            var img = board.GetComponent<Image>();
-            img.raycastTarget = true;
-            if (img.type == Image.Type.Sliced) img.pixelsPerUnitMultiplier = FrameMul;
-
-            Sprite rib = InkSprites.Load("Ui/ribbon_chapter");
-            float ribW = 380f;
-            float ribH = rib != null && rib.rect.width > 1f ? ribW * rib.rect.height / rib.rect.width : 100f;
-            var ribbon = UiKit.Art(board, "ribbon", "Ui/ribbon_chapter", new Vector2(0f, -ribH * 0.46f),
-                new Vector2(ribW, ribH), Pin.Top);
-            ribbon.GetComponent<Image>().raycastTarget = false;
-            var t = UiKit.Bold(UiKit.Label(ribbon, "t", title, 38, new Vector2(0f, ribH * 0.10f), new Vector2(260f, 56f)));
-            t.color = InkTheme.CardFace;
-
-            // 板子 700 宽几乎贴满 720 的屏，关闭键得收进木框角里，不然右半边出屏。
-            var close = UiKit.Art(board, "close", "Ui/codex_close", Vector2.zero, new Vector2(80f, 80f));
-            close.anchorMin = close.anchorMax = Vector2.one;
-            close.anchoredPosition = new Vector2(-34f, -26f);
-            close.gameObject.AddComponent<Button>().targetGraphic = close.GetComponent<Image>();
-            return dim;
-        }
-
-        // 纯白圆角框，原图 160 见方、圆角 40，按原尺寸切九宫格。
-        static RectTransform Box(Transform parent, string name, Vector2 pos, Vector2 size) =>
-            CodexPanel.Slab(parent, name, "Ui/codex_box", pos, size, Pin.Top, 160f);
 
         static RectTransform Group(RectTransform board, string name)
         {
             var go = new GameObject(name, typeof(RectTransform));
             go.transform.SetParent(board, false);
             var rt = (RectTransform)go.transform;
-            rt.anchorMin = Vector2.zero;
-            rt.anchorMax = Vector2.one;
-            rt.offsetMin = rt.offsetMax = Vector2.zero;
+            ModalKit.TopLeft(rt, 0f, 0f, DetailW, DetailH);
             return rt;
         }
-
-        static void Caption(RectTransform g, string text)
-        {
-            var cap = UiKit.Bold(UiKit.Label(g, "cap", text, 24, new Vector2(-RowW * 0.5f + 60f, StarTop - 8f),
-                new Vector2(140f, 30f), TextAnchor.MiddleCenter, Pin.Top));
-            cap.color = InkTheme.TextDark;
-        }
-
-        static Text BigQ(Transform box, int size)
-        {
-            var q = UiKit.Bold(UiKit.Label(box, "q", "？", size, new Vector2(0f, 4f), new Vector2(ShotW, ShotH)));
-            q.color = InkTheme.LineDim;
-            return q;
-        }
-
-        static void Badge(Transform parent, Vector2 pos)
-        {
-            Hidden(UiKit.Icon(parent, InkSprites.Load("Ui/codex_dot"), pos, 32f), "dot");
-        }
-
-        static void Named(Component c, string name) => c.gameObject.name = name;
 
         static void Hidden(Component c, string name)
         {

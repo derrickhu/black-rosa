@@ -212,10 +212,12 @@ namespace InkLine
             return sprite;
         }
 
-        public static Sprite LoadSliced(string name, Vector4 border)
+        public static Sprite LoadSliced(string name, Vector4 border) => LoadSliced(name, border, 100f);
+
+        public static Sprite LoadSliced(string name, Vector4 border, float ppu)
         {
             if (string.IsNullOrEmpty(name)) return null;
-            string key = name + ":slice:" + border;
+            string key = name + ":slice:" + border + ":" + ppu;
             if (Cache.TryGetValue(key, out Sprite cached) && cached != null) return cached;
             Sprite imported = Load(name);
             if (imported == null)
@@ -223,8 +225,9 @@ namespace InkLine
                 Cache[key] = null;
                 return null;
             }
-            // 导入器经常还是 0 边，不能信。调用方给了九宫格就按调用方切。
-            if ((imported.border - border).sqrMagnitude < 1f && imported.border.sqrMagnitude > 1f)
+            // 导入器切好了对应九宫格且 PPU 一致就直接用，无需留 CPU 读副本。
+            if ((imported.border - border).sqrMagnitude < 1f && imported.border.sqrMagnitude > 1f
+                && Mathf.Abs(imported.pixelsPerUnit - ppu) < 1f)
             {
                 Cache[key] = imported;
                 return imported;
@@ -236,7 +239,7 @@ namespace InkLine
                     tex,
                     new Rect(0, 0, tex.width, tex.height),
                     new Vector2(0.5f, 0.5f),
-                    100f,
+                    ppu,
                     0,
                     SpriteMeshType.FullRect,
                     border);
@@ -246,7 +249,7 @@ namespace InkLine
 #if UNITY_EDITOR
             if (border.sqrMagnitude > 1f)
             {
-                Sprite disk = LoadFromDisk(name, border);
+                Sprite disk = LoadFromDisk(name, border, ppu);
                 if (disk != null)
                 {
                     Cache[key] = disk;
@@ -259,7 +262,7 @@ namespace InkLine
         }
 
 #if UNITY_EDITOR
-        static Sprite LoadFromDisk(string name, Vector4 border)
+        static Sprite LoadFromDisk(string name, Vector4 border, float ppu = 128f)
         {
             string path = Path.Combine(Application.dataPath, "Resources/Art/" + name + ".png");
             if (!File.Exists(path)) return null;
@@ -271,7 +274,7 @@ namespace InkLine
                 tex,
                 new Rect(0, 0, tex.width, tex.height),
                 new Vector2(0.5f, 0.5f),
-                128f,
+                ppu,
                 0,
                 SpriteMeshType.FullRect,
                 border);

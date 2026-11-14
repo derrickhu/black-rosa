@@ -28,9 +28,11 @@ namespace InkLine
     public sealed class VictoryPanel : MonoBehaviour
     {
         const float StarY = 158f;
-        const float RewardY = -60f;
-        const float TeaserY = -238f;
-        const float NextY = -414f;
+        const float RewardY = -66f;
+        const float TeaserY = -302f;
+        const float NextY = -444f;
+
+        static readonly Vector4 BorderTray = new Vector4(52f, 52f, 52f, 52f);
 
         static readonly Vector2[] StarPos = { new Vector2(-132f, 0f), new Vector2(0f, 16f), new Vector2(132f, 0f) };
         static readonly float[] StarSize = { 86f, 104f, 86f };
@@ -78,8 +80,8 @@ namespace InkLine
             var rays = ResultKit.Rays(stage0, new Vector2(0f, 360f), 820f, new Color(1f, 0.86f, 0.52f, 0.85f));
             _anim.Fade(rays, 0f, 0.5f, 0f, 0.85f).Spin(rays.transform, 16f).Pop(rays.transform, 0f, 0.6f, 0.4f);
 
-            var banner = ResultKit.Banner(stage0, true, "通关！", new Vector2(0f, 372f), 600f);
-            _anim.Move(banner, new Vector2(0f, 820f), new Vector2(0f, 372f), 0.05f, 0.42f, Ease.OutBack)
+            var banner = ResultKit.Banner(stage0, true, "通关！", new Vector2(0f, 396f), 600f);
+            _anim.Move(banner, new Vector2(0f, 820f), new Vector2(0f, 396f), 0.05f, 0.42f, Ease.OutBack)
                  .Punch(banner, 0.47f, 0.10f, 0.3f)
                  .At(0.42f, AudioBus.Stamp);
 
@@ -100,7 +102,7 @@ namespace InkLine
 
             t = BuildRewards(stage0, a, t + 0.1f);
             bool teased = BuildTeaser(stage0, a, t + 0.1f, out t);
-            BuildButtons(stage0, a, t + 0.1f, teased ? NextY : -248f);
+            BuildButtons(stage0, a, t + 0.1f, teased ? NextY : -272f);
             int[] cards = RevealCards(info);
             if (a.Guide)
             {
@@ -171,9 +173,9 @@ namespace InkLine
             var rays = ResultKit.Rays(g, new Vector2(0f, 120f), 780f, new Color(1f, 0.82f, 0.42f, 0.9f));
             _anim.Fade(rays, 0f, 0.4f, 0f, 0.9f).Spin(rays.transform, 22f).Pop(rays.transform, 0f, 0.5f, 0.3f);
 
-            var rib = UiKit.Stroke(g, "rib", new Vector2(0f, 340f), new Vector2(340f, 66f), Pin.Center, 5f,
-                fill: InkTheme.Seal, radius: 30f);
-            var rt = UiKit.Label(rib, "t", ribbon, 34, Vector2.zero, new Vector2(340f, 66f));
+            var rib = UiKit.Stroke(g, "rib", new Vector2(0f, 340f), new Vector2(300f, 58f), Pin.Center, 4f,
+                fill: InkTheme.Hex("E25B4A"), radius: 14f);
+            var rt = UiKit.Label(rib, "t", ribbon, 26, Vector2.zero, new Vector2(280f, 58f));
             rt.color = Color.white;
             UiKit.Bold(rt);
             _anim.Move(rib, new Vector2(0f, 700f), new Vector2(0f, 340f), 0.05f, 0.36f, Ease.OutBack)
@@ -196,8 +198,8 @@ namespace InkLine
                      UiConfetti.Sparks(_root, new Vector2(0f, 130f), InkTheme.GoldHi, 22, 640f);
                  });
 
-            var name = ResultKit.Headline(g, "name", title, 60, new Vector2(0f, -30f),
-                InkTheme.Hex("FFF3C8"), InkTheme.Hex("7A1E14"), 3f);
+            var name = ResultKit.LightTitle(g, "name", title, 48, new Vector2(0f, -30f),
+                InkTheme.Hex("FFF3C8"));
             var brief = UiKit.Label(g, "brief", briefText, 28, new Vector2(0f, -100f), new Vector2(600f, 40f));
             brief.color = InkTheme.Hex("FFE7B8");
             var step = UiKit.Label(g, "step", stepText, 26,
@@ -213,25 +215,32 @@ namespace InkLine
                  .Fade(foot, 1.1f, 0.25f, 0f, 1f);
 
             bool last = k + 1 >= lines.Length;
-            var go = ResultKit.Group(g, "go", new Vector2(a.Guide ? 0f : -136f, -310f), new Vector2(232f, 88f));
-            UiKit.Btn(go, "b", goText, Vector2.zero, new Vector2(232f, 88f), () =>
+            if (a.Guide)
+            {
+                var go = ResultKit.Group(g, "go", new Vector2(0f, -310f), new Vector2(314f, 80f));
+                ModalKit.HexBtn(go, "wide_yellow", 0f, 0f, goText, () =>
+                {
+                    if (skin && a.Skin != null) a.Skin(skinId);
+                    else if (a.Forge != null) a.Forge();
+                    else Destroy(dim.gameObject);
+                }, out _);
+                _anim.Pop(go, 1.2f, 0.3f).At(1.55f, () => a.OnCard?.Invoke(go));
+                return;
+            }
+            var goBtn = ResultKit.Group(g, "go", new Vector2(-98f, -310f), new Vector2(176f, 63f));
+            ModalKit.HexBtn(goBtn, "md_gray", 0f, 0f, goText, () =>
             {
                 if (skin && a.Skin != null) a.Skin(skinId);
                 else if (a.Forge != null) a.Forge();
                 else Destroy(dim.gameObject);
-            }, a.Guide);
-            if (a.Guide)
-            {
-                _anim.Pop(go, 1.2f, 0.3f).At(1.55f, () => a.OnCard?.Invoke(go));
-                return;
-            }
-            var ok = ResultKit.Group(g, "ok", new Vector2(136f, -310f), new Vector2(232f, 88f));
-            UiKit.Btn(ok, "b", last ? "知道了" : "下一个", Vector2.zero, new Vector2(232f, 88f), () =>
+            }, out _);
+            var ok = ResultKit.Group(g, "ok", new Vector2(98f, -310f), new Vector2(176f, 63f));
+            ModalKit.HexBtn(ok, "md_yellow", 0f, 0f, last ? "知道了" : "下一个", () =>
             {
                 Destroy(dim.gameObject);
                 if (!last) Reveal(a, lines, k + 1);
-            }, true);
-            _anim.Pop(go, 1.2f, 0.3f).Pop(ok, 1.28f, 0.3f).Breathe(ok, 1.6f, 0.045f, 1.3f);
+            }, out _);
+            _anim.Pop(goBtn, 1.2f, 0.3f).Pop(ok, 1.28f, 0.3f).Breathe(ok, 1.6f, 0.045f, 1.3f);
         }
 
         void BuildStars(RectTransform parent, ResultInfo info)
@@ -306,45 +315,56 @@ namespace InkLine
         float BuildRewards(RectTransform parent, VictoryArgs a, float at)
         {
             ResultInfo info = a.Info;
-            var list = new List<(string icon, int value, string tag)>();
-            list.Add(("ink", info.Ink, info.DailyDouble ? "首胜×2" : null));
-            if (info.Diamonds > 0) list.Add(("diamond", info.Diamonds, "首通"));
-            if (info.Foil > 0) list.Add(("foil", info.Foil, null));
+            var list = new List<(string icon, string name, int value, string tag)>();
+            list.Add(("ink", "墨", info.Ink, info.DailyDouble ? "首胜×2" : null));
+            if (info.Diamonds > 0) list.Add(("diamond", "钻石", info.Diamonds, "首通奖励"));
+            if (info.Foil > 0) list.Add(("foil", "金箔", info.Foil, null));
             bool chest = info.Chest >= 0;
 
-            var head = UiKit.Label(parent, "rh", "本关收获", 26, new Vector2(0f, RewardY + 106f), new Vector2(300f, 36f));
-            head.color = InkTheme.Hex("FFE7B8");
-            _anim.Fade(head, at, 0.25f, 0f, 1f);
-
-            const float H = 150f, Gap = 18f;
             SealDrop[] seals = info.Seals;
             bool seal = seals != null && seals.Length > 0;
-            int cards = list.Count + (seal ? 1 : 0);
-            // 金箔和印章并排时收窄，否则撑出 720。关卡首通不再塞印章，有 Seals 才出那张卡。
-            float W = cards >= 4 ? 112f : cards >= 3 ? 140f : 168f;
-            float ChestW = cards >= 4 ? 160f : 200f;
-            int n = cards + (chest ? 1 : 0);
-            float span = cards * W + (chest ? ChestW : 0f) + (n - 1) * Gap;
-            float x = -span * 0.5f;
+            int totalSlots = list.Count + (seal ? 1 : 0) + (chest ? 1 : 0);
+
+            int slotS = totalSlots >= 5 ? 86 : 96;
+            float gap = totalSlots >= 5 ? 18f : 32f;
+            float trayW = 624f;
+            float trayH = chest ? 286f : 254f;
+
+            var tray = ResultKit.Group(parent, "loot_tray", new Vector2(0f, RewardY), new Vector2(trayW, trayH));
+            var trayBg = ModalKit.Sliced(tray, "bg", "Ui/victory_loot_tray", BorderTray, 0f, 0f, trayW, trayH, false);
+            ModalKit.OutlinedText(trayBg, "rh", "本关收获", 22, 0f, 18f, trayW, 34f, ModalKit.CreamLight, TextAnchor.MiddleCenter, 1.5f);
+            _anim.Pop(tray, at, 0.3f);
+
+            float rowW = totalSlots * slotS + (totalSlots - 1) * gap;
+            float x0 = Mathf.Round((trayW - rowW) * 0.5f);
+            const float slotY = 82f;
+            int col = 0;
+
             for (int i = 0; i < list.Count; i++)
             {
-                var (icon, value, tag) = list[i];
-                float cx = x + W * 0.5f;
-                x += W + Gap;
-                var card = ResultKit.Group(parent, "rw" + i, new Vector2(cx, RewardY), new Vector2(W, H));
-                UiKit.Stroke(card, "bg", Vector2.zero, new Vector2(W, H), Pin.Center, 5f, radius: 26f);
-                UiKit.Icon(card, icon == "foil" ? FoilArt.Icon : InkSprites.Ui(icon), new Vector2(0f, 22f), 72f);
-                var num = UiKit.Label(card, "n", "+0", 36, new Vector2(0f, -42f), new Vector2(W, 48f));
-                UiKit.Bold(num);
-                num.color = InkTheme.TextDark;
+                var (icon, label, value, tag) = list[i];
+                float sx = x0 + col * (slotS + gap);
+                col++;
 
-                float t0 = at + i * 0.14f;
-                _anim.Pop(card, t0, 0.32f)
-                     .CountUp(num, 0, value, t0 + 0.2f, 0.6f, "+{0}", AudioBus.CountTick);
+                Sprite spr = icon == "foil" ? FoilArt.Icon : InkSprites.Ui(icon);
+                var slot = ModalKit.ItemSlot(trayBg, ModalKit.CurrencyFrame(icon), slotS, sx, slotY, spr, "+0");
+                slot.name = "rw" + i;
+                slot.pivot = new Vector2(0.5f, 0.5f);
+                slot.anchoredPosition = new Vector2(sx + slotS * 0.5f, -(slotY + slotS * 0.5f));
+
+                var num = slot.Find("n")?.GetComponent<Text>();
+                ModalKit.SolidText(trayBg, "nm" + i, label, 16, sx - 10f, slotY + slotS + 10f, slotS + 20f, 26f,
+                    ModalKit.CreamLight, TextAnchor.MiddleCenter, true);
+
+                float t0 = at + 0.08f + i * 0.12f;
+                _anim.Pop(slot, t0, 0.32f);
+                if (num != null)
+                    _anim.CountUp(num, 0, value, t0 + 0.16f, 0.55f, "+{0}", AudioBus.CountTick);
+
                 if (icon == "ink")
                 {
                     _inkText = num;
-                    _inkCard = card;
+                    _inkCard = slot;
                     _ink = info.Ink;
                 }
                 if (icon == "foil")
@@ -354,69 +374,76 @@ namespace InkLine
                 }
                 if (tag != null)
                 {
-                    Stamp(card, tag, new Vector2(W * 0.40f, H * 0.52f), -12f, InkTheme.Seal, t0 + 0.7f);
+                    var badge = ModalKit.Tag(trayBg, "Ui/modal_tag_coral", sx + slotS - 48f, slotY - 14f, 72f, 24f, tag, false, 12);
+                    badge.pivot = new Vector2(0.5f, 0.5f);
+                    badge.anchoredPosition = new Vector2(sx + slotS - 48f + 36f, -(slotY - 14f + 12f));
+                    _anim.Pop(badge, t0 + 0.45f, 0.24f, 1.8f);
                 }
             }
+
             if (seal)
             {
-                BuildSeals(parent, seals, new Vector2(x + W * 0.5f, RewardY), new Vector2(W, H), at + list.Count * 0.14f);
-                x += W + Gap;
+                float sx = x0 + col * (slotS + gap);
+                col++;
+                BuildSeals(trayBg, seals, sx, slotY, slotS, at + 0.08f + list.Count * 0.12f);
             }
-            float end = at + cards * 0.14f + 0.7f;
-            if (chest) end = Mathf.Max(end, BuildChest(parent, a, new Vector2(x + ChestW * 0.5f, RewardY), ChestW, H, at + cards * 0.14f));
+
+            float end = at + 0.15f + totalSlots * 0.12f + 0.55f;
+            if (chest)
+            {
+                float sx = x0 + col * (slotS + gap);
+                end = Mathf.Max(end, BuildChest(trayBg, a, sx, slotY, slotS, trayW, at + 0.08f + col * 0.12f));
+            }
             return end;
         }
 
-        // 印章一张卡：一枚就写「烈度 · 绿」，几枚就叠着摆、写「印章 ×N」。按最好的品质描边，金的带光。
-        void BuildSeals(RectTransform parent, SealDrop[] seals, Vector2 pos, Vector2 size, float at)
+        void BuildSeals(RectTransform trayBg, SealDrop[] seals, float sx, float sy, int slotS, float at)
         {
             SealQuality best = SealQuality.Green;
             for (int i = 0; i < seals.Length; i++)
                 if (seals[i].Quality > best) best = seals[i].Quality;
-            var card = ResultKit.Group(parent, "seal", pos, size);
-            UiKit.Stroke(card, "bg", Vector2.zero, size, Pin.Center, 5f, SealCatalog.QualityDeep(best), radius: 26f);
-            float medal = Mathf.Min(78f, size.x * 0.66f);
-            int shown = Mathf.Min(seals.Length, 3);
-            for (int i = 0; i < shown; i++)
-            {
-                float dx = (i - (shown - 1) * 0.5f) * medal * 0.42f;
-                var m = SealArt.Medal(card, "m" + i, seals[i].Type, seals[i].Quality, new Vector2(dx, 22f), medal);
-                _anim.Pop(m, at + 0.25f + i * 0.12f, 0.28f, 1.8f);
-            }
-            string text = seals.Length == 1 ? SealCatalog.DropName(seals[0]) : "印章 ×" + seals.Length;
-            var name = UiKit.Label(card, "n", text, size.x < 130f ? 19 : 22, new Vector2(0f, -44f), new Vector2(size.x, 30f));
-            UiKit.Bold(name);
-            name.color = SealCatalog.QualityDeep(best);
-            _anim.Pop(card, at, 0.32f).At(at + 0.3f, AudioBus.Stamp);
-            if (best == SealQuality.Gold) _anim.At(at + 0.5f, AudioBus.StudyTier);
+
+            string tone = best == SealQuality.Gold ? "orange"
+                : best == SealQuality.Purple ? "purple"
+                : best == SealQuality.Blue ? "blue"
+                : "green";
+            var slot = ModalKit.ItemSlot(trayBg, tone, slotS, sx, sy, null, seals.Length > 1 ? "×" + seals.Length : "1");
+            slot.name = "seal";
+            slot.pivot = new Vector2(0.5f, 0.5f);
+            slot.anchoredPosition = new Vector2(sx + slotS * 0.5f, -(sy + slotS * 0.5f));
+
+            SealArt.Medal(slot, "m", seals[0].Type, seals[0].Quality, Vector2.zero, slotS * 0.68f);
+            string text = seals.Length == 1 ? SealCatalog.DropName(seals[0]) : "印章";
+            ModalKit.SolidText(trayBg, "seal_nm", text, 16, sx - 16f, sy + slotS + 10f, slotS + 32f, 26f,
+                ModalKit.CreamLight, TextAnchor.MiddleCenter, true);
+
+            _anim.Pop(slot, at, 0.32f).At(at + 0.25f, AudioBus.Stamp);
+            if (best == SealQuality.Gold) _anim.At(at + 0.45f, AudioBus.StudyTier);
         }
 
-        // 宝箱从天上砸下来、弹两下落进卡里。底下一行告诉玩家不开会怎样：进宝箱位，或位满了离开后再选。
-        float BuildChest(RectTransform parent, VictoryArgs a, Vector2 pos, float w, float h, float at)
+        float BuildChest(RectTransform trayBg, VictoryArgs a, float sx, float sy, int slotS, float trayW, float at)
         {
             ResultInfo info = a.Info;
             ChestDef d = ChestCatalog.Get(info.Chest);
-            var card = ResultKit.Group(parent, "chest", pos, new Vector2(w, h));
-            UiKit.Stroke(card, "bg", Vector2.zero, new Vector2(w, h), Pin.Center, 5f,
-                fill: InkTheme.Hex("FFF6E2"), radius: 26f);
-            var glow = UiKit.Icon(card, InkSprites.Load("Ui/result_rays"), new Vector2(0f, 24f), 170f);
-            glow.color = new Color(1f, 0.82f, 0.4f, 0.75f);
-            _anim.Spin(glow.transform, 26f).Fade(glow, at + 0.45f, 0.3f, 0f, 0.75f);
-            var box = ResultKit.Group(card, "box", new Vector2(0f, 24f), new Vector2(100f, 100f));
-            UiKit.Icon(box, InkSprites.Load("Ui/chest_" + d.Key), Vector2.zero, 100f);
-            var name = UiKit.Label(card, "n", d.Name, 22, new Vector2(0f, -32f), new Vector2(w, 30f));
-            UiKit.Bold(name);
-            name.color = InkTheme.TextDark;
-            _anim.Pop(card, at, 0.3f)
-                 .Move(box, new Vector2(0f, 420f), new Vector2(0f, 24f), at + 0.1f, 0.5f, Ease.OutBounce)
-                 .At(at + 0.32f, AudioBus.ChestLand)
-                 .Punch(box, at + 0.6f, 0.18f, 0.3f);
+            var slot = ModalKit.ItemSlot(trayBg, ModalKit.ChestTone(d.Tier), slotS, sx, sy,
+                InkSprites.Load("Ui/chest_" + d.Key), "1");
+            slot.name = "chest";
+            slot.pivot = new Vector2(0.5f, 0.5f);
+            Vector2 home = new Vector2(sx + slotS * 0.5f, -(sy + slotS * 0.5f));
+            slot.anchoredPosition = home;
 
-            string note = info.ChestFull ? "位满了，离开后再选" : "不开就放进宝箱位";
-            _chestNote = UiKit.Label(card, "note", note, 18, new Vector2(0f, -h * 0.5f - 18f), new Vector2(w + 80f, 26f));
-            _chestNote.color = info.ChestFull ? InkTheme.Hex("FFE1A8") : InkTheme.Hex("FFE7B8");
-            _anim.Fade(_chestNote, at + 0.7f, 0.25f, 0f, 1f);
-            return at + 0.9f;
+            ModalKit.SolidText(trayBg, "chest_nm", d.Name, 16, sx - 12f, sy + slotS + 10f, slotS + 24f, 26f,
+                ModalKit.CreamLight, TextAnchor.MiddleCenter, true);
+
+            _anim.Move(slot, home + new Vector2(0f, 320f), home, at, 0.48f, Ease.OutBounce)
+                 .At(at + 0.24f, AudioBus.ChestLand)
+                 .Punch(slot, at + 0.5f, 0.16f, 0.28f);
+
+            string note = d.Name + "：" + (info.ChestFull ? "位满了，离开后再选" : "不开就放进首页宝箱位");
+            _chestNote = ModalKit.SolidText(trayBg, "note", note, 15, 0f, 234f, trayW, 28f,
+                info.ChestFull ? InkTheme.Hex("FFE1A8") : InkTheme.Hex("CFC6B8"), TextAnchor.MiddleCenter, false);
+            _anim.Fade(_chestNote, at + 0.55f, 0.25f, 0f, 1f);
+            return at + 0.75f;
         }
 
         // 没有新字就不预告下一关。有新字才留一张字卡。
@@ -438,11 +465,7 @@ namespace InkLine
         {
             bool one = fresh.Count == 1;
             var host = ResultKit.Group(parent, "teaser", new Vector2(0f, TeaserY), new Vector2(640f, one ? 168f : 150f));
-            var rib = UiKit.Stroke(host, "rib", new Vector2(0f, one ? 70f : 64f), new Vector2(250f, 44f), Pin.Center, 4f,
-                fill: InkTheme.Seal, radius: 22f);
-            var rt = UiKit.Label(rib, "t", "下一关解锁新字", 24, Vector2.zero, new Vector2(250f, 44f));
-            rt.color = Color.white;
-            UiKit.Bold(rt);
+            ModalKit.Tag(host, "Ui/modal_tag_coral", 195f, one ? 8f : 4f, 250f, 38f, "下一关解锁新字", false, 20);
 
             int n = fresh.Count;
             float icon = one ? 108f : Mathf.Min(96f, (520f - (n - 1) * 16f) / n);
@@ -467,61 +490,71 @@ namespace InkLine
         {
             bool hasNext = a.Next != null && a.NextCost >= 0;
             bool ad = a.DoubleInk != null;
-            const float nextW = 400f, nextH = 90f;
-            const float adW = 460f, adH = 80f;
-            const float gap = 14f;
-            const float floor = -618f;
-            float homeH = !hasNext && !ad ? 100f : 76f;
-            float homeW = !hasNext && !ad ? 360f : 280f;
+            float rowY = Mathf.Max(-496f, y - 40f);
+            float homeY = Mathf.Max(-604f, rowY - 102f);
+            _homeParkY = homeY;
 
-            float yNext = y, yAd = y, yHome = y;
-            if (hasNext)
-                yHome = y - nextH * 0.5f - gap - (ad ? adH + gap : 0f) - homeH * 0.5f;
-            if (ad)
+            if (hasNext && ad)
             {
-                yAd = hasNext ? y - nextH * 0.5f - gap - adH * 0.5f : y;
-                yHome = yAd - adH * 0.5f - gap - homeH * 0.5f;
-            }
-            float bottom = yHome - homeH * 0.5f;
-            if (bottom < floor)
-            {
-                float lift = floor - bottom;
-                yNext += lift;
-                yAd += lift;
-                yHome += lift;
-            }
+                // 并排：左青中号激励视频按钮 + 右黄宽主按钮「下一关 (-2⚡)」
+                var adGroup = ResultKit.Group(parent, "double", new Vector2(-196f, rowY), new Vector2(176f, 63f));
+                _double = ModalKit.HexBtn(adGroup, "md_cyan", 0f, 0f, "", a.DoubleInk, out _);
+                string adTxt = a.DoubleText ?? "墨翻倍";
+                ModalKit.SetAdBtnLabel(_double, "md_cyan", adTxt, true, adTxt.Length > 5 ? 16 : 20);
+                _anim.Pop(adGroup, at, 0.32f);
 
-            if (hasNext)
-            {
-                var g = ResultKit.Group(parent, "next", new Vector2(0f, yNext), new Vector2(nextW, nextH));
-                var btn = UiKit.Btn(g, "b", "下一关", Vector2.zero, new Vector2(nextW, nextH), () =>
+                var nextGroup = ResultKit.Group(parent, "next", new Vector2(128f, rowY), new Vector2(314f, 80f));
+                string nKind = a.NextAffordable ? "wide_yellow" : "wide_gray";
+                var nextBtn = ModalKit.HexBtn(nextGroup, nKind, 0f, 0f, "", () =>
                 {
                     if (a.NextAffordable) a.Next();
                     else AudioBus.Deny();
-                });
-                var label = btn.transform.Find("face/t")?.GetComponent<Text>();
-                if (label != null) label.fontSize = 34;
-                ResultKit.CostTag(btn, a.NextCost);
-                if (!a.NextAffordable) UiKit.PaintBtn(btn, InkTheme.CtaOff, InkTheme.Hex("5E5A54"), InkTheme.CardFace);
-                _anim.Pop(g, at, 0.36f);
-                if (a.NextAffordable) _anim.Breathe(g, at + 0.4f, 0.045f, 1.3f);
+                }, out _);
+                ModalKit.SetStaminaBtnLabel(nextBtn, nKind, "下一关", a.NextCost);
+                _anim.Pop(nextGroup, at + 0.08f, 0.36f);
+                if (a.NextAffordable) _anim.Breathe(nextGroup, at + 0.45f, 0.04f, 1.3f);
             }
-
-            if (ad)
+            else if (hasNext)
             {
-                var g = ResultKit.Group(parent, "double", new Vector2(0f, yAd), new Vector2(adW, adH));
-                _double = UiKit.Btn(g, "b", a.DoubleText ?? "墨翻倍", Vector2.zero, new Vector2(adW, adH), a.DoubleInk, false);
-                UiKit.PaintBtn(_double, InkTheme.CoinFace, InkTheme.CoinDeep, InkTheme.TextDark);
-                ResultKit.AdMark(_double, 36f);
-                var dl = _double.GetComponentInChildren<Text>();
-                if (dl != null) dl.fontSize = 26;
-                _anim.Pop(g, at + 0.12f, 0.32f);
-                _homeParkY = yAd;
+                var nextGroup = ResultKit.Group(parent, "next", new Vector2(0f, rowY), new Vector2(314f, 80f));
+                string nKind = a.NextAffordable ? "wide_yellow" : "wide_gray";
+                var nextBtn = ModalKit.HexBtn(nextGroup, nKind, 0f, 0f, "", () =>
+                {
+                    if (a.NextAffordable) a.Next();
+                    else AudioBus.Deny();
+                }, out _);
+                ModalKit.SetStaminaBtnLabel(nextBtn, nKind, "下一关", a.NextCost);
+                _anim.Pop(nextGroup, at, 0.36f);
+                if (a.NextAffordable) _anim.Breathe(nextGroup, at + 0.45f, 0.04f, 1.3f);
+            }
+            else if (ad)
+            {
+                var adGroup = ResultKit.Group(parent, "double", new Vector2(0f, rowY), new Vector2(296f, 101f));
+                _double = ModalKit.HexBtn(adGroup, "lg_yellow", 0f, 0f, "", a.DoubleInk, out _);
+                ModalKit.SetAdBtnLabel(_double, "lg_yellow", a.DoubleText ?? "墨翻倍", true, 22);
+                _anim.Pop(adGroup, at, 0.32f);
+            }
+            else
+            {
+                var homeOnly = ResultKit.Group(parent, "home", new Vector2(0f, rowY), new Vector2(314f, 80f));
+                ModalKit.HexBtn(homeOnly, "wide_yellow", 0f, 0f, "返回首页", () => a.Home?.Invoke(), out _);
+                _home = homeOnly;
+                _anim.Pop(homeOnly, at, 0.32f);
+                return;
             }
 
-            _home = ResultKit.Group(parent, "home", new Vector2(0f, yHome), new Vector2(homeW, homeH));
-            UiKit.Btn(_home, "b", "回首页", Vector2.zero, _home.sizeDelta, () => a.Home?.Invoke(), !hasNext && !ad);
-            _anim.Pop(_home, at + (ad ? 0.24f : 0.12f), 0.3f);
+            // 下方轻文字入口「返回首页」
+            _home = ResultKit.Group(parent, "home", new Vector2(0f, homeY), new Vector2(220f, 52f));
+            var hit = _home.GetComponent<Image>();
+            hit.color = new Color(1f, 1f, 1f, 0.005f);
+            hit.raycastTarget = true;
+            var hBtn = _home.gameObject.AddComponent<Button>();
+            hBtn.transition = Selectable.Transition.None;
+            hBtn.targetGraphic = hit;
+            hBtn.onClick.AddListener(() => a.Home?.Invoke());
+            ModalKit.OutlinedText(_home, "t", "返回首页", 20, 0f, 8f, 220f, 36f,
+                InkTheme.Hex("CFC6B8"), TextAnchor.MiddleCenter, 1.4f);
+            _anim.Pop(_home, at + 0.18f, 0.28f);
         }
 
         // 看完广告（开箱演出收下之后）：墨数字从现值滚到两倍，按钮收起来。
@@ -533,11 +566,9 @@ namespace InkLine
                 _double.interactable = false;
                 _double.transform.parent.gameObject.SetActive(false);
             }
-            if (_home != null)
-                _home.anchoredPosition = new Vector2(0f, _homeParkY);
             if (chestOpened && _chestNote != null)
             {
-                _chestNote.text = "已打开";
+                _chestNote.text = "宝箱已当场打开";
                 _chestNote.color = InkTheme.Hex("B8F0A8");
             }
             if (_foilText != null && _foil > 0)
@@ -546,9 +577,12 @@ namespace InkLine
                 _foil *= 2;
             }
             if (_inkText == null || _ink <= 0) return;
-            _anim.CountUp(_inkText, _ink, _ink * 2, 0.05f, 0.7f, "+{0}", AudioBus.CountTick)
-                 .Punch(_inkCard, 0.75f, 0.2f, 0.35f)
-                 .At(0.75f, () => UiConfetti.Sparks(_root, _inkCard.anchoredPosition, InkTheme.GoldHi, 16, 600f));
+            _anim.CountUp(_inkText, _ink, _ink * 2, 0.05f, 0.7f, "+{0}", AudioBus.CountTick);
+            if (_inkCard != null)
+            {
+                _anim.Punch(_inkCard, 0.75f, 0.2f, 0.35f)
+                     .At(0.75f, () => UiConfetti.Sparks(_root, Vector2.zero, InkTheme.GoldHi, 16, 600f));
+            }
             _ink *= 2;
         }
     }

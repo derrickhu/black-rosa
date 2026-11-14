@@ -4,22 +4,28 @@ using UnityEngine.UI;
 
 namespace InkLine
 {
-    // 新手指引走完送的一份：钻石、墨、体力，再加 3 张弹弓卡。只有领取，没有关闭。
-    // 先在卡上跳一下，面板淡掉，前三样飞进顶栏，弹弓卡飞向道具页签；最后一样落地才入账。
+    // 新手指引走完送的一份开局礼（Figma Panel/其他弹窗/01_新手奖励，预制体 Prefabs/GuideGift）：
+    // 钻石和体力用黄框，灵墨用紫框，弹弓普通绿框；只有领取主按钮，无右上角关闭叉。
     public sealed class GuideGiftPanel : MonoBehaviour
     {
-        const float BoardW = 620f;
-        const float BoardH = 560f;
+        public const string PrefabPath = "Prefabs/GuideGift";
+        public const string Mark = "guide_gift_v2";
+
+        const float BoardW = 648f;
+        const float BoardH = 496f;
 
         MetaProgress _meta;
         Action _done;
+        RectTransform _layer;
+        RectTransform _stage;
         RectTransform _land;
         Button _btn;
         RectTransform[] _cards;
         bool _claiming;
 
         static readonly string[] Icons = { "diamond", "ink", "stamina", "item_snipe" };
-        static readonly string[] Names = { "钻石", "墨", "体力", "弹弓" };
+        static readonly string[] Names = { "钻石", "灵墨", "体力", "弹弓" };
+        static readonly string[] Tones = { ModalKit.CurrencyTone, ModalKit.InkTone, ModalKit.CurrencyTone, "green" };
         static readonly string[][] ChipNames = { new[] { "diamond", "cd" }, new[] { "ink", "ci" }, new[] { "stamina", "cs" } };
         static readonly Color[] Sparks =
         {
@@ -34,33 +40,66 @@ namespace InkLine
 
         public static void Show(RectTransform layer, MetaProgress meta, RectTransform cardLand, Action done)
         {
-            var dim = UiKit.Dimmer(layer);
-            dim.name = "guide_gift";
+            var dim = ModalKit.SpawnPrefab(layer, PrefabPath, "guide_gift", Mark, null, BuildPrefab, out RectTransform stage);
             var panel = dim.gameObject.AddComponent<GuideGiftPanel>();
             panel._meta = meta;
+            panel._layer = layer;
+            panel._stage = stage;
             panel._land = cardLand;
             panel._done = done;
-            panel.Build(dim);
+            panel.Bind(stage);
         }
 
-        void Build(RectTransform dim)
+        public static RectTransform BuildPrefab()
         {
-            var board = PanelKit.Board(dim, "新手奖励", Vector2.zero, new Vector2(BoardW, BoardH), Pin.Center, null);
-            Transform close = board.Find("close");
-            if (close != null) Destroy(close.gameObject);
+            var dim = ModalKit.Stage(null, "guide_gift", 0.80f, null, out RectTransform stage);
+            var board = ModalKit.Shell(stage, BoardW, BoardH, "新手奖励", null,
+                "教学完成，送你一份开局礼", null, null, null, out _, out _, animate: false);
+            ModalKit.AddMark(board, Mark);
 
-            var sub = UiKit.Label(board, "sub", "教学完成，送你一份开局礼", 24,
-                new Vector2(0f, 72f), new Vector2(BoardW - 60f, 32f), TextAnchor.MiddleCenter, Pin.Top);
-            sub.color = InkTheme.TextMid;
+            var tray = ModalKit.Sliced(board, "tray", "Ui/modal_sub_warm", ModalKit.BorderSub18,
+                24f, 154f, 600f, 198f, false);
 
-            var cardSize = new Vector2(132f, 196f);
+            const float s = 96f, gap = 32f;
+            float left = Mathf.Round((600f - (s * Icons.Length + gap * (Icons.Length - 1))) * 0.5f);
+            for (int i = 0; i < Icons.Length; i++)
+            {
+                float sx = left + i * (s + gap);
+                var slot = ModalKit.ItemSlot(tray, Tones[i], 96, sx, 30f,
+                    ModalKit.Load("Ui/ico_" + Icons[i]), Amount(i).ToString());
+                slot.name = "slot" + i;
+                slot.pivot = new Vector2(0.5f, 0.5f);
+                slot.anchoredPosition = new Vector2(sx + s * 0.5f, -(30f + s * 0.5f));
+
+                ModalKit.SolidText(tray, "nm" + i, Names[i], 16, sx - 8f, 136f, 112f, 24f,
+                    ModalKit.TextBody, TextAnchor.MiddleCenter, true);
+            }
+
+            var btn = ModalKit.HexBtn(board, "wide_yellow", (BoardW - 314f) * 0.5f, 378f, "领取", null, out _);
+            btn.gameObject.name = "claim_btn";
+            var brt = btn.GetComponent<RectTransform>();
+            brt.pivot = new Vector2(0.5f, 0.5f);
+            brt.anchoredPosition = new Vector2(BoardW * 0.5f, -(378f + 40f));
+
+            return dim;
+        }
+
+        void OnRectTransformDimensionsChange()
+        {
+            if (_stage != null) ModalKit.FitStage(_stage, _layer);
+        }
+
+        void Bind(RectTransform stage)
+        {
+            var board = stage.Find("board") as RectTransform;
+            var tray = board.Find("tray");
             _cards = new RectTransform[Icons.Length];
             for (int i = 0; i < Icons.Length; i++)
-                _cards[i] = PanelKit.Reward(board, "Ui/ico_" + Icons[i], Names[i], "×" + Amount(i),
-                    new Vector2((i - 1.5f) * 150f, 124f), cardSize);
+                _cards[i] = tray.Find("slot" + i) as RectTransform;
 
-            _btn = UiKit.Btn(board, "claim", "领取", new Vector2(0f, 52f), new Vector2(430f, 104f), OnTap, true, Pin.Bottom);
-            UiAnim.On(board).Breathe(_btn.transform, 0.5f, 0.045f, 1.3f);
+            _btn = ModalKit.BindBtn(board, "claim_btn", OnTap);
+            PanelKit.Open(board);
+            if (_btn != null) UiAnim.On(board).Breathe(_btn.transform, 0.5f, 0.04f, 1.3f);
         }
 
         void OnTap()
@@ -69,7 +108,7 @@ namespace InkLine
             _claiming = true;
             AudioBus.Tap();
             _btn.interactable = false;
-            Play((RectTransform)transform.parent);
+            Play(_layer);
         }
 
         void Play(RectTransform layer)
@@ -103,7 +142,6 @@ namespace InkLine
                 anim.Pop(flyers[i], 0.08f + i * 0.08f, 0.36f, 0f);
             }
 
-            // 投影是面板的同级节点，整层一起淡，免得留一块影子。
             var veil = gameObject.AddComponent<CanvasGroup>();
             anim.Fade(veil, 0.72f, 0.32f, 1f, 0f);
             for (int i = 0; i < n; i++)

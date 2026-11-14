@@ -4,32 +4,101 @@ using UnityEngine.UI;
 
 namespace InkLine
 {
-    // 新手礼包，照 hotpot：看两个激励广告解锁，领一次就从出征页撤掉。
+    // 新手礼包（Figma Panel/首页弹窗/04_新手礼包，预制体 Prefabs/StarterGift）：
+    // 一排通用物品框（银宝箱蓝框略大，灵墨、钻石在两侧），下方只留广告进度条，不再挂里程碑图标。
     public sealed class StarterGiftPanel : MonoBehaviour
     {
-        const float BoardW = 620f;
-        const float BoardH = 660f;
+        public const string PrefabPath = "Prefabs/StarterGift";
+        public const string Mark = "starter_gift_v2";
+
+        const float BoardW = 648f;
+        const float BoardH = 624f;
+        const float ProgW = 528f;
+        const float ProgH = 30f;
 
         MetaProgress _meta;
         Action _changed;
-        Button _btn;
-        Text _progress;
-        Image[] _pips;
+        RectTransform _layer;
         RectTransform _board;
-        RectTransform _gemCard;
-        RectTransform _inkCard;
+        RectTransform _gemSlot;
+        RectTransform _inkSlot;
+        RectTransform _progFill;
+        Text _progTitle;
+        Text _readyTagText;
+        Button _btn;
         ChestLoot _loot;
         bool _wallet;
         bool _claiming;
 
         public static void Show(RectTransform layer, MetaProgress meta, Action changed)
         {
-            var dim = UiKit.Dimmer(layer);
-            dim.name = "starter_gift";
+            var dim = ModalKit.SpawnPrefab(layer, PrefabPath, "starter_gift", Mark, null, BuildPrefab, out RectTransform stage);
             var panel = dim.gameObject.AddComponent<StarterGiftPanel>();
             panel._meta = meta;
             panel._changed = changed;
-            panel.Build(dim);
+            panel._layer = layer;
+            panel.Bind(stage);
+        }
+
+        public static RectTransform BuildPrefab()
+        {
+            var dim = ModalKit.Stage(null, "starter_gift", 0.80f, null, out RectTransform stage);
+            var board = ModalKit.Shell(stage, BoardW, BoardH, "新手礼包", "Ui/ico_act_event",
+                "新人专享福利 · 免费解锁整套补给", "magenta", "限领 1 次", () => { }, out _, out _, animate: false);
+            ModalKit.AddMark(board, Mark);
+
+            ChestDef chest = ChestCatalog.Get(GameConstants.GiftChest);
+
+            var inkSlot = ModalKit.ItemSlot(board, ModalKit.InkTone, 96, 130f, 190f,
+                ModalKit.Load("Ui/ico_ink"), GameConstants.GiftInk.ToString());
+            inkSlot.name = "slot_ink";
+
+            var chestSlot = ModalKit.ItemSlot(board, ModalKit.ChestTone(chest.Tier), 128, 260f, 174f,
+                ModalKit.Load("Ui/chest_" + chest.Key), null);
+            chestSlot.name = "slot_chest";
+
+            var gemSlot = ModalKit.ItemSlot(board, ModalKit.CurrencyTone, 96, 422f, 190f,
+                ModalKit.Load("Ui/ico_diamond"), GameConstants.GiftDiamond.ToString());
+            gemSlot.name = "slot_gem";
+
+            ModalKit.SolidText(board, "ink_name", "灵墨", 16, 138f, 292f, 80f, 24f,
+                ModalKit.TextBody, TextAnchor.MiddleCenter, true);
+            ModalKit.SolidText(board, "chest_name", chest.Name, 16, 276f, 308f, 96f, 24f,
+                ModalKit.TextBody, TextAnchor.MiddleCenter, true);
+            ModalKit.SolidText(board, "gem_name", "钻石", 16, 430f, 292f, 80f, 24f,
+                ModalKit.TextBody, TextAnchor.MiddleCenter, true);
+
+            var progCard = ModalKit.Sliced(board, "prog_card", "Ui/modal_sub_cream", ModalKit.BorderSub18,
+                24f, 352f, 600f, 120f, false);
+            ModalKit.SolidText(progCard, "t", "免费看广告解锁进度（0 / 2）", 20, 22f, 16f, 400f, 30f,
+                ModalKit.TextDark, TextAnchor.MiddleLeft, true);
+            var readyTag = ModalKit.Tag(progCard, "Ui/modal_tag_green", 448f, 16f, 132f, 28f, "再看 2 次立得", true, 13);
+            readyTag.name = "ready_tag";
+            ModalKit.ProgressBar(progCard, 36f, 76f, ProgW, ProgH, 0f, "", out _, out _);
+
+            var btn = ModalKit.HexBtn(board, "lg_yellow", 176f, 492f, "免费解锁 (0/2)", null, out _);
+            btn.gameObject.name = "main_btn";
+            ModalKit.SetAdBtnLabel(btn, "lg_yellow", $"免费解锁 (0/{GameConstants.GiftAds})", true);
+
+            var freeTag = ModalKit.Tag(board, "Ui/modal_tag_coral", 350f, 480f, 86f, 26f, "免付费", false, 13);
+            freeTag.name = "free_tag";
+
+            return dim;
+        }
+
+        void Bind(RectTransform stage)
+        {
+            _board = stage.Find("board") as RectTransform;
+            ModalKit.BindClose(_board, Close);
+            _inkSlot = _board.Find("slot_ink") as RectTransform;
+            _gemSlot = _board.Find("slot_gem") as RectTransform;
+            _progTitle = _board.Find("prog_card/t")?.GetComponent<Text>();
+            _readyTagText = _board.Find("prog_card/ready_tag/t")?.GetComponent<Text>();
+            _progFill = _board.Find("prog_card/prog/fill") as RectTransform;
+            _btn = ModalKit.BindBtn(_board, "main_btn", OnTap);
+
+            Refresh();
+            PanelKit.Open(_board);
         }
 
         void Close()
@@ -44,46 +113,22 @@ namespace InkLine
             if (_loot != null && !_wallet && _meta != null) _meta.GrantGiftWallet();
         }
 
-        void Build(RectTransform dim)
-        {
-            var board = PanelKit.Board(dim, "新手礼包", Vector2.zero, new Vector2(BoardW, BoardH), Pin.Center, Close);
-
-            var sub = UiKit.Label(board, "sub", "新人专享 · 看两个广告就能领", 24,
-                new Vector2(0f, 72f), new Vector2(BoardW - 60f, 32f), TextAnchor.MiddleCenter, Pin.Top);
-            sub.color = InkTheme.TextMid;
-
-            _board = board;
-            var cardSize = new Vector2(172f, 214f);
-            ChestDef chest = ChestCatalog.Get(GameConstants.GiftChest);
-            PanelKit.Reward(board, "Ui/chest_" + chest.Key, chest.Name, "当场开",
-                new Vector2(-186f, 124f), cardSize);
-            _gemCard = PanelKit.Reward(board, "Ui/ico_diamond", "钻石", "×" + GameConstants.GiftDiamond,
-                new Vector2(0f, 124f), cardSize);
-            _inkCard = PanelKit.Reward(board, "Ui/ico_ink", "墨", "×" + GameConstants.GiftInk,
-                new Vector2(186f, 124f), cardSize);
-
-            _progress = UiKit.Label(board, "progress", "", 26, new Vector2(-40f, 386f), new Vector2(240f, 40f),
-                TextAnchor.MiddleCenter, Pin.Top);
-            _progress.color = InkTheme.TextDark;
-            _pips = new Image[GameConstants.GiftAds];
-            for (int i = 0; i < _pips.Length; i++)
-            {
-                var ring = UiKit.Icon(board, UiSprites.Disc(), new Vector2(92f + i * 46f, BoardH * 0.5f - 406f), 36f);
-                ring.color = InkTheme.Outline;
-                _pips[i] = UiKit.Icon(ring.transform, UiSprites.Disc(), Vector2.zero, 28f);
-            }
-
-            _btn = UiKit.Btn(board, "claim", "", new Vector2(0f, 52f), new Vector2(430f, 104f), OnTap, true, Pin.Bottom);
-            Refresh();
-        }
-
         void Refresh()
         {
             int seen = Mathf.Min(_meta.GiftAds, GameConstants.GiftAds);
-            _progress.text = $"已看广告 {seen}/{GameConstants.GiftAds}";
-            for (int i = 0; i < _pips.Length; i++)
-                _pips[i].color = i < seen ? InkTheme.Seal : InkTheme.CardFace;
-            PanelKit.SetText(_btn, _meta.GiftReady ? "领取" : $"看广告领取  {seen}/{GameConstants.GiftAds}");
+            int left = Mathf.Max(0, GameConstants.GiftAds - seen);
+            if (_progTitle != null)
+                _progTitle.text = $"免费看广告解锁进度（{seen} / {GameConstants.GiftAds}）";
+            if (_readyTagText != null)
+                _readyTagText.text = _meta.GiftReady ? "已解锁可领" : $"再看 {left} 次立得";
+            ModalKit.SetProgress(_progFill, ProgW, ProgH, seen / (float)GameConstants.GiftAds);
+            if (_btn != null)
+            {
+                if (_meta.GiftReady)
+                    ModalKit.SetAdBtnLabel(_btn, "lg_yellow", "立即领取豪礼", false);
+                else
+                    ModalKit.SetAdBtnLabel(_btn, "lg_yellow", $"免费解锁 ({seen}/{GameConstants.GiftAds})", true);
+            }
         }
 
         void OnTap()
@@ -98,7 +143,7 @@ namespace InkLine
                 _claiming = true;
                 _btn.interactable = false;
                 _changed?.Invoke();
-                PlayWallet((RectTransform)transform.parent);
+                PlayWallet(_layer);
                 return;
             }
             AdStub.Reward("starter_gift", () =>
@@ -109,21 +154,18 @@ namespace InkLine
             });
         }
 
-        // 钻石和墨先在原卡上跳出来，面板褪掉后飞进顶栏，到账再开宝箱。
         void PlayWallet(RectTransform layer)
         {
             var anim = UiAnim.On(this);
-            Transform gemIcon = _gemCard.Find("icon");
-            Transform inkIcon = _inkCard.Find("icon");
-            Vector2 gemFrom = Local(layer, gemIcon != null ? gemIcon : _gemCard);
-            Vector2 inkFrom = Local(layer, inkIcon != null ? inkIcon : _inkCard);
-            RectTransform gemChip = Chip(layer, "diamond", "cd");
-            RectTransform inkChip = Chip(layer, "ink", "ci");
+            Vector2 gemFrom = RewardFly.Local(layer, _gemSlot);
+            Vector2 inkFrom = RewardFly.Local(layer, _inkSlot);
+            RectTransform gemChip = RewardFly.Chip(layer, "diamond", "cd");
+            RectTransform inkChip = RewardFly.Chip(layer, "ink", "ci");
             float top = layer.rect.height * 0.5f - 70f;
-            Vector2 gemTo = gemChip != null ? Local(layer, gemChip) : new Vector2(232f, top);
-            Vector2 inkTo = inkChip != null ? Local(layer, inkChip) : new Vector2(0f, top);
+            Vector2 gemTo = gemChip != null ? RewardFly.Local(layer, gemChip) : new Vector2(232f, top);
+            Vector2 inkTo = inkChip != null ? RewardFly.Local(layer, inkChip) : new Vector2(0f, top);
 
-            anim.Punch(_gemCard, 0f, 0.14f, 0.34f).Punch(_inkCard, 0.08f, 0.14f, 0.34f)
+            anim.Punch(_gemSlot, 0f, 0.14f, 0.34f).Punch(_inkSlot, 0.08f, 0.14f, 0.34f)
                 .At(0.05f, () =>
                 {
                     AudioBus.Chime();
@@ -131,18 +173,16 @@ namespace InkLine
                     UiConfetti.Sparks(layer, inkFrom, InkTheme.Track, 14, 480f);
                 });
 
-            RectTransform gem = Flyer(layer, "diamond", GameConstants.GiftDiamond, gemFrom);
-            RectTransform ink = Flyer(layer, "ink", GameConstants.GiftInk, inkFrom);
+            RectTransform gem = RewardFly.Flyer(layer, "diamond", GameConstants.GiftDiamond, gemFrom);
+            RectTransform ink = RewardFly.Flyer(layer, "ink", GameConstants.GiftInk, inkFrom);
             anim.Pop(gem, 0.08f, 0.36f, 0f).Pop(ink, 0.16f, 0.36f, 0f);
 
-            // 投影是面板的同级节点，只淡卡面会把那块深色影子留在章节卡上。整层一起淡。
             var veil = gameObject.AddComponent<CanvasGroup>();
             anim.Fade(veil, 0.72f, 0.32f, 1f, 0f);
-            // 飞行动画等到出发再排。提前排的话第一帧就会把图标缩放改掉，弹出还没演完。
-            anim.At(0.95f, () => Fly(gem, gemFrom, gemTo))
-                .At(1.05f, () => Fly(ink, inkFrom, inkTo))
-                .At(1.52f, () => Land(layer, gem, gemChip, InkTheme.Hex("F2A0C8")))
-                .At(1.62f, () => Land(layer, ink, inkChip, InkTheme.Track))
+            anim.At(0.95f, () => RewardFly.Fly(this, gem, gemFrom, gemTo))
+                .At(1.05f, () => RewardFly.Fly(this, ink, inkFrom, inkTo))
+                .At(1.52f, () => RewardFly.Land(layer, gem, gemChip, InkTheme.Hex("F2A0C8")))
+                .At(1.62f, () => RewardFly.Land(layer, ink, inkChip, InkTheme.Track))
                 .At(1.9f, () => Finish(layer));
         }
 
@@ -156,17 +196,5 @@ namespace InkLine
             Destroy(gameObject);
             ChestOpenView.Show(layer, _meta, loot, _changed);
         }
-
-        static void Land(RectTransform layer, RectTransform flyer, RectTransform chip, Color spark) =>
-            RewardFly.Land(layer, flyer, chip, spark);
-
-        void Fly(RectTransform flyer, Vector2 from, Vector2 to) => RewardFly.Fly(this, flyer, from, to);
-
-        static RectTransform Flyer(RectTransform layer, string icon, int n, Vector2 pos) =>
-            RewardFly.Flyer(layer, icon, n, pos);
-
-        static RectTransform Chip(RectTransform layer, string a, string b) => RewardFly.Chip(layer, a, b);
-
-        static Vector2 Local(RectTransform layer, Transform target) => RewardFly.Local(layer, target);
     }
 }

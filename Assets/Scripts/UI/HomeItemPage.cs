@@ -368,6 +368,12 @@ namespace InkLine
 
         void TapCard(int i)
         {
+            if (_meta.ItemRank(i) <= 0 && !_meta.CanUpgradeItem(i, out _))
+            {
+                AudioBus.Deny();
+                InkToast.Show(_layer, "还没解锁");
+                return;
+            }
             AudioBus.Tap();
             if (_swap >= 0)
             {

@@ -5,24 +5,31 @@ using UnityEngine.UI;
 
 namespace InkLine
 {
-    // 点开一张字卡：字浮在放射光中间，外圈一圈金色光点，三颗插槽落在上、左、右；
-    // 下面是本事、伤害加成从几到几、十格等级、升级和看广告试用。
-    // 点槽从底部弹出镶嵌面板。左右箭头在当前分类里已有的字之间切换，不用退回列表。
+    // 字卡详情弹窗（Figma Page 1 Panel/字卡弹窗 v2）：
+    // 上半品质色舞台，书法字居中落于米字格圆盘，三颗镶嵌座沿罗盘环排在上、左、右，左上票据标签（类型、品质、试用）；
+    // 下半十格等级条、整体伤害加成暗牌、看广告试用与金箔升级按钮；点开已解锁插槽从底部弹出镶嵌选择抽屉。
     public sealed class GlyphDetailPanel : MonoBehaviour
     {
-        const float BoardW = 640f;
-        const float BoardH = 1060f;
-        const float OrbY = 150f;
-        static readonly Vector2 OrbSize = new Vector2(620f, 440f);
-        const float GlyphBox = 280f;
-        // 三颗槽都落在同一圈星尘上，圈心就是字的中心。
-        const float Ring = 172f;
-        const float SlotSize = 84f;
-        const float StudSize = 60f;
-        const float SheetY = 540f;
-        static readonly Vector2 SheetSize = new Vector2(604f, 500f);
+        public const string PrefabPath = "Prefabs/GlyphDetail";
+        public const string Mark = "glyph_detail_v1";
 
-        // 三颗槽：上、左、右。
+        const float BoardW = 648f;
+        const float BoardH = 828f;
+        const float HeadH = 484f;
+        const float StageCx = 324f;
+        const float StageCy = 272f;
+        const float OrbCenterY = BoardH * 0.5f - StageCy; // 142
+        const float Ring = 186f;
+        const float GlyphBox = 192f;
+        const float SlotW = 100f;
+        const float SlotH = 104f;
+
+        static readonly Vector4 BorderTicket = new Vector4(32f, 0f, 32f, 0f);
+        static readonly Vector4 BorderSlotCap = new Vector4(24f, 0f, 24f, 0f);
+        static readonly Vector4 BorderBonus = new Vector4(40f, 0f, 40f, 0f);
+        static readonly Vector4 BorderLvTrack = new Vector4(28f, 0f, 28f, 0f);
+
+        // 三颗槽相对字盘中心：上、左、右。
         static readonly Vector2[] SlotAt =
         {
             new Vector2(0f, Ring),
@@ -32,6 +39,7 @@ namespace InkLine
 
         MetaProgress _meta;
         RectTransform _layer;
+        RectTransform _stage;
         Action _closed;
         RectTransform _board;
         RectTransform _body;
@@ -46,18 +54,107 @@ namespace InkLine
         {
             if (list == null || list.Count == 0) return;
             meta.EnsureSlots();
-            var dim = UiKit.Dimmer(layer);
-            dim.name = "study_detail";
+
+            var dim = ModalKit.SpawnPrefab(layer, PrefabPath, "study_detail", Mark, null, BuildPrefab, out RectTransform stage);
             var p = dim.gameObject.AddComponent<GlyphDetailPanel>();
             p._meta = meta;
             p._layer = layer;
+            p._stage = stage;
             p._closed = closed;
             p._list = list;
             p._at = Mathf.Clamp(at, 0, list.Count - 1);
             p._anim = UiAnim.On(p);
-            p._board = PanelKit.Board(dim, CodexCatalog.Title(list[p._at]), Vector2.zero, new Vector2(BoardW, BoardH),
-                Pin.Center, p.Close);
+
+            p._board = stage.Find("board") as RectTransform;
+            ModalKit.BindClose(p._board, p.Close);
+
+            var prev = stage.Find("prev");
+            var next = stage.Find("next");
+            bool multi = list.Count > 1;
+            if (prev != null)
+            {
+                prev.gameObject.SetActive(multi);
+                if (multi) ModalKit.BindBtn(stage, "prev", () => p.Step(-1));
+            }
+            if (next != null)
+            {
+                next.gameObject.SetActive(multi);
+                if (multi) ModalKit.BindBtn(stage, "next", () => p.Step(1));
+            }
+
             p.Paint();
+            PanelKit.Open(p._board);
+        }
+
+        public static RectTransform BuildPrefab()
+        {
+            var dim = ModalKit.Stage(null, "study_detail", 0.80f, null, out RectTransform stage);
+            var board = BuildShell(stage, () => { });
+            ModalKit.AddMark(board, Mark);
+            BuildArrowNode(stage, "prev", "Ui/home_arrow_on_l", 4f);
+            BuildArrowNode(stage, "next", "Ui/home_arrow_on", ModalKit.DesignW - 4f - 47f);
+            return dim;
+        }
+
+        static RectTransform BuildShell(RectTransform stage, Action onClose)
+        {
+            var go = new GameObject("board", typeof(RectTransform), typeof(Image));
+            go.transform.SetParent(stage, false);
+            var rt = go.GetComponent<RectTransform>();
+            rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = Vector2.zero;
+            rt.sizeDelta = new Vector2(BoardW, BoardH);
+
+            var img = go.GetComponent<Image>();
+            img.sprite = ModalKit.Load2x("Ui/modal_panel_body", ModalKit.BorderPanel);
+            img.type = Image.Type.Sliced;
+            img.pixelsPerUnitMultiplier = 1f;
+            img.color = Color.white;
+            img.raycastTarget = true;
+
+            // 下半奶油底散落浅暗纹四角星
+            float[,] marks =
+            {
+                { 0.14f, 0.64f, 18f }, { 0.86f, 0.63f, 16f },
+                { 0.48f, 0.82f, 20f }, { 0.28f, 0.94f, 15f }, { 0.78f, 0.93f, 17f },
+            };
+            for (int i = 0; i < marks.GetLength(0); i++)
+            {
+                float s = marks[i, 2];
+                float x = marks[i, 0] * BoardW - s * 0.5f;
+                float y = marks[i, 1] * BoardH - s * 0.5f;
+                ModalKit.Pic(rt, "mark" + i, "Ui/modal_star_mark", x, y, s, s, true);
+            }
+
+            ModalKit.CloseBtn(rt, 0f, 0f, onClose);
+            return rt;
+        }
+
+        static void BuildArrowNode(RectTransform stage, string name, string sprKey, float x)
+        {
+            const float aw = 47f, ah = 51f;
+            float boardTop = (ModalKit.DesignH - BoardH) * 0.5f;
+            float cy = boardTop + StageCy;
+
+            var hitGo = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(Button));
+            hitGo.transform.SetParent(stage, false);
+            ModalKit.TopLeft(hitGo.GetComponent<RectTransform>(), x - 9f, cy - 44f, aw + 18f, 88f);
+            var hit = hitGo.GetComponent<Image>();
+            hit.color = new Color(1f, 1f, 1f, 0.005f);
+            hit.raycastTarget = true;
+
+            var art = ModalKit.Pic(hitGo.transform, "art", sprKey, 9f, (88f - ah) * 0.5f, aw, ah, true);
+            art.raycastTarget = false;
+
+            var btn = hitGo.GetComponent<Button>();
+            btn.transition = Selectable.Transition.None;
+            btn.targetGraphic = hit;
+        }
+
+        void OnRectTransformDimensionsChange()
+        {
+            if (_stage != null) ModalKit.FitStage(_stage, _layer);
         }
 
         CodexEntry Cur => _list[_at];
@@ -82,211 +179,459 @@ namespace InkLine
             _body.offsetMin = Vector2.zero;
             _body.offsetMax = Vector2.zero;
             _body.GetComponent<Image>().raycastTarget = false;
-            Transform ribbon = _board.Find("ribbon");
-            Text title = ribbon != null ? ribbon.GetComponentInChildren<Text>() : null;
-            if (title != null) title.text = CodexCatalog.Title(Cur);
-            // 关闭键压在横幅和正文上面。
-            Transform close = _board.Find("close");
-            if (close != null) close.SetAsLastSibling();
 
             CodexEntry e = Cur;
             int lv = _meta.StudyLevel(e);
-            BuildBadge(e, lv);
-            BuildOrbit(e, lv);
-            BuildBonus(lv);
+            StudyCatalog.Tier tier = StudyCatalog.TierOf(lv);
+
+            BuildStageAndOrbit(e, lv, tier);
+            BuildHeader(e, lv);
+            BuildBonus(lv, tier);
             BuildActions(e, lv);
-            if (_sel >= 0) BuildSheet(e, _sel);
+            if (_sel >= 0) BuildSheet(e, _sel, tier);
+
+            Transform close = _board.Find("close");
+            if (close != null) close.SetAsLastSibling();
         }
 
-        void BuildBadge(CodexEntry e, int lv)
+        // ---- 上半品质舞台 + 字盘 + 三颗环绕插槽 ----
+
+        void BuildStageAndOrbit(CodexEntry e, int lv, StudyCatalog.Tier tier)
         {
-            // 等级放到下面和等级点一起；顶上左边是试用角标，右边是刷新。
-            if (_meta.HasTrial(e))
+            var stageArt = ModalKit.Pic(_body, "stage_bg", "Ui/glyph_stage_" + StageKey(tier), 0f, 0f, BoardW, HeadH, false);
+            stageArt.raycastTarget = false;
+
+            _orb = UiKit.Panel(_body, "orb", new Vector2(0f, OrbCenterY), new Vector2(BoardW, HeadH), Color.clear);
+            _orb.GetComponent<Image>().raycastTarget = false;
+
+            // 中央书法字（升级演出对准 orb/c 蓄力与爆光）
+            var c = UiKit.Panel(_orb, "c", Vector2.zero, new Vector2(GlyphBox, GlyphBox), Color.clear);
+            c.GetComponent<Image>().raycastTarget = false;
+            if (e.Kind == CodexKind.Glyph)
             {
-                var tag = UiKit.Stroke(_body, "trial_tag", new Vector2(-246f, 105f), new Vector2(76f, 34f), Pin.Top, 3f,
-                    null, InkTheme.Teal, 17f);
-                var tt = UiKit.Label(tag, "t", "试用", 20, Vector2.zero, new Vector2(76f, 34f));
-                tt.color = InkTheme.CardFace;
-                UiKit.Bold(tt);
+                var g = UiKit.Icon(c, InkArt.Bare(InkArt.Glyph((CardId)e.Index, 256)), Vector2.zero, GlyphBox);
+                g.raycastTarget = false;
             }
-            if (_meta.SealOpen && _meta.SlotsOpen(e) > 0) BuildReroll();
+            else
+            {
+                CardId[] parts = CodexCatalog.PartsOf((WordId)e.Index);
+                for (int i = 0; i < parts.Length && i < 2; i++)
+                {
+                    float ox = parts.Length == 1 ? 0f : (i == 0 ? -46f : 46f);
+                    float sz = parts.Length == 1 ? GlyphBox : 106f;
+                    var g = UiKit.Icon(c, InkArt.Bare(InkArt.Glyph(parts[i], 256)), new Vector2(ox, 0f), sz);
+                    g.raycastTarget = false;
+                }
+            }
+            _anim.Breathe(c, 0f, 0.02f, 0.4f);
+
+            bool open = _meta.SealOpen;
+            int slots = _meta.SlotsOpen(e);
+            for (int k = 0; k < SealCatalog.SlotsPer; k++)
+                BuildSlot(e, lv, tier, k, open, k < slots);
         }
 
-        // 右上角一枚刷新图标，底下标着钻石价。点下去先问一声，确认了才刷。
+        void BuildSlot(CodexEntry e, int lv, StudyCatalog.Tier tier, int k, bool open, bool unlocked)
+        {
+            Vector2 at = SlotAt[k];
+            if (!open || !unlocked)
+            {
+                var stud = MakeSlotNode(_orb, "slot" + k, at, "Ui/glyph_slot_locked");
+                Hit(stud, 94f, () => TapLocked(k));
+                int needLv = SealCatalog.SlotLevelOf(k);
+                string lockCap = !open && lv >= needLv ? "五章开放" : "Lv." + needLv + " 解锁";
+                SlotCaption(at, lockCap, "", InkTheme.Hex("CFC6B8"));
+                return;
+            }
+
+            SealType t = _meta.SlotTypeOf(e, k);
+            int key = SealCatalog.KeyOf(e);
+            bool filled = _meta.SlotSealOf(e, k, out SealQuality q);
+
+            if (_sel == k || (filled && q == SealQuality.Gold))
+            {
+                var halo = UiKit.Icon(_orb, InkSprites.Load("Ui/seal_burst"), at, _sel == k ? 196f : 168f);
+                halo.color = Color.white;
+                halo.raycastTarget = false;
+                _anim.Spin(halo.transform, 22f);
+            }
+
+            RectTransform node;
+            if (filled)
+            {
+                node = MakeSlotNode(_orb, "slot" + k, at, "Ui/glyph_slot_" + QualityKey(q));
+                var ico = UiKit.Icon(node, SealArt.Icon(t), Vector2.zero, 50f);
+                ico.raycastTarget = false;
+                if (_sel == k || q == SealQuality.Gold) _anim.Breathe(node, 0.4f, 0.05f, 0.85f);
+
+                SealCatalog.Line(key, t, q, out _, out string amount);
+                SlotCaption(at, SealCatalog.TypeName(t), amount, FilledValueColor(q));
+            }
+            else
+            {
+                bool hasBag = _meta.BagCount(t) > 0;
+                node = MakeSlotNode(_orb, "slot" + k, at, "Ui/glyph_slot_empty_" + StageKey(tier));
+                var ico = UiKit.Icon(node, SealArt.Icon(t), Vector2.zero, 44f);
+                ico.color = new Color(1f, 1f, 1f, 0.55f);
+                ico.raycastTarget = false;
+                if (hasBag)
+                {
+                    var plus = UiKit.Icon(node, ModalKit.Load("Ui/glyph_slot_plus"), new Vector2(35f, 34f), 28f);
+                    plus.raycastTarget = false;
+                    _anim.Breathe(node, 0.4f, 0.05f, 0.85f);
+                }
+                SlotCaption(at, SealCatalog.TypeName(t), hasBag ? "可镶嵌" : "空",
+                    hasBag ? InkTheme.Hex("FFE455") : InkTheme.Hex("9EA4AE"));
+            }
+
+            Hit(node, 96f, () => Select(k));
+        }
+
+        static RectTransform MakeSlotNode(Transform parent, string name, Vector2 at, string spriteKey)
+        {
+            var go = new GameObject(name, typeof(RectTransform), typeof(Image));
+            go.transform.SetParent(parent, false);
+            var rt = go.GetComponent<RectTransform>();
+            rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = at;
+            rt.sizeDelta = new Vector2(SlotW, SlotH);
+            var img = go.GetComponent<Image>();
+            img.sprite = ModalKit.Load(spriteKey);
+            img.type = Image.Type.Simple;
+            img.preserveAspect = true;
+            img.color = Color.white;
+            img.raycastTarget = false;
+            return rt;
+        }
+
+        void SlotCaption(Vector2 slotPos, string label, string val, Color valColor)
+        {
+            string plain = string.IsNullOrEmpty(val) ? label : label + " " + val;
+            float w = Mathf.Max(84f, TextWidth(plain, 15f) + 26f);
+            const float h = 28f;
+
+            var capGo = new GameObject("cap", typeof(RectTransform), typeof(Image));
+            capGo.transform.SetParent(_orb, false);
+            var rt = capGo.GetComponent<RectTransform>();
+            rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = slotPos + new Vector2(0f, -68f);
+            rt.sizeDelta = new Vector2(w, h);
+
+            var bg = capGo.GetComponent<Image>();
+            bg.sprite = ModalKit.Load2x("Ui/glyph_slot_cap", BorderSlotCap);
+            bg.type = Image.Type.Sliced;
+            bg.pixelsPerUnitMultiplier = 1f;
+            bg.color = Color.white;
+            bg.raycastTarget = false;
+
+            string rich = string.IsNullOrEmpty(val) ? label : label + " " + Tint(val, valColor);
+            var t = UiKit.Label(rt, "t", rich, 15, Vector2.zero, new Vector2(w - 8f, h));
+            t.supportRichText = true;
+            t.color = string.IsNullOrEmpty(val) ? valColor : ModalKit.CreamLight;
+            t.raycastTarget = false;
+            UiKit.Bold(t);
+        }
+
+        // ---- 左上票据标签 + 右上刷新 ----
+
+        void BuildHeader(CodexEntry e, int lv)
+        {
+            float tx = 22f;
+            string fam = StudyCatalog.FamilyName(e);
+            if (!string.IsNullOrEmpty(fam))
+                tx += Ticket(_body, tx, 22f, fam, FamilyTagKey(e)) + 8f;
+
+            if (_meta.HasTrial(e))
+                Ticket(_body, tx, 22f, "试用", "teal");
+
+            if (_meta.SealOpen && _meta.SlotsOpen(e) > 0)
+                BuildReroll();
+        }
+
+        static float Ticket(Transform parent, float x, float y, string text, string tone)
+        {
+            float w = Mathf.Max(68f, TextWidth(text, 21f) + 40f);
+            const float h = 42f;
+            var tag = ModalKit.Sliced(parent, "tag_" + text, "Ui/glyph_tag_" + tone, BorderTicket, x, y, w, h, false);
+            ModalKit.OutlinedText(tag, "t", text, 21, 0f, 0f, w, h - 3f, Color.white, TextAnchor.MiddleCenter, 1.6f);
+            return w;
+        }
+
         void BuildReroll()
         {
-            var hold = UiKit.Panel(_body, "rr", new Vector2(236f, 62f), new Vector2(92f, 118f), Color.clear, Pin.Top);
-            var hit = hold.GetComponent<Image>();
+            var go = new GameObject("rr", typeof(RectTransform), typeof(Image), typeof(Button));
+            go.transform.SetParent(_body, false);
+            ModalKit.TopLeft(go.GetComponent<RectTransform>(), BoardW - 104f, 52f, 76f, 92f);
+            var hit = go.GetComponent<Image>();
+            hit.color = new Color(1f, 1f, 1f, 0.005f);
             hit.raycastTarget = true;
-            UiKit.Icon(hold, InkSprites.Ui("reroll"), new Vector2(0f, 20f), 76f);
-            UiKit.Icon(hold, InkSprites.Ui("diamond"), new Vector2(-16f, -38f), 22f);
-            var n = UiKit.Label(hold, "n", SealCatalog.RerollDiamond.ToString(), 22, new Vector2(12f, -38f), new Vector2(40f, 28f));
-            n.color = InkTheme.TextDark;
-            UiKit.Bold(n);
-            var btn = hold.gameObject.AddComponent<Button>();
+
+            ModalKit.Pic(go.transform, "ico", null, 8f, 0f, 60f, 60f, true).sprite = InkSprites.Ui("reroll");
+            ModalKit.Pic(go.transform, "gem", null, 10f, 64f, 24f, 24f, true).sprite = InkSprites.Ui("diamond");
+            ModalKit.OutlinedText(go.transform, "n", SealCatalog.RerollDiamond.ToString(), 18,
+                36f, 62f, 40f, 28f, Color.white, TextAnchor.MiddleLeft, 1.45f);
+
+            var btn = go.GetComponent<Button>();
             btn.transition = Selectable.Transition.None;
             btn.targetGraphic = hit;
             btn.onClick.AddListener(AskReroll);
         }
 
-        // ---- 星尘轨道 ----
+        // ---- 十格等级条 + 整体伤害加成 ----
 
-        void BuildOrbit(CodexEntry e, int lv)
+        void BuildBonus(int lv, StudyCatalog.Tier tier)
         {
-            _orb = UiKit.Panel(_body, "orb", new Vector2(0f, OrbY), OrbSize, Color.clear, Pin.Top);
-            _orb.GetComponent<Image>().raycastTarget = false;
+            var bonusGo = new GameObject("bonus", typeof(RectTransform));
+            bonusGo.transform.SetParent(_body, false);
+            var bonus = bonusGo.GetComponent<RectTransform>();
+            bonus.anchorMin = Vector2.zero;
+            bonus.anchorMax = Vector2.one;
+            bonus.offsetMin = Vector2.zero;
+            bonus.offsetMax = Vector2.zero;
 
-            var rays = UiKit.Icon(_orb, InkSprites.Load("Ui/seal_burst"), Vector2.zero, 500f);
-            rays.color = Color.white;
-            _anim.Spin(rays.transform, lv >= StudyCatalog.MaxLevel ? 8f : 5f);
+            ModalKit.OutlinedText(bonus, "lv", "Lv." + lv, 26, 28f, 510f, 92f, 40f,
+                LvTextColor(tier), TextAnchor.MiddleLeft, 1.6f);
 
-            BuildDust();
+            const float trackX = 124f, trackY = 515f, trackW = 498f, trackH = 30f;
+            ModalKit.Sliced(bonus, "lv_track", "Ui/glyph_lv_track", BorderLvTrack, trackX, trackY, trackW, trackH, false);
 
-            // 字的托：升级演出按它的位置和大小放光。
-            var c = UiKit.Panel(_orb, "c", Vector2.zero, new Vector2(GlyphBox, GlyphBox), Color.clear);
-            c.GetComponent<Image>().raycastTarget = false;
-            if (e.Kind == CodexKind.Glyph)
-                UiKit.Icon(c, InkArt.Bare(InkArt.Glyph((CardId)e.Index, 256)), Vector2.zero, GlyphBox);
+            string segOn = "Ui/glyph_lv_seg_" + SegKey(tier);
+            const float segW = 45f, segH = 20f, gap = 4f;
+            for (int i = 0; i < StudyCatalog.MaxLevel; i++)
+            {
+                float sx = trackX + 6f + i * (segW + gap);
+                float sy = trackY + 5f;
+                var seg = ModalKit.Pic(bonus, "dot" + i, i < lv ? segOn : "Ui/glyph_lv_seg_off", sx, sy, segW, segH, false);
+                seg.raycastTarget = false;
+            }
+
+            var bar = ModalKit.Sliced(bonus, "bonus_bar", "Ui/glyph_bonus_bar", BorderBonus, 24f, 566f, 600f, 70f, false);
+            int now = Mathf.RoundToInt(StudyCatalog.BonusOf(lv) * 100f);
+            bool max = lv >= StudyCatalog.MaxLevel;
+            if (max)
+            {
+                ModalKit.SolidText(bar, "what", "当前效果：字的整体伤害", 20, 26f, 0f, 260f, 70f,
+                    ModalKit.CreamLight, TextAnchor.MiddleLeft, true);
+                // 挂在 bonus 下且以 v 命名，升级满级爆点时 Reveal 会弹它
+                var v = ModalKit.OutlinedText(bonus, "v", "+" + now + "%", 34,
+                    24f + 380f, 566f, 194f, 70f, InkTheme.Hex("FFE455"), TextAnchor.MiddleRight, 1.6f);
+                v.rectTransform.pivot = new Vector2(0.5f, 0.5f);
+                v.rectTransform.anchoredPosition = new Vector2(24f + 380f + 97f, -(566f + 35f));
+            }
             else
             {
-                CardId[] parts = CodexCatalog.PartsOf((WordId)e.Index);
-                for (int i = 0; i < parts.Length && i < 2; i++)
-                    UiKit.Icon(c, InkArt.Bare(InkArt.Glyph(parts[i], 256)), new Vector2(i == 0 ? -72f : 72f, 0f), 160f);
-            }
-            _anim.Breathe(c, 0f, 0.02f, 0.4f);
+                ModalKit.SolidText(bar, "what", "下一级效果", 15, 26f, 9f, 200f, 24f,
+                    InkTheme.Hex("FFE455"), TextAnchor.MiddleLeft, true);
+                ModalKit.SolidText(bar, "sub", "字的整体伤害", 20, 26f, 32f, 200f, 30f,
+                    ModalKit.CreamLight, TextAnchor.MiddleLeft, true);
 
-            if (_list.Count > 1)
-            {
-                Arrow("prev", "<", new Vector2(-292f, 0f), -1);
-                Arrow("next", ">", new Vector2(292f, 0f), 1);
-            }
+                int next = Mathf.RoundToInt(StudyCatalog.BonusOf(lv + 1) * 100f);
+                var a = ModalKit.OutlinedText(bonus, "a", "+" + now + "%", 32,
+                    24f + 236f, 566f, 124f, 70f, Color.white, TextAnchor.MiddleRight, 1.6f);
+                a.rectTransform.pivot = new Vector2(0.5f, 0.5f);
+                a.rectTransform.anchoredPosition = new Vector2(24f + 236f + 62f, -(566f + 35f));
 
-            bool open = _meta.SealOpen;
-            int slots = _meta.SlotsOpen(e);
-            for (int k = 0; k < SealCatalog.SlotsPer; k++) BuildSlot(e, k, open, k < slots);
-            if (!open)
-            {
-                var gate = UiKit.Label(_orb, "gate", "通关第五章开放插槽", 21, new Vector2(0f, -Ring + 4f), new Vector2(360f, 30f));
-                gate.color = InkTheme.TextMid;
+                ModalKit.SolidText(bar, "arrow", "→", 26, 370f, 0f, 50f, 70f,
+                    InkTheme.Hex("CFC6B8"), TextAnchor.MiddleCenter, true);
+                ModalKit.OutlinedText(bar, "b", "+" + next + "%", 34,
+                    428f, 0f, 152f, 70f, InkTheme.Hex("FFE455"), TextAnchor.MiddleLeft, 1.6f);
             }
         }
 
-        // 槽名和数值贴在槽外：上面那颗在右侧，左右两颗在下方。光点要给这几块让位。
-        static Rect CaptionRect(int k)
-        {
-            float r = SlotSize * 0.5f;
-            if (k == 0) return new Rect(r + 8f, Ring - 30f, 184f, 60f);
-            return new Rect(SlotAt[k].x - 84f, -(r + 62f), 168f, 60f);
-        }
+        // ---- 试用 + 金箔升级 ----
 
-        // 一圈金色光点，下沿留空给字透气。大小、深浅错开，几颗慢慢一闪一闪。
-        void BuildDust()
+        void BuildActions(CodexEntry e, int lv)
         {
-            var dust = InkSprites.Load("Ui/seal_dust");
-            const int n = 48;
-            for (int i = 0; i < n; i++)
+            bool trial = _meta.HasTrial(e);
+            string trialNote = trial ? "用到才算" : "今日剩 " + _meta.TrialLeft + " 次";
+            ModalKit.SolidText(_body, "trial_note", trialNote, 16, 34f, 676f, 176f, 28f,
+                ModalKit.TextMuted, TextAnchor.MiddleCenter, false);
+
+            string trialKind = (!trial && !_meta.CanTrial(e)) ? "md_gray" : "md_cyan";
+            var trBtn = ModalKit.HexBtn(_body, trialKind, 34f, 724f, "", Trial, out _);
+            ModalKit.SetAdBtnLabel(trBtn, trialKind,
+                trial ? "今日试用中" : "试用 +" + StudyCatalog.TrialBonus + "级",
+                !trial);
+
+            MetaProgress.StudyBlock block = _meta.UpgradeBlock(e);
+            int cost = StudyCatalog.CostOf(lv, e.Kind == CodexKind.Word);
+            if (lv < StudyCatalog.MaxLevel)
             {
-                float deg = -58f + i * (296f / (n - 1));
-                float rad = deg * Mathf.Deg2Rad;
-                float r = Ring + ((i * 7) % 5 - 2) * 3f;
-                Vector2 p = new Vector2(Mathf.Cos(rad), Mathf.Sin(rad)) * r;
-                if (Blocked(p)) continue;
-                float size = i % 3 == 0 ? 18f : i % 3 == 1 ? 13f : 8f;
-                var dot = UiKit.Icon(_orb, dust, p, size);
-                dot.color = new Color(1f, 1f, 1f, i % 3 == 2 ? 0.55f : 0.9f);
-                if (i % 4 == 0) _anim.Breathe(dot.transform, i * 0.13f, 0.35f, 0.6f + (i % 3) * 0.2f);
+                var costHold = new GameObject("cost", typeof(RectTransform));
+                costHold.transform.SetParent(_body, false);
+                var crt = costHold.GetComponent<RectTransform>();
+                ModalKit.TopLeft(crt, 300f, 672f, 314f, 34f);
+
+                string costStr = cost.ToString();
+                string ownStr = "（拥有 " + _meta.Foil + "）";
+                float costW = Mathf.Max(34f, TextWidth(costStr, 22f) + 6f);
+                float ownW = TextWidth(ownStr, 16f) + 8f;
+                float totalW = 34f + 6f + costW + 2f + ownW;
+                float startX = Mathf.Max(0f, (314f - totalW) * 0.5f);
+
+                bool enough = _meta.Foil >= cost;
+                // 居中锚定在图标自身中心，确保 StudyUpFx.Local 取飞入起点准确
+                var icoGo = new GameObject("icon", typeof(RectTransform), typeof(Image));
+                icoGo.transform.SetParent(crt, false);
+                var irt = icoGo.GetComponent<RectTransform>();
+                irt.anchorMin = irt.anchorMax = new Vector2(0f, 1f);
+                irt.pivot = new Vector2(0.5f, 0.5f);
+                irt.anchoredPosition = new Vector2(startX + 17f, -17f);
+                irt.sizeDelta = new Vector2(34f, 34f);
+                var iimg = icoGo.GetComponent<Image>();
+                iimg.sprite = FoilArt.Icon;
+                iimg.preserveAspect = true;
+                iimg.raycastTarget = false;
+
+                ModalKit.SolidText(crt, "n", costStr, 22, startX + 40f, 2f, costW, 30f,
+                    enough ? ModalKit.TextDark : InkTheme.Seal, TextAnchor.MiddleLeft, true);
+                ModalKit.SolidText(crt, "own", ownStr, 16, startX + 40f + costW + 2f, 2f, ownW, 30f,
+                    enough ? ModalKit.TextMuted : InkTheme.Seal, TextAnchor.MiddleLeft, false);
+            }
+            else
+            {
+                ModalKit.SolidText(_body, "max_note", "已经满级", 16, 300f, 676f, 314f, 28f,
+                    ModalKit.TextMuted, TextAnchor.MiddleCenter, false);
+            }
+
+            string upLabel = block == MetaProgress.StudyBlock.Max ? "已满级"
+                : block == MetaProgress.StudyBlock.Cap ? "Lv." + _meta.StudyCap + " 已到上限"
+                : "升级";
+            bool canUp = block == MetaProgress.StudyBlock.None;
+            var up = ModalKit.HexBtn(_body, canUp ? "wide_yellow" : "wide_gray", 300f, 716f, upLabel, Upgrade, out _);
+            up.gameObject.name = "up";
+            if (canUp)
+            {
+                // 把按钮 pivot 移到几何中心，呼吸缩放不漂移
+                var urt = up.GetComponent<RectTransform>();
+                urt.pivot = new Vector2(0.5f, 0.5f);
+                urt.anchoredPosition = new Vector2(300f + 157f, -(716f + 40f));
+                _anim.Breathe(up.transform, 0.2f, 0.03f, 1.2f);
             }
         }
 
-        static bool Blocked(Vector2 p)
-        {
-            for (int k = 0; k < SlotAt.Length; k++)
-            {
-                if ((p - SlotAt[k]).magnitude < SlotSize * 0.5f + 14f) return true;
-                Rect c = CaptionRect(k);
-                c.xMin -= 6f;
-                c.xMax += 6f;
-                c.yMin -= 6f;
-                c.yMax += 6f;
-                if (c.Contains(p)) return true;
-            }
-            return false;
-        }
+        // ---- 底部印章镶嵌选择抽屉 ----
 
-        void Arrow(string name, string text, Vector2 pos, int d)
+        void BuildSheet(CodexEntry e, int k, StudyCatalog.Tier tier)
         {
-            var b = UiKit.Btn(_orb, name, text, pos, new Vector2(56f, 84f), () => Step(d), false);
-            var t = b.GetComponentInChildren<Text>();
-            if (t != null) t.fontSize = 32;
-        }
-
-        void BuildSlot(CodexEntry e, int k, bool open, bool unlocked)
-        {
-            Vector2 at = SlotAt[k];
-            if (!open || !unlocked)
-            {
-                var stud = SealArt.Stud(_orb, "slot" + k, at, StudSize);
-                Hit(stud, 80f, () => TapLocked(k));
-                if (open) SlotCaption(k, "Lv." + SealCatalog.SlotLevelOf(k) + " 解锁", "", InkTheme.TextMid);
-                return;
-            }
+            if (k >= _meta.SlotsOpen(e)) return;
             SealType t = _meta.SlotTypeOf(e, k);
             int key = SealCatalog.KeyOf(e);
-            bool filled = _meta.SlotSealOf(e, k, out SealQuality q);
-            if (_sel == k)
-            {
-                var halo = UiKit.Icon(_orb, InkSprites.Load("Ui/seal_burst"), at, SlotSize * 2.4f);
-                halo.color = Color.white;
-                _anim.Spin(halo.transform, 24f);
-            }
-            RectTransform node = filled
-                ? SealArt.Medal(_orb, "slot" + k, t, q, at, SlotSize)
-                : SealArt.Empty(_orb, "slot" + k, t, at, SlotSize);
-            if (_sel == k || (filled && q == SealQuality.Gold)) _anim.Breathe(node, 0.4f, 0.05f, 0.85f);
-            else if (!filled && _meta.BagCount(t) > 0) _anim.Breathe(node, 0.4f, 0.06f, 0.85f);
-            Hit(node, 96f, () => Select(k));
+            bool filled = _meta.SlotSealOf(e, k, out SealQuality cur);
 
-            // 第二行先说提高什么，再用品质色写这枚加多少；空槽写「可镶嵌」或「空」。
-            SealCatalog.Line(key, t, filled ? q : SealQuality.Green, out string what, out string amount);
-            string tail = filled ? Tint(amount, SealCatalog.QualityDeep(q))
-                : _meta.BagCount(t) > 0 ? Tint("可镶嵌", InkTheme.Seal) : Tint("空", InkTheme.TextDim);
-            SlotCaption(k, SealCatalog.TypeName(t), what + " " + tail, InkTheme.TextMid);
+            var catchGo = new GameObject("sheet_catch", typeof(RectTransform), typeof(Image), typeof(Button));
+            catchGo.transform.SetParent(_body, false);
+            ModalKit.TopLeft(catchGo.GetComponent<RectTransform>(), 0f, 0f, BoardW, BoardH);
+            var catchImg = catchGo.GetComponent<Image>();
+            catchImg.color = new Color(0.05f, 0.02f, 0.04f, 0.28f);
+            catchImg.raycastTarget = true;
+            var catchBtn = catchGo.GetComponent<Button>();
+            catchBtn.transition = Selectable.Transition.None;
+            catchBtn.targetGraphic = catchImg;
+            catchBtn.onClick.AddListener(() => Select(_sel));
+
+            const float sx = 16f, sy = 368f, sw = 616f, sh = 444f;
+            var sheet = ModalKit.Sliced(_body, "sheet", "Ui/modal_panel_body", ModalKit.BorderPanel, sx, sy, sw, sh, true);
+            sheet.pivot = new Vector2(0.5f, 0.5f);
+            sheet.anchoredPosition = new Vector2(sx + sw * 0.5f, -(sy + sh * 0.5f));
+
+            // 头部：当前镶嵌座预览 + 类型名称与完整效果说明 + 右上收起按钮
+            string curSpr = filled ? "Ui/glyph_slot_" + QualityKey(cur) : "Ui/glyph_slot_empty_" + StageKey(tier);
+            var curPreview = ModalKit.Pic(sheet, "cur_base", curSpr, 24f, 20f, 88f, 92f, true);
+            var curIco = ModalKit.Pic(curPreview.rectTransform, "ico", null, 20f, 20f, 48f, 48f, true);
+            curIco.sprite = SealArt.Icon(t);
+            if (!filled) curIco.color = new Color(1f, 1f, 1f, 0.55f);
+
+            ModalKit.SolidText(sheet, "h", SealCatalog.TypeName(t), 26, 126f, 20f, 320f, 34f,
+                ModalKit.TextDark, TextAnchor.MiddleLeft, true);
+
+            SealCatalog.Line(key, t, filled ? cur : SealQuality.Green, out string what, out string amount);
+            string nowLine = filled
+                ? SealCatalog.QualityName(cur) + "印章 · " + what + " " + Tint(amount, SealCatalog.QualityDeep(cur))
+                : "空槽 · 镶上后" + what + "提高";
+            var sub = ModalKit.SolidText(sheet, "k", nowLine, 18, 126f, 54f, 340f, 26f,
+                ModalKit.TextBody, TextAnchor.MiddleLeft, true);
+            sub.supportRichText = true;
+
+            var eff = ModalKit.SolidText(sheet, "eff", SealCatalog.EffectOf(key, t) + "。品质越高，加得越多", 15,
+                126f, 82f, 464f, 42f, ModalKit.TextMuted, TextAnchor.UpperLeft, false);
+            eff.horizontalOverflow = HorizontalWrapMode.Wrap;
+
+            ModalKit.HexBtn(sheet, "sm_gray", sw - 22f - 132f, 22f, "收起", () => Select(_sel), out _);
+
+            // 四品质印章格
+            const float cellW = 136f, cellH = 192f, gap = 12f;
+            float rowLeft = (sw - (cellW * 4f + gap * 3f)) * 0.5f;
+            const float rowY = 142f;
+            int have = _meta.BagCount(t);
+            string[] frameTones = { "green", "blue", "purple", "orange" };
+
+            for (int qi = 0; qi < SealCatalog.QualityCount; qi++)
+            {
+                var q = (SealQuality)qi;
+                int n = _meta.BagCount(t, q);
+                bool on = filled && q == cur;
+                bool any = on || n > 0;
+                float cx = rowLeft + qi * (cellW + gap);
+
+                string subKey = on ? "Ui/modal_sub_warm" : any ? "Ui/modal_sub_bright" : "Ui/modal_sub_cream";
+                var cell = ModalKit.Sliced(sheet, "q" + qi, subKey, ModalKit.BorderSub16, cx, rowY, cellW, cellH, true);
+
+                var slotRt = ModalKit.ItemSlot(cell, frameTones[qi], 86, (cellW - 86f) * 0.5f, 22f,
+                    null, on ? null : "×" + n);
+                var medal = ModalKit.Pic(slotRt, "m", "Ui/glyph_slot_" + QualityKey(q), 9f, 7f, 68f, 70f, true);
+                var mIco = ModalKit.Pic(medal.rectTransform, "i", null, 16f, 16f, 36f, 36f, true);
+                mIco.sprite = SealArt.Icon(t);
+                if (!any)
+                {
+                    medal.color = new Color(1f, 1f, 1f, 0.38f);
+                    mIco.color = new Color(1f, 1f, 1f, 0.38f);
+                }
+
+                SealCatalog.Line(key, t, q, out _, out string qAmount);
+                ModalKit.SolidText(cell, "what", what, 14, 4f, 116f, cellW - 8f, 22f,
+                    ModalKit.TextMuted, TextAnchor.MiddleCenter, false);
+                ModalKit.SolidText(cell, "v", qAmount, 22, 4f, 140f, cellW - 8f, 32f,
+                    any ? SealCatalog.QualityDeep(q) : InkTheme.TextDim, TextAnchor.MiddleCenter, true);
+
+                if (on)
+                    ModalKit.Tag(cell, "Ui/modal_tag_coral", (cellW - 76f) * 0.5f, -10f, 76f, 24f, "镶着", false, 13);
+
+                SealQuality pick = q;
+                var cellBtn = cell.gameObject.AddComponent<Button>();
+                cellBtn.transition = Selectable.Transition.None;
+                cellBtn.targetGraphic = cell.GetComponent<Image>();
+                cellBtn.onClick.AddListener(() => Socket(pick));
+            }
+
+            if (have == 0 && !filled)
+            {
+                ModalKit.SolidText(sheet, "none", "还没有" + SealCatalog.TypeName(t) + "印章 · 开宝箱、每日副本可以获得",
+                    16, 20f, sh - 66f, sw - 40f, 32f, ModalKit.TextMuted, TextAnchor.MiddleCenter, false);
+            }
+            else if (filled)
+            {
+                ModalKit.HexBtn(sheet, "md_cyan", (sw - 176f) * 0.5f, sh - 78f, "卸下", Unsocket, out _);
+            }
         }
 
-        static string Tint(string s, Color c) => "<color=#" + ColorUtility.ToHtmlStringRGB(c) + ">" + s + "</color>";
-
-        void SlotCaption(int k, string line1, string line2, Color valueColor)
-        {
-            Rect r = CaptionRect(k);
-            bool top = k == 0;
-            TextAnchor anchor = top ? TextAnchor.MiddleLeft : TextAnchor.MiddleCenter;
-            Vector2 mid = r.center;
-            if (k != 0 && line2 == "") mid.y = r.yMax - 14f;
-            var l1 = UiKit.Label(_orb, "slot" + k + "_t", line1, line2 == "" ? 19 : 23,
-                mid + new Vector2(0f, line2 == "" ? 0f : 14f), new Vector2(r.width, 30f), anchor);
-            if (line2 == "")
-            {
-                l1.color = valueColor;
-                return;
-            }
-            l1.color = InkTheme.TextDark;
-            UiKit.Bold(l1);
-            var l2 = UiKit.Label(_orb, "slot" + k + "_v", line2, 19, mid + new Vector2(0f, -15f), new Vector2(r.width, 26f), anchor);
-            l2.color = valueColor;
-            UiKit.Bold(l2);
-        }
+        // ---- 交互与动画 ----
 
         static void Hit(RectTransform node, float size, Action click)
         {
-            var img = node.GetComponent<Image>();
-            if (img == null)
-            {
-                img = node.gameObject.AddComponent<Image>();
-                img.color = Color.clear;
-            }
+            var hitGo = new GameObject("hit", typeof(RectTransform), typeof(Image), typeof(Button));
+            hitGo.transform.SetParent(node, false);
+            var rt = hitGo.GetComponent<RectTransform>();
+            rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = Vector2.zero;
+            rt.sizeDelta = size > 0f ? new Vector2(size, size) : node.sizeDelta;
+            var img = hitGo.GetComponent<Image>();
+            img.color = new Color(1f, 1f, 1f, 0.005f);
             img.raycastTarget = true;
-            if (size > 0f) node.sizeDelta = new Vector2(size, size);
-            var btn = node.gameObject.AddComponent<Button>();
+            var btn = hitGo.GetComponent<Button>();
             btn.transition = Selectable.Transition.None;
             btn.targetGraphic = img;
             btn.onClick.AddListener(() => click());
@@ -306,114 +651,7 @@ namespace InkLine
             _anim.Clear();
             Paint();
             if (_sel >= 0 && _body.Find("sheet") is RectTransform sheet)
-                _anim.Move(sheet, sheet.anchoredPosition + new Vector2(0f, -120f), sheet.anchoredPosition, 0f, 0.24f, Ease.OutBack);
-        }
-
-        // ---- 底部镶嵌面板 ----
-
-        void BuildSheet(CodexEntry e, int k)
-        {
-            if (k >= _meta.SlotsOpen(e)) return;
-            SealType t = _meta.SlotTypeOf(e, k);
-            int key = SealCatalog.KeyOf(e);
-            bool filled = _meta.SlotSealOf(e, k, out SealQuality cur);
-            float w = SheetSize.x, h = SheetSize.y;
-
-            // 面板后面垫一层吃点击的底，点空白处收起。
-            var catcher = UiKit.Panel(_body, "sheet_catch", new Vector2(0f, SheetY - 20f), new Vector2(BoardW, BoardH - SheetY + 20f),
-                Color.clear, Pin.Top);
-            Hit(catcher, 0f, () => Select(_sel));
-            var sheet = UiKit.Stroke(_body, "sheet", new Vector2(0f, SheetY), SheetSize, Pin.Top, 5f, null, InkTheme.Hex("FFF8EA"), 28f);
-
-            // 头部：这一槽现在的样子 + 类型名 + 效果。
-            Vector2 mp = new Vector2(-w * 0.5f + 78f, h * 0.5f - 76f);
-            var plate = UiKit.Icon(sheet, InkSprites.Load("Ui/seal_burst"), mp, 172f);
-            plate.color = Color.white;
-            _anim.Spin(plate.transform, 10f);
-            if (filled) SealArt.Medal(sheet, "cur", t, cur, mp, 108f);
-            else SealArt.Empty(sheet, "cur", t, mp, 108f);
-            const float textL = 150f;
-            float textW = w - textL - 150f;
-            var head = UiKit.Label(sheet, "h", SealCatalog.TypeName(t), 32,
-                new Vector2(-w * 0.5f + textL + textW * 0.5f, h * 0.5f - 46f), new Vector2(textW, 42f), TextAnchor.MiddleLeft);
-            head.color = InkTheme.TextDark;
-            UiKit.Bold(head);
-            SealCatalog.Line(key, t, filled ? cur : SealQuality.Green, out string what, out string amount);
-            string now = filled
-                ? SealCatalog.QualityName(cur) + "印章 · " + what + " " + Tint(amount, SealCatalog.QualityDeep(cur))
-                : "空槽 · 镶上后" + what + "提高";
-            var sub = UiKit.Label(sheet, "k", now, 21,
-                new Vector2(-w * 0.5f + textL + textW * 0.5f, h * 0.5f - 80f), new Vector2(textW, 28f), TextAnchor.MiddleLeft);
-            sub.color = InkTheme.TextDark;
-            UiKit.Bold(sub);
-            var eff = UiKit.Label(sheet, "eff", SealCatalog.EffectOf(key, t) + "。品质越高，加得越多", 18,
-                new Vector2(-w * 0.5f + textL + (w - textL - 30f) * 0.5f, h * 0.5f - 122f), new Vector2(w - textL - 30f, 52f),
-                TextAnchor.UpperLeft);
-            eff.horizontalOverflow = HorizontalWrapMode.Wrap;
-            eff.verticalOverflow = VerticalWrapMode.Truncate;
-            eff.color = InkTheme.TextMid;
-            var x = UiKit.Btn(sheet, "x", "收起", new Vector2(w * 0.5f - 72f, h * 0.5f - 48f), new Vector2(108f, 54f),
-                () => Select(_sel), false);
-            var xt = x.GetComponentInChildren<Text>();
-            if (xt != null) xt.fontSize = 22;
-
-            // 四个品质一字排开：有货的可以点，点了就镶（已经镶着的换下来退回背包）。
-            const float cellW = 134f, cellH = 162f, gap = 10f;
-            float x0 = -(cellW + gap) * 1.5f;
-            float cy = -6f;
-            int have = _meta.BagCount(t);
-            for (int qi = 0; qi < SealCatalog.QualityCount; qi++)
-            {
-                var q = (SealQuality)qi;
-                int n = _meta.BagCount(t, q);
-                bool on = filled && q == cur;
-                bool any = on || n > 0;
-                Vector2 pos = new Vector2(x0 + qi * (cellW + gap), cy);
-                var cell = UiKit.Stroke(sheet, "q" + qi, pos, new Vector2(cellW, cellH), Pin.Center, on ? 5f : 3f,
-                    on ? SealCatalog.QualityDeep(q) : any ? SealCatalog.QualityColor(q) : InkTheme.LineDim,
-                    on ? InkTheme.Hex("FFEFC4") : any ? InkTheme.CardFace : InkTheme.Hex("F1E9DA"), 22f);
-                var medal = SealArt.Medal(cell, "m", t, q, new Vector2(0f, 20f), 88f);
-                if (!any)
-                {
-                    foreach (var img in medal.GetComponentsInChildren<Image>()) img.color *= new Color(1f, 1f, 1f, 0.32f);
-                }
-                SealCatalog.Line(key, t, q, out _, out string qAmount);
-                var v = UiKit.Label(cell, "v", qAmount, 24, new Vector2(0f, -50f), new Vector2(cellW, 28f));
-                v.color = any ? SealCatalog.QualityDeep(q) : InkTheme.TextDim;
-                UiKit.Bold(v);
-                if (on)
-                {
-                    var tag = UiKit.Stroke(cell, "on", new Vector2(0f, cellH * 0.5f), new Vector2(76f, 32f), Pin.Center, 3f,
-                        null, InkTheme.Seal, 16f);
-                    var tt = UiKit.Label(tag, "t", "镶着", 19, Vector2.zero, new Vector2(76f, 32f));
-                    tt.color = InkTheme.CardFace;
-                    UiKit.Bold(tt);
-                }
-                else
-                {
-                    Vector2 cp = new Vector2(cellW * 0.5f - 24f, cellH * 0.5f - 20f);
-                    var chip = UiKit.Stroke(cell, "n", cp, new Vector2(48f, 30f), Pin.Center, 2.5f,
-                        n > 0 ? null : InkTheme.LineDim, n > 0 ? InkTheme.TextDark : InkTheme.Hex("E6DCC8"), 15f);
-                    var ct = UiKit.Label(chip, "t", "×" + n, 18, Vector2.zero, new Vector2(48f, 30f));
-                    ct.color = n > 0 ? InkTheme.CardFace : InkTheme.TextDim;
-                    UiKit.Bold(ct);
-                }
-                SealQuality pick = q;
-                Hit(cell, 0f, () => Socket(pick));
-            }
-            if (have == 0 && !filled)
-            {
-                var none = UiKit.Label(sheet, "none", "还没有" + SealCatalog.TypeName(t) + "印章 · 开宝箱、每日副本可以获得",
-                    18, new Vector2(0f, cy - cellH * 0.5f - 18f), new Vector2(w - 40f, 26f));
-                none.color = InkTheme.TextMid;
-            }
-
-            if (filled)
-            {
-                var off = UiKit.Btn(sheet, "off", "卸下", new Vector2(0f, -h * 0.5f + 56f), new Vector2(220f, 68f), Unsocket, false);
-                var ot = off.GetComponentInChildren<Text>();
-                if (ot != null) ot.fontSize = 24;
-            }
+                _anim.Move(sheet, sheet.anchoredPosition + new Vector2(0f, -110f), sheet.anchoredPosition, 0f, 0.24f, Ease.OutBack);
         }
 
         void Socket(SealQuality q)
@@ -434,6 +672,7 @@ namespace InkLine
                 return;
             }
             if (!_meta.Socket(e, k, q)) return;
+            _sel = -1;
             AudioBus.Stamp();
             _anim.Clear();
             Paint();
@@ -453,12 +692,14 @@ namespace InkLine
                     }
                 });
             }
-            if (q == SealQuality.Gold && _board.parent is RectTransform dim) UiConfetti.Burst(dim, 60);
+            if (q == SealQuality.Gold && _board.parent is RectTransform stg && stg.parent is RectTransform dim)
+                UiConfetti.Burst(dim, 60);
         }
 
         void Unsocket()
         {
             if (!_meta.Unsocket(Cur, _sel)) return;
+            _sel = -1;
             AudioBus.Tap();
             InkToast.Show(_layer, "印章退回背包");
             _anim.Clear();
@@ -494,6 +735,7 @@ namespace InkLine
             for (int k = 0; k < open; k++)
                 if (_meta.SlotSealOf(e, k, out _)) had = true;
             if (_meta.Reroll(e) <= 0) return;
+            _sel = -1;
             _busyUntil = Time.unscaledTime + 0.4f;
             AudioBus.CardFlip(1.15f);
             _anim.Clear();
@@ -524,108 +766,6 @@ namespace InkLine
             });
         }
 
-        // ---- 加成、升级 ----
-
-        void BuildBonus(int lv)
-        {
-            var box = UiKit.Panel(_body, "bonus", new Vector2(0f, 616f), new Vector2(580f, 118f), Color.clear, Pin.Top);
-            box.GetComponent<Image>().raycastTarget = false;
-            int now = Mathf.RoundToInt(StudyCatalog.BonusOf(lv) * 100f);
-            // 上面是等级和圆点，下面才是这个等级给的整体伤害。
-            const float rowY = -26f;
-            bool max = lv >= StudyCatalog.MaxLevel;
-            var what = UiKit.Label(box, "what", "字的整体伤害", 22, new Vector2(max ? -96f : -172f, rowY),
-                new Vector2(160f, 40f), TextAnchor.MiddleRight);
-            what.color = InkTheme.TextMid;
-            UiKit.Bold(what);
-            if (max)
-            {
-                var full = UiKit.Label(box, "v", "+" + now + "%", 40, new Vector2(60f, rowY), new Vector2(160f, 52f));
-                full.color = InkTheme.Seal;
-                UiKit.Bold(full);
-            }
-            else
-            {
-                int next = Mathf.RoundToInt(StudyCatalog.BonusOf(lv + 1) * 100f);
-                var a = UiKit.Label(box, "a", "+" + now + "%", 40, new Vector2(-24f, rowY), new Vector2(130f, 52f));
-                UiKit.Bold(a);
-                var arrow = UiKit.Label(box, "arrow", "→", 34, new Vector2(62f, rowY), new Vector2(50f, 52f));
-                arrow.color = InkTheme.TextMid;
-                var b = UiKit.Label(box, "b", "+" + next + "%", 40, new Vector2(148f, rowY), new Vector2(130f, 52f));
-                b.color = InkTheme.Seal;
-                UiKit.Bold(b);
-            }
-
-            // 上面一行：等级药丸 + 十颗等级点。
-            const float dotY = 28f;
-            Vector2 pillSize = new Vector2(104f, 42f);
-            var pill = UiKit.Stroke(box, "lv", new Vector2(-226f, dotY), pillSize, Pin.Center, 4f, null, StudyCard.Badge(lv), 21f);
-            var pt = UiKit.Label(pill, "t", max ? "MAX" : "Lv." + lv, 26, Vector2.zero, pillSize);
-            pt.color = InkTheme.CardFace;
-            UiKit.Bold(pt);
-
-            int cap = _meta.StudyCap;
-            const float step = 36f;
-            for (int i = 0; i < StudyCatalog.MaxLevel; i++)
-            {
-                Vector2 at = new Vector2(42f + (i - (StudyCatalog.MaxLevel - 1) * 0.5f) * step, dotY);
-                var ring = UiKit.Icon(box, UiSprites.Disc(), at, 26f);
-                ring.name = "dot" + i;
-                ring.color = i < cap ? InkTheme.Outline : InkTheme.LineDim;
-                var fill = UiKit.Icon(ring.transform, UiSprites.Disc(), Vector2.zero, 19f);
-                fill.color = i < lv ? StudyCatalog.TierColor(StudyCatalog.TierOf(i + 1))
-                    : i < cap ? InkTheme.CardFace : InkTheme.CardDim;
-                if (i == lv && i < cap) _anim.Breathe(ring.transform, 0f, 0.08f, 1.1f);
-            }
-        }
-
-        void BuildActions(CodexEntry e, int lv)
-        {
-            MetaProgress.StudyBlock block = _meta.UpgradeBlock(e);
-            int cost = StudyCatalog.CostOf(lv, e.Kind == CodexKind.Word);
-            if (lv < StudyCatalog.MaxLevel)
-            {
-                // 贴在升级按钮上沿，整行按按钮居中，图标和数字同一条线。
-                const float costH = 48f;
-                const float iconS = 36f;
-                const float numW = 86f;
-                const float ownW = 210f;
-                float total = iconS + 6f + numW + 8f + ownW;
-                float left = -total * 0.5f;
-                var line = UiKit.Panel(_body, "cost", new Vector2(0f, 810f - 6f - costH), new Vector2(total + 8f, costH),
-                    Color.clear, Pin.Top);
-                line.GetComponent<Image>().raycastTarget = false;
-                Color ink = _meta.Foil >= cost ? InkTheme.TextDark : InkTheme.Seal;
-                UiKit.Icon(line, FoilArt.Icon, new Vector2(left + iconS * 0.5f, -1f), iconS);
-                var n = UiKit.Label(line, "n", cost.ToString(), 34,
-                    new Vector2(left + iconS + 6f + numW * 0.5f, 0f), new Vector2(numW, costH), TextAnchor.MiddleLeft);
-                n.color = ink;
-                UiKit.Bold(n);
-                var own = UiKit.Label(line, "own", "（拥有 " + _meta.Foil + "）", 26,
-                    new Vector2(left + iconS + 6f + numW + 8f + ownW * 0.5f, 0f), new Vector2(ownW, costH),
-                    TextAnchor.MiddleLeft);
-                own.color = ink;
-            }
-
-            string label = block == MetaProgress.StudyBlock.Max ? "已满级"
-                : block == MetaProgress.StudyBlock.Cap ? "Lv." + _meta.StudyCap + " 已到上限"
-                : "升级";
-            var up = UiKit.Btn(_body, "up", label, new Vector2(0f, 810f), new Vector2(400f, 104f), Upgrade, true, Pin.Top);
-            var upText = up.GetComponentInChildren<Text>();
-            if (upText != null) upText.fontSize = 40;
-            PanelKit.Dim(up, block != MetaProgress.StudyBlock.None);
-            if (block == MetaProgress.StudyBlock.None) _anim.Breathe(up.transform, 0.2f, 0.035f, 1.2f);
-
-            bool trial = _meta.HasTrial(e);
-            string tl = trial ? "今日有效 · 用到才算"
-                : "看广告试用 +" + StudyCatalog.TrialBonus + " 级（剩 " + _meta.TrialLeft + "）";
-            var ad = UiKit.Btn(_body, "trial", tl, new Vector2(0f, 948f), new Vector2(420f, 76f), Trial, false, Pin.Top);
-            var adText = ad.GetComponentInChildren<Text>();
-            if (adText != null) adText.fontSize = 24;
-            if (!trial) ResultKit.AdMark(ad, 32f);
-            PanelKit.Dim(ad, !_meta.CanTrial(e), false);
-        }
-
         void Step(int d)
         {
             if (Time.unscaledTime < _busyUntil) return;
@@ -638,7 +778,6 @@ namespace InkLine
 
         void Upgrade()
         {
-            // 蓄力那 0.3 秒里旧字还在，连点或翻页会让爆点落到别的字上。
             if (Time.unscaledTime < _busyUntil) return;
             CodexEntry e = Cur;
             MetaProgress.StudyBlock block = _meta.UpgradeBlock(e);
@@ -662,11 +801,9 @@ namespace InkLine
                 lv, tierUp, () => Reveal(lv, slotsWas));
         }
 
-        // 爆点那一下重绘，加成数字和新点亮的那颗等级点跟着跳；开了新槽，那颗槽也弹出来。
         RectTransform Reveal(int lv, int slotsWas)
         {
             Paint();
-            // 重绘会把新内容盖到演出上面，品质横幅要留在最上层。
             Transform fx = _board.Find("study_up_fx");
             if (fx != null) fx.SetAsLastSibling();
             Transform bonus = _body.Find("bonus");
@@ -676,6 +813,8 @@ namespace InkLine
                 if (num != null) _anim.Punch(num, 0.05f, 0.3f, 0.4f);
                 if (bonus.Find("dot" + (lv - 1)) is RectTransform dot)
                 {
+                    dot.pivot = new Vector2(0.5f, 0.5f);
+                    dot.anchoredPosition += new Vector2(dot.sizeDelta.x * 0.5f, -dot.sizeDelta.y * 0.5f);
                     _anim.Pop(dot, 0.12f, 0.42f, 0.2f);
                     _anim.At(0.12f, () =>
                     {
@@ -755,6 +894,89 @@ namespace InkLine
                 _anim.Clear();
                 Paint();
             });
+        }
+
+        // ---- 配色映射 ----
+
+        static string Tint(string s, Color c) => "<color=#" + ColorUtility.ToHtmlStringRGB(c) + ">" + s + "</color>";
+
+        static float TextWidth(string s, float fontSize)
+        {
+            float w = 0f;
+            for (int i = 0; i < s.Length; i++)
+                w += s[i] > 255 ? fontSize : fontSize * 0.58f;
+            return Mathf.Round(w);
+        }
+
+        static string StageKey(StudyCatalog.Tier t)
+        {
+            switch (t)
+            {
+                case StudyCatalog.Tier.Green: return "green";
+                case StudyCatalog.Tier.Blue: return "blue";
+                case StudyCatalog.Tier.Purple: return "purple";
+                case StudyCatalog.Tier.Gold: return "gold";
+                default: return "gray";
+            }
+        }
+
+        static string SegKey(StudyCatalog.Tier t)
+        {
+            switch (t)
+            {
+                case StudyCatalog.Tier.Blue: return "blue";
+                case StudyCatalog.Tier.Purple: return "purple";
+                case StudyCatalog.Tier.Gold: return "gold";
+                default: return "green";
+            }
+        }
+
+        static string QualityKey(SealQuality q)
+        {
+            switch (q)
+            {
+                case SealQuality.Blue: return "blue";
+                case SealQuality.Purple: return "purple";
+                case SealQuality.Gold: return "gold";
+                default: return "green";
+            }
+        }
+
+        static Color FilledValueColor(SealQuality q)
+        {
+            switch (q)
+            {
+                case SealQuality.Blue: return InkTheme.Hex("8AD4FF");
+                case SealQuality.Purple: return InkTheme.Hex("E2A8FF");
+                case SealQuality.Gold: return InkTheme.Hex("FFE455");
+                default: return InkTheme.Hex("A8E86A");
+            }
+        }
+
+        static Color LvTextColor(StudyCatalog.Tier t)
+        {
+            switch (t)
+            {
+                case StudyCatalog.Tier.Green: return InkTheme.Hex("8ACB29");
+                case StudyCatalog.Tier.Blue: return InkTheme.Hex("4BB3FD");
+                case StudyCatalog.Tier.Purple: return InkTheme.Hex("C875FF");
+                case StudyCatalog.Tier.Gold: return InkTheme.Hex("FFB82E");
+                default: return InkTheme.Hex("9AA2AC");
+            }
+        }
+
+        static string FamilyTagKey(CodexEntry e)
+        {
+            if (e.Kind == CodexKind.Word) return "orange";
+            switch (GlyphTable.Get((CardId)e.Index).Family)
+            {
+                case GlyphFamily.Hurt: return "coral";
+                case GlyphFamily.Status: return "magenta";
+                case GlyphFamily.Move: return "orange";
+                case GlyphFamily.Ballistic: return "brown";
+                case GlyphFamily.Area: return "teal";
+                default: return "gray";
+            }
         }
     }
 }

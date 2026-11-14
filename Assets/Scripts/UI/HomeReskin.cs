@@ -43,8 +43,10 @@ namespace InkLine
             new Vector2(156f, 78f),
         };
 
-        // 下标跟 HomeScreen.Side* 一致。全部贴在左边。图标放大后行距 84。
-        static readonly float[] SideTop = { 424f, 256f, 172f, 592f, 508f, 676f, 340f };
+        // 下标跟 HomeScreen.Side* 一致。行距 84。
+        // 左列：签到、游戏圈、邮箱、图鉴、排行榜。右列：招财进宝在上，新手礼包在下。
+        static readonly float[] SideTop = { 256f, 256f, 172f, 424f, 508f, 172f, 340f };
+        static bool SideOnRight(int index) => index == 0 || index == 5;
 
         public static readonly Color Ink = new Color(0.102f, 0.063f, 0.031f, 1f);
         public static readonly Color Cream = new Color(1f, 0.965f, 0.894f, 1f);
@@ -538,13 +540,15 @@ namespace InkLine
                 simg.color = Color.white;
             }
 
+            string[] tabKeys = { "tab_forge", "tab_sortie", "tab_spell", "tab_dungeon", "tab_study" };
             float selX = 0f;
             for (int i = 0; i < n; i++)
             {
                 if (tabs[i] == null) continue;
+                bool isOn = i == active;
                 int slot = slots != null && slots.Length == n ? slots[i] : i;
                 float x = (slot - (n - 1) * 0.5f) * step;
-                if (i == active) selX = x;
+                if (isOn) selX = x;
                 var root = tabs[i].GetComponent<RectTransform>();
                 root.anchorMin = root.anchorMax = root.pivot = new Vector2(0.5f, 0.5f);
                 root.anchoredPosition = new Vector2(x, 0f);
@@ -558,26 +562,50 @@ namespace InkLine
                 {
                     var ir = ic.GetComponent<RectTransform>();
                     ir.anchorMin = ir.anchorMax = ir.pivot = new Vector2(0.5f, 0.5f);
-                    ir.anchoredPosition = new Vector2(0f, 16f);
-                    ir.sizeDelta = new Vector2(56f, 56f);
+                    float icoS = isOn ? 84f : 74f;
+                    ir.anchoredPosition = new Vector2(0f, isOn ? 20f : 18f);
+                    ir.sizeDelta = new Vector2(icoS, icoS);
                     var ii = ic.GetComponent<Image>();
-                    if (ii != null) ii.color = Color.white;
+                    if (ii != null)
+                    {
+                        if (i < tabKeys.Length)
+                        {
+                            Sprite tabSpr = InkSprites.Ui(tabKeys[i]);
+                            if (tabSpr != null) ii.sprite = tabSpr;
+                        }
+                        ii.preserveAspect = true;
+                        Transform lk = ic.Find("lock");
+                        bool locked = lk != null && lk.gameObject.activeSelf;
+                        if (!locked) ii.color = Color.white;
+                    }
                 }
                 Transform lb = tabs[i].transform.Find("t");
                 if (lb != null)
                 {
                     var lr = lb.GetComponent<RectTransform>();
-                    lr.anchoredPosition = new Vector2(0f, -40f);
-                    lr.sizeDelta = new Vector2(120f, 28f);
+                    lr.anchoredPosition = new Vector2(0f, -42f);
+                    lr.sizeDelta = new Vector2(120f, 32f);
                     var t = lb.GetComponent<Text>();
                     if (t != null)
                     {
-                        t.fontSize = 20;
+                        t.fontSize = isOn ? 22 : 20;
                         t.fontStyle = FontStyle.Normal;
-                        t.color = Ink;
+                        t.color = isOn ? Color.white : Ink;
                         t.font = UiKit.FontBold;
                         t.alignment = TextAnchor.MiddleCenter;
                         t.alignByGeometry = true;
+                        var edge = t.GetComponent<Outline>();
+                        if (isOn)
+                        {
+                            if (edge == null) edge = t.gameObject.AddComponent<Outline>();
+                            edge.enabled = true;
+                            edge.effectColor = Ink;
+                            edge.effectDistance = new Vector2(1.5f, -1.5f);
+                        }
+                        else if (edge != null)
+                        {
+                            edge.enabled = false;
+                        }
                     }
                 }
             }
@@ -682,7 +710,8 @@ namespace InkLine
             rt.anchorMin = rt.anchorMax = new Vector2(0f, 1f);
             rt.pivot = new Vector2(0.5f, 1f);
             rt.sizeDelta = new Vector2(96f, 82f);
-            rt.anchoredPosition = new Vector2(PlaceX(48f), -PlaceY(SideTop[index]));
+            float x = SideOnRight(index) ? ScreenFit.DesignW - 48f : 48f;
+            rt.anchoredPosition = new Vector2(PlaceX(x), -PlaceY(SideTop[index]));
             rt.localScale = Vector3.one;
             var icon = rt.Find("icon") as RectTransform;
             if (icon != null)
@@ -814,7 +843,7 @@ namespace InkLine
             rt.pivot = new Vector2(0.5f, 0.5f);
             rt.sizeDelta = new Vector2(size, size);
             // 角上压进图标一截，不浮在图标外面。
-            rt.anchoredPosition = icon != null ? new Vector2(-4f, -4f) : new Vector2(-14f, -10f);
+            rt.anchoredPosition = icon != null ? new Vector2(-6f, -6f) : new Vector2(-14f, -10f);
         }
 
         static Transform FindDot(Transform host)
@@ -852,7 +881,7 @@ namespace InkLine
         }
 
         public static void PaintTag(RectTransform page, string name, string label, bool elite, bool locked,
-            bool dot, UnityAction click)
+            bool dot, UnityAction click, bool selected = true)
         {
             Transform found = page.Find(name);
             Button btn = found != null ? found.GetComponent<Button>() : null;
@@ -876,7 +905,10 @@ namespace InkLine
             TopLeft((RectTransform)btn.transform, x, mapTop - tagFoot + 4f, 126f, tagH);
             Hide(btn.transform.Find("face"));
             var plate = btn.GetComponent<Image>();
-            string file = elite ? (locked ? "Ui/home_tag_gray" : "Ui/home_tag_elite") : "Ui/home_tag_normal";
+            // 选中才用本色：普通黄、精英粉。没选中和还锁着的都是灰。
+            string file = selected && !locked
+                ? (elite ? "Ui/home_tag_elite" : "Ui/home_tag_normal")
+                : "Ui/home_tag_gray";
             Sprite spr = InkSprites.Load(file);
             if (plate != null && spr != null)
             {
@@ -895,10 +927,9 @@ namespace InkLine
                 text.fontSize = 16;
                 text.font = UiKit.FontBold;
                 text.fontStyle = FontStyle.Normal;
-                Seat(text, TagLift);
+                Seat(text, TagLift, locked ? 18f : 0f, locked ? 4f : 0f);
             }
-            Transform mark = btn.transform.Find("lock");
-            if (mark != null) mark.gameObject.SetActive(false);
+            ShowTagLock(btn.transform, locked);
             Transform badge = btn.transform.Find("dot");
             if (badge != null || dot)
                 PlaceDot(btn.transform, dot);
@@ -931,6 +962,31 @@ namespace InkLine
                 rt.anchoredPosition = new Vector2((i - 1) * 21f, -1f);
             }
             return true;
+        }
+
+        // 没开放的精英标签：灰底上靠左放一把锁，字让开锁。
+        static void ShowTagLock(Transform host, bool on)
+        {
+            Transform mark = host.Find("lock");
+            if (!on)
+            {
+                if (mark != null) mark.gameObject.SetActive(false);
+                return;
+            }
+            var img = mark != null ? mark.GetComponent<Image>() : null;
+            if (img == null)
+            {
+                img = UiKit.Icon(host, InkSprites.Load("icon_lock"), Vector2.zero, 18f);
+                img.gameObject.name = "lock";
+            }
+            img.gameObject.SetActive(true);
+            img.color = Color.white;
+            img.raycastTarget = false;
+            var rt = img.rectTransform;
+            rt.anchorMin = rt.anchorMax = new Vector2(0f, 0.5f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.sizeDelta = new Vector2(18f, 18f);
+            rt.anchoredPosition = new Vector2(28f, 2f);
         }
 
         static void Hide(Transform t)

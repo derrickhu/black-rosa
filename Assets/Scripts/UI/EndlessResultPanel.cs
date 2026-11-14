@@ -28,9 +28,9 @@ namespace InkLine
         const float BestY = 8f;
         const float BarY = -48f;
         const float LootY = -168f;
-        const float RankY = -318f;
-        const float DoubleY = -414f;
-        const float AgainY = -514f;
+        const float RankY = -336f;
+        const float DoubleY = -426f;
+        const float AgainY = -522f;
         const float SlotY = -190f;
         const float SlotLift = 10f;
 
@@ -110,7 +110,7 @@ namespace InkLine
             _anim.Fade(sub, 0.5f, 0.28f, 0f, 1f);
 
             EndlessResult r = _a.Result;
-            var big = ResultKit.Headline(stage, "waves", "第 0 波", 84, new Vector2(r.NewBest ? -36f : 0f, WaveY), Gold, InkTheme.Hex("7A1E14"), 4f);
+            var big = ResultKit.LightTitle(stage, "waves", "第 0 波", 64, new Vector2(r.NewBest ? -36f : 0f, WaveY), Gold);
             _anim.Pop(big.transform, 0.48f, 0.28f, 0f)
                  .CountUp(big, 0, r.Waves, 0.55f, 0.7f, "第 {0} 波", AudioBus.CountTick)
                  .Punch(big.transform, 1.25f, 0.14f, 0.28f);
@@ -137,7 +137,7 @@ namespace InkLine
             _anim.Fade(sub, 0.55f, 0.25f, 0f, 1f);
 
             EndlessResult r = _a.Result;
-            var big = ResultKit.Headline(stage, "waves", "第 0 波", 84, new Vector2(0f, WaveY), Gold, InkTheme.Hex("23201E"), 4f);
+            var big = ResultKit.LightTitle(stage, "waves", "第 0 波", 64, new Vector2(0f, WaveY), Gold);
             _anim.Pop(big.transform, 0.6f, 0.28f, 0f)
                  .CountUp(big, 0, r.Waves, 0.65f, 0.65f, "第 {0} 波", AudioBus.CountTick)
                  .Punch(big.transform, 1.3f, 0.1f, 0.24f);
@@ -196,40 +196,53 @@ namespace InkLine
             }
             else tip = $"共 {total} 波";
             var host = ResultKit.Group(stage, "remain", new Vector2(0f, BarY), new Vector2(520f, 70f));
-            var fill = ResultKit.Bar(host, new Vector2(0f, 16f), 420f, 26f, InkTheme.Hex("F58A34"));
-            var t = UiKit.Label(host, "t", tip, 22, new Vector2(0f, -22f), new Vector2(520f, 30f));
+            ModalKit.ProgressBar(host, 50f, 6f, 420f, 28f, 0f, "", out RectTransform fill, out _);
+            var t = UiKit.Label(host, "t", tip, 18, new Vector2(0f, -22f), new Vector2(520f, 28f));
             t.color = Cream;
             float k0 = goal > 0f ? waves / goal : 0f;
             _anim.Pop(host, at, 0.3f)
-                 .Tween(at + 0.15f, 0.55f, k => ResultKit.SetBar(fill, k0 * Ease.OutCubic(k)));
+                 .Tween(at + 0.15f, 0.55f, k => ModalKit.SetProgress(fill, 420f, 28f, k0 * Ease.OutCubic(k)));
         }
 
         void BuildLoot(RectTransform stage, float at)
         {
             EndlessResult r = _a.Result;
-            var host = ResultKit.Group(stage, "loot", new Vector2(0f, LootY), new Vector2(560f, 176f));
-            var card = UiKit.Stroke(host, "card", Vector2.zero, new Vector2(560f, 176f), Pin.Center, 4f,
-                null, InkTheme.Hex("FFF8EC"), 22f);
-            card.GetComponent<Image>().raycastTarget = false;
-            var head = UiKit.Label(card, "h", "本局收获", 20, new Vector2(0f, 62f), new Vector2(500f, 28f));
-            head.color = InkTheme.TextMid;
-
             bool chest = r.Chest >= 0;
-            float inkX = chest ? -130f : 0f;
-            var inkIcon = UiKit.Icon(card, InkSprites.Ui("ink"), new Vector2(inkX, 8f), 72f);
-            _ink = UiKit.Label(card, "ink", "墨 +0", 32, new Vector2(inkX, -48f), new Vector2(240f, 40f));
-            UiKit.Bold(_ink);
-            _anim.CountUp(_ink, 0, r.Ink, at + 0.15f, 0.45f, "墨 +{0}", AudioBus.CountTick);
-            _anim.Pop(inkIcon.transform, at + 0.1f, 0.28f, 0.4f);
+            const float trayW = 560f, trayH = 224f;
+            var host = ResultKit.Group(stage, "loot", new Vector2(0f, LootY - 10f), new Vector2(trayW, trayH));
+            var tray = ModalKit.Sliced(host, "card", "Ui/victory_loot_tray", new Vector4(52f, 52f, 52f, 52f),
+                0f, 0f, trayW, trayH, false);
+            ModalKit.OutlinedText(tray, "h", "本局收获", 22, 0f, 14f, trayW, 32f,
+                ModalKit.CreamLight, TextAnchor.MiddleCenter, 1.4f);
+
+            const int slotS = 86;
+            const float slotY = 56f;
+            float inkX = chest ? 148f : (trayW - slotS) * 0.5f;
+            var inkSlot = ModalKit.ItemSlot(tray, ModalKit.InkTone, slotS, inkX, slotY, ModalKit.Load("Ui/ico_ink"), "+0");
+            inkSlot.pivot = new Vector2(0.5f, 0.5f);
+            inkSlot.anchoredPosition = new Vector2(inkX + slotS * 0.5f, -(slotY + slotS * 0.5f));
+            _ink = inkSlot.Find("n")?.GetComponent<Text>();
+            ModalKit.SolidText(tray, "ink_nm", "灵墨", 16, inkX - 10f, slotY + slotS + 6f, slotS + 20f, 24f,
+                ModalKit.CreamLight, TextAnchor.MiddleCenter, true);
+            if (_ink != null)
+                _anim.CountUp(_ink, 0, r.Ink, at + 0.15f, 0.45f, "+{0}", AudioBus.CountTick);
+            _anim.Pop(inkSlot, at + 0.1f, 0.28f, 0.4f);
 
             if (chest)
             {
                 ChestDef def = ChestCatalog.Get(r.Chest);
-                var icon = UiKit.Icon(card, InkSprites.Load("Ui/chest_" + def.Key), new Vector2(130f, 10f), 84f);
-                string where = r.ChestSlot == -1 ? "位满了，先寄着" : r.ChestSlot == -3 ? "放不下，折成墨了" : "已放进宝箱位";
-                var n = UiKit.Label(card, "chest", def.Name + " · " + where, 20, new Vector2(130f, -48f), new Vector2(280f, 30f));
-                n.color = InkTheme.TextDark;
-                _anim.Pop(icon.transform, at + 0.22f, 0.32f, 0.2f).At(at + 0.4f, AudioBus.ChestLand);
+                float cx = trayW - 148f - slotS;
+                var chSlot = ModalKit.ItemSlot(tray, ModalKit.ChestTone(def.Tier), slotS, cx, slotY,
+                    ModalKit.Load("Ui/chest_" + def.Key), "1");
+                chSlot.pivot = new Vector2(0.5f, 0.5f);
+                chSlot.anchoredPosition = new Vector2(cx + slotS * 0.5f, -(slotY + slotS * 0.5f));
+                ModalKit.SolidText(tray, "ch_nm", def.Name, 16, cx - 16f, slotY + slotS + 6f, slotS + 32f, 24f,
+                    ModalKit.CreamLight, TextAnchor.MiddleCenter, true);
+
+                string where = def.Name + "：" + (r.ChestSlot == -1 ? "位满了，先寄着" : r.ChestSlot == -3 ? "放不下，折成灵墨了" : "已放进宝箱位");
+                ModalKit.SolidText(tray, "chest_note", where, 15, 0f, 184f, trayW, 24f,
+                    InkTheme.Hex("CFC6B8"), TextAnchor.MiddleCenter, false);
+                _anim.Pop(chSlot, at + 0.22f, 0.32f, 0.2f).At(at + 0.4f, AudioBus.ChestLand);
             }
             _anim.Pop(host, at, 0.32f).At(at + 0.12f, AudioBus.Stamp);
         }
@@ -240,37 +253,40 @@ namespace InkLine
             if (_slot != null) lift = SlotLift;
             if (_a.Rank != null)
             {
-                var rank = ResultKit.Group(stage, "rank", new Vector2(0f, RankY), new Vector2(300f, 72f));
-                UiKit.Btn(rank, "b", "看排行榜", Vector2.zero, new Vector2(300f, 72f), () => _a.Rank(), false);
+                var rank = ResultKit.Group(stage, "rank", new Vector2(0f, RankY), new Vector2(176f, 63f));
+                ModalKit.HexBtn(rank, "md_cyan", 0f, 0f, "看排行榜", () => _a.Rank(), out _);
                 _anim.Pop(rank, at, 0.28f);
             }
 
             if (_a.Double != null)
             {
-                var dbl = ResultKit.Group(stage, "double", new Vector2(0f, DoubleY + lift), new Vector2(320f, 84f));
-                _double = UiKit.Btn(dbl, "b", "墨翻倍", Vector2.zero, new Vector2(320f, 84f), () => _a.Double());
-                ResultKit.AdMark(_double, 34f);
+                var dbl = ResultKit.Group(stage, "double", new Vector2(0f, DoubleY + lift), new Vector2(296f, 101f));
+                _double = ModalKit.HexBtn(dbl, "lg_yellow", 0f, 0f, "", () => _a.Double(), out _);
+                ModalKit.SetAdBtnLabel(_double, "lg_yellow", "墨翻倍", true);
                 _anim.Pop(dbl, at + 0.08f, 0.3f);
             }
 
             int left = _a.Daily ? _meta.DailyPlaysLeft : _meta.EndlessPlaysLeft;
-            var row = ResultKit.Group(stage, "row", new Vector2(0f, AgainY + lift), new Vector2(500f, 88f));
-            var again = UiKit.Btn(row, "again", $"再来一局（剩 {left}）", new Vector2(-128f, 0f), new Vector2(248f, 84f),
-                () => _a.Again?.Invoke(), _double == null);
-            if (left <= 0) PanelKit.Dim(again, true);
-            else _anim.Breathe(again.transform, at + 0.5f, 0.035f, 1.2f);
-            UiKit.Btn(row, "home", "回主页", new Vector2(140f, 0f), new Vector2(200f, 84f), () => _a.Home?.Invoke(), false);
+            var row = ResultKit.Group(stage, "row", new Vector2(0f, AgainY + lift), new Vector2(514f, 80f));
+            string againKind = left > 0 ? "wide_yellow" : "wide_gray";
+            var again = ModalKit.HexBtn(row, againKind, 200f, 0f, $"再来一局（剩 {left}）",
+                () => _a.Again?.Invoke(), out _);
+            if (left > 0 && _double == null)
+            {
+                var art = again.GetComponent<RectTransform>();
+                art.pivot = new Vector2(0.5f, 0.5f);
+                art.anchoredPosition = new Vector2(200f + 157f, -40f);
+                _anim.Breathe(again.transform, at + 0.5f, 0.035f, 1.2f);
+            }
+            ModalKit.HexBtn(row, "md_gray", 0f, 8f, "返回首页", () => _a.Home?.Invoke(), out _);
             _anim.Pop(row, at + 0.16f, 0.3f);
         }
 
         RectTransform Stamp(RectTransform parent, string text, Vector2 pos, float tilt, float at)
         {
-            var g = ResultKit.Group(parent, "stamp", pos, new Vector2(128f, 54f));
+            var g = ResultKit.Group(parent, "stamp", pos, new Vector2(128f, 44f));
             g.localRotation = Quaternion.Euler(0f, 0f, tilt);
-            UiKit.Stroke(g, "bg", Vector2.zero, new Vector2(128f, 54f), Pin.Center, 4f, fill: InkTheme.Rose, radius: 14f);
-            var t = UiKit.Label(g, "t", text, 26, Vector2.zero, new Vector2(128f, 54f));
-            t.color = Color.white;
-            UiKit.Bold(t);
+            ModalKit.Tag(g, "Ui/modal_tag_coral", 0f, 0f, 128f, 44f, text, false, 22);
             _anim.Pop(g, at, 0.24f, 2.2f).At(at + 0.18f, AudioBus.Stamp);
             return g;
         }
@@ -299,11 +315,11 @@ namespace InkLine
 
         public void Doubled()
         {
-            if (_ink != null) _ink.text = "墨 +" + _a.Result.Ink * 2;
+            if (_ink != null) _ink.text = _slot != null ? "墨 +" + _a.Result.Ink * 2 : "+" + _a.Result.Ink * 2;
             if (_double != null)
             {
-                PanelKit.SetText(_double, "已翻倍");
-                PanelKit.Dim(_double, true);
+                ModalKit.SetAdBtnLabel(_double, "lg_gray", "已翻倍", false);
+                ModalKit.SetHexBtnGray(_double, "lg_yellow", "lg_gray", true);
                 _double.interactable = false;
             }
             AudioBus.Stamp();

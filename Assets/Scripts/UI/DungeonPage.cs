@@ -117,6 +117,16 @@ namespace InkLine
         static void Repair(DungeonCard c)
         {
             if (c == null) return;
+            if (c.Frame != null)
+            {
+                string[] slotKeys = { "Ui/modal_slot_60_green", "Ui/modal_slot_60_blue", "Ui/modal_slot_60_purple" };
+                for (int i = 0; i < slotKeys.Length; i++)
+                {
+                    var si = c.Frame.transform.Find("slot" + i)?.GetComponent<Image>();
+                    Sprite s = InkSprites.Load(slotKeys[i]);
+                    if (si != null && s != null) si.sprite = s;
+                }
+            }
             Paint(c.Chip, UiSprites.FillExact(8));
             Paint(c.PlaysBar, UiSprites.FillExact(8));
             if (c.Plus == null) return;

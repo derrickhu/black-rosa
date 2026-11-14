@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>营地</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+button{font-family:inherit}
+a{color:#172F4E}a:hover{color:#2A4A71}
+</style>
+</helmet>
+<div style="width:390px;height:844px;box-sizing:border-box;position:relative;overflow:hidden;background:{{ground}};color:{{ink}};font-family:'PingFang SC','Hiragino Sans GB','Noto Sans SC',sans-serif">
+  <img src="/_blob/c35a0fb8d8a75f105137bf048ae741fe" alt="一条浅色小路通向小火山，路下站着戴皇冠的墨团和三门炮" style="position:absolute;left:0;top:96px;width:390px;height:560px;object-fit:contain">
+  <div style="position:absolute;left:16px;right:16px;top:20px;display:flex;gap:8px">
+    <div style="flex:1;height:40px;box-sizing:border-box;display:flex;align-items:center;justify-content:center;gap:6px;background:{{ground}};border:1px solid {{ink}};font-size:15px;font-weight:650">
+      <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M9 1 L4 9 h4 l-1 6 6-9 H9 z" fill="{{coral}}"></path></svg>
+      <span>2/12</span>
+    </div>
+    <div style="flex:1;height:40px;box-sizing:border-box;display:flex;align-items:center;justify-content:center;gap:6px;background:{{ground}};border:1px solid {{ink}};font-size:15px;font-weight:650">
+      <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><rect x="6" y="1" width="4" height="3" rx="1" fill="{{ink}}"></rect><rect x="4" y="4" width="8" height="10" rx="2" fill="{{ink}}"></rect></svg>
+      <span>93</span>
+    </div>
+    <div style="flex:1;height:40px;box-sizing:border-box;display:flex;align-items:center;justify-content:center;gap:6px;background:{{ground}};border:1px solid {{ink}};font-size:15px;font-weight:650">
+      <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1 L14 8 L8 15 L2 8 Z" fill="{{coral}}"></path></svg>
+      <span>2</span>
+    </div>
+  </div>
+  <div style="position:absolute;left:0;right:0;top:72px;text-align:center;font-size:15px;font-weight:650">火山</div>
+  <div style="position:absolute;left:20px;right:20px;bottom:28px;display:flex;flex-direction:column;gap:12px;align-items:stretch">
+    <button type="button" style="height:64px;border:0;background:{{ink}};color:{{ground}};font-size:28px;font-weight:700">开炮</button>
+    <div style="display:flex;gap:8px">
+      <button type="button" style="flex:1;height:44px;background:{{ground}};color:{{ink}};border:1px solid {{ink}};font-size:16px;font-weight:650">炮台</button>
+      <button type="button" style="flex:1;height:44px;background:{{ground}};color:{{ink}};border:1px solid {{ink}};font-size:16px;font-weight:650">道具</button>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"ink":{"editor":"color","default":"#172F4E"},"ground":{"editor":"color","default":"#FDF6ED"},"coral":{"editor":"color","default":"#D25F30"},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() {
+return {
+  ink: this.props.ink ?? "#172F4E",
+  ground: this.props.ground ?? "#FDF6ED",
+  coral: this.props.coral ?? "#D25F30"
+};
+}
+}
+</script>
+</body>
+</html>

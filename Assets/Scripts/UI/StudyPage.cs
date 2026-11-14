@@ -36,9 +36,9 @@ namespace InkLine
         ScrollRect _list;
         Text _foil;
         RectTransform _foilChip;
+        RectTransform _foilPlus;
         Text _hint;
         Text _note;
-        RectTransform _swapMark;
         RectTransform _sealMark;
         RectTransform _panel;
         RectTransform _cap;
@@ -124,7 +124,7 @@ namespace InkLine
                 _chips.Add(b);
             }
 
-            SwapMark();
+            FoilPlus();
             SealMark();
 
             var vp = new GameObject("list", typeof(RectTransform), typeof(Image), typeof(RectMask2D), typeof(ScrollRect));
@@ -180,29 +180,36 @@ namespace InkLine
             HomeReskin.TopLeft(_view, HomeReskin.PlaceX(0f), gridY, ScreenFit.DesignW, Mathf.Max(160f, dock - gridY - 8f));
 
             RestyleFoil();
-            HomeReskin.TopLeft(_swapMark, HomeReskin.PlaceX(460f), HomeReskin.PlaceY(148f), 96f, 90f);
             HomeReskin.TopLeft(_sealMark, HomeReskin.PlaceX(624f), HomeReskin.PlaceY(148f), 96f, 90f);
             _foilChip.SetAsLastSibling();
-            _swapMark.SetAsLastSibling();
             _sealMark.SetAsLastSibling();
         }
 
-        // 印章左边一枚兑换标，字在图下面。点开只做每日墨换金箔。稿上没有这颗，功能不能丢。
-        void SwapMark()
+        // 金箔货币栏右侧紧跟一颗绿色加号，点击打开每日兑换。
+        void FoilPlus()
         {
-            var go = new GameObject("swap", typeof(RectTransform), typeof(Image), typeof(Button));
-            go.transform.SetParent(_page, false);
+            var go = new GameObject("plus", typeof(RectTransform), typeof(Image), typeof(Button));
+            go.transform.SetParent(_foilChip, false);
             var rt = go.GetComponent<RectTransform>();
-            _swapMark = rt;
+            // 加号压在金箔条右缘的斜切上，不要悬在条外面。
+            HomeReskin.TopLeft(rt, 137f, -9f, 48f, 48f);
+            _foilPlus = rt;
             var hit = go.GetComponent<Image>();
-            hit.color = Color.clear;
+            hit.color = new Color(1f, 1f, 1f, 0.005f);
+            hit.raycastTarget = true;
             var btn = go.GetComponent<Button>();
             btn.transition = Selectable.Transition.None;
             btn.targetGraphic = hit;
             btn.onClick.AddListener(OpenSwap);
-            UiKit.Icon(go.transform, InkSprites.Ui("swap"), new Vector2(0f, 16f), 56f);
-            var t = UiKit.Label(go.transform, "t", "兑换", 20, new Vector2(0f, -28f), new Vector2(96f, 26f));
-            UiKit.Bold(t);
+
+            var artGo = new GameObject("art", typeof(RectTransform), typeof(Image));
+            artGo.transform.SetParent(rt, false);
+            HomeReskin.TopLeft(artGo.GetComponent<RectTransform>(), 9f, 10f, 30f, 30f);
+            var art = artGo.GetComponent<Image>();
+            art.sprite = InkSprites.Load("Ui/modal_btn_plus_green");
+            art.type = Image.Type.Simple;
+            art.preserveAspect = true;
+            art.raycastTarget = false;
         }
 
         // 右上一枚印章标。开了插槽或攒到过印章才出现。
@@ -377,6 +384,7 @@ namespace InkLine
                 var mark = icon.GetComponent<Image>();
                 if (mark != null) mark.preserveAspect = true;
             }
+            if (_foilPlus != null) _foilPlus.SetAsLastSibling();
         }
 
         // 底沿是圆角那一截，下面用稿上裁出的 128 方块接着铺，星的大小不跟着屏高拉。

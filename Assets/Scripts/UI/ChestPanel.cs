@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -34,14 +35,13 @@ namespace InkLine
         public static ChestPanel Show(RectTransform layer, MetaProgress meta, int slot, Action changed, bool free = false)
         {
             if (meta == null || meta.ChestStateOf(slot) == ChestState.Empty) return null;
-            var dim = UiKit.Dimmer(layer);
-            dim.name = "chest_panel";
+            var dim = ModalKit.Stage(layer, "chest_panel", 0.8f, null, out RectTransform stage);
             var panel = dim.gameObject.AddComponent<ChestPanel>();
             panel._meta = meta;
             panel._slot = slot;
             panel._changed = changed;
             panel._free = free;
-            panel.Build(dim);
+            panel.Build(stage);
             return panel;
         }
 
@@ -51,63 +51,101 @@ namespace InkLine
             Destroy(gameObject);
         }
 
-        void Build(RectTransform dim)
+        struct Drop
+        {
+            public string Tone, Caption, Count;
+            public Sprite Icon;
+            public bool Ask;
+            public Drop(string tone, string caption, string count, Sprite icon, bool ask)
+            {
+                Tone = tone;
+                Caption = caption;
+                Count = count;
+                Icon = icon;
+                Ask = ask;
+            }
+        }
+
+        void Build(RectTransform stage)
         {
             ChestDef d = ChestCatalog.Get(_meta.ChestTierOf(_slot));
-            var board = PanelKit.Board(dim, d.Name, Vector2.zero, new Vector2(BoardW, BoardH), Pin.Center, Close);
-
-            // 字卡开放后，开箱另有几率掉金箔；银箱、金箱有几率掉一枚印章，皇家箱必掉一枚。
-            // 种类和品质开之前不知道，章面用问号。木箱不掉印章。
             bool foil = _meta.StudyOpen;
             bool seal = _meta.SealDropOpen && d.Tier != ChestTier.Wood;
-            bool bonus = foil || seal;
-            var art = UiKit.Icon(board, InkSprites.Load("Ui/chest_" + d.Key),
-                new Vector2(0f, bonus ? 178f : 150f), bonus ? 168f : 200f);
-            UiAnim.On(this).Breathe(art.transform, 0f, 0.03f, 0.8f);
-
-            float rowY = bonus ? 42f : 10f;
-            ContentChip(board, "ink", $"{d.InkMin}~{d.InkMax}", new Vector2(-130f, rowY));
-            ContentChip(board, "card", "×" + d.Cards, new Vector2(130f, rowY));
-            if (bonus)
-            {
-                bool both = foil && seal;
-                float y = rowY - 74f;
-                if (foil) ContentChip(board, "foil", "有机会", new Vector2(both ? -130f : 0f, y));
-                if (seal) SealChip(board, d.Tier == ChestTier.Royal ? "必得" : "有机会", new Vector2(both ? 130f : 0f, y));
-            }
             string extra = d.PurpleChance >= 1f ? "必出稀有道具卡"
                 : d.PurpleChance > 0f ? "有机会出稀有道具卡"
                 : d.Tier == ChestTier.Silver ? "含高级道具卡" : "普通道具卡为主";
-            float hintY = bonus ? -104f : -48f;
-            var hint = UiKit.Label(board, "hint", extra, 22, new Vector2(0f, hintY), new Vector2(BoardW - 60f, 30f));
-            hint.color = InkTheme.TextMid;
 
-            _state = UiKit.Label(board, "state", "", 30, new Vector2(0f, bonus ? -150f : -100f), new Vector2(BoardW - 60f, 40f));
-            _state.color = InkTheme.TextDark;
-            UiKit.Bold(_state);
+            var board = ModalKit.Shell(stage, BoardW, BoardH, d.Name, null, extra, null, null, Close, out _, out _);
 
-            _open = UiKit.Btn(board, "open", "打开", new Vector2(0f, 70f), new Vector2(400f, 100f), OnOpen, true, Pin.Bottom);
+            var art = ModalKit.Pic(board, "chest", "Ui/chest_" + d.Key, (BoardW - 156f) * 0.5f, 148f, 156f, 156f, true);
+            art.raycastTarget = false;
+            UiAnim.On(this).Breathe(art.transform, 0f, 0.03f, 0.8f);
 
-            _ad = UiKit.Btn(board, "ad", "看广告开", new Vector2(-130f, 70f), new Vector2(236f, 96f), OnAd, true, Pin.Bottom);
-            ResultKit.AdMark(_ad, 36f);
+            ModalKit.SolidText(board, "expect", "预计获得", 16, 40f, 314f, BoardW - 80f, 28f,
+                ModalKit.TextDark, TextAnchor.MiddleCenter, true);
 
-            _gem = UiKit.Btn(board, "gem", "", new Vector2(130f, 70f), new Vector2(236f, 96f), OnGem, false, Pin.Bottom);
-            var face = _gem.transform.Find("face");
-            var label = face.Find("t").GetComponent<Text>();
-            label.text = "立即开";
-            label.rectTransform.anchoredPosition = new Vector2(-30f, 0f);
-            UiKit.Icon(face, InkSprites.Ui("diamond"), new Vector2(42f, 0f), 40f);
-            _gemCost = UiKit.Label(face, "cost", "", 26, new Vector2(84f, 0f), new Vector2(60f, 36f));
-            _gemCost.color = InkTheme.TextDark;
-            UiKit.Bold(_gemCost);
+            var drops = new List<Drop>
+            {
+                new Drop(ModalKit.InkTone, "灵墨", d.InkMin + "~" + d.InkMax, ModalKit.Load("Ui/ico_ink"), false),
+                new Drop("rose", "道具卡", "×" + d.Cards, null, false),
+            };
+            if (foil) drops.Add(new Drop(ModalKit.FoilTone, "金箔", null, FoilArt.Icon, false));
+            if (seal) drops.Add(new Drop("purple", d.Tier == ChestTier.Royal ? "必得印章" : "印章", null, null, true));
+            LayDrops(board, drops);
+
+            const float tw = 300f;
+            var timer = ModalKit.Sliced(board, "timer", "Ui/modal_info_strip", ModalKit.BorderStrip,
+                (BoardW - tw) * 0.5f, 492f, tw, 40f);
+            _state = ModalKit.SolidText(timer, "t", "", 16, 10f, 0f, tw - 20f, 40f,
+                ModalKit.CreamLight, TextAnchor.MiddleCenter, true);
+
+            float openX = (BoardW - 296f) * 0.5f;
+            _open = ModalKit.HexBtn(board, "lg_yellow", openX, 548f, "打开", OnOpen, out _);
             if (_free)
             {
-                Transform sh = _ad.transform.parent.Find(_ad.name + "_sh");
-                if (sh != null) Destroy(sh.gameObject);
-                Destroy(_ad.gameObject);
-                _ad = UiKit.Btn(board, "free", "免费加速", new Vector2(0f, 70f), new Vector2(400f, 100f), OnFree, true, Pin.Bottom);
+                _ad = ModalKit.HexBtn(board, "lg_yellow", openX, 548f, "免费加速", OnFree, out _);
+            }
+            else
+            {
+                const float bw = 176f;
+                const float gap = 16f;
+                float x = (BoardW - bw * 2f - gap) * 0.5f;
+                float by = 548f + (101f - 63f);
+                _ad = ModalKit.HexBtn(board, "md_cyan", x, by, "看广告开", OnAd, out _);
+                ModalKit.SetAdBtnLabel(_ad, "md_cyan", "看广告开", true);
+                _gem = ModalKit.HexBtn(board, "md_yellow", x + bw + gap, by, "立即开", OnGem, out Text gemLabel);
+                ModalKit.TopLeft(gemLabel.rectTransform, 6f, 8f, 74f, 46f);
+                gemLabel.alignment = TextAnchor.MiddleRight;
+                var dia = UiKit.Icon(_gem.transform, InkSprites.Ui("diamond"), Vector2.zero, 22f);
+                dia.raycastTarget = false;
+                ModalKit.TopLeft(dia.rectTransform, 84f, 20f, 22f, 22f);
+                _gemCost = UiKit.Label(_gem.transform, "cost", "", 18, Vector2.zero, new Vector2(56f, 30f),
+                    TextAnchor.MiddleLeft, Pin.TopLeft);
+                ModalKit.TopLeft(_gemCost.rectTransform, 108f, 16f, 58f, 30f);
+                _gemCost.color = ModalKit.TextDark;
+                UiKit.Bold(_gemCost);
             }
             Refresh();
+        }
+
+        static void LayDrops(RectTransform board, List<Drop> drops)
+        {
+            const float slot = 96f;
+            const float gap = 14f;
+            int n = drops.Count;
+            float row = n * slot + (n - 1) * gap;
+            float x0 = (BoardW - row) * 0.5f;
+            const float y = 348f;
+            for (int i = 0; i < n; i++)
+            {
+                Drop d = drops[i];
+                float x = x0 + i * (slot + gap);
+                var rt = ModalKit.ItemSlot(board, d.Tone, 96, x, y, d.Icon, d.Count);
+                if (d.Ask)
+                    ModalKit.OutlinedText(rt, "q", "?", 34, 0f, 22f, slot, 48f, Color.white, TextAnchor.MiddleCenter);
+                ModalKit.SolidText(board, "cap" + i, d.Caption, 14, x - 10f, y + slot + 2f, slot + 20f, 24f,
+                    ModalKit.TextDark, TextAnchor.MiddleCenter, true);
+            }
         }
 
         void OnFree()
@@ -117,22 +155,6 @@ namespace InkLine
             AudioBus.UnlockSting();
             Refresh();
             Sped?.Invoke();
-        }
-
-        static void ContentChip(RectTransform board, string icon, string text, Vector2 pos)
-        {
-            var t = UiKit.Chip(board, "c_" + icon, InkSprites.Ui(icon), text, pos, new Vector2(210f, 60f), Pin.Center);
-            t.fontSize = 28;
-        }
-
-        // 左边放问号章，右边写有没有把握开出来。药丸自己不带图标，问号占图标原来的位置。
-        static void SealChip(RectTransform board, string text, Vector2 pos)
-        {
-            const float w = 210f, h = 60f;
-            var t = UiKit.Chip(board, "c_seal", null, text, pos, new Vector2(w, h), Pin.Center);
-            t.fontSize = 28;
-            float r = h * 1.06f;
-            SealArt.Unknown(t.transform.parent, "q", new Vector2(-w * 0.5f + r * 0.42f, 0f), r);
         }
 
         void Update()
@@ -158,23 +180,28 @@ namespace InkLine
             SetShown(_open, ready);
             SetShown(_ad, !ready);
             SetShown(_gem, !ready && !_free);
+            if (_state != null)
+                _state.color = ready ? ModalKit.GoldLight : ModalKit.CreamLight;
             if (ready)
             {
-                _state.text = "已解锁，可以打开";
-                _state.color = InkTheme.Accel;
+                if (_state != null) _state.text = "已解锁，可以打开";
                 return;
             }
-            _state.color = InkTheme.TextDark;
-            _state.text = st == ChestState.Timing
-                ? "解锁中  剩余 " + ChestCatalog.Clock(sec)
-                : "排队中  需要 " + ChestCatalog.Span(sec);
-            int cost = _meta.ChestRushCost(_slot);
-            _gemCost.text = cost.ToString();
-            _gemCost.color = _meta.Diamond >= cost ? InkTheme.TextDark : InkTheme.Rose;
+            if (_state != null)
+                _state.text = st == ChestState.Timing
+                    ? "解锁中  剩余 " + ChestCatalog.Clock(sec)
+                    : "排队中  需要 " + ChestCatalog.Span(sec);
+            if (_gemCost != null)
+            {
+                int cost = _meta.ChestRushCost(_slot);
+                _gemCost.text = cost.ToString();
+                _gemCost.color = _meta.Diamond >= cost ? ModalKit.TextDark : InkTheme.Rose;
+            }
         }
 
         static void SetShown(Button b, bool on)
         {
+            if (b == null) return;
             b.gameObject.SetActive(on);
             b.transform.parent.Find(b.name + "_sh")?.gameObject.SetActive(on);
         }

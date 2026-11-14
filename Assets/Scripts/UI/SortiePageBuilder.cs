@@ -438,11 +438,11 @@ namespace InkLine
             return btn;
         }
 
-        // 侧边贴纸：左列从上到下是签到、游戏圈、邮箱、新手礼包。邮箱占原来礼包的位置，礼包再往下挪一格。
-        // 右列排行榜（最上）、图鉴、招财进宝。无尽和每日残局在底栏「副本」页。下标见 HomeScreen.Side*。
+        // 侧边贴纸：左列从上到下是签到、游戏圈、邮箱、图鉴、排行榜。
+        // 右列招财进宝在上、新手礼包在下。无尽和每日残局在底栏「副本」页。下标见 HomeScreen.Side*。
         public const int SideCount = 7;
 
-        static bool LeftSide(int i) => i < 3 || i == 6;
+        static bool LeftSide(int i) => i != 0 && i != 5;
 
         // 老的 Home.prefab 里烘过的贴纸数量对不上就当场重建。数量够了也要把左右、
         // 图标和文案对齐到下面这套：预制里第 7 颗烘在右边、文案还是「每日任务」，
@@ -516,9 +516,11 @@ namespace InkLine
             float y1 = CardTop + CardH * 0.40f;
             float y2 = CardTop + CardH * 0.68f;
             float y0 = y1 - (y2 - y1);
-            float y3 = y2 + (y2 - y1);
-            // 0 礼包下移，1 游戏圈，2 签到，3 图鉴，4 排行榜，5 招财进宝，6 邮箱占原礼包位。
-            return new[] { y3, y1, y0, y1, y0, y2, y2 };
+            float step = y2 - y1;
+            float y3 = y2 + step;
+            float y4 = y3 + step;
+            // 0 新手礼包在右下，1 游戏圈，2 签到，3 图鉴，4 排行榜，5 招财进宝在右上，6 邮箱。
+            return new[] { y1, y1, y0, y3, y4, y0, y2 };
         }
 
         static Button[] BuildSides(RectTransform page)

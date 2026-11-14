@@ -49,13 +49,28 @@ namespace InkLine
                     UiConfetti.Sparks(root, new Vector2(0f, CannonY - 110f), InkTheme.GraphiteHi, 16, 640f);
                 });
 
-            var banner = ResultKit.Banner(stage, false, "防线失守", new Vector2(0f, BannerY), 580f);
+            var banner = HangBanner(stage, "防线失守", new Vector2(0f, BannerY), 600f);
             banner.pivot = new Vector2(0.5f, 1f);
             float top = BannerY + banner.sizeDelta.y * 0.5f;
             anim.Move(banner, new Vector2(0f, 900f), new Vector2(0f, top), 1.05f, 0.36f, Ease.OutCubic)
                 .Rotate(banner, -22f, 0f, 1.05f, 0.9f, SwingEase)
                 .At(1.3f, AudioBus.Lose);
             return 1.8f;
+        }
+
+        // 失守横幅。中间留白，标题用游戏里的 InkBold 描边字，不烤进图里。
+        static RectTransform HangBanner(Transform parent, string text, Vector2 pos, float width)
+        {
+            const string key = "Ui/defeat_banner";
+            Sprite spr = InkSprites.Load(key);
+            float h = spr != null && spr.rect.height > 1f
+                ? width * spr.rect.height / spr.rect.width
+                : width * 262f / 900f;
+            var holder = ResultKit.Group(parent, "banner_lose", pos, new Vector2(width, h));
+            UiKit.Art(holder, "art", spr != null ? key : "Ui/result_banner_lose", Vector2.zero, new Vector2(width, h));
+            int fs = Mathf.Clamp(Mathf.RoundToInt(h * 0.26f), 36, 48);
+            ResultKit.PlaqueTitle(holder, "t", text, fs, new Vector2(0f, -h * 0.04f), InkTheme.TextDark);
+            return holder;
         }
 
         // 悬挂物的摆：来回荡两下停住。

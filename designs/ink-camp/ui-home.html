@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>出征</title>
+<style>
+  html, body { margin: 0; background: #8fd8f2; }
+  * { box-sizing: border-box; }
+  .phone {
+    width: 390px;
+    height: 844px;
+    position: relative;
+    overflow: hidden;
+    font-family: "PingFang SC", "Hiragino Sans GB", sans-serif;
+    color: #5a3b28;
+    background:
+      radial-gradient(120px 70px at 70px 92px, #fff 0 40%, transparent 42%),
+      radial-gradient(160px 80px at 300px 70px, #fff 0 42%, transparent 44%),
+      radial-gradient(90px 46px at 210px 130px, rgba(255,255,255,.85) 0 40%, transparent 42%),
+      linear-gradient(#7ecdf2, #b7e7f8 46%, #8ed56a 46.2%, #6fbe4e 100%);
+  }
+  .top {
+    position: absolute;
+    left: 14px; right: 14px; top: 18px;
+    height: 42px;
+    display: flex;
+    gap: 8px;
+  }
+  .pill {
+    flex: 1;
+    height: 42px;
+    background: #fff8ea;
+    border: 3px solid #6b4630;
+    border-radius: 21px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    font-size: 16px;
+    font-weight: 750;
+    box-shadow: 0 2px 0 rgba(90, 59, 40, .12);
+  }
+  .plus {
+    width: 18px; height: 18px; border-radius: 9px;
+    background: #3cba6a; color: #fff; font-size: 14px;
+    display: grid; place-items: center; line-height: 1;
+  }
+  .side {
+    position: absolute;
+    top: 118px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    width: 58px;
+    align-items: center;
+  }
+  .side.l { left: 8px; }
+  .side.r { right: 8px; }
+  .ico {
+    width: 52px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #5a3b28;
+    text-shadow: 0 1px 0 #fff;
+  }
+  .badge {
+    width: 46px; height: 46px;
+    border-radius: 14px;
+    border: 3px solid #6b4630;
+    display: grid;
+    place-items: center;
+    box-shadow: 0 2px 0 rgba(90,59,40,.15);
+  }
+  .card {
+    position: absolute;
+    left: 68px; right: 68px; top: 78px;
+    height: 548px;
+    background: #fff6e4;
+    border: 3px solid #6b4630;
+    border-radius: 18px;
+    padding: 10px 10px 12px;
+    display: flex;
+    flex-direction: column;
+  }
+  .banner {
+    height: 86px;
+    border-radius: 12px;
+    border: 3px solid #6b4630;
+    background:
+      linear-gradient(#f6a24a, #e25b32 70%),
+      repeating-linear-gradient(90deg, transparent 0 18px, rgba(255,255,255,.18) 18px 20px);
+    position: relative;
+    overflow: hidden;
+  }
+  .hill {
+    position: absolute; left: 0; right: 0; bottom: 0; height: 28px;
+    background: #6fbe4e;
+    border-top: 3px solid #4e8d34;
+  }
+  .vol {
+    position: absolute; left: 18px; bottom: 18px; width: 0; height: 0;
+    border-left: 22px solid transparent;
+    border-right: 22px solid transparent;
+    border-bottom: 36px solid #6b4630;
+  }
+  .vol i {
+    position: absolute; left: -14px; top: 8px; width: 0; height: 0;
+    border-left: 14px solid transparent;
+    border-right: 14px solid transparent;
+    border-bottom: 24px solid #f0c14a;
+  }
+  .ribbon {
+    position: absolute; left: 28px; right: 28px; bottom: -14px;
+    height: 32px;
+    background: #e23b3b;
+    border: 3px solid #6b4630;
+    border-radius: 6px;
+    color: #fff8ea;
+    font-size: 16px;
+    font-weight: 800;
+    display: grid;
+    place-items: center;
+    letter-spacing: 1px;
+  }
+  .path {
+    margin-top: 28px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 4px 2px 0;
+  }
+  .row { display: flex; justify-content: space-between; align-items: flex-start; position: relative; }
+  .row::before {
+    content: "";
+    position: absolute; left: 18px; right: 18px; top: 17px; height: 6px;
+    background: #e2c48a; border-radius: 3px; z-index: 0;
+  }
+  .node { width: 46px; position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; }
+  .dot {
+    width: 36px; height: 36px; border-radius: 18px;
+    background: #fff; border: 3px solid #6b4630;
+    display: grid; place-items: center;
+    font-weight: 800; color: #3cba6a;
+  }
+  .stars { margin-top: 2px; color: #f0b429; font-size: 9px; letter-spacing: -1px; }
+  .node.now .dot {
+    width: 42px; height: 42px; border-radius: 21px;
+    background: #ffd45a; color: #6b4630; font-size: 13px;
+    box-shadow: 0 0 0 4px rgba(255, 196, 64, .45);
+  }
+  .chapters {
+    display: flex; justify-content: space-between;
+    font-size: 13px; font-weight: 750; color: #8a6248;
+    padding: 0 4px;
+  }
+  .go {
+    margin-top: 8px;
+    height: 48px;
+    border: 3px solid #6b4630;
+    border-radius: 24px;
+    background: #ffd45a;
+    color: #5a3b28;
+    font-size: 18px;
+    font-weight: 850;
+    font-family: inherit;
+  }
+  .chests {
+    position: absolute;
+    left: 74px; right: 74px; top: 638px;
+    display: flex; gap: 8px;
+  }
+  .slot {
+    flex: 1; height: 52px;
+    background: #fff6e4;
+    border: 3px solid #6b4630;
+    border-radius: 12px;
+  }
+  .slot.open {
+    background: #f0c14a;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 800;
+  }
+  .bar {
+    position: absolute;
+    left: 16px; right: 16px; bottom: 16px;
+    height: 78px;
+    background: #fff6e4;
+    border: 3px solid #6b4630;
+    border-radius: 18px;
+    display: flex;
+    padding: 6px;
+    gap: 6px;
+  }
+  .tab {
+    flex: 1;
+    border: 0;
+    background: transparent;
+    border-radius: 14px;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 800;
+    color: #8a6248;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+  }
+  .tab.on { background: #ffd45a; color: #5a3b28; }
+</style>
+</head>
+<body>
+<div class="phone">
+  <div class="top">
+    <div class="pill">
+      <svg width="16" height="16" viewBox="0 0 16 16"><path d="M9 1 L3.5 9 h4 L7 15 13 7 H9z" fill="#f0b429"/></svg>
+      2/12
+      <span class="plus">+</span>
+    </div>
+    <div class="pill">
+      <svg width="16" height="16" viewBox="0 0 16 16"><rect x="6" y="1" width="4" height="3" rx="1" fill="#2a2a2a"/><rect x="4" y="4" width="8" height="10" rx="3" fill="#2a2a2a"/></svg>
+      93
+    </div>
+    <div class="pill">
+      <svg width="16" height="16" viewBox="0 0 16 16"><path d="M8 1.5 L14 8 8 14.5 2 8z" fill="#e23b6a"/></svg>
+      2
+    </div>
+  </div>
+
+  <div class="side l">
+    <div class="ico"><div class="badge" style="background:#ff8a3d"><svg width="26" height="26" viewBox="0 0 26 26"><rect x="4" y="10" width="18" height="12" rx="2" fill="#fff6e4"/><path d="M4 14 h18 M13 10 v12" stroke="#6b4630" stroke-width="2"/><path d="M8 10c0-4 10-4 10 0" fill="none" stroke="#e23b3b" stroke-width="3"/></svg></div>礼包</div>
+    <div class="ico"><div class="badge" style="background:#7ec8f2"><svg width="26" height="26" viewBox="0 0 26 26"><path d="M6 8 h14 v9 a6 6 0 0 1-14 0z" fill="#fff"/><circle cx="10" cy="13" r="1.3" fill="#6b4630"/><circle cx="16" cy="13" r="1.3" fill="#6b4630"/></svg></div>游戏圈</div>
+    <div class="ico"><div class="badge" style="background:#ff5d5d"><svg width="26" height="26" viewBox="0 0 26 26"><rect x="5" y="7" width="16" height="14" rx="2" fill="#fff6e4"/><path d="M5 12 h16" stroke="#e23b3b" stroke-width="3"/><path d="M9 5 v4 M17 5 v4" stroke="#6b4630" stroke-width="2"/></svg></div>签到</div>
+  </div>
+  <div class="side r">
+    <div class="ico"><div class="badge" style="background:#e23b3b"><svg width="26" height="26" viewBox="0 0 26 26"><path d="M7 6 h10 a2 2 0 0 1 2 2 v13 l-7-3-7 3 V8 a2 2 0 0 1 2-2z" fill="#fff6e4"/></svg></div>图鉴</div>
+    <div class="ico"><div class="badge" style="background:#f0c14a"><svg width="26" height="26" viewBox="0 0 26 26"><circle cx="13" cy="11" r="6" fill="#fff6e4"/><path d="M8 16 l-2 6 7-3 7 3-2-6" fill="#e23b3b"/></svg></div>排行</div>
+  </div>
+
+  <div class="card">
+    <div class="banner">
+      <div class="vol"><i></i></div>
+      <div class="hill"></div>
+      <div class="ribbon">第八章 火山</div>
+    </div>
+    <div class="path">
+      <div class="row">
+        <div class="node"><div class="dot">✓</div><div class="stars">★★★</div></div>
+        <div class="node"><div class="dot">✓</div><div class="stars">★★★</div></div>
+        <div class="node"><div class="dot">✓</div><div class="stars">★★☆</div></div>
+      </div>
+      <div class="row">
+        <div class="node"><div class="dot">✓</div><div class="stars">★★★</div></div>
+        <div class="node"><div class="dot">✓</div><div class="stars">★★★</div></div>
+        <div class="node"><div class="dot">✓</div><div class="stars">★★★</div></div>
+      </div>
+      <div class="row">
+        <div class="node"><div class="dot">✓</div><div class="stars">★★★</div></div>
+        <div class="node now"><div class="dot">72</div><div class="stars">当前</div></div>
+        <div class="node"><div class="dot" style="color:#c9b59a">锁</div><div class="stars" style="color:#c9b59a">☆☆☆</div></div>
+      </div>
+    </div>
+    <div class="chapters"><span>上一章</span><span>下一章</span></div>
+    <button class="go" type="button">重打 第72关</button>
+  </div>
+
+  <div class="chests">
+    <div class="slot open">
+      <svg width="22" height="16" viewBox="0 0 22 16"><path d="M2 6 h18 v8 H2z M2 6 a9 6 0 0 1 18 0" fill="#8a4b24"/><path d="M10 6 v8" stroke="#f0c14a" stroke-width="2"/></svg>
+      打开
+    </div>
+    <div class="slot"></div>
+    <div class="slot"></div>
+    <div class="slot"></div>
+  </div>
+
+  <div class="bar">
+    <button class="tab" type="button">
+      <svg width="26" height="20" viewBox="0 0 26 20"><rect x="2" y="8" width="16" height="8" rx="2" fill="#6b4630"/><rect x="16" y="10" width="8" height="4" fill="#4a4a4a"/><circle cx="7" cy="17" r="2" fill="#2a2a2a"/><circle cx="14" cy="17" r="2" fill="#2a2a2a"/></svg>
+      炮台
+    </button>
+    <button class="tab on" type="button">
+      <svg width="22" height="22" viewBox="0 0 22 22"><path d="M4 3 h3 v16 H4z" fill="#6b4630"/><path d="M7 4 h12 l-3 4 3 4 H7z" fill="#e23b3b"/></svg>
+      出征
+    </button>
+    <button class="tab" type="button">
+      <svg width="24" height="20" viewBox="0 0 24 20"><path d="M3 7 h18 v11 H3z" fill="#c47a3a"/><path d="M8 7 V5 a4 4 0 0 1 8 0 v2" fill="none" stroke="#6b4630" stroke-width="2"/></svg>
+      道具
+    </button>
+  </div>
+</div>
+</body>
+</html>

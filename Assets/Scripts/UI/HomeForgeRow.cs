@@ -95,8 +95,6 @@ namespace InkLine
             face.sprite = UiSprites.FillExact(18);
             face.type = Image.Type.Sliced;
             face.raycastTarget = false;
-            var mask = plate.gameObject.AddComponent<Mask>();
-            mask.showMaskGraphic = true;
             StretchLine(plate, "ln");
 
             var bar = UiKit.Panel(plate, "bar", new Vector2(0f, 0f), new Vector2(w, 42f), Bar, Pin.TopLeft);
@@ -113,9 +111,9 @@ namespace InkLine
             disc.color = Gold;
             disc.raycastTarget = false;
             PinBox(disc.rectTransform, 36f, 50f, 68f);
-            r._icon = UiKit.Icon(plate, null, Vector2.zero, 46f);
+            r._icon = UiKit.Icon(plate, null, Vector2.zero, IconBox);
             r._icon.gameObject.name = "ico";
-            PinBox(r._icon.rectTransform, 47f, 61f, 46f);
+            FitIcon(r._icon);
 
             r._name = UiKit.Label(plate, "name", "", 24, new Vector2(18f, 8f), new Vector2(160f, 32f), TextAnchor.MiddleLeft, Pin.TopLeft);
             r._name.color = Ink;
@@ -136,7 +134,7 @@ namespace InkLine
 
             var slot = UiKit.Panel(plate, "slot", new Vector2(136f, 82f), new Vector2(52f, 52f), Color.white, Pin.TopLeft);
             var slotImg = slot.GetComponent<Image>();
-            slotImg.sprite = InkSprites.Load("Ui/item_frame_purple");
+            slotImg.sprite = InkSprites.Load("Ui/modal_slot_52_purple");
             slotImg.preserveAspect = true;
             slotImg.raycastTarget = false;
             r._inkIco = UiKit.Icon(slot, InkSprites.Ui("ink"), Vector2.zero, 34f);
@@ -169,6 +167,16 @@ namespace InkLine
             if (stroke != null) stroke.SetAsLastSibling();
             tag.SetAsLastSibling();
             return r;
+        }
+
+        // 黄圆直径 68，图标贴到 62，只留一圈金边。
+        const float IconBox = 62f;
+
+        static void FitIcon(Image icon)
+        {
+            if (icon == null) return;
+            PinBox(icon.rectTransform, 39f, 53f, IconBox);
+            icon.preserveAspect = true;
         }
 
         static void PinBox(RectTransform rt, float x, float y, float size)
@@ -223,6 +231,7 @@ namespace InkLine
 
             _icon.sprite = InkSprites.Ui(d.Icon);
             _icon.color = Color.white;
+            FitIcon(_icon);
             _inkIco.sprite = InkSprites.Ui(ForgeCatalog.CoinIcon(d.Coin));
             _fresh.gameObject.SetActive(fresh);
             _own.gameObject.SetActive(d.Exclusive);
@@ -265,6 +274,7 @@ namespace InkLine
             ForgeDef d = ForgeCatalog.Get(line);
             _icon.sprite = InkSprites.Ui(d.Icon);
             _icon.color = Color.white;
+            FitIcon(_icon);
             _fresh.gameObject.SetActive(false);
             _own.gameObject.SetActive(true);
             _name.text = d.Name;
@@ -293,6 +303,7 @@ namespace InkLine
             int cleared = meta.ClearedCount();
             _icon.sprite = InkSprites.Ui("lock");
             _icon.color = new Color(1f, 1f, 1f, 0.6f);
+            FitIcon(_icon);
             _fresh.gameObject.SetActive(false);
             _own.gameObject.SetActive(false);
             _name.text = d.Name;
@@ -368,7 +379,14 @@ namespace InkLine
 
         void Repair()
         {
-            var plate = Root.Find("plate")?.GetComponent<Image>();
+            // 卡片上的模板遮罩会让行内图标画出滚动视口，滑上去盖住皮肤名字。
+            var plateTr = Root.Find("plate");
+            if (plateTr != null)
+            {
+                var stencil = plateTr.GetComponent<Mask>();
+                if (stencil != null) UnityEngine.Object.Destroy(stencil);
+            }
+            var plate = plateTr != null ? plateTr.GetComponent<Image>() : null;
             if (plate != null && plate.sprite == null)
             {
                 plate.sprite = UiSprites.FillExact(18);
@@ -391,7 +409,8 @@ namespace InkLine
             UiKit.RepairSlice(_fresh.GetComponent<Image>(), UiSprites.Fill(12));
             if (_inkIco.sprite == null) _inkIco.sprite = InkSprites.Ui("ink");
             var slot = Root.Find("plate/slot")?.GetComponent<Image>();
-            if (slot != null && slot.sprite == null) slot.sprite = InkSprites.Load("Ui/item_frame_purple");
+            if (slot != null && (slot.sprite == null || slot.sprite.name != "modal_slot_52_purple"))
+                slot.sprite = InkSprites.Load("Ui/modal_slot_52_purple");
             UiKit.RepairBtn(_act);
         }
     }

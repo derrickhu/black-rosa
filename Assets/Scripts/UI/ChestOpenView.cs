@@ -11,32 +11,16 @@ namespace InkLine
     // 战利品在 MetaProgress.OpenChest 里已经入账了，这里只负责演，点一下就跳到结尾。
     public sealed class ChestOpenView : MonoBehaviour
     {
-        const float ChestY = 330f;
+        const float ChestY = 350f;
         const float ChestSize = 260f;
-        const float CardW = 172f;
-        const float StepX = 196f;
-        const float StepY = 262f;
-        const float CardsTop = 44f;
+        const float CardW = ItemPageBuilder.CardW;
+        const float CardH = ItemPageBuilder.CardH;
+        const float StepX = 168f;
+        const float StepY = 244f;
+        const float CardsTop = 40f;
         const float Deal = 0.38f;
         const float DealGap = 0.09f;
         const float Turn = 0.26f;
-
-        // 卡面图里各块的上下沿（占卡高的比例）和窗口宽（占卡宽）。量自 Ui/loot_*.png。
-        struct Face
-        {
-            public string Key;
-            public float HeadA, HeadB, WinA, WinB, NameA, NameB, GrooveA, GrooveB, WinW;
-        }
-
-        static readonly Face[] Faces =
-        {
-            new Face { Key = "Ui/loot_green", HeadA = 0.054f, HeadB = 0.179f, WinA = 0.218f, WinB = 0.728f,
-                NameA = 0.768f, NameB = 0.862f, GrooveA = 0.891f, GrooveB = 0.936f, WinW = 0.786f },
-            new Face { Key = "Ui/loot_blue", HeadA = 0.076f, HeadB = 0.181f, WinA = 0.231f, WinB = 0.695f,
-                NameA = 0.747f, NameB = 0.831f, GrooveA = 0.884f, GrooveB = 0.920f, WinW = 0.741f },
-            new Face { Key = "Ui/loot_purple", HeadA = 0.092f, HeadB = 0.180f, WinA = 0.204f, WinB = 0.657f,
-                NameA = 0.693f, NameB = 0.820f, GrooveA = 0.858f, GrooveB = 0.896f, WinW = 0.736f },
-        };
 
         // 蓄力时长、抖动力度、光晕峰值和翻开后留着的亮度，按 绿 / 蓝 / 紫。
         static readonly float[] Antic = { 0.14f, 0.4f, 0.85f };
@@ -66,8 +50,6 @@ namespace InkLine
             public int TurnFoil;
             public Image Art;
             public Text Name;
-            public Text CountLab;
-            public Text Prog;
             public bool Turned;
         }
 
@@ -120,8 +102,8 @@ namespace InkLine
             rays.transform.SetSiblingIndex(1);
             _anim.Spin(rays.transform, 18f).Fade(rays, 0.95f, 0.4f, 0f, 0.7f);
 
-            var title = ResultKit.Headline(_root, "title", titleText, 46, new Vector2(0f, ChestY + 200f),
-                InkTheme.Hex("FFF3C8"), InkTheme.Hex("5A2A10"));
+            var title = ResultKit.LightTitle(_root, "title", titleText, 42, new Vector2(0f, ChestY + 196f),
+                InkTheme.Hex("FFF3C8"));
             _anim.Fade(title, 0.1f, 0.3f, 0f, 1f);
 
             var box = ResultKit.Group(_root, "box", new Vector2(0f, ChestY), new Vector2(ChestSize, ChestSize));
@@ -142,32 +124,17 @@ namespace InkLine
             float t = 1.35f;
             int seals = _loot.Seals.Count;
             int lead = (_loot.Ink > 0 ? 1 : 0) + (_loot.Foil > 0 ? 1 : 0);
-            float chipW = lead >= 3 ? 196f : 220f;
-            float chipStep = chipW + 14f;
+            const float slotStep = 96f + 36f;
             int chipAt = 0;
-            Vector2 ChipPos() => new Vector2((chipAt++ - (lead - 1) * 0.5f) * chipStep, ChestY - 170f);
+            Vector2 LeadPos() => new Vector2((chipAt++ - (lead - 1) * 0.5f) * slotStep, 152f);
             if (_loot.Ink > 0)
-            {
-                var chip = ResultKit.Group(_root, "ink", ChipPos(), new Vector2(chipW, 64f));
-                var ink = UiKit.Chip(chip, "v", InkSprites.Ui("ink"), "+0",
-                    Vector2.zero, new Vector2(chipW, 64f), Pin.Center);
-                _anim.Pop(chip, t, 0.3f)
-                     .CountUp(ink, 0, _loot.Ink, t + 0.1f, 0.5f, "+{0}", AudioBus.CountTick);
-                t += 0.45f;
-            }
+                CurrencySlot("ink", "灵墨", ModalKit.InkTone, ModalKit.Load("Ui/ico_ink"), _loot.Ink, LeadPos(), ref t);
             if (_loot.Foil > 0)
-            {
-                var chip = ResultKit.Group(_root, "foil", ChipPos(), new Vector2(chipW, 64f));
-                var foil = UiKit.Chip(chip, "v", FoilArt.Icon, "+0",
-                    Vector2.zero, new Vector2(chipW, 64f), Pin.Center);
-                _anim.Pop(chip, t, 0.3f)
-                     .CountUp(foil, 0, _loot.Foil, t + 0.1f, 0.5f, "+{0}", AudioBus.CountTick);
-                t += 0.45f;
-            }
+                CurrencySlot("foil", "金箔", ModalKit.FoilTone, FoilArt.Icon, _loot.Foil, LeadPos(), ref t);
             if (!string.IsNullOrEmpty(_loot.Note))
             {
                 var note = UiKit.Label(_root, "note", _loot.Note, 22,
-                    new Vector2(0f, ChestY - 250f), new Vector2(560f, 32f));
+                    new Vector2(0f, 44f), new Vector2(560f, 32f));
                 note.color = InkTheme.Hex("FFE7B8");
                 _anim.Fade(note, t, 0.25f, 0f, 1f);
                 t += 0.2f;
@@ -185,9 +152,22 @@ namespace InkLine
             t = Play(cards, t);
             if (seals > 0) t = RevealSeals(t, cards.Count);
 
-            var go = ResultKit.Group(_root, "go", new Vector2(0f, -540f), new Vector2(360f, 100f));
-            UiKit.Btn(go, "b", "收下", Vector2.zero, new Vector2(360f, 100f), Close, true);
+            var go = ResultKit.Group(_root, "go", new Vector2(0f, -542f), new Vector2(296f, 101f));
+            ModalKit.HexBtn(go, "lg_yellow", 0f, 0f, "收下", Close, out _);
             _anim.Pop(go, t + 0.1f, 0.32f).Breathe(go, t + 0.5f, 0.04f, 1.2f);
+        }
+
+        void CurrencySlot(string id, string label, string tone, Sprite icon, int amount, Vector2 pos, ref float t)
+        {
+            const int s = 96;
+            var holder = ResultKit.Group(_root, id, pos, new Vector2(s, s));
+            var slot = ModalKit.ItemSlot(holder, tone, s, 0f, 0f, icon, "+0");
+            CardText(holder, "nm", label, 16, -16f, s + 4f, s + 32f, 26f, Color.white, TextAnchor.MiddleCenter);
+            var num = slot.Find("n")?.GetComponent<Text>();
+            _anim.Pop(holder, t, 0.3f);
+            if (num != null)
+                _anim.CountUp(num, 0, amount, t + 0.1f, 0.5f, "+{0}", AudioBus.CountTick);
+            t += 0.45f;
         }
 
         static Vector2 Slot(int i)
@@ -346,14 +326,7 @@ namespace InkLine
             c.Turned = true;
             Sprite foil = FoilArt.Icon;
             if (c.Art != null && foil != null) c.Art.sprite = foil;
-            if (c.Name != null) c.Name.text = "金箔";
-            if (c.CountLab != null) c.CountLab.text = "+" + c.TurnFoil;
-            if (c.Prog != null) c.Prog.text = "满级换成";
-            if (c.Fill != null)
-            {
-                var img = c.Fill.GetComponent<Image>();
-                if (img != null) img.color = FoilArt.Face;
-            }
+            if (c.Name != null) c.Name.text = "金箔  +" + c.TurnFoil;
         }
 
         void Burst(Card c)
@@ -449,102 +422,53 @@ namespace InkLine
         {
             SkinDef skin = SkinCatalog.Get(s.Skin);
             ItemQuality q = SkinCatalog.QualityOf(skin.Rarity);
-            int need = Mathf.Max(1, s.Need);
-            string rank = SkinCatalog.RankName(skin.Rarity);
-            string done = s.Unlocked ? "到手了" : s.Have + "/" + need;
-            return MakeCard("shard_" + s.Skin, q, rank.Length > 0 ? rank : "碎片", InkSprites.Ui("skin_" + skin.Key),
-                skin.Name + "碎片", s.Count, (s.Have - s.Count) / (float)need, s.Have / (float)need, done, s.Unlocked, slot);
+            return MakeCard("shard_" + s.Skin, q, InkSprites.Ui("skin_" + skin.Key),
+                skin.Name + "碎片", s.Count, slot);
         }
 
         Card ItemCard(CardStack c, Vector2 slot)
         {
             ItemDef d = ItemCatalog.Get(c.Item);
-            int rank = _meta != null ? _meta.ItemRank(c.Item) : 0;
-            int have = _meta != null ? _meta.ItemCardCount(c.Item) : c.Count;
-            int need = Mathf.Max(1, ItemCatalog.NextCards(d, rank));
-            bool max = rank >= ItemCatalog.MaxLevel;
-            string done = max ? "已满级" : (have >= need ? (rank <= 0 ? "可解锁!" : "可升级!") : have + "/" + need);
-            float from = max ? 1f : (have - c.Count) / (float)need;
-            float to = max ? 1f : have / (float)need;
-            Card card = MakeCard("card_" + c.Item, d.Quality, ItemCatalog.QualityName(d.Quality), InkSprites.Ui((ItemId)c.Item),
-                d.Name, c.Count, from, to, done, have >= need && !max, slot);
+            Card card = MakeCard("card_" + c.Item, d.Quality, InkSprites.Ui((ItemId)c.Item),
+                d.Name, c.Count, slot);
             card.TurnFoil = c.Foil;
             return card;
         }
 
-        Card MakeCard(string id, ItemQuality q, string rank, Sprite icon, string title, int count,
-            float from, float to, string progText, bool pulse, Vector2 slot)
+        // 翻开就是道具页那张已装备卡，按品质上绿、蓝、紫。底栏只写「xx碎片」和这次的数量。
+        Card MakeCard(string id, ItemQuality q, Sprite icon, string title, int count, Vector2 slot)
         {
-            int tier = Mathf.Clamp((int)q, 0, Faces.Length - 1);
-            Face f = Faces[tier];
-            Sprite faceArt = InkSprites.Load(f.Key);
-            float aspect = faceArt != null ? faceArt.rect.width / faceArt.rect.height : 0.72f;
-            float w = CardW, h = CardW / aspect;
-            var size = new Vector2(w, h);
+            int tier = Mathf.Clamp((int)q, 0, 2);
+            var size = new Vector2(CardW, CardH);
             Color tone = ItemCatalog.QualityColor(q);
 
             var c = new Card { Tier = tier, Slot = slot, Origin = new Vector2(0f, ChestY + 10f) };
-            c.From = Mathf.Clamp01(from);
-            c.To = Mathf.Clamp01(to);
             c.Root = ResultKit.Group(_root, id, c.Origin, size);
             if (tier == 2)
             {
-                c.Rays = ResultKit.Rays(c.Root, Vector2.zero, w * 2.6f, Color.Lerp(tone, Color.white, 0.35f));
+                c.Rays = ResultKit.Rays(c.Root, Vector2.zero, CardH * 2.4f, Color.Lerp(tone, Color.white, 0.35f));
                 c.Rays.color = new Color(c.Rays.color.r, c.Rays.color.g, c.Rays.color.b, 0f);
             }
-            // 光晕图是卡形剪影四边各外扩 19.4% 卡宽再糊开的。
-            c.Glow = UiKit.Icon(c.Root, InkSprites.Load("Ui/loot_glow"), Vector2.zero, w);
+            c.Glow = UiKit.Icon(c.Root, InkSprites.Load("Ui/loot_glow"), Vector2.zero, CardW);
             c.Glow.preserveAspect = false;
-            c.Glow.rectTransform.sizeDelta = new Vector2(w * 1.39f, h + w * 0.39f);
+            c.Glow.rectTransform.sizeDelta = new Vector2(CardW * 1.35f, CardH * 1.22f);
             c.Glow.color = new Color(Mathf.Min(1f, tone.r * 1.25f), Mathf.Min(1f, tone.g * 1.25f), Mathf.Min(1f, tone.b * 1.25f), 0f);
 
             c.Body = ResultKit.Group(c.Root, "body", Vector2.zero, size);
-            c.Back = Sized(UiKit.Icon(c.Body, InkSprites.Load("Ui/loot_back"), Vector2.zero, w), size).gameObject;
+            c.Back = ModalKit.Pic(c.Body, "back", "Ui/item_card_back", 0f, 0f, CardW, CardH).gameObject;
 
-            var front = ResultKit.Group(c.Body, "front", Vector2.zero, size);
-            c.Front = front.gameObject;
-            var faceImg = Sized(UiKit.Icon(front, faceArt, Vector2.zero, w), size);
-            faceImg.preserveAspect = false;
+            var face = ModalKit.Pic(c.Body, "front", FrameKey(q), 0f, 0f, CardW, CardH);
+            c.Front = face.gameObject;
 
-            var head = UiKit.Bold(UiKit.Label(front, "q", rank, 20, new Vector2(0f, Y(f.HeadA, f.HeadB, h)), new Vector2(w, 30f)));
-            head.color = InkTheme.CardFace;
-            head.gameObject.AddComponent<Outline>().effectColor = ItemCatalog.QualityDeep(q);
+            c.Art = ModalKit.Pic(face.transform, "art", null,
+                ItemPageBuilder.IconX, ItemPageBuilder.IconY, ItemPageBuilder.IconS, ItemPageBuilder.IconS, true);
+            if (icon != null) c.Art.sprite = icon;
 
-            float winW = w * f.WinW;
-            float winH = (f.WinB - f.WinA) * h;
-            c.Art = UiKit.Icon(front, icon, new Vector2(0f, Y(f.WinA, f.WinB, h)), Mathf.Min(winW, winH) * 0.84f);
-            var cnt = ResultKit.Headline(front, "c", "×" + count, 30,
-                new Vector2(winW * 0.5f - 26f, h * 0.5f - f.WinA * h - 20f), InkTheme.CardFace, InkTheme.Outline, 2f);
-            cnt.rectTransform.sizeDelta = new Vector2(110f, 44f);
+            c.Name = ModalKit.SolidText(face.transform, "band", FragmentLine(title, count), 14,
+                4f, ItemPageBuilder.BandY, CardW - 8f, ItemPageBuilder.BandH,
+                ModalKit.TextDark, TextAnchor.MiddleCenter, true);
 
-            var name = UiKit.Bold(UiKit.Label(front, "n", title, 20, new Vector2(0f, Y(f.NameA, f.NameB, h)), new Vector2(w - 30f, 28f)));
-            name.color = InkTheme.TextDark;
-            c.Name = name;
-            c.CountLab = cnt;
-
-            c.FillW = winW - 8f;
-            c.FillH = Mathf.Max(8f, (f.GrooveB - f.GrooveA) * h - 3f);
-            var fillGo = new GameObject("fill", typeof(RectTransform), typeof(Image));
-            fillGo.transform.SetParent(front, false);
-            c.Fill = (RectTransform)fillGo.transform;
-            c.Fill.anchorMin = c.Fill.anchorMax = new Vector2(0.5f, 0.5f);
-            c.Fill.pivot = new Vector2(0f, 0.5f);
-            c.Fill.anchoredPosition = new Vector2(-c.FillW * 0.5f, Y(f.GrooveA, f.GrooveB, h));
-            var fillImg = fillGo.GetComponent<Image>();
-            fillImg.sprite = InkSprites.Load("Ui/loot_fill");
-            fillImg.type = Image.Type.Sliced;
-            fillImg.pixelsPerUnitMultiplier = 32f / c.FillH;
-            fillImg.color = tone;
-            fillImg.raycastTarget = false;
-
-            var prog = UiKit.Bold(UiKit.Label(front, "p", progText, 16, new Vector2(0f, Y(f.GrooveA, f.GrooveB, h)), new Vector2(w, 24f)));
-            prog.color = InkTheme.CardFace;
-            c.Prog = prog;
-            prog.gameObject.AddComponent<Outline>().effectColor = InkTheme.Outline;
-            if (pulse) _anim.Breathe(prog.transform, 0f, 0.08f, 1.6f);
-
-            // 翻面那一下的白闪：卡背剪影，压在最上面。
-            c.Flash = Sized(UiKit.Icon(c.Body, InkSprites.Load("Ui/loot_flash"), Vector2.zero, w), size);
+            c.Flash = ModalKit.Pic(c.Body, "flash", "Ui/loot_flash", 0f, 0f, CardW, CardH);
             SetAlpha(c.Flash, 0f);
 
             c.Front.SetActive(false);
@@ -552,14 +476,34 @@ namespace InkLine
             return c;
         }
 
-        static Image Sized(Image img, Vector2 size)
+        static string FragmentLine(string title, int count)
         {
-            img.rectTransform.sizeDelta = size;
-            return img;
+            string name = string.IsNullOrEmpty(title) ? "碎片" : title;
+            if (!name.EndsWith("碎片")) name += "碎片";
+            return name + "  ×" + count;
         }
 
-        // 图里某块上下沿（占卡高比例）的中心，换成以卡心为原点的 y。
-        static float Y(float a, float b, float h) => h * 0.5f - (a + b) * 0.5f * h;
+        static string FrameKey(ItemQuality q)
+        {
+            if (q == ItemQuality.Purple) return "Ui/item_card_equip_purple";
+            if (q == ItemQuality.Blue) return "Ui/item_card_equip_blue";
+            return "Ui/item_card_equip_green";
+        }
+
+        static Text CardText(Transform parent, string name, string text, int size, float x, float y, float w, float h,
+            Color color, TextAnchor align)
+        {
+            var t = UiKit.Label(parent, name, text, size, Vector2.zero, new Vector2(w, h), align, Pin.TopLeft);
+            HomeReskin.TopLeft(t.rectTransform, x, y, w, h);
+            t.color = color;
+            t.alignByGeometry = true;
+            UiKit.Bold(t);
+            t.raycastTarget = false;
+            var o = t.gameObject.AddComponent<Outline>();
+            o.effectColor = HomeReskin.Ink;
+            o.effectDistance = new Vector2(1.2f, -1.2f);
+            return t;
+        }
 
         // UiAnim.Shake 在排轨那一刻记原位，那时箱子还在天上，所以这里按固定落点抖。
         static void Jiggle(RectTransform box, float k, float amp)

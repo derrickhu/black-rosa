@@ -21,65 +21,59 @@ namespace InkLine
             ResultKit.SkipCatcher(dim, anim.Finish);
             var g = ResultKit.Group(dim, "g", Vector2.zero, new Vector2(ScreenFit.DesignW, ScreenFit.DesignH));
 
-            var rays = ResultKit.Rays(g, new Vector2(0f, 120f), 820f, new Color(hi.r, hi.g, hi.b, 0.9f));
+            var rays = ResultKit.Rays(g, new Vector2(0f, 40f), 820f, new Color(hi.r, hi.g, hi.b, 0.9f));
             anim.Fade(rays, 0f, 0.4f, 0f, 0.9f).Spin(rays.transform, 22f).Pop(rays.transform, 0f, 0.5f, 0.3f);
-            var halo = UiKit.Icon(g, InkFx.SoftDisc(), new Vector2(0f, 120f), 420f);
+            var halo = UiKit.Icon(g, InkFx.SoftDisc(), new Vector2(0f, 40f), 420f);
             halo.color = new Color(q.r, q.g, q.b, 0.7f);
             anim.Fade(halo, 0.4f, 0.3f, 0f, 0.7f).Breathe(halo.transform, 0.8f, 0.06f, 1.1f);
 
-            var rib = UiKit.Stroke(g, "rib", new Vector2(0f, 360f), new Vector2(360f, 66f), Pin.Center, 5f,
-                fill: InkTheme.Seal, radius: 30f);
+            var rib = UiKit.Stroke(g, "rib", new Vector2(0f, 270f), new Vector2(360f, 66f), Pin.Center, 3f,
+                fill: InkTheme.Hex("E25B4A"), radius: 30f);
             var rt = UiKit.Label(rib, "t", "获得新道具", 34, Vector2.zero, new Vector2(360f, 66f));
             rt.color = Color.white;
             UiKit.Bold(rt);
-            anim.Move(rib, new Vector2(0f, 760f), new Vector2(0f, 360f), 0.05f, 0.36f, Ease.OutBack)
+            anim.Move(rib, new Vector2(0f, 760f), new Vector2(0f, 270f), 0.05f, 0.36f, Ease.OutBack)
                 .Punch(rib, 0.41f, 0.12f, 0.3f)
                 .At(0.38f, AudioBus.Stamp);
 
-            var icon = UiKit.Icon(g, InkSprites.Ui(d.Id), new Vector2(0f, 120f), 240f);
-            anim.Pop(icon.transform, 0.45f, 0.45f, 0f)
-                .Breathe(icon.transform, 1.0f, 0.05f, 1.2f)
+            const float cw = 220f, ch = 296f;
+            var card = ResultKit.Group(g, "card", new Vector2(0f, 40f), new Vector2(cw, ch));
+            string frame = d.Quality == ItemQuality.Purple ? "Ui/item_card_equip_purple"
+                : d.Quality == ItemQuality.Blue ? "Ui/item_card_equip_blue"
+                : "Ui/item_card_equip_green";
+            ModalKit.Pic(card, "face", frame, 0f, 0f, cw, ch);
+            const float iconS = 132f;
+            var art = ModalKit.Pic(card, "art", null, (cw - iconS) * 0.5f, 54f, iconS, iconS, true);
+            art.sprite = InkSprites.Ui(d.Id);
+            int shown = ItemCatalog.NextCards(d, 0);
+            float bandY = ch * (319f / 398f);
+            float bandH = ch * (75f / 398f);
+            ModalKit.SolidText(card, "band", d.Name + "碎片  ×" + shown, 20,
+                8f, bandY, cw - 16f, bandH, ModalKit.TextDark, TextAnchor.MiddleCenter, true);
+            anim.Pop(card, 0.45f, 0.45f, 0f)
+                .Breathe(card, 1.0f, 0.03f, 1.2f)
                 .At(0.6f, () =>
                 {
                     AudioBus.UnlockSting();
-                    UiConfetti.Sparks(dim, new Vector2(0f, 120f), hi, 24, 660f);
+                    UiConfetti.Sparks(dim, new Vector2(0f, 40f), hi, 24, 660f);
                     UiConfetti.Burst(dim, 80);
                 });
 
-            var name = ResultKit.Headline(g, "name", d.Name, 60, new Vector2(0f, -60f),
-                InkTheme.Hex("FFF3C8"), InkTheme.Hex("7A1E14"), 3f);
-            var pill = UiKit.Panel(g, "q", new Vector2(0f, -124f), new Vector2(150f, 40f), q);
-            var pi = pill.GetComponent<Image>();
-            pi.sprite = UiSprites.Fill(UiSprites.Tier(20f));
-            pi.type = Image.Type.Sliced;
-            pi.raycastTarget = false;
-            var qn = UiKit.Label(pill, "t", ItemCatalog.QualityName(d.Quality) + "道具", 24, Vector2.zero, new Vector2(150f, 40f));
-            qn.color = Color.white;
-            UiKit.Bold(qn);
-            var desc = UiKit.Label(g, "desc", ItemCatalog.Blurb(d, 1, meta.ShotBase), 28,
-                new Vector2(0f, -184f), new Vector2(620f, 40f));
-            desc.color = InkTheme.Hex("FFE7B8");
-            var when = UiKit.Label(g, "when", "自动触发：" + d.When, 24, new Vector2(0f, -230f), new Vector2(620f, 34f));
-            when.color = InkTheme.Hex("CDBFA8");
-            bool worn = meta.EquippedSlot(item) >= 0;
+            bool worn = meta != null && meta.EquippedSlot(item) >= 0;
             var note = UiKit.Label(g, "note", worn ? "已装进道具栏，下一局就会用" : "道具栏满了，去道具页换上", 24,
-                new Vector2(0f, -272f), new Vector2(620f, 34f));
+                new Vector2(0f, -200f), new Vector2(620f, 36f));
             note.color = InkTheme.Hex("8FE3A2");
             UiKit.Bold(note);
-            anim.Fade(name, 0.75f, 0.25f, 0f, 1f).Pop(name.transform, 0.75f, 0.3f, 1.6f)
-                .Pop(pill, 0.9f, 0.28f, 0f)
-                .Fade(desc, 0.95f, 0.25f, 0f, 1f)
-                .Fade(when, 1.05f, 0.25f, 0f, 1f)
-                .Fade(note, 1.15f, 0.25f, 0f, 1f);
+            anim.Fade(note, 0.9f, 0.25f, 0f, 1f);
 
-            var ok = ResultKit.Group(g, "ok", new Vector2(0f, -380f), new Vector2(280f, 92f));
-            UiKit.Btn(ok, "b", "收下", Vector2.zero, new Vector2(280f, 92f), () =>
+            var ok = ResultKit.Group(g, "ok", new Vector2(0f, -320f), new Vector2(296f, 101f));
+            ModalKit.HexBtn(ok, "lg_yellow", 0f, 0f, "收下", () =>
             {
                 AudioBus.Tap();
                 UnityEngine.Object.Destroy(dim.gameObject);
                 done?.Invoke();
-            }, true);
-            anim.Pop(ok, 1.25f, 0.3f).Breathe(ok, 1.6f, 0.045f, 1.3f);
+            }, out _);
+            anim.Pop(ok, 1.1f, 0.3f).Breathe(ok, 1.5f, 0.045f, 1.3f);
         }
 
         // 道具升级：详情弹窗的展台闪一下，图标从大弹回，品质色迸星，飘一个「升级!」。

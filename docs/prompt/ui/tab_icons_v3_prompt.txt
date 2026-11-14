@@ -1,0 +1,22 @@
+# 底栏 5 枚主导航图标重设计（延续 ico_ad 饱满立体块面 + 亮色高光 + 粗深墨描边风格）
+
+## 公共画风要求
+A single casual mobile-game bottom navigation tab icon on a square 1:1 canvas, centered with generous pure solid white printer-paper margin around it.
+Use the attached clapperboard image STRICTLY as a rendering style reference only (copy ONLY its chunky 2.5D cel-shaded volume, crisp rounded dark ink-brown #0D050A outlines, rich saturated cheerful colors, glossy top-left specular highlights, and darker bottom bevels; do NOT draw any clapperboard or play triangle).
+Full chunky silhouette filling ~75% of the square, bold and unmistakable at navigation bar size. Clean outer #0D050A outline directly against the plain solid white background.
+NO TEXT, no letters, no numbers, no Chinese characters, no watermarks anywhere.
+
+## 1. 字卡 (tab_study)
+Two overlapping chunky rounded-rectangle talisman cards fanned slightly at a playful tilt: the front card has a vibrant sky-sapphire blue frame (#38A8FF) with a bright gold-coin yellow inner trim and a warm cream center (#FFF8E6) featuring a bold, plump, glowing golden four-pointed star emblem in the middle; the back card peeks out on the right in warm amber-gold (#FFB82E). Crisp white glossy highlight on the top-left corner, deep royal-blue bottom bevel, thick #0D050A ink-brown outline.
+
+## 2. 炮台 (tab_forge)
+A cute, powerful, chunky Chibi artillery cannon angled slightly upward to the right in 3/4 view: polished cobalt-steel barrel (#4A6583) gleaming with a bright sky-blue top highlight and thick shiny gold-coin yellow muzzle ring and rear knob (#FFC436), mounted on a rich warm sunlit oak carriage (#D97B29) with a chunky golden wheel hub. Crisp cel-shaded bevels, glossy highlights, thick #0D050A ink-brown outline.
+
+## 3. 出征 (tab_sortie)
+A bold, heroic crossed battle banner and short sword emblem: in the foreground, a fluttering swallowtail war pennant in vibrant red-envelope crimson (#EE3B36) with a bright gold-coin yellow border trim and golden star stud, billowing dynamically to the right from a sturdy oak pole topped with a shiny golden spearhead finial; behind it, a gleaming silver-blue broadsword hilt peeks diagonally for extra silhouette punch. Glossy highlights, deep crimson bevels, thick #0D050A ink-brown outline.
+
+## 4. 道具 (tab_spell)
+An overflowing, plump adventurer's treasure satchel tilted slightly: rich warmsaddle-amber leather bag (#E07A28) with a bright crimson-red top flap (#E84338) and a shiny chunky gold-coin yellow buckle (#FFD042) in front; peeking cheerfully out of the open top are a glowing cyan-blue magic potion flask and a bright red firecracker bundle with a golden spark. Crisp cel-shaded depth, glossy highlights, thick #0D050A ink-brown outline.
+
+## 5. 副本 (tab_dungeon)
+A bold, charismatic, chunky Chibi horned boss mask / emblem facing front with a mischievous fierce grin: vibrant royal-amethyst purple face (#8C46E6) with glossy lavender top highlights and deep violet bottom bevel, two curved shiny gold-coin yellow horns (#FFC83D) with white specular glints, glowing fiery-orange eyes, and a tiny flickering cyan-purple wisp on top. Crisp cel-shaded volume, thick #0D050A ink-brown outline.

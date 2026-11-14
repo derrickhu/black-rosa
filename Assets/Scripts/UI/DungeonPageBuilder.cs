@@ -9,7 +9,7 @@ namespace InkLine
     public static class DungeonPageBuilder
     {
         // 烘出来的预制里有这个空节点。换布局就改这个名字，编辑器编译后只重烘这一页。
-        public const string Mark = "dungeon_v7";
+        public const string Mark = "dungeon_v8";
 
         public const float CardW = 640f;
         public const float CardH = 240f;

@@ -98,10 +98,9 @@ namespace InkLine
                 if (ad.Tab >= 0 && a.Improve != null)
                 {
                     int tab = ad.Tab;
-                    var go = UiKit.Btn(card, "go", "去提升", new Vector2(0f, -94f), new Vector2(150f, 52f),
-                        () => a.Improve(tab), ad.Ready);
-                    var gt = go.transform.Find("face/t")?.GetComponent<Text>();
-                    if (gt != null) gt.fontSize = 24;
+                    string kind = ad.Ready ? "sm_yellow" : "sm_gray";
+                    var slot = ResultKit.Group(card, "go", new Vector2(0f, -86f), new Vector2(132f, 51f));
+                    ModalKit.HexBtn(slot, kind, 0f, 0f, "去提升", () => a.Improve(tab), out _);
                 }
                 float t0 = at + i * 0.12f;
                 _anim.Pop(card, t0, 0.34f).At(t0 + 0.05f, AudioBus.Tap);
@@ -112,21 +111,20 @@ namespace InkLine
 
         void BuildButtons(RectTransform stage, DefeatArgs a, float at)
         {
-            var g = ResultKit.Group(stage, "retry", new Vector2(0f, -392f), new Vector2(440f, 108f));
-            var btn = UiKit.Btn(g, "b", "再来一次", Vector2.zero, new Vector2(440f, 108f), () =>
+            var g = ResultKit.Group(stage, "retry", new Vector2(0f, -378f), new Vector2(314f, 80f));
+            string retryKind = a.CanRetry ? "wide_yellow" : "wide_gray";
+            var btn = ModalKit.HexBtn(g, retryKind, 0f, 0f, "再来一次", () =>
             {
                 if (a.CanRetry) a.Retry?.Invoke();
                 else AudioBus.Deny();
-            });
-            var label = btn.transform.Find("face/t")?.GetComponent<Text>();
-            if (label != null) label.fontSize = 36;
-            ResultKit.CostTag(btn, a.RetryCost);
-            if (!a.CanRetry) UiKit.PaintBtn(btn, InkTheme.CtaOff, InkTheme.Hex("5E5A54"), InkTheme.CardFace);
+            }, out _);
+            ModalKit.SetStaminaBtnLabel(btn, retryKind, "再来一次", a.RetryCost);
+            if (!a.CanRetry) ModalKit.SetHexBtnGray(btn, "wide_yellow", "wide_gray", true);
             _anim.Pop(g, at, 0.34f);
             if (a.CanRetry) _anim.Breathe(g, at + 0.4f, 0.04f, 1.3f);
 
-            var hg = ResultKit.Group(stage, "home", new Vector2(0f, -500f), new Vector2(220f, 70f));
-            UiKit.Btn(hg, "b", "回首页", Vector2.zero, new Vector2(220f, 70f), () => a.Home?.Invoke(), false);
+            var hg = ResultKit.Group(stage, "home", new Vector2(0f, -470f), new Vector2(176f, 63f));
+            ModalKit.HexBtn(hg, "md_gray", 0f, 0f, "回首页", () => a.Home?.Invoke(), out _);
             _anim.Pop(hg, at + 0.12f, 0.3f);
         }
     }

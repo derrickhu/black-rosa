@@ -1,0 +1,39 @@
+# 10 枚道具图标重设计提示词 v3（手绘平面贴纸 + 柔和颜色过渡，贴合原版扁平贴纸风格）
+
+## 核心画风定义（全正面描述，禁写立体/透视词）
+Flat 2D front-facing hand-drawn cartoon paper sticker icon on a solid pure white background (#FFFFFF).
+- Straight-on flat 2D front silhouette, like a cute children's picture-book die-cut paper sticker laid flat on a page.
+- Bold, rounded, slightly organic hand-drawn dark cocoa-brown ink outlines (#331E16) of uniform thickness (~4.5% of icon width), with minimal cute rounded interior lines.
+- Soft, gentle 2D hand-painted marker / gouache color transitions inside each flat shape (smooth pastel-to-rich tonal wash from top to bottom, matte paper texture, plus one or two tiny simple rounded cream-white hand-drawn accent strokes).
+- Simple, iconic, chubby cartoon proportions readable at 64px, centered with generous white margin.
+- NO TEXT, no letters, no numbers, no watermark.
+
+## 1. 弹弓 (ico_item_snipe)
+Flat 2D front-facing Y-shaped wooden slingshot cartoon sticker: chubby symmetrical Y-fork painted in a soft warm honey-tan to toasted-caramel color wash, bright cherry-red flat rubber bands curving down from two red bindings to hold a cute round slate-grey pebble in a small tan pouch. Bold rounded dark-brown hand-drawn ink outline, flat 2D front view on pure white background.
+
+## 2. 胶水 (ico_item_slow)
+Flat 2D cartoon squeeze glue bottle sticker tilted slightly: squat rounded creamy-white bottle silhouette with a soft warm-ivory to pale sky-grey wash, a flat tangerine-orange belly band, a pointed orange nozzle cap, and one cute plump teardrop of white glue hanging at the tip. Bold rounded dark-brown hand-drawn ink outline, flat 2D view on pure white background.
+
+## 3. 鞭炮 (ico_item_burst)
+Flat 2D front-facing bundle of three chubby red firecrackers standing side by side: festive red-envelope crimson to warm vermilion soft color wash on the three flat tubes, warm gold-coin yellow bands near the top and bottom, one shared curly brown fuse on top ending in a cute flat yellow-orange star spark. Bold rounded dark-brown hand-drawn ink outline, flat 2D front view on pure white background.
+
+## 4. 闹钟 (ico_item_halt)
+Flat 2D straight-on front-facing round twin-bell alarm clock cartoon sticker: flat round sky-blue body with a soft baby-blue to summer-cerulean color wash, two flat half-circle silver-blue bells on top with a tiny yellow button between them, two cute stubby round feet at the bottom, and a flat cream-white circle face with two simple rounded clock hands. Bold rounded dark-brown hand-drawn ink outline, flat 2D front view on pure white background.
+
+## 5. 冰块 (ico_item_frost)
+Flat 2D straight-on rounded-square ice block cartoon sticker: chubby squircle ice tile filled with a soft diagonal color wash from pale frosty mint-white to swimming-pool sky blue, framed by a softer icy inner rim, with a cute simple flat white six-pointed snowflake centered on the front. Bold rounded dark-brown hand-drawn ink outline, flat 2D front view on pure white background.
+
+## 6. 能量饮料 (ico_item_rage)
+Flat 2D straight-on front-facing energy drink can cartoon sticker: chubby upright rounded rectangle can filled with a soft electric cyan-blue to cobalt-blue color wash, a thin flat silver-grey top rim with a tiny pull ring silhouette, and a big bold gold-coin yellow lightning bolt centered on the front. Bold rounded dark-brown hand-drawn ink outline, flat 2D front view on pure white background.
+
+## 7. 大扫把 (ico_item_sweep)
+Flat 2D diagonal cartoon straw broom sticker: smooth rounded ripe-grape purple handle, a flat crimson-red tie band at the waist, and a cute flared golden-wheat straw head painted in a soft butter-yellow to warm honey-ochre color wash with three simple hand-drawn bristle notches at the bottom. Bold rounded dark-brown hand-drawn ink outline, flat 2D front view on pure white background.
+
+## 8. 辣椒酱 (ico_item_splash)
+Flat 2D straight-on front-facing cute hot sauce bottle cartoon sticker: simple rounded bottle silhouette filled with a soft ripe-tomato red to deep chili-crimson color wash, a flat fresh-leaf green cap on top, and a small rounded cream label in the center with a cute flat orange-yellow flame shape. Bold rounded dark-brown hand-drawn ink outline, flat 2D front view on pure white background.
+
+## 9. 急救包 (ico_item_mend)
+Flat 2D straight-on front-facing rounded-rectangle first-aid kit cartoon sticker: chubby flat cherry-red bag silhouette painted with a soft coral-red to ruby-red color wash, a simple flat U-shaped white-grey handle on top, and a bold symmetrical cream-white plus cross centered on the front. Bold rounded dark-brown hand-drawn ink outline, flat 2D front view on pure white background.
+
+## 10. 回旋镖 (ico_item_dart)
+Flat 2D front-facing curved V-shaped magic boomerang cartoon sticker: chubby rounded boomerang silhouette painted with a soft hand-brushed color transition from peony-pink in the center to violet-purple along the arms and bright sky-cyan wingtips, decorated with a cute small pale-yellow star in the middle. Bold rounded dark-brown hand-drawn ink outline, flat 2D front view on pure white background.

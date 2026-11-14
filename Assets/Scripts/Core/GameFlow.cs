@@ -328,8 +328,7 @@ namespace InkLine
             _askingRetreat = true;
             bool wasPaused = _world.Paused;
             _world.Paused = true;
-            var dim = UiKit.Dimmer(_layer);
-            dim.name = "settings";
+            RectTransform dim = null;
             void Stay()
             {
                 if (!_askingRetreat) return;
@@ -364,51 +363,11 @@ namespace InkLine
                 ShowHome();
                 if (fromEvent) _home?.OpenEvent();
             }
-            var board = PanelKit.Board(dim, "设置", Vector2.zero, new Vector2(520f, 440f), Pin.Center, Stay);
 
-            UiKit.Btn(board, "stay", "继续游戏", new Vector2(0f, 108f), new Vector2(400f, 92f), Stay, true, Pin.Top);
-            UiKit.Btn(board, "leave", "撤退", new Vector2(0f, 214f), new Vector2(400f, 80f), Leave, false, Pin.Top);
             string leaveNote = BattleWorld.GmLook ? "这局只是预览，撤退不记进度"
                 : _endless ? "撤退按已打完的波数结算，次数不退还"
                 : _eventTier >= 0 ? "撤退不存金币，次数也不退还" : "撤退后没有奖励，体力也不退还";
-            var note = UiKit.Label(board, "note", leaveNote, 22, new Vector2(0f, 316f),
-                new Vector2(440f, 32f), TextAnchor.MiddleCenter, Pin.Top);
-            note.color = InkTheme.TextMid;
-
-            AudioPair(board, "音乐", "music", -115f, 20f, () => AudioBus.MusicOn, v => AudioBus.MusicOn = v);
-            AudioPair(board, "音效", "sfx", 115f, 20f, () => AudioBus.SfxOn, v => AudioBus.SfxOn = v);
-        }
-
-        static void AudioPair(RectTransform board, string title, string name, float x, float y,
-            System.Func<bool> get, System.Action<bool> set)
-        {
-            var label = UiKit.Label(board, name + "l", title, 24, new Vector2(x - 48f, y),
-                new Vector2(72f, 46f), TextAnchor.MiddleRight, Pin.Bottom);
-            UiKit.Bold(label);
-            Switch(board, name, new Vector2(x + 40f, y), new Vector2(88f, 46f), get, set);
-        }
-
-        static void Switch(RectTransform board, string name, Vector2 pos, Vector2 size,
-            System.Func<bool> get, System.Action<bool> set)
-        {
-            Button btn = null;
-            btn = UiKit.Btn(board, name, get() ? "开" : "关", pos, size, () =>
-            {
-                bool next = !get();
-                set(next);
-                PaintSwitch(btn, next);
-            }, false, Pin.Bottom);
-            var label = btn.GetComponentInChildren<Text>();
-            if (label != null) label.fontSize = 22;
-            PaintSwitch(btn, get());
-        }
-
-        static void PaintSwitch(Button btn, bool on)
-        {
-            if (on) UiKit.PaintBtn(btn, InkTheme.Accel, InkTheme.Hex("1E7A42"), InkTheme.CardFace);
-            else UiKit.PaintBtn(btn, InkTheme.CtaOff, InkTheme.Hex("5E5A54"), InkTheme.CardFace);
-            var label = btn != null ? btn.GetComponentInChildren<Text>() : null;
-            if (label != null) label.text = on ? "开" : "关";
+            dim = SettingsPanel.Show(_layer, leaveNote, Stay, Leave);
         }
 
         void RefreshHome()

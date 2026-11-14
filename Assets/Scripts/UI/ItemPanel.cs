@@ -306,25 +306,7 @@ namespace InkLine
 
         void CloseMark(RectTransform board)
         {
-            float s = U(46f);
-            var go = new GameObject("close", typeof(RectTransform), typeof(Image), typeof(Button));
-            go.transform.SetParent(board, false);
-            var rt = go.GetComponent<RectTransform>();
-            rt.anchorMin = rt.anchorMax = new Vector2(1f, 1f);
-            rt.pivot = new Vector2(0.5f, 0.5f);
-            rt.sizeDelta = new Vector2(s, s);
-            rt.anchoredPosition = new Vector2(-s * 0.5f, -s * 0.5f);
-            var ring = go.GetComponent<Image>();
-            ring.sprite = UiSprites.Disc();
-            ring.color = Ink;
-            var face = UiKit.Icon(go.transform, UiSprites.Disc(), new Vector2(0f, U(1.5f)), s - U(4f));
-            face.color = InkTheme.Hex("E23B3B");
-            var x = UiKit.Label(go.transform, "x", "×", 32, new Vector2(0f, U(2f)), new Vector2(s, s));
-            x.color = Color.white;
-            UiKit.Bold(x);
-            var btn = go.GetComponent<Button>();
-            btn.targetGraphic = face;
-            btn.onClick.AddListener(Close);
+            ModalKit.CloseBtn(board, 0f, 0f, Close);
         }
 
         static Text InkText(Transform parent, string name, string text, int size, Vector2 pos, Vector2 box,

@@ -12,8 +12,8 @@ namespace InkLine
     {
         public const float W = 720f;
         public const float H = 660f;
-        // 词条列表从这行起，上面留出专属标伸出卡片的那一截。
-        public const float ListScreenY = 712f;
+        // 皮肤名字在 630–650，「炮台词条」标题牌到 724。列表从这行起，滑上去停在标题下面。
+        public const float ListScreenY = 748f;
         public const float PanelScreenY = 660f;
 
         const float SlotX = 31f;
@@ -35,8 +35,28 @@ namespace InkLine
         }
 
         static readonly Color Ink = new Color(0.051f, 0.020f, 0.039f, 1f);
-        static readonly Color Shadow = new Color(0.16f, 0.12f, 0.10f, 0.88f);
         static readonly Color GoldDeep = new Color(0.878f, 0.627f, 0.125f, 1f);
+        static Material _gray;
+
+        // 没拿到的炮台：皮肤和六边形框一起去色。锁本身留着原色。
+        static Material GrayMat
+        {
+            get
+            {
+                if (_gray != null) return _gray;
+                var shader = Resources.Load<Shader>("Shaders/UiGray");
+                if (shader == null) return null;
+                _gray = new Material(shader);
+                return _gray;
+            }
+        }
+
+        static void PaintOwned(Image img, bool owned)
+        {
+            if (img == null) return;
+            img.color = Color.white;
+            img.material = owned ? null : GrayMat;
+        }
 
         static readonly float[] BarX = { 18f, 18f, 18f, 18f, 526f, 526f, 526f, 526f, 526f };
         static readonly float[] BarY = { 278f, 314f, 350f, 386f, 278f, 314f, 350f, 386f, 422f };
@@ -381,7 +401,7 @@ namespace InkLine
             bool shown = owned || _meta.SkinOpened(i) || (shard && have > 0);
 
             _gun.sprite = InkSprites.CannonSkin(i);
-            _gun.color = shown ? Color.white : Shadow;
+            PaintOwned(_gun, owned);
             _lockText.gameObject.SetActive(false);
             if (_motion != null)
             {
@@ -426,9 +446,10 @@ namespace InkLine
             bool on = _meta.Skin == i;
             string text;
             bool live;
+            bool isAdUnlock = !owned && d.Way == SkinWay.Ad;
             if (on) { text = "使用中"; live = false; }
             else if (owned) { text = "装备"; live = true; }
-            else if (d.Way == SkinWay.Ad) { text = "看广告解锁"; live = true; }
+            else if (d.Way == SkinWay.Ad) { text = "免费解锁"; live = true; }
             else if (d.Way == SkinWay.Check) { text = "签到获得"; live = false; }
             else if (d.Way == SkinWay.Event) { text = "活动获取"; live = false; }
             else if (d.Way == SkinWay.Shard)
@@ -453,6 +474,22 @@ namespace InkLine
                 rt.anchoredPosition = new Vector2(0f, -456f);
             }
             UiKit.PaintHex(_act, live, Ink);
+
+            Transform adTr = _act.transform.Find("ad_ico");
+            if (isAdUnlock)
+            {
+                Image adImg = adTr != null ? adTr.GetComponent<Image>()
+                    : UiKit.Icon(_act.transform, ResultKit.AdBadge(), Vector2.zero, 28f);
+                adImg.gameObject.name = "ad_ico";
+                adImg.gameObject.SetActive(true);
+                adImg.sprite = ResultKit.AdBadge();
+                adImg.rectTransform.anchoredPosition = new Vector2(-46f, 4f);
+                _actText.rectTransform.anchoredPosition += new Vector2(14f, 0f);
+            }
+            else if (adTr != null)
+            {
+                adTr.gameObject.SetActive(false);
+            }
         }
 
         void BindSlot(int k)
@@ -461,7 +498,8 @@ namespace InkLine
             SkinDef dk = SkinCatalog.Get(k);
             _frames[k].sprite = HexSprite(dk.Rarity);
             _faces[k].sprite = InkSprites.Ui("skin_" + dk.Key);
-            _faces[k].color = Color.white;
+            PaintOwned(_frames[k], owned);
+            PaintOwned(_faces[k], owned);
             _locks[k].gameObject.SetActive(!owned);
             if (_worn[k] != null) _worn[k].gameObject.SetActive(owned && _meta.Skin == k);
             _slotName[k].text = dk.Name;

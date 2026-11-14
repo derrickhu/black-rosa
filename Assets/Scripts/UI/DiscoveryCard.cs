@@ -26,7 +26,7 @@ namespace InkLine
                 : 180f;
             const float bannerY = 150f;
             var rib = UiKit.Art(g, "rib", "Ui/discover_banner", new Vector2(0f, bannerY), new Vector2(BannerW, bannerH));
-            var title = UiKit.Label(rib, "t", Ribbon(kind), 36, new Vector2(0f, -10f), new Vector2(BannerW * 0.58f, 52f));
+            var title = UiKit.Label(rib, "t", Ribbon(kind), 36, new Vector2(0f, -18f), new Vector2(BannerW * 0.62f, 52f));
             title.color = InkTheme.TextDark;
             UiKit.Bold(title);
             anim.Move(rib, new Vector2(0f, 720f), new Vector2(0f, bannerY), 0.02f, 0.32f, Ease.OutBack)
@@ -50,13 +50,13 @@ namespace InkLine
                     UiConfetti.Sparks(dim, new Vector2(0f, nameY), desc.color, 14, 380f);
                 });
 
-            var ok = ResultKit.Group(g, "ok", new Vector2(0f, nameY - 210f), new Vector2(260f, 84f));
-            UiKit.Btn(ok, "b", "知道了", Vector2.zero, new Vector2(260f, 84f), () =>
+            var ok = ResultKit.Group(g, "ok", new Vector2(0f, nameY - 200f), new Vector2(314f, 80f));
+            ModalKit.HexBtn(ok, "wide_yellow", 0f, 0f, "知道了", () =>
             {
                 AudioBus.Tap();
                 UnityEngine.Object.Destroy(dim.gameObject);
                 done?.Invoke();
-            }, true);
+            }, out _);
             anim.Pop(ok, 0.52f, 0.26f);
         }
 

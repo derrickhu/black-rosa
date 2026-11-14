@@ -6,7 +6,7 @@ namespace InkLine
 {
     // 选改装是一只从底部拉起来的抽屉，上沿压在格子下沿之下：
     // 上面在走的怪、格子里已有的字都还看得见，玩家才能对着局面挑。
-    // 卡面只放字图。字名就画在图上，说明玩家已经在图鉴和放置后的效果里见过；成词字补一枚小签。
+    // 卡面用字卡金底。米字格里只放字，底栏写「单字」或「成词」。
     public sealed class DraftView : MonoBehaviour
     {
         public Text Title;
@@ -15,9 +15,7 @@ namespace InkLine
         public Text RerollLabel;
         public Image Die;
         public Button Close;
-        public float CardStep = 176f;
-
-        static readonly Vector4 CardSlice = new Vector4(18f, 18f, 18f, 18f);
+        public float CardStep = 144f;
 
         void Awake()
         {
@@ -29,7 +27,11 @@ namespace InkLine
         {
             RescueCards();
             if (Title != null)
-                Title.text = string.IsNullOrEmpty(title) ? "选一张改装" : title;
+            {
+                // 单张流程会传来「点下面的字」。抽屉标题保持「选一张改装」，点哪张交给指引气泡。
+                bool point = title == "点下面的字";
+                Title.text = string.IsNullOrEmpty(title) || point ? "选一张改装" : title;
+            }
 
             int n = Cards != null ? Cards.Length : 0;
             int offerN = offer != null ? offer.Length : 0;
@@ -57,17 +59,17 @@ namespace InkLine
                 bool dig = shovel != null && i < shovel.Length && shovel[i];
                 CardDef def = CardCatalog.Get(offer[i]);
                 if (card.Star != null) card.Star.enabled = false;
-                if (card.Name != null) card.Name.text = "";
                 if (card.Desc != null) card.Desc.text = "";
                 if (card.Heap != null)
                 {
-                    card.Heap.sprite = dig ? InkArt.Shovel(160) : InkArt.Glyph(def.Id, 160);
+                    card.Heap.sprite = dig ? InkArt.Shovel(160) : InkArt.Bare(InkArt.Glyph(def.Id, 160));
                     card.Heap.preserveAspect = true;
                     card.Heap.color = Color.white;
                     card.Heap.enabled = card.Heap.sprite != null;
                 }
-                if (card.WordTag != null) card.WordTag.SetActive(!dig && def.Wake == CardWake.WordPart);
-                MarkShovel(card, dig);
+                if (card.Name != null)
+                    card.Name.text = dig ? "铲子" : def.Wake == CardWake.WordPart ? "成词" : "单字";
+                if (card.WordTag != null) card.WordTag.SetActive(false);
                 if (card.Button != null)
                 {
                     int slot = i;
@@ -85,36 +87,13 @@ namespace InkLine
                 Reroll.onClick.RemoveAllListeners();
                 if (!rerolled && reroll != null)
                     Reroll.onClick.AddListener(() => reroll());
+                ModalKit.SetAdBtnLabel(Reroll, "sm_cyan", rerolled ? "已重刷" : "重刷", !rerolled);
             }
-            if (RerollLabel != null)
-                RerollLabel.text = rerolled ? "已重刷" : "重刷";
-            if (Die != null) Die.enabled = !rerolled && Die.sprite != null;
             if (Close != null)
             {
                 Close.onClick.RemoveAllListeners();
                 if (close != null) Close.onClick.AddListener(() => close());
             }
-        }
-
-        static void MarkShovel(DraftCardView card, bool on)
-        {
-            Transform tag = card.transform.Find("shovel");
-            if (!on)
-            {
-                if (tag != null) tag.gameObject.SetActive(false);
-                return;
-            }
-            if (tag == null)
-            {
-                var rt = card.GetComponent<RectTransform>();
-                float h = rt != null ? rt.sizeDelta.y : 160f;
-                var t = UiKit.Label(card.transform, "shovel", "铲子", 22, new Vector2(0f, -h * 0.5f + 22f),
-                    new Vector2(120f, 32f));
-                t.color = InkTheme.TextDark;
-                UiKit.Bold(t);
-                return;
-            }
-            tag.gameObject.SetActive(true);
         }
 
         static void Show(Button btn, bool on)
@@ -147,105 +126,85 @@ namespace InkLine
             var layer = parent as RectTransform;
             float canvasW = layer != null && layer.rect.width > 1f ? layer.rect.width : 750f;
             float canvasH = layer != null && layer.rect.height > 1f ? layer.rect.height : 1334f;
-            // 抽屉上沿：格子下沿再往下一点。窄屏格子压得低，就退到能放下卡的最小高度。
+            // 抽屉上沿：格子下沿再往下一点。窄屏格子压得低，就退到能放下字卡的最小高度。
             float gridFloor = BattleHud.WorldToCanvas(layer, new Vector3(0f, FieldLayout.GridBottom - 0.18f, 0f)).y + canvasH * 0.5f;
-            float h = Mathf.Clamp(gridFloor, 228f, 300f);
-            const float sink = 40f;   // 底边沉到屏幕外，只露圆角的上沿，像拉起来的抽屉
+            const float head = 64f;
+            const float cardW = 128f;
+            const float cardH = 172f;
+            const float bottom = 18f;
+            float content = head + cardH + bottom;
+            float h = Mathf.Clamp(gridFloor, content, Mathf.Max(content, 320f));
+            const float sink = 40f;
 
             var board = UiKit.Stroke(dim, "board", new Vector2(0f, -sink), new Vector2(canvasW + 24f, h + sink),
-                Pin.Bottom, 6f, fill: InkTheme.Paper, radius: 30f);
+                Pin.Bottom, 3f, fill: InkTheme.Paper, radius: 28f);
             float top = (h + sink) * 0.5f;
+            float boardW = canvasW + 24f;
 
-            const float head = 58f;
-            view.Title = UiKit.Label(board, "title", "选一张改装", 26, new Vector2(-canvasW * 0.5f + 150f, top - head * 0.5f - 4f),
-                new Vector2(260f, 40f), TextAnchor.MiddleLeft);
+            view.Title = UiKit.Label(board, "title", "选一张改装", 26, new Vector2(0f, top - head * 0.5f),
+                new Vector2(Mathf.Max(180f, canvasW - 240f), 40f));
+            view.Title.color = InkTheme.TextDark;
             UiKit.Bold(view.Title);
-            view.Close = CloseMark(board, new Vector2(canvasW * 0.5f - 52f, top - head * 0.5f - 4f));
 
-            view.Reroll = UiKit.Btn(board, "reroll", "重刷", new Vector2(canvasW * 0.5f - 182f, top - head * 0.5f - 4f),
-                new Vector2(150f, 50f), () => { }, false);
-            view.RerollLabel = view.Reroll.GetComponentInChildren<Text>();
-            if (view.RerollLabel != null)
-            {
-                view.RerollLabel.fontSize = 24;
-                view.RerollLabel.rectTransform.anchoredPosition = new Vector2(16f, 0f);
-            }
-            Transform face = view.Reroll.transform.Find("face");
-            view.Die = UiKit.Icon(face != null ? face : view.Reroll.transform, ResultKit.AdBadge(), new Vector2(-46f, 0f), 30f);
-            view.Die.gameObject.name = "ad";
+            view.Close = ModalKit.CloseBtn(board, 0f, 0f, () => { });
+            var closeRt = (RectTransform)view.Close.transform;
+            closeRt.anchoredPosition = new Vector2(-41f, -25f);
+            view.Reroll = ModalKit.HexBtn(board, "sm_cyan", boardW - 132f - 58f, 8f, "重刷", null, out view.RerollLabel);
+            ModalKit.SetAdBtnLabel(view.Reroll, "sm_cyan", "重刷", true);
+            view.Die = view.Reroll.transform.Find("ad_ico")?.GetComponent<Image>();
 
-            float cardH = Mathf.Clamp(h - head - 26f, 140f, 196f);
-            float cardW = Mathf.Min(cardH * 0.95f, (canvasW - 80f) / 3f - 14f);
-            view.CardStep = cardW + 22f;
-            float cardY = top - head - 8f - cardH * 0.5f;
+            view.CardStep = cardW + 16f;
+            float cardY = top - head - cardH * 0.5f;
             view.Cards = new DraftCardView[3];
             for (int i = 0; i < 3; i++)
             {
                 float x = (i - 1) * view.CardStep;
-                var card = UiKit.Art(board, "card" + i, "Ui/panel_card", new Vector2(x, cardY), new Vector2(cardW, cardH),
-                    Pin.Center, CardSlice);
-                var slot = card.gameObject.AddComponent<DraftCardView>();
-                slot.Button = card.gameObject.AddComponent<Button>();
-                slot.Button.targetGraphic = card.GetComponent<Image>();
-                var cols = slot.Button.colors;
-                cols.pressedColor = new Color(0.88f, 0.88f, 0.88f, 1f);
-                slot.Button.colors = cols;
-                slot.Heap = UiKit.Icon(card, InkArt.Glyph(CardId.Fire, 160), Vector2.zero, Mathf.Min(cardW, cardH) * 0.78f);
-                slot.Heap.gameObject.name = "heap";
-                slot.WordTag = WordTag(card, new Vector2(cardW * 0.5f - 30f, cardH * 0.5f - 18f)).gameObject;
-                view.Cards[i] = slot;
+                var go = new GameObject("card" + i, typeof(RectTransform), typeof(Image), typeof(Button));
+                go.transform.SetParent(board, false);
+                var rt = go.GetComponent<RectTransform>();
+                rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
+                rt.pivot = new Vector2(0.5f, 0.5f);
+                rt.anchoredPosition = new Vector2(x, cardY);
+                rt.sizeDelta = new Vector2(cardW, cardH);
+                var img = go.GetComponent<Image>();
+                img.sprite = InkSprites.Load("Ui/study_card_gold");
+                img.type = Image.Type.Simple;
+                img.preserveAspect = false;
+                img.raycastTarget = true;
 
-                var anim = UiAnim.On(card);
-                anim.Pop(card, 0.05f + i * 0.05f, 0.30f, 0.6f);
+                var slot = go.AddComponent<DraftCardView>();
+                slot.Button = go.GetComponent<Button>();
+                slot.Button.targetGraphic = img;
+                var cols = slot.Button.colors;
+                cols.pressedColor = new Color(0.92f, 0.86f, 0.7f, 1f);
+                slot.Button.colors = cols;
+
+                var heapGo = new GameObject("heap", typeof(RectTransform), typeof(Image));
+                heapGo.transform.SetParent(go.transform, false);
+                var hrt = heapGo.GetComponent<RectTransform>();
+                hrt.anchorMin = hrt.anchorMax = new Vector2(0f, 1f);
+                hrt.pivot = new Vector2(0f, 1f);
+                hrt.anchoredPosition = new Vector2(12f, -12f);
+                hrt.sizeDelta = new Vector2(104f, 104f);
+                slot.Heap = heapGo.GetComponent<Image>();
+                slot.Heap.preserveAspect = true;
+                slot.Heap.raycastTarget = false;
+
+                slot.Name = UiKit.Label(go.transform, "cap", "单字", 18, Vector2.zero, new Vector2(cardW, 56f),
+                    TextAnchor.MiddleCenter, Pin.TopLeft);
+                HomeReskin.TopLeft(slot.Name.rectTransform, 0f, 116f, cardW, 56f);
+                slot.Name.color = InkTheme.TextDark;
+                UiKit.Bold(slot.Name);
+                slot.Name.raycastTarget = false;
+
+                view.Cards[i] = slot;
+                UiAnim.On(rt).Pop(rt, 0.05f + i * 0.05f, 0.30f, 0.6f);
             }
 
             var boardAnim = UiAnim.On(board);
             Vector2 home = board.anchoredPosition;
             boardAnim.Move(board, home + new Vector2(0f, -h - 30f), home, 0f, 0.22f, Ease.OutCubic);
             return view;
-        }
-
-        // 成词字的小签：金底深边，压在卡的右上角。
-        static RectTransform WordTag(Transform card, Vector2 pos)
-        {
-            var tag = UiKit.Stroke(card, "word", pos, new Vector2(56f, 28f), Pin.Center, 3f,
-                fill: InkTheme.Word, radius: 14f);
-            var t = UiKit.Label(tag, "t", "成词", 17, Vector2.zero, new Vector2(56f, 28f));
-            t.color = InkTheme.TextDark;
-            UiKit.Bold(t);
-            Transform sh = card.Find("word_sh");
-            if (sh != null) sh.gameObject.SetActive(false);
-            return tag;
-        }
-
-        static Button CloseMark(Transform board, Vector2 pos)
-        {
-            var go = new GameObject("close", typeof(RectTransform), typeof(Image), typeof(Button));
-            go.transform.SetParent(board, false);
-            var rt = go.GetComponent<RectTransform>();
-            rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
-            rt.pivot = new Vector2(0.5f, 0.5f);
-            rt.anchoredPosition = pos;
-            rt.sizeDelta = new Vector2(48f, 48f);
-            var img = go.GetComponent<Image>();
-            img.sprite = UiSprites.Fill(24);
-            img.color = InkTheme.Plain;
-            var ringGo = new GameObject("ring", typeof(RectTransform), typeof(Image));
-            ringGo.transform.SetParent(rt, false);
-            var ringRt = ringGo.GetComponent<RectTransform>();
-            ringRt.anchorMin = ringRt.anchorMax = new Vector2(0.5f, 0.5f);
-            ringRt.sizeDelta = new Vector2(48f, 48f);
-            var ring = ringGo.GetComponent<Image>();
-            ring.sprite = UiSprites.Line(18, 3);
-            ring.color = InkTheme.Outline;
-            ring.raycastTarget = false;
-            var mark = UiKit.Label(rt, "t", "×", 30, Vector2.zero, new Vector2(48f, 48f));
-            mark.color = InkTheme.TextDark;
-            UiKit.Bold(mark);
-            var btn = go.GetComponent<Button>();
-            btn.targetGraphic = img;
-            btn.transition = Selectable.Transition.None;
-            return btn;
         }
     }
 }

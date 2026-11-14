@@ -6,24 +6,34 @@ using UnityEngine.UI;
 
 namespace InkLine
 {
-    // 游戏圈每日任务：发一条帖子领当天抽好的墨和宝箱，通关第四章后有机会带一点金箔。
-    // 领取前可以转发一次。八成只会变好，两成可能变差。转发和发帖不分先后。
-    // 「去游戏圈」上盖着微信原生的透明按钮，点它直接进游戏圈；切回来时重查发帖数。
+    // 游戏圈每日任务（Figma Panel/首页弹窗/02_游戏圈 定稿版，预制体 Prefabs/GameClub）：
+    // 上方说明条，正中统一 96×96 物品框奖励展示台 + 右下小号「转发刷新」，
+    // 下方发帖进度条，底部正中单主按钮位（未发帖青色「去游戏圈」/ 已发帖黄色「领取奖励」/ 已领灰色「今日已领」）。
     public sealed class GameClubPanel : MonoBehaviour
     {
-        const float BoardW = 620f;
-        const float BoardH = 720f;
+        public const string PrefabPath = "Prefabs/GameClub";
+        public const string Mark = "game_club_v2";
+
+        const float BoardW = 648f;
+        const float BoardH = 612f;
+        const float StageW = 600f;
+        const float StageH = 218f;
+        const float TrackW = 600f;
+        const float TrackH = 30f;
         static readonly float[] ShowPolls = { 0f, 1.5f, 4f, 8f };
-        static readonly Vector2 CardSize = new Vector2(176f, 200f);
 
         MetaProgress _meta;
         Action _changed;
         RectTransform _layer;
         RectTransform _board;
-        Button _go;
-        Button _claim;
+        RectTransform _rewardsHost;
+        RectTransform _progFill;
+        Text _progTitle;
         Button _refresh;
-        Text _task;
+        Text _refreshLabel;
+        Button _main;
+        Text _mainLabel;
+        bool _clubOverMain;
         string _block;
         int _posts = -1;
         bool _asking;
@@ -31,14 +41,59 @@ namespace InkLine
 
         public static void Show(RectTransform layer, MetaProgress meta, Action changed)
         {
-            var dim = UiKit.Dimmer(layer);
-            dim.name = "game_club";
+            var dim = ModalKit.SpawnPrefab(layer, PrefabPath, "game_club", Mark, null, BuildPrefab, out RectTransform stage);
             var panel = dim.gameObject.AddComponent<GameClubPanel>();
             panel._meta = meta;
             panel._changed = changed;
             panel._layer = layer;
             WxBridge.EnsurePrivacy(null);
-            panel.Build(dim);
+            panel.Bind(stage);
+        }
+
+        public static RectTransform BuildPrefab()
+        {
+            var dim = ModalKit.Stage(null, "game_club", 0.80f, null, out RectTransform stage);
+            var board = ModalKit.Shell(stage, BoardW, BoardH, "游戏圈", "Ui/ico_act_circle",
+                "每日在游戏圈发 1 条动态 · 领随机补给", null, null, () => { }, out _, out _, animate: false);
+            ModalKit.AddMark(board, Mark);
+
+            var rewardStage = ModalKit.Sliced(board, "reward_stage", "Ui/modal_sub_warm", ModalKit.BorderSub18,
+                24f, 152f, StageW, StageH, false);
+
+            var hostGo = new GameObject("rewards", typeof(RectTransform));
+            hostGo.transform.SetParent(rewardStage, false);
+            var rewardsHost = hostGo.GetComponent<RectTransform>();
+            ModalKit.TopLeft(rewardsHost, 0f, 20f, StageW, 134f);
+
+            const float s = 96f, gap = 44f;
+            float x0 = Mathf.Round((StageW - (3f * s + 2f * gap)) * 0.5f);
+            string[] defTones = { ModalKit.InkTone, "blue", ModalKit.FoilTone };
+            string[] defIcons = { "Ui/ico_ink", "Ui/chest_silver", "Ui/ico_foil" };
+            string[] defNames = { "灵墨", "银宝箱", "金箔" };
+            string[] defCnts = { "200", null, "3" };
+            for (int i = 0; i < 3; i++)
+            {
+                float sx = x0 + i * (s + gap);
+                var slot = ModalKit.ItemSlot(rewardsHost, defTones[i], 96, sx, 2f,
+                    ModalKit.Load(defIcons[i]), defCnts[i], forceNodes: true);
+                slot.name = "slot" + i;
+                ModalKit.SolidText(rewardsHost, "nm" + i, defNames[i], 16, sx - 12f, 104f, 120f, 24f,
+                    ModalKit.TextBody, TextAnchor.MiddleCenter, true);
+            }
+
+            ModalKit.SolidText(rewardStage, "tip", "每日可免费转发刷新 1 次，大概率升阶奖励", 16,
+                46f, 166f, 340f, 28f, ModalKit.TextMuted, TextAnchor.MiddleCenter, false);
+            var refresh = ModalKit.HexBtn(rewardStage, "sm_cyan", 396f, 160f, "转发刷新", null, out _);
+            refresh.name = "refresh";
+
+            ModalKit.SolidText(board, "prog_title", "今日发帖进度（0 / 1）", 20, 28f, 386f, 420f, 28f,
+                ModalKit.TextDark, TextAnchor.MiddleLeft, true);
+            ModalKit.ProgressBar(board, 24f, 422f, TrackW, TrackH, 0f, "", out _, out _);
+
+            var main = ModalKit.HexBtn(board, "lg_cyan", 176f, 476f, "去游戏圈", null, out _);
+            main.name = "main_action";
+
+            return dim;
         }
 
         void OnEnable()
@@ -63,38 +118,45 @@ namespace InkLine
             Destroy(gameObject);
         }
 
-        void Build(RectTransform dim)
+        void Bind(RectTransform stage)
         {
             _meta.EnsureClubOffer();
-            _board = PanelKit.Board(dim, "游戏圈", Vector2.zero, new Vector2(BoardW, BoardH), Pin.Center, Close);
+            _board = stage.Find("board") as RectTransform;
+            ModalKit.BindClose(_board, Close);
 
-            var sub = UiKit.Label(_board, "sub", "每天在游戏圈发一条帖子就能领", 24,
-                new Vector2(0f, 72f), new Vector2(BoardW - 60f, 32f), TextAnchor.MiddleCenter, Pin.Top);
-            sub.color = InkTheme.TextMid;
+            _rewardsHost = _board.Find("reward_stage/rewards") as RectTransform;
+            _refresh = ModalKit.BindBtn(_board, "reward_stage/refresh", OnRefresh);
+            _refreshLabel = _refresh != null ? _refresh.transform.Find("t")?.GetComponent<Text>() : null;
 
-            _task = UiKit.Label(_board, "task", "", 26, new Vector2(0f, 430f), new Vector2(BoardW - 60f, 40f),
-                TextAnchor.MiddleCenter, Pin.Top);
-            _task.color = InkTheme.TextDark;
+            _progTitle = _board.Find("prog_title")?.GetComponent<Text>();
+            _progFill = _board.Find("prog/fill") as RectTransform;
 
-            _refresh = UiKit.Btn(_board, "refresh", "转发刷新", new Vector2(0f, 176f), new Vector2(520f, 80f),
-                OnRefresh, false, Pin.Bottom);
-            _go = UiKit.Btn(_board, "go", "去游戏圈", new Vector2(-138f, 52f), new Vector2(256f, 104f), OnGo, false, Pin.Bottom);
-            _claim = UiKit.Btn(_board, "claim", "领取", new Vector2(138f, 52f), new Vector2(256f, 104f), OnClaim, true, Pin.Bottom);
+            _main = ModalKit.BindBtn(_board, "main_action", OnMainTap);
+            _mainLabel = _main != null ? _main.transform.Find("t")?.GetComponent<Text>() : null;
 
             PaintRewards();
             Refresh();
+            PanelKit.Open(_board);
             Ask();
-            if (WxBridge.CanUseClub) StartCoroutine(PlaceClubButton());
+        }
+
+        void SyncClubOverlay(bool needClub)
+        {
+            _clubOverMain = needClub;
+            if (!WxBridge.CanUseClub) return;
+            StopCoroutine(nameof(PlaceClubButton));
+            if (needClub && _main != null)
+                StartCoroutine(nameof(PlaceClubButton));
+            else
+                WxBridge.HideClubButton();
         }
 
         IEnumerator PlaceClubButton()
         {
-            // 卡面打开的 0.32 秒里从 0.72 涨到 1。只在第一帧量一次的话，
-            // 微信那个透明按钮会留在还没涨开的位置，之后点「去游戏圈」点到的是底下的 Unity 按钮。
-            RectTransform rt = _go.GetComponent<RectTransform>();
+            RectTransform rt = _main.GetComponent<RectTransform>();
             float still = 0f;
             Rect last = default;
-            while (_go != null && still < 0.12f)
+            while (_main != null && _clubOverMain && still < 0.12f)
             {
                 Rect now = PanelKit.ScreenRect(rt);
                 if (Mathf.Abs(now.x - last.x) > 0.5f || Mathf.Abs(now.y - last.y) > 0.5f
@@ -109,7 +171,6 @@ namespace InkLine
             }
         }
 
-        // 发帖后游戏圈那边的统计有延迟，切回来多问几次。
         void OnBack()
         {
             if (this == null) return;
@@ -142,7 +203,7 @@ namespace InkLine
                 {
                     Debug.LogWarning("[GameClub] " + err);
                     if (err.IndexOf("隐私", StringComparison.Ordinal) >= 0)
-                        _block = "需同意隐私协议后才能同步发帖";
+                        _block = "需同意隐私协议同步";
                 }
                 else _posts = Mathf.Max(_posts, count);
                 Refresh();
@@ -151,43 +212,42 @@ namespace InkLine
 
         void PaintRewards()
         {
-            Drop("ink");
-            Drop("chest");
-            Drop("foil");
-            if (!_meta.HasClubOffer) return;
-            var cards = new List<(string id, string icon, string name, string amount)>(3)
+            if (_rewardsHost == null || !_meta.HasClubOffer) return;
+
+            var items = new List<(string tone, string icon, string name, string cnt)>(3)
             {
-                ("ink", "Ui/ico_ink", "墨", "×" + _meta.ClubInk),
+                (ModalKit.InkTone, "Ui/ico_ink", "灵墨", _meta.ClubInk.ToString()),
             };
             ChestDef chest = ChestCatalog.Get(_meta.ClubChestTier);
-            cards.Add(("chest", "Ui/chest_" + chest.Key, chest.Name, "×1"));
+            items.Add((ModalKit.ChestTone(_meta.ClubChestTier), "Ui/chest_" + chest.Key, chest.Name, null));
             if (_meta.ClubFoil > 0)
-                cards.Add(("foil", "Ui/ico_foil", "金箔", "×" + _meta.ClubFoil));
-            float span = (cards.Count - 1) * (CardSize.x + 16f);
-            for (int i = 0; i < cards.Count; i++)
-            {
-                float x = -span * 0.5f + i * (CardSize.x + 16f);
-                var card = PanelKit.Reward(_board, cards[i].icon, cards[i].name, cards[i].amount,
-                    new Vector2(x, 150f), CardSize);
-                card.name = cards[i].id;
-                Transform shade = _board.Find("reward_sh");
-                if (shade != null) shade.name = cards[i].id + "_sh";
-            }
-        }
+                items.Add((ModalKit.FoilTone, "Ui/ico_foil", "金箔", _meta.ClubFoil.ToString()));
 
-        void Drop(string id)
-        {
-            Transform old = _board.Find(id);
-            if (old != null)
+            const float s = 96f, gap = 44f;
+            float totalW = items.Count * s + (items.Count - 1) * gap;
+            float x0 = Mathf.Round((StageW - totalW) * 0.5f);
+
+            for (int i = 0; i < 3; i++)
             {
-                old.gameObject.SetActive(false);
-                Destroy(old.gameObject);
-            }
-            Transform shade = _board.Find(id + "_sh");
-            if (shade != null)
-            {
-                shade.gameObject.SetActive(false);
-                Destroy(shade.gameObject);
+                var slot = _rewardsHost.Find("slot" + i) as RectTransform;
+                var nmTr = _rewardsHost.Find("nm" + i) as RectTransform;
+                bool active = i < items.Count;
+                if (slot != null) slot.gameObject.SetActive(active);
+                if (nmTr != null) nmTr.gameObject.SetActive(active);
+                if (!active) continue;
+
+                float sx = x0 + i * (s + gap);
+                if (slot != null)
+                {
+                    ModalKit.TopLeft(slot, sx, 2f, s, s);
+                    ModalKit.SetItemSlot(slot, items[i].tone, 96, ModalKit.Load(items[i].icon), items[i].cnt);
+                }
+                if (nmTr != null)
+                {
+                    ModalKit.TopLeft(nmTr, sx - 12f, 104f, 120f, 24f);
+                    var nmTxt = nmTr.GetComponent<Text>();
+                    if (nmTxt != null) nmTxt.text = items[i].name;
+                }
             }
         }
 
@@ -195,38 +255,67 @@ namespace InkLine
         {
             bool claimed = _meta.ClubClaimedToday;
             bool used = _meta.ClubRefreshedToday;
-            SetShown(_refresh, !claimed);
-            if (!claimed)
+
+            if (_refresh != null)
             {
-                PanelKit.SetText(_refresh, used ? "今日已刷新" : "转发刷新");
-                PanelKit.Dim(_refresh, used, false);
+                _refresh.gameObject.SetActive(!claimed);
+                if (!claimed)
+                {
+                    if (_refreshLabel != null) _refreshLabel.text = used ? "今日已刷" : "转发刷新";
+                    ModalKit.SetHexBtnGray(_refresh, "sm_cyan", "sm_gray", used);
+                }
             }
+
+            int done = claimed ? 1 : Mathf.Max(0, Mathf.Min(1, _posts));
+            ModalKit.SetProgress(_progFill, TrackW, TrackH, done);
+
             if (!claimed && _posts <= 0 && !string.IsNullOrEmpty(_block))
             {
-                _task.text = _block;
-                PanelKit.SetText(_claim, "领取");
-                PanelKit.Dim(_claim, true);
+                if (_progTitle != null) _progTitle.text = _block;
+                if (_mainLabel != null) _mainLabel.text = "去游戏圈";
+                ModalKit.SetHexBtnGray(_main, "lg_cyan", "lg_gray", false);
+                SyncClubOverlay(true);
                 return;
             }
-            int done = claimed ? 1 : Mathf.Max(0, Mathf.Min(1, _posts));
-            _task.text = claimed ? "今日奖励已领取，明天再来" : $"今日发帖  {done}/1";
-            PanelKit.SetText(_claim, claimed ? "已领取" : "领取");
-            PanelKit.Dim(_claim, claimed || _posts <= 0);
+
+            if (_progTitle != null)
+                _progTitle.text = claimed ? "今日发帖进度（1 / 1）· 已领取" : $"今日发帖进度（{done} / 1）";
+
+            if (claimed)
+            {
+                if (_mainLabel != null) _mainLabel.text = "今日已领";
+                ModalKit.SetHexBtnGray(_main, "lg_yellow", "lg_gray", true);
+                SyncClubOverlay(false);
+            }
+            else if (done > 0)
+            {
+                if (_mainLabel != null) _mainLabel.text = "领取奖励";
+                ModalKit.SetHexBtnGray(_main, "lg_yellow", "lg_gray", false);
+                SyncClubOverlay(false);
+            }
+            else
+            {
+                if (_mainLabel != null) _mainLabel.text = "去游戏圈";
+                ModalKit.SetHexBtnGray(_main, "lg_cyan", "lg_gray", false);
+                SyncClubOverlay(true);
+            }
         }
 
-        static void SetShown(Button btn, bool on)
+        void OnMainTap()
         {
-            if (btn == null) return;
-            btn.gameObject.SetActive(on);
-            Transform shade = btn.transform.parent.Find(btn.name + "_sh");
-            if (shade != null) shade.gameObject.SetActive(on);
-        }
-
-        void OnGo()
-        {
-            AudioBus.Tap();
-            // 真机上点到的是盖在上面的原生按钮，走不到这里。
-            InkToast.Show(_layer, "游戏圈要在微信里打开");
+            if (_meta.ClubClaimedToday)
+            {
+                AudioBus.Tap();
+                InkToast.Show(_layer, "今天已经领过了");
+                return;
+            }
+            if (_posts <= 0)
+            {
+                AudioBus.Tap();
+                InkToast.Show(_layer, "游戏圈要在微信里打开");
+                return;
+            }
+            OnClaim();
         }
 
         void OnRefresh()
@@ -238,8 +327,6 @@ namespace InkLine
                 InkToast.Show(_layer, "今天已经刷新过了");
                 return;
             }
-            // 先按住「这是转发」，再藏掉盖在「去游戏圈」上的原生按钮，最后才拉起转发。
-            // 没按住时，切回来会被当成离开游戏，大厅整页重建。
             GameFlow.ArmShareReturn();
             WxBridge.HideClubButton();
             WxBridge.ShareForReward(ShareCatalog.PickClub(), "gameclub_refresh", () =>
@@ -266,8 +353,8 @@ namespace InkLine
 
         void RestoreClubButton()
         {
-            if (this == null || _go == null || !WxBridge.CanUseClub) return;
-            WxBridge.ShowClubButton(PanelKit.ScreenRect(_go.GetComponent<RectTransform>()));
+            if (this == null || _main == null || !_clubOverMain || !WxBridge.CanUseClub) return;
+            WxBridge.ShowClubButton(PanelKit.ScreenRect(_main.GetComponent<RectTransform>()));
         }
 
         void OnClaim()
@@ -293,14 +380,14 @@ namespace InkLine
             else if (slot == -3)
             {
                 shown += ChestCatalog.InkAvg(tier);
-                where = chest + "换成墨";
+                where = chest + "换成灵墨";
             }
             else where = "宝箱位满了，选个位置放下";
-            Vector2 from = RewardFly.Local(_layer, _claim != null ? _claim.transform : transform);
+            Vector2 from = RewardFly.Local(_layer, _main != null ? _main.transform : transform);
             var pieces = new List<RewardFly.Piece>(3) { RewardFly.Ink(_layer, shown) };
             if (foil > 0) pieces.Add(RewardFly.Foil(_layer, foil));
             if (slot >= 0) pieces.Add(RewardFly.Chest(_layer, tier, slot));
-            InkToast.Show(_layer, "已领取 墨×" + ink + extra + "，" + where);
+            InkToast.Show(_layer, "已领取 灵墨×" + ink + extra + "，" + where);
             RewardFly.Play(_layer, from, pieces.ToArray());
             _changed?.Invoke();
             Refresh();
