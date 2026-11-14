@@ -92,6 +92,14 @@ namespace InkLine
             ModalKit.BindClose(_board, Close);
             _inkSlot = _board.Find("slot_ink") as RectTransform;
             _gemSlot = _board.Find("slot_gem") as RectTransform;
+            // 预制烘出来时蓝框没挂上，打开时按银宝箱补上。
+            var chestFrame = _board.Find("slot_chest")?.GetComponent<Image>();
+            if (chestFrame != null)
+            {
+                ChestDef chest = ChestCatalog.Get(GameConstants.GiftChest);
+                Sprite frame = ModalKit.Load(ModalKit.SlotSpriteKey(ModalKit.ChestTone(chest.Tier), 128));
+                if (frame != null) chestFrame.sprite = frame;
+            }
             _progTitle = _board.Find("prog_card/t")?.GetComponent<Text>();
             _readyTagText = _board.Find("prog_card/ready_tag/t")?.GetComponent<Text>();
             _progFill = _board.Find("prog_card/prog/fill") as RectTransform;
