@@ -46,17 +46,52 @@ namespace InkLine
                 anim.Fade(scrim, 0f, 0.2f, 0f, scrim.color.a);
         }
 
+        // 首页图标打开的页面偏小。打开前挂上，弹出动画停在这个倍数，字号也抬一档。
+        public sealed class PanelBoost : MonoBehaviour
+        {
+            public float Scale = 1.12f;
+        }
+
+        public static void Enlarge(RectTransform board, float scale = 1.12f)
+        {
+            if (board == null) return;
+            if (Mathf.Abs(board.pivot.x - 0.5f) > 0.01f || Mathf.Abs(board.pivot.y - 0.5f) > 0.01f)
+            {
+                Vector2 size = board.sizeDelta;
+                Vector2 delta = new Vector2((0.5f - board.pivot.x) * size.x, (0.5f - board.pivot.y) * size.y);
+                board.pivot = new Vector2(0.5f, 0.5f);
+                board.anchoredPosition += delta;
+            }
+            var boost = board.GetComponent<PanelBoost>();
+            if (boost == null)
+            {
+                boost = board.gameObject.AddComponent<PanelBoost>();
+                Text[] texts = board.GetComponentsInChildren<Text>(true);
+                for (int i = 0; i < texts.Length; i++)
+                {
+                    Text t = texts[i];
+                    if (t == null || t.fontSize >= 40) continue;
+                    t.fontSize += t.fontSize >= 28 ? 2 : 4;
+                }
+            }
+            boost.Scale = scale;
+        }
+
         static void Grow(UiAnim anim, RectTransform rt)
         {
             Vector2 home = rt.anchoredPosition;
             Vector2 size = rt.sizeDelta;
             Vector2 off = new Vector2(0.5f - rt.pivot.x, 0.5f - rt.pivot.y);
+            float end = 1f;
+            var boost = rt.GetComponent<PanelBoost>();
+            if (boost != null && boost.Scale > 1.01f) end = boost.Scale;
             anim.Tween(0f, 0.32f, k =>
             {
                 if (rt == null) return;
-                float s = Mathf.LerpUnclamped(0.72f, 1f, Ease.OutBack(k));
+                float u = Mathf.LerpUnclamped(0.72f, 1f, Ease.OutBack(k));
+                float s = u * end;
                 rt.localScale = new Vector3(s, s, 1f);
-                rt.anchoredPosition = home + off * size * (1f - s);
+                rt.anchoredPosition = home + off * size * (1f - u);
             });
         }
 

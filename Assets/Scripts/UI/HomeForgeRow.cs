@@ -152,7 +152,7 @@ namespace InkLine
 
             r._act = UiKit.Btn(plate, "act", "升级", new Vector2(464f, 52f), new Vector2(176f, 63f), () => { }, true, Pin.TopLeft);
             var t = r._act.GetComponentInChildren<Text>();
-            if (t != null) t.fontSize = 26;
+            if (t != null) t.fontSize = UiKit.ReadSize(26);
 
             r._fresh = Badge(plate, "fresh", "新", new Vector2(22f, 52f), new Vector2(44f, 26f), InkTheme.Rose, Pin.TopLeft);
             r._fresh.localRotation = Quaternion.Euler(0f, 0f, -8f);

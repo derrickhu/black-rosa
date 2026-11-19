@@ -591,9 +591,9 @@ namespace InkLine
                 }
 
                 SealCatalog.Line(key, t, q, out _, out string qAmount);
-                ModalKit.SolidText(cell, "what", what, 14, 4f, 116f, cellW - 8f, 22f,
+                ModalKit.SolidText(cell, "what", what, 14, 4f, 112f, cellW - 8f, 28f,
                     ModalKit.TextMuted, TextAnchor.MiddleCenter, false);
-                ModalKit.SolidText(cell, "v", qAmount, 22, 4f, 140f, cellW - 8f, 32f,
+                ModalKit.SolidText(cell, "v", qAmount, 22, 4f, 142f, cellW - 8f, 36f,
                     any ? SealCatalog.QualityDeep(q) : InkTheme.TextDim, TextAnchor.MiddleCenter, true);
 
                 if (on)

@@ -35,7 +35,6 @@ namespace InkLine
         }
 
         static readonly Color Ink = new Color(0.051f, 0.020f, 0.039f, 1f);
-        static readonly Color GoldDeep = new Color(0.878f, 0.627f, 0.125f, 1f);
         static Material _gray;
 
         // 没拿到的炮台：皮肤和六边形框一起去色。锁本身留着原色。
@@ -58,8 +57,17 @@ namespace InkLine
             img.material = owned ? null : GrayMat;
         }
 
-        static readonly float[] BarX = { 18f, 18f, 18f, 18f, 526f, 526f, 526f, 526f, 526f };
-        static readonly float[] BarY = { 278f, 314f, 350f, 386f, 278f, 314f, 350f, 386f, 422f };
+        // 黄签写名字，奶油底写数值。数值用粗体和金币深色，比名字大一档。
+        const float BarW = 204f;
+        const float BarH = 42f;
+        const float BarStep = 48f;
+        const float BarTop = 270f;
+        const float BarLeft = 16f;
+        const float BarRight = 500f;
+        const int BarNameSize = 18;
+        const int BarValSize = 22;
+        static readonly Color ValueColor = new Color(0.745f, 0.463f, 0.118f, 1f);
+        static readonly Color OwnValue = new Color(0.420f, 0.157f, 0.620f, 1f);
 
         readonly MetaProgress _meta;
         readonly Action<int> _focusChanged;
@@ -76,6 +84,8 @@ namespace InkLine
         Text[] _slotName;
         Text[] _barName;
         Text[] _barVal;
+        Text _rankText;
+        Text _featText;
         RectTransform _skinRow;
         SkinStageMotion _motion;
         int _focus;
@@ -151,14 +161,15 @@ namespace InkLine
             _barName = new Text[lines];
             _barVal = new Text[lines];
             var pill = InkSprites.Load("Ui/stat_pill");
-            for (int i = 0; i < lines && i < BarX.Length; i++)
+            for (int i = 0; i < lines; i++)
             {
                 var box = SpriteBox(_root, "bar" + i, pill,
-                    new Vector2(BarX[i], BarY[i]), new Vector2(176f, 28f), Pin.TopLeft);
+                    new Vector2(BarLeft, BarTop), new Vector2(BarW, BarH), Pin.TopLeft);
                 box.preserveAspect = false;
-                _barName[i] = PillText(box.rectTransform, "n", "", 10f, 66f, TextAnchor.MiddleLeft);
-                _barVal[i] = PillText(box.rectTransform, "v", "", 78f, 98f, TextAnchor.MiddleCenter);
+                _barName[i] = PillText(box.rectTransform, "n", "");
+                _barVal[i] = PillText(box.rectTransform, "v", "");
             }
+            FitBars();
 
             _lockText = UiKit.Label(_root, "need", "", 16, new Vector2(0f, 448f), new Vector2(280f, 28f),
                 TextAnchor.MiddleCenter, Pin.Top);
@@ -168,7 +179,7 @@ namespace InkLine
 
             _act = UiKit.Btn(_root, "act", "", new Vector2(0f, 456f), new Vector2(176f, 63f), OnAct, true, Pin.Top);
             _actText = _act.GetComponentInChildren<Text>();
-            if (_actText != null) _actText.fontSize = 22;
+            if (_actText != null) _actText.fontSize = UiKit.ReadSize(22);
             _act.gameObject.SetActive(false);
 
             BuildSkinBar();
@@ -239,10 +250,9 @@ namespace InkLine
             worn.gameObject.SetActive(false);
             _worn[i] = worn.rectTransform;
 
-            _slotName[i] = UiKit.Label(cell, "name", d.Name, 14, new Vector2(0f, 108f), new Vector2(SlotW, 20f),
+            _slotName[i] = UiKit.Label(cell, "name", d.Name, 20, new Vector2(-4f, 100f), new Vector2(SlotW + 8f, 28f),
                 TextAnchor.MiddleCenter, Pin.TopLeft);
-            _slotName[i].color = Ink;
-            UiKit.Bold(_slotName[i]);
+            StyleSlotName(_slotName[i]);
 
             var btn = cell.gameObject.AddComponent<Button>();
             btn.targetGraphic = hex;
@@ -279,12 +289,52 @@ namespace InkLine
             return img;
         }
 
-        static Text PillText(RectTransform pill, string name, string text, float x, float w, TextAnchor align)
+        static Text PillText(RectTransform pill, string name, string text)
         {
-            var t = UiKit.Label(pill, name, text, 14, new Vector2(x, 0f), new Vector2(w, 28f), align, Pin.TopLeft);
+            var t = UiKit.Label(pill, name, text, BarNameSize, Vector2.zero, new Vector2(BarW * 0.5f, BarH),
+                TextAnchor.MiddleCenter, Pin.TopLeft);
             t.color = Ink;
-            UiKit.Bold(t);
             return t;
+        }
+
+        void FitBars()
+        {
+            if (_barName == null) return;
+            for (int i = 0; i < _barName.Length; i++)
+            {
+                if (_barName[i] == null) continue;
+                var bar = _barName[i].transform.parent as RectTransform;
+                if (bar == null) continue;
+                bool left = i < 4;
+                int row = left ? i : i - 4;
+                bar.anchorMin = bar.anchorMax = new Vector2(0f, 1f);
+                bar.pivot = new Vector2(0f, 1f);
+                bar.sizeDelta = new Vector2(BarW, BarH);
+                bar.anchoredPosition = new Vector2(left ? BarLeft : BarRight, -(BarTop + row * BarStep));
+                var face = bar.GetComponent<Image>();
+                if (face != null) face.preserveAspect = false;
+                float half = BarW * 0.5f;
+                StylePill(_barName[i], 10f, half - 18f, BarNameSize, Ink, false);
+                StylePill(_barVal[i], half + 8f, half - 16f, BarValSize, ValueColor, true);
+            }
+        }
+
+        static void StylePill(Text t, float x, float w, int size, Color color, bool bold)
+        {
+            if (t == null) return;
+            var rt = t.rectTransform;
+            rt.anchorMin = rt.anchorMax = new Vector2(0f, 1f);
+            rt.pivot = new Vector2(0f, 1f);
+            rt.anchoredPosition = new Vector2(x, 0f);
+            rt.sizeDelta = new Vector2(w, BarH);
+            t.font = bold ? UiKit.FontBold : UiKit.Font;
+            t.fontStyle = FontStyle.Normal;
+            t.resizeTextForBestFit = false;
+            t.fontSize = size;
+            t.color = color;
+            t.alignment = TextAnchor.MiddleCenter;
+            t.horizontalOverflow = HorizontalWrapMode.Overflow;
+            t.verticalOverflow = VerticalWrapMode.Overflow;
         }
 
         static Sprite HexSprite(SkinRarity r)
@@ -345,6 +395,7 @@ namespace InkLine
             var upper = _root.Find("upper")?.GetComponent<Image>();
             if (upper != null && upper.sprite == null) upper.sprite = InkSprites.Load("Ui/turret_upper");
             UiKit.RepairBtn(_act);
+            FitBars();
         }
 
         void AttachMotion(RectTransform swipe)
@@ -412,21 +463,82 @@ namespace InkLine
 
             BindAct(i, d, owned, shown);
             for (int k = 0; k < _frames.Length; k++) BindSlot(k);
+            PaintBlurb(d);
             PaintBars();
             ScrollTo(i);
             if (notify && moved) _focusChanged?.Invoke(i);
         }
 
+        // 等级 0 不占位。专属词条只在装着对应皮肤时出现，胶囊用紫色。
         void PaintBars()
         {
             if (_barName == null || _meta == null) return;
             int n = Mathf.Min(_barName.Length, ForgeCatalog.LineCount);
-            for (int i = 0; i < n; i++)
+            int[] live = new int[n];
+            int count = 0;
+            Sprite own = InkSprites.Load("Ui/stat_pill_own");
+            Sprite plain = InkSprites.Load("Ui/stat_pill");
+            for (int i = 0; i < _barName.Length; i++)
             {
+                var bar = BarOf(i);
+                if (i >= n)
+                {
+                    if (bar != null) bar.gameObject.SetActive(false);
+                    continue;
+                }
                 ForgeDef d = ForgeCatalog.Get(i);
+                int lv = _meta.ForgeLevel(i);
+                bool on = lv > 0 && (!d.Exclusive || d.Skin == _meta.Skin);
+                if (bar != null) bar.gameObject.SetActive(on);
+                if (!on || _barName[i] == null || _barVal[i] == null) continue;
+                var face = bar.GetComponent<Image>();
+                if (face != null)
+                {
+                    Sprite s = d.Exclusive ? own : plain;
+                    if (s != null) face.sprite = s;
+                    face.color = Color.white;
+                    face.preserveAspect = false;
+                }
                 _barName[i].text = d.Stat;
-                _barVal[i].text = ForgeCatalog.Value(i, _meta.ForgeLevel(i));
-                _barVal[i].color = Ink;
+                _barName[i].color = Ink;
+                _barVal[i].text = ForgeCatalog.Value(i, lv);
+                _barVal[i].color = d.Exclusive ? OwnValue : ValueColor;
+                live[count++] = i;
+            }
+            PlaceLive(live, count);
+        }
+
+        RectTransform BarOf(int i)
+        {
+            if (_barName == null || i < 0 || i >= _barName.Length || _barName[i] == null) return null;
+            return _barName[i].transform.parent as RectTransform;
+        }
+
+        // 生效的词条左右分开，整列对着炮心。底下给皮肤条留空。
+        void PlaceLive(int[] live, int count)
+        {
+            if (count <= 0) return;
+            int leftN = count - count / 2;
+            int rightN = count - leftN;
+            const float gunMid = 402f;
+            const float floor = 512f;
+            float gap = BarStep - BarH;
+            int li = 0, ri = 0;
+            for (int k = 0; k < count; k++)
+            {
+                bool left = k < leftN;
+                int row = left ? li++ : ri++;
+                int rows = left ? leftN : rightN;
+                float h = rows * BarH + (rows - 1) * gap;
+                float top = gunMid - h * 0.5f;
+                float bottom = top + h;
+                if (bottom > floor) top -= bottom - floor;
+                var bar = BarOf(live[k]);
+                if (bar == null) continue;
+                bar.anchorMin = bar.anchorMax = new Vector2(0f, 1f);
+                bar.pivot = new Vector2(0f, 1f);
+                bar.sizeDelta = new Vector2(BarW, BarH);
+                bar.anchoredPosition = new Vector2(left ? BarLeft : BarRight, -(top + row * BarStep));
             }
         }
 
@@ -503,8 +615,139 @@ namespace InkLine
             _locks[k].gameObject.SetActive(!owned);
             if (_worn[k] != null) _worn[k].gameObject.SetActive(owned && _meta.Skin == k);
             _slotName[k].text = dk.Name;
-            _slotName[k].color = k == _focus ? GoldDeep : Ink;
-            _faces[k].rectTransform.localScale = Vector3.one * (k == _focus ? 1.06f : 1f);
+            StyleSlotName(_slotName[k]);
+            _faces[k].rectTransform.localScale = Vector3.one * (k == _focus ? 1.04f : 1f);
+            var glow = EnsurePick(_frames[k].transform.parent as RectTransform, _frames[k].sprite);
+            if (glow != null) glow.gameObject.SetActive(k == _focus);
+        }
+
+        static void StyleSlotName(Text t)
+        {
+            if (t == null) return;
+            t.font = UiKit.FontBold;
+            t.fontStyle = FontStyle.Normal;
+            t.fontSize = 20;
+            // 地板是暖桃色。金色在这上面对比大约 1.2，几乎看不见。名字一律用深色。
+            t.color = Ink;
+            t.alignment = TextAnchor.MiddleCenter;
+            t.horizontalOverflow = HorizontalWrapMode.Overflow;
+            t.verticalOverflow = VerticalWrapMode.Overflow;
+            t.resizeTextForBestFit = false;
+            var rt = t.rectTransform;
+            rt.anchorMin = rt.anchorMax = new Vector2(0f, 1f);
+            rt.pivot = new Vector2(0f, 1f);
+            rt.anchoredPosition = new Vector2(-4f, -100f);
+            rt.sizeDelta = new Vector2(SlotW + 8f, 28f);
+            var edge = t.GetComponent<Outline>();
+            if (edge != null) edge.enabled = false;
+        }
+
+        // 选中只露一圈和六边形同形的亮边，不铺大光斑。
+        static Image EnsurePick(RectTransform cell, Sprite hex)
+        {
+            if (cell == null) return null;
+            var img = cell.Find("pick")?.GetComponent<Image>();
+            if (img == null)
+            {
+                var go = new GameObject("pick", typeof(RectTransform), typeof(Image));
+                go.transform.SetParent(cell, false);
+                img = go.GetComponent<Image>();
+            }
+            img.transform.SetAsFirstSibling();
+            var frame = cell.Find("hex") as RectTransform;
+            float w = frame != null ? frame.sizeDelta.x : SlotW;
+            float h = frame != null ? frame.sizeDelta.y : 110f;
+            Vector2 origin = frame != null ? frame.anchoredPosition : Vector2.zero;
+            var rt = img.rectTransform;
+            rt.anchorMin = rt.anchorMax = new Vector2(0f, 1f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.sizeDelta = new Vector2(w + 12f, h + 14f);
+            rt.anchoredPosition = origin + new Vector2(w * 0.5f, -h * 0.5f);
+            img.sprite = hex;
+            img.type = Image.Type.Simple;
+            img.preserveAspect = true;
+            img.raycastTarget = false;
+            img.color = new Color(1f, 0.92f, 0.42f, 1f);
+            if (img.GetComponent<SkinPickGlow>() == null) img.gameObject.AddComponent<SkinPickGlow>();
+            return img;
+        }
+
+        static readonly Vector4 BlurbTagBorder = new Vector4(32f, 0f, 32f, 0f);
+
+        // 炮上方一行：品质签靠左，黑条只写效果。没有加成就写「无特殊效果」。
+        void PaintBlurb(SkinDef d)
+        {
+            EnsureBlurb();
+            if (_featText == null || _rankText == null) return;
+            string perk = SkinCatalog.PerkOf(_focus);
+            if (string.IsNullOrEmpty(perk)) perk = "无特殊效果";
+            _featText.text = perk;
+            _rankText.text = SkinCatalog.RankName(d.Rarity);
+            var tag = _rankText.transform.parent != null ? _rankText.transform.parent.GetComponent<Image>() : null;
+            if (tag != null)
+            {
+                string tone = d.Rarity == SkinRarity.Rare ? "purple"
+                    : d.Rarity == SkinRarity.Advanced ? "blue" : "green";
+                Sprite s = ModalKit.Load2x("Ui/glyph_tag_" + tone, BlurbTagBorder);
+                if (s != null)
+                {
+                    tag.sprite = s;
+                    tag.type = Image.Type.Sliced;
+                }
+            }
+            LayoutBlurb(_root.Find("blurb") as RectTransform);
+        }
+
+        void EnsureBlurb()
+        {
+            var host = _root.Find("blurb") as RectTransform;
+            if (host == null)
+            {
+                host = UiKit.Panel(_root, "blurb", new Vector2(0f, 198f), new Vector2(720f, 44f), Color.clear, Pin.Top);
+                host.GetComponent<Image>().raycastTarget = false;
+                host.SetAsLastSibling();
+
+                var tag = ModalKit.Sliced(host, "rank", "Ui/glyph_tag_green", BlurbTagBorder,
+                    0f, 3f, 96f, 36f, false);
+                _rankText = ModalKit.OutlinedText(tag, "t", "普通", 16, 0f, 0f, 96f, 36f,
+                    Color.white, TextAnchor.MiddleCenter, 1.15f);
+
+                var strip = ModalKit.Sliced(host, "strip", "Ui/modal_info_strip", ModalKit.BorderStrip,
+                    0f, 0f, 500f, 42f, false);
+                _featText = ModalKit.OutlinedText(strip, "t", "", 16, 24f, 0f, 452f, 42f,
+                    Color.white, TextAnchor.MiddleCenter, 1.15f);
+            }
+            else
+            {
+                _rankText = host.Find("rank/t")?.GetComponent<Text>();
+                _featText = host.Find("strip/t")?.GetComponent<Text>();
+                Transform note = host.Find("note");
+                if (note != null) note.gameObject.SetActive(false);
+            }
+        }
+
+        // 标签和黑条合成一组，按字数收短，整组对准炮。
+        void LayoutBlurb(RectTransform host)
+        {
+            if (host == null || _featText == null) return;
+            host.sizeDelta = new Vector2(720f, 44f);
+            // 货币条在高屏上跟着顶栏下移，说明若停在 210 就会贴上去。贴在货币下沿，并停在炮顶之前。
+            float y = Mathf.Max(210f, HomeReskin.PlaceY(100f) + 70f);
+            host.anchoredPosition = new Vector2(0f, -Mathf.Min(y, 260f));
+            const float tagW = 96f, tagH = 36f, stripH = 42f, gap = 10f;
+            int size = _featText.fontSize > 0 ? _featText.fontSize : UiKit.ReadSize(16);
+            float textW = ModalKit.MeasureText(_featText.text, size);
+            float stripW = Mathf.Clamp(textW + 108f, 188f, 440f);
+            float x = Mathf.Round((720f - (tagW + gap + stripW)) * 0.5f);
+            var tag = host.Find("rank") as RectTransform;
+            var strip = host.Find("strip") as RectTransform;
+            if (tag != null) ModalKit.TopLeft(tag, x, (stripH - tagH) * 0.5f, tagW, tagH);
+            if (strip != null) ModalKit.TopLeft(strip, x + tagW + gap, 0f, stripW, stripH);
+            float inner = Mathf.Max(40f, stripW - 96f);
+            float inset = Mathf.Round((stripW - inner) * 0.5f);
+            if (_featText != null) ModalKit.TopLeft(_featText.rectTransform, inset, 0f, inner, stripH);
+            var rank = tag != null ? tag.Find("t") as RectTransform : null;
+            if (rank != null) ModalKit.TopLeft(rank, 0f, 0f, tagW, tagH);
         }
 
         void FlySkin(int i)
@@ -603,6 +846,29 @@ namespace InkLine
             _dragX = 0f;
             if (Mathf.Abs(dx) < 60f) return;
             Swiped?.Invoke(dx < 0f ? 1 : -1);
+        }
+    }
+
+    // 选中六边形外圈的亮边，只轻轻闪一下，不放大。
+    public sealed class SkinPickGlow : MonoBehaviour
+    {
+        Image _img;
+        Color _color;
+
+        void Awake()
+        {
+            _img = GetComponent<Image>();
+            if (_img != null) _color = _img.color;
+        }
+
+        void Update()
+        {
+            transform.localScale = Vector3.one;
+            if (_img == null) return;
+            float u = 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * 2.6f);
+            Color c = _color;
+            c.a = Mathf.Lerp(0.72f, 1f, u);
+            _img.color = c;
         }
     }
 }

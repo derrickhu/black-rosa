@@ -288,7 +288,7 @@ namespace InkLine
             tagImg.preserveAspect = false;
             if (c.TagFill != null) c.TagFill.gameObject.SetActive(false);
             c.Label.color = InkTheme.Hex("1A1008");
-            c.Label.fontSize = 16;
+            c.Label.fontSize = UiKit.ReadSize(16);
             if (st == ChestState.Ready) c.Label.text = "打开";
             else if (st == ChestState.Timing) c.Label.text = ChestCatalog.Clock(c.Sec);
             else c.Label.text = ChestCatalog.Span(d.Seconds);

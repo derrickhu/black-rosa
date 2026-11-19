@@ -22,8 +22,8 @@ namespace InkLine
             art.type = Image.Type.Simple;
         }
 
-        public const float NodeW = 42f;
-        public const float NodeH = 42f * 204f / 336f;
+        public const float NodeW = 50f;
+        public const float NodeH = 50f * 204f / 336f;
 
         // 抠过的圆点：顶面中心在图高从下往上 132/204 的位置。
         public static readonly Vector2 NodePivot = new Vector2(0.5f, 132f / 204f);
@@ -43,9 +43,9 @@ namespace InkLine
             new Vector2(156f, 78f),
         };
 
-        // 下标跟 HomeScreen.Side* 一致。行距 84。
+        // 下标跟 HomeScreen.Side* 一致。行距 112，整列比原来下移约 48。
         // 左列：签到、游戏圈、邮箱、图鉴、排行榜。右列：招财进宝在上，新手礼包在下。
-        static readonly float[] SideTop = { 256f, 256f, 172f, 424f, 508f, 172f, 340f };
+        static readonly float[] SideTop = { 332f, 332f, 220f, 556f, 668f, 220f, 444f };
         static bool SideOnRight(int index) => index == 0 || index == 5;
 
         public static readonly Color Ink = new Color(0.102f, 0.063f, 0.031f, 1f);
@@ -80,7 +80,7 @@ namespace InkLine
             num.text = stageNo.ToString();
             num.font = UiKit.FontBold;
             num.fontStyle = FontStyle.Normal;
-            num.fontSize = stageNo >= 100 ? 12 : 15;
+            num.fontSize = UiKit.ReadSize(stageNo >= 100 ? 12 : 15);
             num.alignment = TextAnchor.MiddleCenter;
             num.alignByGeometry = true;
             num.color = boss ? Cream : Ink;
@@ -90,7 +90,7 @@ namespace InkLine
             var rt = num.rectTransform;
             rt.anchorMin = rt.anchorMax = new Vector2(0.5f, NodePivot.y);
             rt.pivot = new Vector2(0.5f, 0.5f);
-            rt.sizeDelta = new Vector2(40f, 22f);
+            rt.sizeDelta = new Vector2(48f, 28f);
             rt.anchoredPosition = new Vector2(0f, 1f);
         }
 
@@ -430,10 +430,10 @@ namespace InkLine
             PlaceBar(gem, PlaceX(445f), bar, InkSprites.Ui("diamond"));
             if (tip != null)
             {
-                TopLeft(tip.rectTransform, PlaceX(97f), PlaceY(134f), 180f, 22f);
+                TopLeft(tip.rectTransform, PlaceX(97f), PlaceY(148f), 200f, 28f);
                 tip.alignment = TextAnchor.MiddleCenter;
                 tip.color = new Color(0.55f, 0.85f, 0.62f, 1f);
-                tip.fontSize = 13;
+                tip.fontSize = UiKit.ReadSize(13);
                 tip.horizontalOverflow = HorizontalWrapMode.Overflow;
                 tip.verticalOverflow = VerticalWrapMode.Overflow;
             }
@@ -442,7 +442,7 @@ namespace InkLine
         static void PlaceBar(RectTransform chip, float x, Sprite bar, Sprite icon)
         {
             if (chip == null) return;
-            TopLeft(chip, x, PlaceY(100f), 162f, 32f);
+            TopLeft(chip, x, PlaceY(100f), 168f, 40f);
             var img = chip.GetComponent<Image>();
             if (img != null && bar != null)
             {
@@ -472,11 +472,11 @@ namespace InkLine
             }
             if (value != null)
             {
-                TopLeft(value.rectTransform, 36f, 0f, 114f, 32f);
+                TopLeft(value.rectTransform, 40f, 0f, 124f, 40f);
                 value.color = Cream;
                 value.alignment = TextAnchor.MiddleCenter;
                 value.alignByGeometry = true;
-                value.fontSize = 20;
+                value.fontSize = UiKit.ReadSize(20);
                 value.horizontalOverflow = HorizontalWrapMode.Overflow;
                 value.verticalOverflow = VerticalWrapMode.Overflow;
             }
@@ -583,12 +583,12 @@ namespace InkLine
                 if (lb != null)
                 {
                     var lr = lb.GetComponent<RectTransform>();
-                    lr.anchoredPosition = new Vector2(0f, -42f);
-                    lr.sizeDelta = new Vector2(120f, 32f);
+                    lr.anchoredPosition = new Vector2(0f, -44f);
+                    lr.sizeDelta = new Vector2(128f, 36f);
                     var t = lb.GetComponent<Text>();
                     if (t != null)
                     {
-                        t.fontSize = isOn ? 22 : 20;
+                        t.fontSize = UiKit.ReadSize(isOn ? 22 : 20);
                         t.fontStyle = FontStyle.Normal;
                         t.color = isOn ? Color.white : Ink;
                         t.font = UiKit.FontBold;
@@ -642,7 +642,7 @@ namespace InkLine
             if (view.GoLabel != null)
             {
                 view.GoLabel.color = Ink;
-                view.GoLabel.fontSize = 26;
+                view.GoLabel.fontSize = UiKit.ReadSize(26);
                 view.GoLabel.font = UiKit.FontBold;
                 view.GoLabel.fontStyle = FontStyle.Normal;
                 view.GoLabel.horizontalOverflow = HorizontalWrapMode.Overflow;
@@ -719,21 +719,21 @@ namespace InkLine
                 icon.anchorMin = icon.anchorMax = new Vector2(0.5f, 1f);
                 icon.pivot = new Vector2(0.5f, 1f);
                 icon.anchoredPosition = Vector2.zero;
-                icon.sizeDelta = new Vector2(56f, 56f);
+                icon.sizeDelta = new Vector2(62f, 62f);
             }
             var capRt = rt.Find("t") as RectTransform;
             if (capRt != null)
             {
                 capRt.anchorMin = capRt.anchorMax = new Vector2(0.5f, 1f);
                 capRt.pivot = new Vector2(0.5f, 1f);
-                capRt.anchoredPosition = new Vector2(0f, -58f);
-                capRt.sizeDelta = new Vector2(96f, 24f);
+                capRt.anchoredPosition = new Vector2(0f, -64f);
+                capRt.sizeDelta = new Vector2(104f, 20f);
                 var cap = capRt.GetComponent<Text>();
                 if (cap != null)
                 {
                     cap.font = UiKit.FontBold;
                     cap.fontStyle = FontStyle.Normal;
-                    cap.fontSize = 16;
+                    cap.fontSize = UiKit.ReadSize(16);
                     cap.color = Color.white;
                     cap.alignment = TextAnchor.MiddleCenter;
                     cap.alignByGeometry = true;
@@ -768,8 +768,8 @@ namespace InkLine
             title.fontStyle = FontStyle.Normal;
             title.color = Cream;
             title.resizeTextForBestFit = true;
-            title.resizeTextMinSize = 14;
-            title.resizeTextMaxSize = 22;
+            title.resizeTextMinSize = 18;
+            title.resizeTextMaxSize = 28;
             title.horizontalOverflow = HorizontalWrapMode.Overflow;
             title.verticalOverflow = VerticalWrapMode.Overflow;
             Seat(title, TitleLift, 96f, 14f, 22f, 22f);
@@ -894,15 +894,16 @@ namespace InkLine
                 btn.targetGraphic = go.GetComponent<Image>();
                 UiKit.Bold(UiKit.Label(go.transform, "t", label, 16, Vector2.zero, new Vector2(110f, 36f)));
             }
-            float x = PlaceX(name == "modetab1" ? 241.5f + 112f : 241.5f);
+            const float tagW = 146f;
+            const float tagH = 52f;
+            float x = PlaceX(name == "modetab1" ? 241.5f + (tagW - 14f) : 241.5f);
             // 地图轴心在上，图贴着 chapter 的上沿。标签图 90 行里色块最低到第 76 行。
             // 底边只压住大约 4px 的描边，看起来仍贴着地图上沿，不再盖进草地。
-            const float tagH = 45f;
             const float tagFoot = tagH * 76f / 90f;
             float mapTop = 332f;
             var lawn = page.Find("chapter") as RectTransform;
             if (lawn != null) mapTop = -lawn.anchoredPosition.y;
-            TopLeft((RectTransform)btn.transform, x, mapTop - tagFoot + 4f, 126f, tagH);
+            TopLeft((RectTransform)btn.transform, x, mapTop - tagFoot + 4f, tagW, tagH);
             Hide(btn.transform.Find("face"));
             var plate = btn.GetComponent<Image>();
             // 选中才用本色：普通黄、精英粉。没选中和还锁着的都是灰。
@@ -924,10 +925,10 @@ namespace InkLine
             {
                 text.text = label;
                 text.color = Ink;
-                text.fontSize = 16;
+                text.fontSize = UiKit.ReadSize(16);
                 text.font = UiKit.FontBold;
                 text.fontStyle = FontStyle.Normal;
-                Seat(text, TagLift, locked ? 18f : 0f, locked ? 4f : 0f);
+                Seat(text, TagLift, locked ? 24f : 0f, locked ? 4f : 0f);
             }
             ShowTagLock(btn.transform, locked);
             Transform badge = btn.transform.Find("dot");
@@ -945,7 +946,7 @@ namespace InkLine
             {
                 slot.Stars = new Image[3];
                 for (int i = 0; i < 3; i++)
-                    slot.Stars[i] = UiKit.Icon(slot.transform, on, Vector2.zero, 20f);
+                    slot.Stars[i] = UiKit.Icon(slot.transform, on, Vector2.zero, 24f);
             }
             for (int i = 0; i < slot.Stars.Length; i++)
             {
@@ -958,8 +959,8 @@ namespace InkLine
                 var rt = star.rectTransform;
                 rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0f);
                 rt.pivot = new Vector2(0.5f, 1f);
-                rt.sizeDelta = new Vector2(20f, 20f);
-                rt.anchoredPosition = new Vector2((i - 1) * 21f, -1f);
+                rt.sizeDelta = new Vector2(24f, 24f);
+                rt.anchoredPosition = new Vector2((i - 1) * 26f, -1f);
             }
             return true;
         }
@@ -976,7 +977,7 @@ namespace InkLine
             var img = mark != null ? mark.GetComponent<Image>() : null;
             if (img == null)
             {
-                img = UiKit.Icon(host, InkSprites.Load("icon_lock"), Vector2.zero, 18f);
+                img = UiKit.Icon(host, InkSprites.Load("icon_lock"), Vector2.zero, 22f);
                 img.gameObject.name = "lock";
             }
             img.gameObject.SetActive(true);
@@ -985,8 +986,8 @@ namespace InkLine
             var rt = img.rectTransform;
             rt.anchorMin = rt.anchorMax = new Vector2(0f, 0.5f);
             rt.pivot = new Vector2(0.5f, 0.5f);
-            rt.sizeDelta = new Vector2(18f, 18f);
-            rt.anchoredPosition = new Vector2(28f, 2f);
+            rt.sizeDelta = new Vector2(22f, 22f);
+            rt.anchoredPosition = new Vector2(30f, 2f);
         }
 
         static void Hide(Transform t)

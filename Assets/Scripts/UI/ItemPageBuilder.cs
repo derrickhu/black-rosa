@@ -45,6 +45,20 @@ namespace InkLine
         public const float BarTextY = 192f * FooterScale;
         public const float BarTextW = 80f * FooterScale;
         public const float BarTextH = 32f * FooterScale;
+        // 图鉴卡底槽在 148 宽的卡上只有约 26 高。手机上槽和字都偏小，运行时盖一条更高的。
+        public const float FootX = 8f;
+        public const float FootY = 149f;
+        public const float FootW = 132f;
+        public const float FootH = 40f;
+        public const float FootDisc = 48f;
+        public const float FootDiscX = 4f;
+        public const float FootDiscY = 145f;
+        public const float FootArrowX = 112f;
+        public const float FootArrowY = 147f;
+        public const float FootArrowW = 30f;
+        public const float FootArrowH = 40f;
+        public const int FootLvSize = 26;
+        public const int FootTextSize = 22;
         public const float IconS = 108f;
         public const float IconX = (34f + 56f) * FooterScale - IconS * 0.5f;
         public const float IconY = (60f + 56f) * FooterScale - IconS * 0.5f;

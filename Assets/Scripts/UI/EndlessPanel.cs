@@ -64,7 +64,7 @@ namespace InkLine
 
             // 1. 顶部圆弧横幅
             var banner = ModalKit.Pic(well, "banner", "Ui/dungeon_banner_purple", 0f, 0f, WellW, 196f, false).rectTransform;
-            ModalKit.SolidText(banner, "sub", "本周最好", 15, 282f, 36f, 320f, 24f,
+            ModalKit.SolidText(banner, "sub", "本周最好", 15, 282f, 32f, 320f, 28f,
                 InkTheme.Hex("DEC7FF"), TextAnchor.MiddleLeft, false);
             ModalKit.OutlinedText(banner, "best", "本周还没打", 36, 280f, 62f, 320f, 64f,
                 InkTheme.Hex("FFE455"), TextAnchor.MiddleLeft, 1.8f);
@@ -107,9 +107,9 @@ namespace InkLine
                 slot.anchoredPosition = new Vector2(sx + 48f, -(375f + 48f));
 
                 string waveStr = i == n - 1 ? $"{need} 波起" : $"{need} 波";
-                ModalKit.SolidText(well, "w" + i, waveStr, 16, sx - 12f, 480f, 120f, 24f,
+                ModalKit.SolidText(well, "w" + i, waveStr, 16, sx - 12f, 476f, 120f, 28f,
                     ModalKit.TextBody, TextAnchor.MiddleCenter, true);
-                ModalKit.SolidText(well, "nm" + i, def.Name, 14, sx - 12f, 506f, 120f, 22f,
+                ModalKit.SolidText(well, "nm" + i, def.Name, 14, sx - 12f, 506f, 120f, 26f,
                     ModalKit.TextMuted, TextAnchor.MiddleCenter, false);
 
                 var chk = ModalKit.Pic(well, "chk" + i, "Ui/checkin_check", sx + 68f, 367f, 30f, 30f, true);
@@ -155,9 +155,24 @@ namespace InkLine
             ModalKit.BindClose(_board, Close);
             ModalKit.BindBtn(_well, "ad_btn", OnAd);
             ModalKit.BindBtn(_well, "go_btn", OnStart);
+            RepairArt();
 
             Refresh();
+            PanelKit.Enlarge(_board);
             PanelKit.Open(_board);
+        }
+
+        // 预制里横幅、外壳、词缀条烘成了空图，打开时按路径补上。
+        void RepairArt()
+        {
+            ModalKit.FillSprite(_board, "", "Ui/dungeon_shell_purple", BorderShell);
+            ModalKit.FillSprite(_board, "crest", "Ui/dungeon_crest_purple");
+            ModalKit.FillSprite(_board, "well/banner", "Ui/dungeon_banner_purple");
+            ModalKit.FillSprite(_board, "well/banner/pill", "Ui/dungeon_pill_purple", BorderPill);
+            ModalKit.FillSprite(_board, "well/rule", "Ui/dungeon_intel_purple", BorderIntel);
+            ModalKit.FillSprite(_board, "well/rule/tag", "Ui/glyph_tag_purple", BorderTicket);
+            ModalKit.FillSprite(_board, "well/axis", "Ui/dungeon_axis_track", BorderAxis);
+            ModalKit.FillSprite(_board, "well/axis/fill", "Ui/dungeon_axis_fill_purple", BorderAxisFill);
         }
 
         void Refresh()

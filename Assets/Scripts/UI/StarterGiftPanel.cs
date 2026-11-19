@@ -106,6 +106,7 @@ namespace InkLine
             _btn = ModalKit.BindBtn(_board, "main_btn", OnTap);
 
             Refresh();
+            PanelKit.Enlarge(_board);
             PanelKit.Open(_board);
         }
 

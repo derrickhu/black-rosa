@@ -82,8 +82,8 @@ namespace InkLine
             }
 
             ModalKit.SolidText(rewardStage, "tip", "每日可免费转发刷新 1 次，大概率升阶奖励", 16,
-                46f, 166f, 340f, 28f, ModalKit.TextMuted, TextAnchor.MiddleCenter, false);
-            var refresh = ModalKit.HexBtn(rewardStage, "sm_cyan", 396f, 160f, "转发刷新", null, out _);
+                24f, 162f, 400f, 48f, ModalKit.TextMuted, TextAnchor.MiddleLeft, false);
+            var refresh = ModalKit.HexBtn(rewardStage, "sm_cyan", 444f, 156f, "转发刷新", null, out _);
             refresh.name = "refresh";
 
             ModalKit.SolidText(board, "prog_title", "今日发帖进度（0 / 1）", 20, 28f, 386f, 420f, 28f,
@@ -136,8 +136,45 @@ namespace InkLine
 
             PaintRewards();
             Refresh();
+            PanelKit.Enlarge(_board);
+            FitRefreshRow();
             PanelKit.Open(_board);
             Ask();
+        }
+
+        // 说明和「转发刷新」同一行。字号加大后会溢出原来的窄框，盖到按钮上。
+        void FitRefreshRow()
+        {
+            var stage = _board != null ? _board.Find("reward_stage") as RectTransform : null;
+            var tip = _board != null ? _board.Find("reward_stage/tip")?.GetComponent<Text>() : null;
+            var btnRt = _refresh != null ? _refresh.GetComponent<RectTransform>() : null;
+            if (stage == null || tip == null || btnRt == null) return;
+
+            float stageW = stage.sizeDelta.x > 2f ? stage.sizeDelta.x : StageW;
+            float btnW = btnRt.sizeDelta.x;
+            float btnH = btnRt.sizeDelta.y;
+            const float pad = 16f;
+            const float gap = 14f;
+            const float rowY = 156f;
+            float textW = ModalKit.MeasureText(tip.text, tip.fontSize) + 10f;
+            float avail = stageW - pad * 2f - gap - btnW;
+
+            tip.horizontalOverflow = HorizontalWrapMode.Overflow;
+            tip.verticalOverflow = VerticalWrapMode.Overflow;
+            if (textW <= avail)
+            {
+                float left = Mathf.Round((stageW - (textW + gap + btnW)) * 0.5f);
+                ModalKit.TopLeft(tip.rectTransform, left, rowY, textW, btnH);
+                tip.alignment = TextAnchor.MiddleLeft;
+                ModalKit.TopLeft(btnRt, left + textW + gap, rowY, btnW, btnH);
+                return;
+            }
+
+            float btnX = stageW - pad - btnW;
+            ModalKit.TopLeft(btnRt, btnX, rowY, btnW, btnH);
+            ModalKit.TopLeft(tip.rectTransform, pad, rowY - 8f, btnX - gap - pad, btnH + 16f);
+            tip.alignment = TextAnchor.MiddleLeft;
+            tip.horizontalOverflow = HorizontalWrapMode.Wrap;
         }
 
         void SyncClubOverlay(bool needClub)

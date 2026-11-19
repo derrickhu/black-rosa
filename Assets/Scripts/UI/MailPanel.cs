@@ -112,7 +112,7 @@ namespace InkLine
             var expTag = ModalKit.Tag(card, "Ui/modal_tag_slate", 472f, 15f, 110f, 26f, "剩 30 天", false, 13);
             expTag.name = "exp_tag";
 
-            ModalKit.SolidText(card, "body", WechatBody, 15, 56f, 46f, 410f, 24f, ModalKit.TextMuted,
+            ModalKit.SolidText(card, "body", WechatBody, 15, 56f, 46f, 410f, 32f, ModalKit.TextMuted,
                 TextAnchor.MiddleLeft, false);
 
             for (int i = 0; i < 5; i++)
@@ -145,6 +145,7 @@ namespace InkLine
             _all = ModalKit.BindBtn(_board, "claim_all", ClaimAll);
             _rowTpl = _board.Find("row_tpl") as RectTransform;
 
+            PanelKit.Enlarge(_board);
             PanelKit.Open(_board);
         }
 

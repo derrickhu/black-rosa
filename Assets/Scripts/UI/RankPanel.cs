@@ -236,6 +236,7 @@ namespace InkLine
             }
 
             PaintTabs();
+            PanelKit.Enlarge(_board);
             SetStatus("排行榜加载中…", false);
 
             _fontReady = true;
@@ -423,7 +424,7 @@ namespace InkLine
                     if (pt != null)
                     {
                         pt.text = r.rank <= 0 ? "-" : r.rank.ToString();
-                        pt.fontSize = r.rank >= 100 ? 16 : 20;
+                        pt.fontSize = UiKit.ReadSize(r.rank >= 100 ? 16 : 20);
                     }
                 }
             }

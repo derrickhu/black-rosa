@@ -118,14 +118,14 @@ namespace InkLine
                     slot.Note.gameObject.SetActive(caption);
                     if (!open)
                     {
-                        slot.Note.fontSize = 16;
+                        slot.Note.fontSize = UiKit.ReadSize(16);
                         slot.Note.text = LockText(s);
                         HomeReskin.TopLeft(slot.Note.rectTransform, 8f, 124f, ItemPageBuilder.CardW - 16f, 36f);
                     }
                     else if (has)
                     {
                         ItemDef worn = ItemCatalog.Get(id);
-                        slot.Note.fontSize = 20;
+                        slot.Note.fontSize = UiKit.ReadSize(20);
                         slot.Note.text = worn.Name + " " + _meta.ItemRank(id) + "级";
                         HomeReskin.TopLeft(slot.Note.rectTransform, 4f, ItemPageBuilder.BandY,
                             ItemPageBuilder.CardW - 8f, ItemPageBuilder.BandH);
@@ -211,7 +211,7 @@ namespace InkLine
             if (_cancel == null)
             {
                 _cancel = UiKit.Btn(_view.SwapCancel, "b", "取消", Vector2.zero, _view.SwapCancel.sizeDelta, EndSwap, false);
-                _cancel.GetComponentInChildren<Text>().fontSize = 22;
+                _cancel.GetComponentInChildren<Text>().fontSize = UiKit.ReadSize(22);
             }
             _view.SwapCancel.gameObject.SetActive(swapping);
         }
@@ -278,7 +278,6 @@ namespace InkLine
             if (card.Halo != null) card.Halo.gameObject.SetActive(false);
             if (card.Badge != null) card.Badge.gameObject.SetActive(false);
             if (card.Name != null) card.Name.gameObject.SetActive(false);
-            if (card.Track != null) card.Track.gameObject.SetActive(false);
             if (card.CardIcon != null) card.CardIcon.gameObject.SetActive(false);
             if (card.Icon != null)
             {
@@ -308,6 +307,7 @@ namespace InkLine
                 card.Arrow.color = Color.white;
                 card.Arrow.preserveAspect = true;
             }
+            FitFooter(card);
             PaintBar(card.Fill, card.BarText, i);
 
             if (ready) anim.Breathe(card.transform, 0.08f * (i % 4), 0.02f, 1.3f);
@@ -316,6 +316,67 @@ namespace InkLine
             card.Item = i;
             card.Button.onClick.RemoveAllListeners();
             card.Button.onClick.AddListener(() => TapCard(idx));
+        }
+
+        // 盖住卡面里那条矮黑槽。等级圆、进度字和箭头一起放大，仍收在卡底边之内。
+        static void FitFooter(HomeItemCard card)
+        {
+            if (card == null || card.Frame == null) return;
+            var root = card.Frame.rectTransform;
+            var track = card.Track;
+            if (track == null)
+            {
+                var go = new GameObject("track", typeof(RectTransform), typeof(Image));
+                go.transform.SetParent(root, false);
+                track = go.GetComponent<Image>();
+                card.Track = track;
+            }
+            track.gameObject.SetActive(true);
+            track.raycastTarget = false;
+            track.sprite = Pill(ItemPageBuilder.FootH * 0.5f);
+            track.type = Image.Type.Sliced;
+            track.color = new Color(0.055f, 0.035f, 0.04f, 1f);
+            HomeReskin.TopLeft(track.rectTransform, ItemPageBuilder.FootX, ItemPageBuilder.FootY,
+                ItemPageBuilder.FootW, ItemPageBuilder.FootH);
+            track.transform.SetAsFirstSibling();
+
+            if (card.Disc != null)
+            {
+                card.Disc.preserveAspect = true;
+                HomeReskin.TopLeft(card.Disc.rectTransform, ItemPageBuilder.FootDiscX, ItemPageBuilder.FootDiscY,
+                    ItemPageBuilder.FootDisc, ItemPageBuilder.FootDisc);
+            }
+            if (card.Lv != null)
+            {
+                card.Lv.fontSize = ItemPageBuilder.FootLvSize;
+                card.Lv.resizeTextForBestFit = false;
+                card.Lv.horizontalOverflow = HorizontalWrapMode.Overflow;
+                card.Lv.verticalOverflow = VerticalWrapMode.Overflow;
+                HomeReskin.TopLeft(card.Lv.rectTransform, ItemPageBuilder.FootDiscX, ItemPageBuilder.FootDiscY,
+                    ItemPageBuilder.FootDisc, ItemPageBuilder.FootDisc);
+            }
+            if (card.Arrow != null)
+            {
+                card.Arrow.preserveAspect = true;
+                HomeReskin.TopLeft(card.Arrow.rectTransform, ItemPageBuilder.FootArrowX, ItemPageBuilder.FootArrowY,
+                    ItemPageBuilder.FootArrowW, ItemPageBuilder.FootArrowH);
+            }
+            if (card.BarText != null)
+            {
+                card.BarText.fontSize = ItemPageBuilder.FootTextSize;
+                card.BarText.resizeTextForBestFit = false;
+                card.BarText.horizontalOverflow = HorizontalWrapMode.Overflow;
+                card.BarText.verticalOverflow = VerticalWrapMode.Overflow;
+                float textX = ItemPageBuilder.FootDiscX + ItemPageBuilder.FootDisc - 4f;
+                float textR = ItemPageBuilder.FootArrowX + 6f;
+                HomeReskin.TopLeft(card.BarText.rectTransform, textX, ItemPageBuilder.FootY,
+                    Mathf.Max(40f, textR - textX), ItemPageBuilder.FootH);
+            }
+            if (card.Fill != null) card.Fill.transform.SetSiblingIndex(1);
+            if (card.Disc != null) card.Disc.transform.SetAsLastSibling();
+            if (card.Lv != null) card.Lv.transform.SetAsLastSibling();
+            if (card.BarText != null) card.BarText.transform.SetAsLastSibling();
+            if (card.Arrow != null) card.Arrow.transform.SetAsLastSibling();
         }
 
         void PaintBar(Image fill, Text label, int item)
@@ -337,11 +398,13 @@ namespace InkLine
             float k = maxed ? 1f : Mathf.Clamp01(have / (float)Mathf.Max(1, need));
             if (fill != null)
             {
-                if (fill.sprite == null) fill.sprite = Pill(ItemPageBuilder.FillH * 0.5f);
+                float fh = ItemPageBuilder.FootH - 10f;
+                if (fill.sprite == null) fill.sprite = Pill(fh * 0.5f);
                 fill.type = Image.Type.Sliced;
                 fill.color = (maxed || have >= need) ? ItemPageBuilder.FillGreen : ItemPageBuilder.FillYellow;
-                float fw = k > 0f ? Mathf.Clamp(Mathf.Max(ItemPageBuilder.FillH, ItemPageBuilder.FillMax * k), 0f, ItemPageBuilder.FillMax) : 0f;
-                HomeReskin.TopLeft(fill.rectTransform, ItemPageBuilder.FillX, ItemPageBuilder.FillY, fw, ItemPageBuilder.FillH);
+                float maxW = ItemPageBuilder.FootW - 18f;
+                float fw = k > 0f ? Mathf.Clamp(Mathf.Max(fh, maxW * k), 0f, maxW) : 0f;
+                HomeReskin.TopLeft(fill.rectTransform, ItemPageBuilder.FootX + 6f, ItemPageBuilder.FootY + 5f, fw, fh);
                 fill.gameObject.SetActive(k > 0f);
             }
             if (label != null)

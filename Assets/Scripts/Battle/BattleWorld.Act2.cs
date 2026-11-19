@@ -62,12 +62,14 @@ namespace InkLine
                 float reach = m.GatherR + e.Radius;
                 if (d.sqrMagnitude > reach * reach) continue;
                 float dist = d.magnitude;
-                // 拉到和中心那只身子挨着就停，不叠进去。
+                // 拉到和中心那只身子挨着就停，不叠进去。写入 PullLeft 做 0.16s 平滑拉扯，告别瞬移。
                 float room = Mathf.Max(0f, dist - (e.Radius + hit.Radius) * 0.7f);
                 float pull = m.Whirl ? room : Mathf.Min(room, m.GatherPull);
-                if (dist > 0.001f) e.Pos -= d / dist * pull;
-                if (m.Whirl) e.Pos.x = Mathf.Lerp(e.Pos.x, c.x, 0.85f);
-                e.Pos.y = Mathf.Clamp(e.Pos.y, GameConstants.LeakY + 0.4f, GameConstants.SpawnY - 0.35f);
+                Vector2 target = e.Pos;
+                if (dist > 0.001f) target -= d / dist * pull;
+                if (m.Whirl) target.x = Mathf.Lerp(target.x, c.x, 0.85f);
+                target.y = Mathf.Clamp(target.y, GameConstants.LeakY + 0.4f, GameConstants.SpawnY - 0.35f);
+                e.PullLeft = target - e.Pos;
                 if (m.GatherHold > 0f) e.HoldTime = Mathf.Max(e.HoldTime, m.GatherHold);
                 if (m.Pin) PinDown(e);
                 MarkHurt(e, m.MarkGather);

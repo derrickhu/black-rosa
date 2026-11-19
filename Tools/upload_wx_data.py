@@ -23,6 +23,21 @@ AUTH = Path.home() / ".config/.cloudbase/auth.json"
 ENV_ID = "rosa-env-d7grf78r5dbd37323"
 REGION = "ap-shanghai"
 BUCKET = "726f-rosa-env-d7grf78r5dbd37323-1414200063"
+DIRECT_DOMAINS = (
+    ".myqcloud.com",
+    ".qcloud.la",
+    ".qcloud.com",
+    ".tencent.com",
+    ".tencentcloudapi.com",
+)
+_DIRECT_OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+
+
+def open_url(req, timeout):
+    host = (urllib.parse.urlparse(req.full_url).hostname or "").lower()
+    if any(host == d.lstrip(".") or host.endswith(d) for d in DIRECT_DOMAINS):
+        return _DIRECT_OPENER.open(req, timeout=timeout)
+    return urllib.request.urlopen(req, timeout=timeout)
 
 
 def fail(msg):
@@ -94,7 +109,7 @@ def refresh(cred):
         method="POST",
     )
     try:
-        with urllib.request.urlopen(req, timeout=20) as resp:
+        with open_url(req, timeout=20) as resp:
             payload = json.loads(resp.read().decode())
     except urllib.error.HTTPError as err:
         detail = err.read().decode(errors="replace")[:200]
@@ -160,7 +175,7 @@ def cos(method, key, cred, body=None, content_type=None):
         method=method,
     )
     try:
-        with urllib.request.urlopen(req, timeout=120) as resp:
+        with open_url(req, timeout=120) as resp:
             resp.read()
             return resp.status, resp.headers
     except urllib.error.HTTPError as err:
@@ -213,7 +228,7 @@ def main():
     req = urllib.request.Request(public, method="GET")
     req.add_header("Range", "bytes=0-15")
     try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
+        with open_url(req, timeout=30) as resp:
             got = resp.read(16)
     except urllib.error.HTTPError as err:
         return fail(f"公网地址打不开 {err.code} {public}")

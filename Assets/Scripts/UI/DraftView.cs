@@ -23,7 +23,7 @@ namespace InkLine
             RescueCards();
         }
 
-        public void Bind(string title, CardId[] offer, bool[] shovel, bool rerolled, Action<int> pick, Action reroll, Action close)
+        public void Bind(string title, CardId[] offer, bool[] shovel, bool rerolled, Action<int> pick, Action reroll, Action close, MetaProgress meta = null)
         {
             RescueCards();
             if (Title != null)
@@ -69,6 +69,16 @@ namespace InkLine
                 }
                 if (card.Name != null)
                     card.Name.text = dig ? "铲子" : def.Wake == CardWake.WordPart ? "成词" : "单字";
+                var face = card.GetComponent<Image>();
+                if (face != null && !dig)
+                {
+                    var entry = def.Wake == CardWake.WordPart
+                        ? new CodexEntry(CodexKind.Word, (int)def.Word)
+                        : new CodexEntry(CodexKind.Glyph, (int)def.Id);
+                    int lv = meta != null ? meta.StudyLevel(entry) : 0;
+                    Sprite sheet = InkSprites.Load("Ui/" + StudyCard.Face(lv));
+                    if (sheet != null) face.sprite = sheet;
+                }
                 if (card.WordTag != null) card.WordTag.SetActive(false);
                 if (card.Button != null)
                 {
@@ -167,7 +177,7 @@ namespace InkLine
                 rt.anchoredPosition = new Vector2(x, cardY);
                 rt.sizeDelta = new Vector2(cardW, cardH);
                 var img = go.GetComponent<Image>();
-                img.sprite = InkSprites.Load("Ui/study_card_gold");
+                img.sprite = InkSprites.Load("Ui/study_card_white");
                 img.type = Image.Type.Simple;
                 img.preserveAspect = false;
                 img.raycastTarget = true;

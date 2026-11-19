@@ -64,7 +64,7 @@ namespace InkLine
 
             // 1. 顶部圆弧横幅
             var banner = ModalKit.Pic(well, "banner", "Ui/dungeon_banner_green", 0f, 0f, WellW, 196f, false).rectTransform;
-            ModalKit.SolidText(banner, "sub", "今日最好", 16, 282f, 38f, 240f, 24f,
+            ModalKit.SolidText(banner, "sub", "今日最好", 16, 282f, 34f, 240f, 28f,
                 InkTheme.Hex("C9EEAC"), TextAnchor.MiddleLeft, false);
             ModalKit.OutlinedText(banner, "best", "今天还没打", 36, 280f, 64f, 320f, 62f,
                 InkTheme.Hex("FFE455"), TextAnchor.MiddleLeft, 1.8f);
@@ -122,7 +122,7 @@ namespace InkLine
                 slot.pivot = new Vector2(0.5f, 0.5f);
                 slot.anchoredPosition = new Vector2(xs[i] + 48f, -(435f + 48f));
 
-                ModalKit.SolidText(chestsGrp, "w" + i, $"{need[i]} 波", 16, xs[i] - 12f, 538f, 120f, 24f,
+                ModalKit.SolidText(chestsGrp, "w" + i, $"{need[i]} 波", 16, xs[i] - 12f, 534f, 120f, 28f,
                     ModalKit.TextBody, TextAnchor.MiddleCenter, true);
 
                 var chk = ModalKit.Pic(chestsGrp, "chk" + i, "Ui/checkin_check", xs[i] + 68f, 427f, 32f, 32f, true);
@@ -147,7 +147,7 @@ namespace InkLine
             ModalKit.OutlinedText(box, "q_mark", "？", 36, 24f, 21f, 88f, 88f, ModalKit.TextMuted, TextAnchor.MiddleCenter);
             ModalKit.SolidText(box, "t", "全部守住 · 随机得一枚印章", 20, 128f, 34f, 344f, 32f,
                 ModalKit.TextDark, TextAnchor.MiddleLeft, true);
-            ModalKit.SolidText(box, "s", "绿 / 蓝 / 紫 / 金四档印章，可镶嵌在字卡插槽上", 15, 128f, 72f, 352f, 26f,
+            ModalKit.SolidText(box, "s", "绿 / 蓝 / 紫 / 金四档印章，可镶嵌在字卡插槽上", 15, 128f, 70f, 352f, 32f,
                 ModalKit.TextMuted, TextAnchor.MiddleLeft, false);
             sealGrp.gameObject.SetActive(false);
 
@@ -190,9 +190,28 @@ namespace InkLine
 
             var shovel = _well.Find("intel/shovel")?.GetComponent<Image>();
             if (shovel != null) shovel.sprite = InkArt.Shovel(160);
+            RepairArt();
 
             Refresh();
+            PanelKit.Enlarge(_board);
             PanelKit.Open(_board);
+        }
+
+        void RepairArt()
+        {
+            ModalKit.FillSprite(_board, "", "Ui/dungeon_shell_green", BorderShell);
+            ModalKit.FillSprite(_board, "crest", "Ui/dungeon_crest_green");
+            ModalKit.FillSprite(_board, "well/banner", "Ui/dungeon_banner_green");
+            ModalKit.FillSprite(_board, "well/banner/pill", "Ui/dungeon_pill_green", BorderPill);
+            ModalKit.FillSprite(_board, "well/intel", "Ui/dungeon_intel_green", BorderIntel);
+            ModalKit.FillSprite(_board, "well/intel/rule_tag", "Ui/glyph_tag_teal", BorderTicket);
+            ModalKit.FillSprite(_board, "well/intel/ban0", "Ui/dungeon_ban_tile");
+            ModalKit.FillSprite(_board, "well/intel/ban1", "Ui/dungeon_ban_tile");
+            ModalKit.FillSprite(_board, "well/intel/ban0/sl", "Ui/dungeon_ban_slash");
+            ModalKit.FillSprite(_board, "well/intel/ban1/sl", "Ui/dungeon_ban_slash");
+            ModalKit.FillSprite(_board, "well/chests_grp/axis", "Ui/dungeon_axis_track", BorderAxis);
+            ModalKit.FillSprite(_board, "well/chests_grp/axis/fill", "Ui/dungeon_axis_fill_green", BorderAxisFill);
+            ModalKit.FillSprite(_board, "well/seal_grp/seal_box/q_slot", "Ui/glyph_slot_empty_green");
         }
 
         void Refresh()

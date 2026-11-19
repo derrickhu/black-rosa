@@ -1,5 +1,6 @@
 using System.IO;
 using UnityEditor;
+using UnityEditor.SceneManagement;
 using UnityEngine;
 
 public static class InkShotPreview
@@ -7,6 +8,7 @@ public static class InkShotPreview
     const string PreviewKey = "InkLine.PreviewFill";
     static int _enterIn = -1;
     static int _watch;
+    static string LiveFlag => Path.Combine(Root, "Library/ink_live_window.play");
 
     static string Root => Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
     static string PlayFlag => Path.Combine(Root, "Library/ink_shot_preview.play");
@@ -49,6 +51,12 @@ public static class InkShotPreview
             EditorPrefs.SetBool(PreviewKey, false);
             InkLine.BattleWorld.PreviewFill = false;
         }
+        if (File.Exists(LiveFlag) && EditorApplication.isPlaying && InkLine.GmBar.Fresh != null)
+        {
+            File.Delete(LiveFlag);
+            Application.runInBackground = true;
+            InkLine.GmBar.Fresh();
+        }
     }
 
     [MenuItem("墨字防线/实机核对炮弹")]
@@ -58,5 +66,18 @@ public static class InkShotPreview
         InkLine.BattleWorld.PreviewFill = true;
         if (!EditorApplication.isPlaying)
             EditorApplication.isPlaying = true;
+    }
+
+    [MenuItem("墨字防线/运行窗口看新特效")]
+    public static void OpenLiveWindow()
+    {
+        EditorPrefs.SetBool(PreviewKey, false);
+        InkLine.BattleWorld.PreviewFill = false;
+        Application.runInBackground = true;
+        File.WriteAllText(LiveFlag, "1");
+        EditorSceneManager.OpenScene("Assets/Scenes/Main.scene");
+        System.Type gv = typeof(EditorWindow).Assembly.GetType("UnityEditor.GameView");
+        if (gv != null) EditorWindow.GetWindow(gv);
+        _enterIn = 6;
     }
 }

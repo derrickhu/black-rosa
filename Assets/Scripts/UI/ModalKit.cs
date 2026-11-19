@@ -46,6 +46,21 @@ namespace InkLine
             return InkSprites.Load(key);
         }
 
+        // 预制烘出来时图没挂上，打开时按路径补。已经有图的不动。
+        public static void FillSprite(Transform root, string path, string key, Vector4 border = default)
+        {
+            if (root == null || string.IsNullOrEmpty(key)) return;
+            Transform t = string.IsNullOrEmpty(path) ? root : root.Find(path);
+            var img = t != null ? t.GetComponent<Image>() : null;
+            if (img == null || img.sprite != null) return;
+            bool sliced = border.sqrMagnitude > 0.5f;
+            Sprite s = sliced ? Load2x(key, border) : Load(key);
+            if (s == null) return;
+            img.sprite = s;
+            img.color = Color.white;
+            if (sliced) img.type = Image.Type.Sliced;
+        }
+
         public static Sprite Load2x(string key, Vector4 border)
         {
             if (string.IsNullOrEmpty(key)) return null;
@@ -228,7 +243,7 @@ namespace InkLine
                 var ico = Pic(head, "ico", headIconKey, 36f, 16f, 50f, 50f, true);
                 ico.raycastTarget = false;
             }
-            OutlinedText(head, "title", title, 28, 0f, 17f, w, 48f, Color.white, TextAnchor.MiddleCenter);
+            OutlinedText(head, "title", title, 32, 0f, 14f, w, 52f, Color.white, TextAnchor.MiddleCenter);
 
             bool showSlant = !string.IsNullOrEmpty(slantText);
             bool showStrip = stripText != null || showSlant;
@@ -595,6 +610,8 @@ namespace InkLine
             label = whiteText
                 ? OutlinedText(go.transform, "t", text, fs, 8f, 0f, w - 16f, faceH, Color.white, TextAnchor.MiddleCenter)
                 : SolidText(go.transform, "t", text, fs, 8f, 0f, w - 16f, faceH, Ink, TextAnchor.MiddleCenter, true);
+            // 尖角按钮字号按档位锁死，不跟正文那一档放大。
+            label.fontSize = fs;
             return btn;
         }
 

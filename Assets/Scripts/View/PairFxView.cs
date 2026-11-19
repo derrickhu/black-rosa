@@ -8,6 +8,8 @@ namespace InkLine
     // 所有尺寸都按「世界单位里多大」给，换算时除掉贴图自己的 bounds，导入设置变了也不走样。
     public sealed class PairFxView : MonoBehaviour
     {
+        enum ScaleCurve { EaseOut, PopBack, SquashLand, ShrinkIn }
+
         sealed class Bit
         {
             public SpriteRenderer Sr;
@@ -18,6 +20,27 @@ namespace InkLine
             public Color C;
             public bool On, Travel, HoldAlpha, Orbit;
             public float OrbitAng, OrbitRate;
+
+            // 动态增强：非线性缩放、空气阻力、速度拉伸、地面弹跳、Shader 流体溶解
+            public ScaleCurve Curve;
+            public float Drag, StretchByVel, FloorY, Bounce;
+            public bool HasFloor;
+            public bool Flow;
+            public Color Core, Mid, Rim;
+            public Vector4 FlowVec;
+            public float Distort, Sharp, Phase, DissolveAt;
+        }
+
+        // 程序化动态弧线丝带（引力线、旋风风带、折返弧光），三层硬边：深色外沿 + 高饱和主色 + 亮色内芯。
+        sealed class RibbonBit
+        {
+            public LineRenderer Outer, Body, Inner;
+            public Vector2 From, Ctrl, To;
+            public float Age, Life, Delay, Width;
+            public Color Rim, Mid, Core;
+            public bool On, Spiral;
+            public Vector2 Center;
+            public float R0, R1, Ang0, Turns;
         }
 
         sealed class Patch
@@ -37,10 +60,14 @@ namespace InkLine
         const int OrderHit = 14;
         const int OrderTop = 15;
         const int OrderMote = 18;
+        const int RibbonPts = 32;
 
         static PairFxView _pool;
         readonly List<Bit> _bits = new List<Bit>();
+        readonly List<RibbonBit> _ribbons = new List<RibbonBit>();
         readonly List<Patch> _patches = new List<Patch>();
+        readonly Vector3[] _rPts = new Vector3[RibbonPts];
+        MaterialPropertyBlock _mpb;
         static readonly Dictionary<string, Sprite> Art = new Dictionary<string, Sprite>();
 
         static readonly Color ScorchInk = new Color(0.20f, 0.11f, 0.05f, 1f);
@@ -249,67 +276,226 @@ namespace InkLine
             Anim("hitv_wind", to, s * 0.8f, s * 1.2f, 0.36f, OrderHit, 0.04f);
         }
 
-        // 雷决：斩下去播电击那五帧，亮头朝上。
+        // 雷决：双道交叉靛紫电斩错峰弹出 + 中心白热爆核 + 急刹电火花。
         void ThunderCut(Vector2 at, float r)
         {
-            Cartoon("thundercut_shot", at, 1.65f);
+            float s = Mathf.Max(1.25f, r * 2.8f);
+            Color core = InkTheme.Hex("FFF9D6");
+            Color mid = InkTheme.Hex("7C5CFF");
+            Color rim = InkTheme.Hex("23134F");
+            float baseRot = Random.Range(-18f, 18f);
+            // 第一道斜斩
+            Bit s1 = FlowBit(InkFlowArt.SlashArc(), at, OrderTop, core, mid, rim,
+                new Vector4(0f, -2.2f, 0f, 0f), 0.14f, 0.30f, 0.35f);
+            s1.S0 = Size(s1.Sr.sprite, new Vector2(s * 0.65f, s * 1.15f));
+            s1.S1 = Size(s1.Sr.sprite, new Vector2(s * 1.35f, s * 1.65f));
+            s1.Curve = ScaleCurve.PopBack;
+            s1.Sr.transform.localRotation = Quaternion.Euler(0f, 0f, baseRot - 38f);
+            // 第二道反手交叉斩，错峰 0.045s
+            Bit s2 = FlowBit(InkFlowArt.SlashArc(), at, OrderTop, core, InkTheme.ThunderHi, rim,
+                new Vector4(0f, -2.2f, 0f, 0f), 0.14f, 0.30f, 0.35f, 0.045f);
+            s2.S0 = Size(s2.Sr.sprite, new Vector2(s * 0.6f, s * 1.05f));
+            s2.S1 = Size(s2.Sr.sprite, new Vector2(s * 1.25f, s * 1.5f));
+            s2.Curve = ScaleCurve.PopBack;
+            s2.Sr.transform.localRotation = Quaternion.Euler(0f, 0f, baseRot + 52f);
+            // 中心电核 + 急刹高速电火花
+            Flash(at, s * 0.25f, s * 1.1f, 0.14f);
+            BurstSparks(at, 10, core, mid, 3.2f, 6.4f, 0.26f, 0.11f, OrderTop, 6f, 0.22f);
+            InkShake.Punch(Camera.main, Vector2.down, 0.24f);
         }
 
-        // 崩山：晶体裂开那四帧。
+        // 崩山：熔岩玄岩重锥轰砸压扁 -> 崩碎化作满地放射裂纹 + 金红冲击环 + 弹跳飞溅的棱角熔岩碎甲块。
         void Crumble(Vector2 at, float r)
         {
-            Cartoon("crumble_shot", at, 1.45f);
-            Flash(at, 0.15f, 0.7f, 0.14f);
+            float s = Mathf.Max(1.25f, r * 2.8f);
+            Color core = InkTheme.Hex("FFF2B2");
+            Color mid = InkTheme.Hex("FF6B2B");
+            Color rim = InkTheme.Hex("3B160C");
+
+            // 熔岩重锥本体砸落压扁崩裂闪现
+            Sprite[] rockFrames = InkVfx.Frames("crumble_shot", 4);
+            Sprite rock = rockFrames != null && rockFrames[0] != null ? rockFrames[0] : Pic("crumble_shot");
+            if (rock != null)
+            {
+                Bit head = Add(rock, at + Vector2.up * 0.08f, OrderTop + 1, Color.white, false);
+                head.Frames = rockFrames;
+                head.S0 = Size(rock, s * 0.86f);
+                head.S1 = Size(rock, s * 1.05f);
+                head.Curve = ScaleCurve.SquashLand;
+                head.Life = 0.24f;
+                head.HoldAlpha = false;
+            }
+
+            // 地面硬边放射裂纹，留痕后噪声溶解
+            Bit crack = FlowBit(InkFlowArt.CrackRing(), at + Vector2.down * 0.1f, OrderGround,
+                InkTheme.Hex("FFE29A"), InkTheme.Hex("D96B27"), rim,
+                new Vector4(0f, 0f, 0f, 0f), 0.05f, 0.62f, 0.55f);
+            crack.S0 = Size(crack.Sr.sprite, s * 0.55f);
+            crack.S1 = Size(crack.Sr.sprite, s * 1.48f);
+            crack.Curve = ScaleCurve.PopBack;
+            crack.Sr.transform.localRotation = Quaternion.Euler(0f, 0f, Random.Range(0f, 360f));
+            // 破甲冲击环
+            Bit ring = FlowBit(InkFlowArt.RingMask(), at, OrderHit, core, mid, rim,
+                new Vector4(1.4f, -1.8f, 1f, 0.35f), 0.16f, 0.32f, 0.25f);
+            ring.S0 = Size(ring.Sr.sprite, s * 0.35f);
+            ring.S1 = Size(ring.Sr.sprite, s * 1.55f);
+            Flash(at, s * 0.2f, s * 0.95f, 0.13f);
+            // 棱角护甲/熔岩黑石块向上炸飞并弹跳落地
+            BurstShards(at, 8, InkTheme.Hex("FFB84D"), InkTheme.Hex("4A3326"), 0.17f, 0.28f,
+                2.5f, 4.8f, 0.54f, at.y - r * 0.55f, OrderTop + 2);
+            BurstSparks(at, 9, core, mid, 2.8f, 5.6f, 0.28f, 0.10f, OrderTop + 2, 5.5f, 0.20f);
+            InkShake.Punch(Camera.main, Vector2.down, 0.32f);
         }
 
-        // 坍缩：先往里一吸，一圈墨光收成一点，再炸开。
+        // 坍缩：三段式节奏 —— 0.18s 五刃黑紫奇点轮狂旋内缩 + 6 条引力丝带抽吸 -> 压成白热奇点 -> 轰然反冲炸开。
         void Collapse(Vector2 at, float r)
         {
-            float d = r * 2f;
-            Ring(at, d * 1.25f, d * 0.12f, 0.2f, InkTheme.Gather, 0.9f, OrderHit);
-            for (int i = 0; i < 10; i++)
+            float d = Mathf.Max(1.3f, r * 2.1f);
+            Color core = InkTheme.Hex("F6E8FF");
+            Color mid = InkTheme.Hex("8A3FFC");
+            Color rim = InkTheme.Hex("1C0933");
+
+            Sprite[] colFrames = InkVfx.Frames("collapse_shot", 5);
+            Sprite colOrb = colFrames != null && colFrames[0] != null ? colFrames[0] : Pic("collapse_shot");
+            if (colOrb != null)
             {
-                float a = (i / 10f) * Mathf.PI * 2f;
-                Vector2 p = at + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * r * 1.2f;
-                Bit b = Add(InkFx.Mote(), p, OrderTop, i % 2 == 0 ? InkTheme.GatherHi : InkTheme.Gather, false);
-                b.Travel = true;
-                b.From = p;
-                b.To = at;
-                b.Lift = 0f;
-                b.Life = 0.2f;
-                b.S0 = Vector2.one * 0.26f;
-                b.S1 = Vector2.one * 0.08f;
-                b.HoldAlpha = true;
+                Bit wheel = Add(colOrb, at, OrderTop + 1, Color.white, false);
+                wheel.Frames = colFrames;
+                wheel.S0 = Size(colOrb, d * 1.15f);
+                wheel.S1 = Size(colOrb, d * 0.18f);
+                wheel.Curve = ScaleCurve.ShrinkIn;
+                wheel.Spin = 520f;
+                wheel.Life = 0.19f;
+                wheel.HoldAlpha = true;
             }
-            Cartoon("collapse_shot", at, 1.4f);
-            Flash(at, d * 0.1f, d * 0.8f, 0.2f, 0.16f);
+
+            // 一段：极坐标旋涡底衬高速内吸
+            Bit pull = FlowBit(InkFlowArt.VortexMask(), at, OrderHit, core, mid, rim,
+                new Vector4(2.4f, 2.8f, 1f, 1.35f), 0.18f, 0.19f, 0.72f);
+            pull.S0 = Size(pull.Sr.sprite, d * 1.35f);
+            pull.S1 = Size(pull.Sr.sprite, d * 0.16f);
+            pull.Curve = ScaleCurve.ShrinkIn;
+            // 6 条弯曲引力丝带把四周能量抽进中心
+            for (int i = 0; i < 6; i++)
+            {
+                float a = (i / 6f + Random.Range(-0.06f, 0.06f)) * Mathf.PI * 2f;
+                Vector2 start = at + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * (d * 0.68f);
+                FlowRibbon(start, at, (i % 2 == 0 ? 1f : -1f) * d * 0.24f, 0.18f, 0.10f, rim, mid, core, i * 0.01f);
+            }
+            // 二段：极短白热奇点蓄势
+            Flash(at, d * 0.45f, d * 0.08f, 0.06f, 0.15f);
+            // 三段：0.19s 后轰然反冲炸开（硬边黑紫流光爆团 + 外扩冲击环 + 急刹星屑）
+            Bit boom = FlowBit(InkFlowArt.VortexMask(), at, OrderTop, core, InkTheme.Hex("B15CFF"), rim,
+                new Vector4(-1.8f, -3.2f, 1f, 0.7f), 0.24f, 0.34f, 0.22f, 0.19f);
+            boom.S0 = Size(boom.Sr.sprite, d * 0.18f);
+            boom.S1 = Size(boom.Sr.sprite, d * 1.42f);
+            boom.Curve = ScaleCurve.PopBack;
+            Bit shock = FlowBit(InkFlowArt.RingMask(), at, OrderHit, core, mid, rim,
+                new Vector4(-1.4f, -2.0f, 1f, 0.45f), 0.18f, 0.30f, 0.20f, 0.19f);
+            shock.S0 = Size(shock.Sr.sprite, d * 0.2f);
+            shock.S1 = Size(shock.Sr.sprite, d * 1.65f);
+            Flash(at, d * 0.15f, d * 1.15f, 0.16f, 0.19f);
+            BurstSparks(at, 12, core, InkTheme.Hex("C07BFF"), 3.4f, 6.8f, 0.30f, 0.11f, OrderTop + 2, 5.8f, 0.22f, 0.19f);
+            InkShake.Punch(Camera.main, Vector2.up, 0.28f);
         }
 
-        // 旋风：一团怪被卷成一个旋。
+        // 旋风：新绘五叶翡翠风轮核心急旋 + 外圈反向风环 + 螺旋风带丝带 + 翻飞月牙风刃。
         void Whirl(Vector2 at, float r)
         {
-            Cartoon("whirl_shot", at, 1.4f);
-            Ring(at, Mathf.Max(1.2f, r * 2f) * 1.1f, 0.35f, 0.4f, InkTheme.Wind, 0.55f, OrderGround);
+            float d = Mathf.Max(1.35f, r * 2.15f);
+            Color core = InkTheme.Hex("E8FFF7");
+            Color mid = InkTheme.Hex("2AD99B");
+            Color rim = InkTheme.Hex("0D4A3B");
+            // 外圈大风环（逆时针急旋，略压扁出透视感）
+            Bit outer = FlowBit(InkFlowArt.RingMask(), at, OrderHit, core, mid, rim,
+                new Vector4(2.6f, -1.6f, 1f, 1.45f), 0.22f, 0.48f, 0.42f);
+            outer.S0 = Size(outer.Sr.sprite, new Vector2(d * 1.25f, d * 0.92f));
+            outer.S1 = Size(outer.Sr.sprite, new Vector2(d * 0.42f, d * 0.34f));
+            outer.Spin = 260f;
+
+            // 内圈新绘五叶翡翠风轮（反向高速旋切）
+            Sprite[] whirlFrames = InkVfx.Frames("whirl_shot", 5);
+            Sprite whirlOrb = whirlFrames != null && whirlFrames[0] != null ? whirlFrames[0] : Pic("whirl_shot");
+            if (whirlOrb != null)
+            {
+                Bit hub = Add(whirlOrb, at + Vector2.up * 0.05f, OrderTop + 1, Color.white, false);
+                hub.Frames = whirlFrames;
+                hub.S0 = Size(whirlOrb, d * 0.32f);
+                hub.S1 = Size(whirlOrb, d * 0.88f);
+                hub.Curve = ScaleCurve.PopBack;
+                hub.Spin = -540f;
+                hub.Life = 0.44f;
+                hub.HoldAlpha = true;
+            }
+
+            // 3 条螺旋卷绕风带丝带
+            for (int i = 0; i < 3; i++)
+                FlowSpiral(at, d * 0.68f, d * 0.14f, i * Mathf.PI * 2f / 3f, 1.25f, 0.38f, 0.09f, rim, mid, core, i * 0.03f);
+            // 4 道翻飞的硬边月牙风刃
+            for (int i = 0; i < 4; i++)
+            {
+                float a = (i / 4f + Random.Range(-0.08f, 0.08f)) * Mathf.PI * 2f;
+                Bit blade = FlowBit(InkFlowArt.SlashArc(), at, OrderTop + 2, core, mid, rim,
+                    new Vector4(0f, -2f, 0f, 0f), 0.12f, 0.34f, 0.35f, i * 0.035f);
+                blade.Orbit = true;
+                blade.From = at;
+                blade.OrbitAng = a;
+                blade.OrbitRate = 11f;
+                blade.Lift = d * 0.42f;
+                blade.S0 = Size(blade.Sr.sprite, 0.48f);
+                blade.S1 = Size(blade.Sr.sprite, 0.22f);
+                blade.Spin = 620f;
+            }
+            BurstSparks(at, 8, core, mid, 2.0f, 4.2f, 0.32f, 0.09f, OrderTop + 2, 4.5f, 0.20f);
         }
 
-        // 回锋：折返那一下亮一道锋。
+        // 回锋：燕尾青金梭刃在折返点凌空翻转弹出 + 180° 青蓝弯月折返刀光 + 沿折返方向爆射的冷蓝速度针。
         void Riposte(Vector2 at, Vector2 toward)
         {
-            Vector2 dir = toward - at;
+            Vector2 dir = (toward - at).sqrMagnitude > 1e-4f ? (toward - at).normalized : Vector2.down;
             float rot = Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg - 90f;
-            int n = InkVfx.CountFrames("riposte_shot");
-            Sprite[] frames = n > 0 ? InkVfx.Frames("riposte_shot", n) : null;
-            if (frames != null && frames[0] != null)
+            Color core = InkTheme.Hex("ECFAFF");
+            Color mid = InkTheme.Hex("3CA8FF");
+            Color rim = InkTheme.Hex("123066");
+
+            Sprite bladeSpr = Pic("riposte_shot_00") ?? Pic("riposte_shot");
+            if (bladeSpr != null)
             {
-                Bit b = Add(frames[0], at, OrderTop, Color.white, false);
-                b.Frames = frames;
-                b.S0 = b.S1 = Size(frames[0], 1.5f);
-                b.Life = 0.4f;
-                b.A0 = 1f;
-                b.HoldAlpha = true;
-                b.Sr.transform.localRotation = Quaternion.Euler(0f, 0f, rot);
+                Bit dagger = Add(bladeSpr, at + dir * 0.14f, OrderTop + 1, Color.white, false);
+                dagger.S0 = Size(bladeSpr, 0.65f);
+                dagger.S1 = Size(bladeSpr, 1.32f);
+                dagger.Curve = ScaleCurve.PopBack;
+                dagger.Life = 0.24f;
+                dagger.HoldAlpha = false;
+                dagger.Sr.transform.localRotation = Quaternion.Euler(0f, 0f, rot);
             }
-            Flash(at, 0.2f, 1.1f, 0.16f);
+
+            // 折返弯月刀光（弧背朝折返反方向，表现“刀锋急转调头”）
+            Bit arc = FlowBit(InkFlowArt.SlashArc(), at - dir * 0.12f, OrderTop, core, mid, rim,
+                new Vector4(0f, -2.6f, 0f, 0f), 0.14f, 0.28f, 0.28f);
+            arc.S0 = Size(arc.Sr.sprite, new Vector2(0.85f, 0.65f));
+            arc.S1 = Size(arc.Sr.sprite, new Vector2(1.55f, 1.25f));
+            arc.Curve = ScaleCurve.PopBack;
+            arc.Sr.transform.localRotation = Quaternion.Euler(0f, 0f, rot + 180f);
+            // 折返瞬间的尖锐穿刺光束丝带
+            FlowRibbon(at - dir * 0.35f, at + dir * 1.15f, 0f, 0.20f, 0.12f, rim, mid, core, 0f);
+            Flash(at, 0.18f, 0.95f, 0.12f);
+            // 沿折返方向高速爆射的冷蓝与鎏金钢针火星
+            Vector2 side = new Vector2(-dir.y, dir.x);
+            for (int i = 0; i < 7; i++)
+            {
+                float spread = Random.Range(-0.45f, 0.45f);
+                Vector2 v = (dir + side * spread).normalized * Random.Range(3.6f, 6.4f);
+                Color sc = i % 3 == 0 ? InkTheme.Hex("FFD257") : i % 2 == 0 ? core : mid;
+                Bit sp = Add(InkFx.Mote(), at, OrderTop + 2, sc, false);
+                sp.Vel = v;
+                sp.Drag = 5.5f;
+                sp.StretchByVel = 0.24f;
+                sp.Life = Random.Range(0.18f, 0.28f);
+                sp.S0 = Vector2.one * Random.Range(0.10f, 0.15f);
+                sp.S1 = sp.S0 * 0.2f;
+            }
+            InkShake.Punch(Camera.main, dir, 0.18f);
         }
 
         // ---------- 火地 ----------
@@ -507,6 +693,7 @@ namespace InkLine
                 }
             }
             b.Sr.sprite = sprite;
+            b.Sr.SetPropertyBlock(null);
             if (add) InkFx.PaintAdd(b.Sr, c);
             else InkFx.PaintSprite(b.Sr, c);
             b.Sr.sortingOrder = order;
@@ -529,6 +716,17 @@ namespace InkLine
             b.Orbit = false;
             b.OrbitAng = 0f;
             b.OrbitRate = 0f;
+            b.Curve = ScaleCurve.EaseOut;
+            b.Drag = 3f;
+            b.StretchByVel = 0f;
+            b.FloorY = 0f;
+            b.Bounce = 0f;
+            b.HasFloor = false;
+            b.Flow = false;
+            b.Distort = 0.18f;
+            b.Sharp = 1f;
+            b.Phase = 0f;
+            b.DissolveAt = 0.35f;
             b.On = true;
             return b;
         }
@@ -618,136 +816,334 @@ namespace InkLine
             b.HoldAlpha = true;
         }
 
+        // 风火轮（三字诀）：青铜镂空法轮裹挟烈火与青风刀刃高速旋斩，折返时更爆开双色风火气浪与螺旋流带。
         void FireWheel(Vector2 at, float size)
         {
-            Cartoon("firewheel_hit", at, ToonSize(size));
-        }
+            bool big = size >= 2f;
+            float s = big ? ToonSize(size) * 1.18f : 1.22f;
+            Color fireCore = InkTheme.Hex("FFF6C2");
+            Color fireMid = InkTheme.Hex("FF6A1A");
+            Color fireRim = InkTheme.Hex("4D1206");
+            Color windCore = InkTheme.Hex("E8FFF5");
+            Color windMid = InkTheme.Hex("1DB992");
+            Color windRim = InkTheme.Hex("0B3D30");
 
-        // 穿云箭打中：万箭那下命中之外，再溅几颗发光粒子。
-        void Cloud(Vector2 at, float size)
-        {
-            float s = Mathf.Clamp(size, 0.4f, 0.8f);
-            Color gold = new Color(1f, 0.88f, 0.4f, 1f);
-            for (int i = 0; i < 5; i++)
+            // 核心主体：新绘国风卡通「风火轮」法宝高速旋转弹开
+            Sprite[] wheelFrames = InkVfx.Frames("firewheel_shot", 5);
+            Sprite wheel = wheelFrames != null && wheelFrames[0] != null ? wheelFrames[0] : Pic("firewheel_shot");
+            if (wheel != null)
             {
-                Bit b = Add(i % 2 == 0 ? InkFx.Star() : InkFx.Mote(), at, OrderTop, i % 2 == 0 ? gold : Color.white, true);
-                float ang = i / 5f * Mathf.PI * 2f;
-                b.Travel = true;
-                b.From = at;
-                b.To = at + new Vector2(Mathf.Cos(ang) * s * 0.45f, Mathf.Sin(ang) * s * 0.28f + s * 0.35f);
-                b.Life = 0.26f;
-                b.Delay = i * 0.015f;
-                b.S0 = Vector2.one * (i % 2 == 0 ? 0.18f : 0.12f);
-                b.S1 = b.S0 * 0.25f;
-                b.A0 = 0.9f;
+                Bit hub = Add(wheel, at, OrderTop + 1, Color.white, false);
+                hub.Frames = wheelFrames;
+                hub.S0 = Size(wheel, s * (big ? 0.48f : 0.62f));
+                hub.S1 = Size(wheel, s * (big ? 1.18f : 1.08f));
+                hub.Curve = ScaleCurve.PopBack;
+                hub.Spin = big ? -640f : -560f;
+                hub.Life = big ? 0.46f : 0.32f;
+                hub.HoldAlpha = true;
+                hub.Sr.transform.localRotation = Quaternion.Euler(0f, 0f, Random.Range(0f, 360f));
+            }
+
+            if (big)
+            {
+                // 折返大爆发：外圈青风气浪环 + 内圈烈火环反向高速交错
+                Bit wind = FlowBit(InkFlowArt.RingMask(), at, OrderHit, windCore, windMid, windRim,
+                    new Vector4(3.2f, -1.8f, 1f, 1.3f), 0.22f, 0.46f, 0.36f);
+                wind.S0 = Size(wind.Sr.sprite, s * 0.45f);
+                wind.S1 = Size(wind.Sr.sprite, s * 1.46f);
+                wind.Curve = ScaleCurve.PopBack;
+                wind.Spin = -420f;
+
+                Bit fire = FlowBit(InkFlowArt.RingMask(), at, OrderTop, fireCore, fireMid, fireRim,
+                    new Vector4(-3.6f, -2.4f, 1f, 1.5f), 0.24f, 0.40f, 0.34f, 0.02f);
+                fire.S0 = Size(fire.Sr.sprite, s * 0.32f);
+                fire.S1 = Size(fire.Sr.sprite, s * 1.14f);
+                fire.Curve = ScaleCurve.PopBack;
+                fire.Spin = 480f;
+
+                FlowSpiral(at, s * 0.78f, s * 0.24f, 0f, 1.05f, 0.34f, 0.09f, fireRim, fireMid, fireCore, 0f);
+                FlowSpiral(at, s * 0.78f, s * 0.24f, Mathf.PI, 1.05f, 0.34f, 0.09f, windRim, windMid, windCore, 0.02f);
+                Flash(at, s * 0.22f, s * 1.15f, 0.15f);
+                BurstSparks(at, 9, fireCore, fireMid, 3.2f, 6.5f, 0.35f, 0.12f, OrderTop + 2, 4.8f, 0.22f);
+                BurstSparks(at, 6, windCore, windMid, 3.0f, 5.8f, 0.32f, 0.11f, OrderTop + 2, 4.8f, 0.22f);
+                InkShake.Punch(Camera.main, Vector2.down, 0.28f);
+            }
+            else
+            {
+                // 穿敌旋斩：一火一风两道切向刀弧 + 飞溅风火流萤
+                float baseAng = Random.Range(0f, 360f);
+                for (int i = 0; i < 2; i++)
+                {
+                    bool isFire = i == 0;
+                    Bit arc = FlowBit(InkFlowArt.SlashArc(), at, OrderTop + 2,
+                        isFire ? fireCore : windCore,
+                        isFire ? fireMid : windMid,
+                        isFire ? fireRim : windRim,
+                        new Vector4(isFire ? 2.6f : -2.6f, 0f, 0f, 0f), 0.14f, 0.24f, 0.32f);
+                    arc.S0 = Size(arc.Sr.sprite, s * 0.65f);
+                    arc.S1 = Size(arc.Sr.sprite, s * 1.22f);
+                    arc.Curve = ScaleCurve.PopBack;
+                    arc.Spin = isFire ? -420f : 420f;
+                    arc.Sr.transform.localRotation = Quaternion.Euler(0f, 0f, baseAng + i * 180f);
+                }
+                Flash(at, 0.2f, s * 0.85f, 0.12f);
+                BurstSparks(at, 6, fireCore, fireMid, 2.6f, 5.2f, 0.28f, 0.10f, OrderTop + 2, 5.0f, 0.20f);
+                BurstSparks(at, 4, windCore, windMid, 2.4f, 4.8f, 0.26f, 0.10f, OrderTop + 2, 5.0f, 0.20f);
             }
         }
 
-        // 定海针：钉在怪身上的是一朵蓝爆。
-        void Needle(Vector2 at, float size)
+        // 穿云箭（三字诀）：金色破云气浪锥 + 沿穿刺方向爆射的高速拉丝穿云光针。
+        void Cloud(Vector2 at, float size)
         {
-            Cartoon("needle_hit", at, ToonSize(size));
+            float s = Mathf.Clamp(size, 0.55f, 1.05f);
+            Color core = InkTheme.Hex("FFFBE0");
+            Color mid = InkTheme.Hex("FFBD2E");
+            Color rim = InkTheme.Hex("592E08");
+            // 破云气浪弧（朝下穿刺方向）
+            Bit cone = FlowBit(InkFlowArt.SlashArc(), at, OrderTop, core, mid, rim,
+                new Vector4(0f, -2.4f, 0f, 0f), 0.12f, 0.24f, 0.30f);
+            cone.S0 = Size(cone.Sr.sprite, new Vector2(s * 0.65f, s * 0.9f));
+            cone.S1 = Size(cone.Sr.sprite, new Vector2(s * 1.35f, s * 1.45f));
+            cone.Curve = ScaleCurve.PopBack;
+            cone.Sr.transform.localRotation = Quaternion.Euler(0f, 0f, 180f);
+            // 尖锐金色穿云丝带
+            FlowRibbon(at + Vector2.up * (s * 0.45f), at + Vector2.down * (s * 1.1f), 0f, 0.18f, 0.10f, rim, mid, core, 0f);
+            // 6 根沿穿刺扇区高速爆射的速度拉伸金针
+            for (int i = 0; i < 6; i++)
+            {
+                float ang = (-90f + Random.Range(-34f, 34f)) * Mathf.Deg2Rad;
+                Vector2 v = new Vector2(Mathf.Cos(ang), Mathf.Sin(ang)) * Random.Range(3.6f, 6.4f);
+                Bit b = Add(InkFx.Mote(), at, OrderTop, i % 2 == 0 ? core : mid, false);
+                b.Vel = v;
+                b.Drag = 5.5f;
+                b.StretchByVel = 0.26f;
+                b.Life = Random.Range(0.18f, 0.28f);
+                b.S0 = Vector2.one * Random.Range(0.10f, 0.15f);
+                b.S1 = b.S0 * 0.2f;
+            }
         }
 
-        // 封：一圈紫环收紧。
+        // 定海针（三字诀）：金箍玄岩冰晶神柱从天贯落 -> 砸地压扁回弹镇压全场 -> 两侧迸出斜刺冰棱 + 地面冰裂与弹跳岩冰碎块。
+        void Needle(Vector2 at, float size)
+        {
+            float s = ToonSize(size);
+            Color core = InkTheme.Hex("EBFBFF");
+            Color mid = InkTheme.Hex("3BC4FF");
+            Color rim = InkTheme.Hex("102642");
+            Color goldMid = InkTheme.Hex("F2B632");
+            Color goldRim = InkTheme.Hex("4A2E08");
+            Vector2 ground = at + Vector2.down * 0.18f;
+
+            Sprite[] needleFrames = InkVfx.Frames("needle_shot", 4);
+            Sprite pillar = needleFrames != null && needleFrames[0] != null ? needleFrames[0] : Pic("needle_shot");
+            float pinH = s * 1.72f;
+            Vector2 landedCenter = ground + Vector2.up * (pinH * 0.44f);
+
+            // 一段（0~0.095s）：地面先向内急缩聚怪引力环 + 定海神针拖着金青贯日流光从天砸落
+            Bit gather = FlowBit(InkFlowArt.RingMask(), ground, OrderGround + 1, core, goldMid, goldRim,
+                new Vector4(-2.4f, 1.8f, 1f, 0.7f), 0.14f, 0.11f, 0.85f);
+            gather.S0 = Size(gather.Sr.sprite, new Vector2(s * 1.45f, s * 0.95f));
+            gather.S1 = Size(gather.Sr.sprite, new Vector2(s * 0.36f, s * 0.24f));
+            gather.Curve = ScaleCurve.ShrinkIn;
+
+            FlowRibbon(ground + Vector2.up * 3.1f, ground, 0f, 0.14f, 0.14f, goldRim, goldMid, core, 0f);
+
+            if (pillar != null)
+            {
+                Vector2 baseScale = Size(pillar, pinH);
+                Bit drop = Add(pillar, ground + Vector2.up * 2.95f, OrderTop + 2, Color.white, false);
+                drop.Travel = true;
+                drop.From = ground + Vector2.up * 2.95f;
+                drop.To = landedCenter;
+                drop.Lift = 0f;
+                drop.Life = 0.095f;
+                drop.HoldAlpha = true;
+                drop.S0 = Vector2.Scale(baseScale, new Vector2(0.82f, 1.28f));
+                drop.S1 = baseScale;
+
+                // 二段（0.095s 砸地）：神柱镇地压扁回弹，柱身寒脉闪烁
+                Bit pin = Add(pillar, landedCenter, OrderTop + 2, Color.white, false);
+                pin.Frames = needleFrames;
+                pin.S0 = baseScale;
+                pin.S1 = baseScale;
+                pin.Curve = ScaleCurve.SquashLand;
+                pin.Life = 0.50f;
+                pin.Delay = 0.092f;
+                pin.HoldAlpha = true;
+            }
+            else
+            {
+                Bit pin = FlowBit(InkFlowArt.PillarMask(), ground, OrderTop + 1, core, mid, rim,
+                    new Vector4(0f, -1.2f, 0f, 0f), 0.14f, 0.46f, 0.55f, 0.092f);
+                pin.S0 = Size(pin.Sr.sprite, new Vector2(s * 0.62f, s * 1.48f));
+                pin.S1 = pin.S0;
+                pin.Curve = ScaleCurve.SquashLand;
+            }
+
+            // 两侧对称迸出斜刺寒冰副棱，托住主神柱形成山字形镇海阵势
+            for (int side = -1; side <= 1; side += 2)
+            {
+                float ang = -side * 34f;
+                Vector2 offset = new Vector2(side * s * 0.36f, s * 0.22f);
+                Bit spike = FlowBit(InkFlowArt.PillarMask(), ground + offset * 0.4f, OrderTop + 1, core, mid, rim,
+                    new Vector4(0f, -1.8f, 0f, 0f), 0.12f, 0.38f, 0.45f, 0.10f);
+                spike.Travel = true;
+                spike.From = ground + new Vector2(side * s * 0.14f, 0.02f);
+                spike.To = ground + offset;
+                spike.Lift = 0f;
+                spike.S0 = Size(spike.Sr.sprite, new Vector2(s * 0.22f, s * 0.35f));
+                spike.S1 = Size(spike.Sr.sprite, new Vector2(s * 0.34f, s * 0.88f));
+                spike.Curve = ScaleCurve.PopBack;
+                spike.Sr.transform.localRotation = Quaternion.Euler(0f, 0f, ang);
+            }
+
+            // 地面爆开硬边冰霜裂纹 + 外扩冰金双层气浪环 + 弹跳岩冰碎块
+            Bit crack = FlowBit(InkFlowArt.CrackRing(), ground, OrderGround, core, mid, rim,
+                new Vector4(0f, 0f, 0f, 0f), 0.06f, 0.74f, 0.55f, 0.095f);
+            crack.S0 = Size(crack.Sr.sprite, s * 0.48f);
+            crack.S1 = Size(crack.Sr.sprite, s * 1.72f);
+            crack.Curve = ScaleCurve.PopBack;
+            crack.Sr.transform.localRotation = Quaternion.Euler(0f, 0f, Random.Range(0f, 360f));
+
+            Bit ring = FlowBit(InkFlowArt.RingMask(), ground, OrderHit, core, mid, rim,
+                new Vector4(1.6f, -1.5f, 1f, 0.4f), 0.16f, 0.34f, 0.26f, 0.095f);
+            ring.S0 = Size(ring.Sr.sprite, new Vector2(s * 0.38f, s * 0.26f));
+            ring.S1 = Size(ring.Sr.sprite, new Vector2(s * 1.82f, s * 1.24f));
+
+            Flash(ground, s * 0.24f, s * 1.25f, 0.14f, 0.095f);
+            BurstShards(ground, 6, InkTheme.Hex("8CE8FF"), InkTheme.Hex("3898D8"), 0.17f, 0.27f,
+                2.4f, 4.6f, 0.54f, ground.y - 0.15f, OrderTop + 2, 0.095f);
+            BurstShards(ground, 4, goldMid, InkTheme.Hex("6B5033"), 0.15f, 0.24f,
+                2.0f, 4.0f, 0.50f, ground.y - 0.15f, OrderTop + 2, 0.095f);
+            BurstSparks(ground, 10, core, goldMid, 2.8f, 5.8f, 0.32f, 0.11f, OrderTop + 3, 5.2f, 0.22f, 0.095f);
+            InkShake.Punch(Camera.main, Vector2.down, 0.38f);
+        }
+
+        // 封：黑紫硬边符咒锁环极速旋转收紧 + 四道向心封锁紫芒。
         void SealMark(Vector2 at, float size)
         {
             float s = Mathf.Max(0.95f, size * 2.3f);
-            Ring(at, s * 0.95f, s * 0.28f, 0.42f, InkTheme.SealHi, 0.95f, OrderHit);
-            // 环在贴图里只占中间一圈，放大后才罩得住怪。
-            Bit flick = Anim("seal_mark", at, s * 1.9f, s * 1.15f, 0.5f, OrderTop);
-            Sprite zap = flick == null ? Pic("stun_ring") : null;
-            if (zap != null)
+            Color core = InkTheme.Hex("F2DEFF");
+            Color mid = InkTheme.Hex("8F47FF");
+            Color rim = InkTheme.Hex("210B3D");
+            Bit lockRing = FlowBit(InkFlowArt.RingMask(), at, OrderTop, core, mid, rim,
+                new Vector4(-2.2f, 1.5f, 1f, 0.65f), 0.14f, 0.42f, 0.52f);
+            lockRing.S0 = Size(lockRing.Sr.sprite, s * 1.35f);
+            lockRing.S1 = Size(lockRing.Sr.sprite, s * 0.58f);
+            lockRing.Curve = ScaleCurve.ShrinkIn;
+            lockRing.Spin = -260f;
+            for (int i = 0; i < 4; i++)
             {
-                Bit b = Add(zap, at, OrderTop, InkTheme.GlyphSeal, false);
-                b.S0 = Size(zap, s * 1.2f);
-                b.S1 = Size(zap, s * 0.48f);
-                b.Life = 0.5f;
-                b.Spin = -240f;
-                b.A0 = 0.95f;
+                float a = (i / 4f + 0.125f) * Mathf.PI * 2f;
+                Vector2 p = at + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * (s * 0.72f);
+                FlowRibbon(p, at, 0f, 0.24f, 0.07f, rim, mid, core, i * 0.02f);
             }
-            Flash(at, s * 0.28f, s * 0.12f, 0.18f);
+            Flash(at, s * 0.25f, s * 0.08f, 0.16f);
         }
 
-        // 失魂：紫火往上窜，旁边飘粉色心。
+        // 失魂（封+惑）：彻底告别违和 3D 爱心！黑紫硬边符咒锁环收紧（封）+ 两缕摇曳扭动的幽紫/绛粉卡通魂影从头顶抽离上飘（惑）。
         void Soul(Vector2 at, float size)
         {
-            float s = Mathf.Clamp(size, 0.6f, 1f);
-            Ring(at, s * 0.95f, s * 0.2f, 0.36f, new Color(0.72f, 0.32f, 1f, 1f), 0.9f, OrderHit);
-            Ring(at, s * 0.5f, s * 0.12f, 0.3f, new Color(1f, 0.46f, 0.72f, 1f), 0.75f, OrderTop, 0.04f);
-            Flash(at, s * 0.16f, s * 0.04f, 0.1f);
-            Sprite flame = GlowShot.Poster("soul");
-            if (flame != null)
+            float s = Mathf.Clamp(size, 0.65f, 1.15f);
+            Color sealCore = InkTheme.Hex("F6E4FF");
+            Color sealMid = InkTheme.Hex("8B3DFF");
+            Color sealRim = InkTheme.Hex("1F0A38");
+            Color wispCore = InkTheme.Hex("FFE6F3");
+            Color wispMid = InkTheme.Hex("E8489C");
+            Color wispRim = InkTheme.Hex("380F47");
+            // 1. 周身极速收紧的符咒锁环（封）
+            Bit lockRing = FlowBit(InkFlowArt.RingMask(), at, OrderHit, sealCore, sealMid, sealRim,
+                new Vector4(-2.6f, 1.8f, 1f, 0.85f), 0.16f, 0.36f, 0.48f);
+            lockRing.S0 = Size(lockRing.Sr.sprite, s * 1.45f);
+            lockRing.S1 = Size(lockRing.Sr.sprite, s * 0.42f);
+            lockRing.Curve = ScaleCurve.ShrinkIn;
+            lockRing.Spin = -300f;
+            // 2. 两缕摇曳扭动的卡通魂影墨焰从怪身抽离打旋上飘（惑）
+            for (int i = 0; i < 2; i++)
             {
-                Bit flick = Add(flame, at, OrderTop, Color.white, false);
-                flick.Travel = true;
-                flick.From = at;
-                flick.To = at + Vector2.up * s * 0.48f;
-                flick.Lift = 0.1f;
-                flick.Life = 0.34f;
-                flick.S0 = Size(flame, s * 0.38f);
-                flick.S1 = Size(flame, s * 0.07f);
-                flick.Spin = 36f;
+                float side = i == 0 ? -1f : 1f;
+                Bit wisp = FlowBit(InkFlowArt.WispMask(), at, OrderTop,
+                    i == 0 ? wispCore : sealCore,
+                    i == 0 ? wispMid : sealMid,
+                    i == 0 ? wispRim : sealRim,
+                    new Vector4(side * 0.5f, -2.4f, 0f, 0f), 0.26f, 0.48f, 0.36f, i * 0.05f);
+                wisp.Travel = true;
+                wisp.From = at + new Vector2(side * s * 0.10f, -s * 0.05f);
+                wisp.To = at + new Vector2(-side * s * 0.22f, s * (0.95f + i * 0.18f));
+                wisp.Lift = side * s * 0.36f;
+                wisp.S0 = Size(wisp.Sr.sprite, new Vector2(s * 0.52f, s * 0.72f));
+                wisp.S1 = Size(wisp.Sr.sprite, new Vector2(s * 0.26f, s * 1.05f));
+                wisp.Spin = side * 22f;
             }
-            for (int i = 0; i < 7; i++)
+            // 3. 轻盈游丝火星打旋上升
+            Flash(at, s * 0.22f, s * 0.06f, 0.12f);
+            for (int i = 0; i < 6; i++)
             {
-                float a = i / 7f * Mathf.PI * 2f;
-                Color c = i % 2 == 0 ? new Color(0.82f, 0.4f, 1f, 1f) : new Color(1f, 0.48f, 0.74f, 1f);
-                Bit b = Add(InkFx.Star(), at, OrderTop, c, true);
-                b.Travel = true;
-                b.From = at + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * s * 0.5f;
-                b.To = at + Vector2.up * s * 0.12f;
-                b.Lift = (i % 2 == 0 ? 0.14f : -0.14f) * s;
-                b.Life = 0.32f;
-                b.Delay = i * 0.018f;
-                b.S0 = Vector2.one * 0.09f;
-                b.S1 = Vector2.one * 0.025f;
-                b.Spin = 220f;
+                float a = Random.Range(0f, Mathf.PI * 2f);
+                Bit sp = Add(InkFx.Mote(), at + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * s * 0.22f,
+                    OrderTop, i % 2 == 0 ? wispMid : sealCore, false);
+                sp.Vel = new Vector2(Random.Range(-1.1f, 1.1f), Random.Range(1.4f, 2.8f));
+                sp.Drag = 3.2f;
+                sp.StretchByVel = 0.18f;
+                sp.Life = Random.Range(0.28f, 0.44f);
+                sp.S0 = Vector2.one * Random.Range(0.08f, 0.13f);
+                sp.S1 = sp.S0 * 0.2f;
+                sp.Delay = i * 0.02f;
             }
         }
 
-        // 影弹打在怪身上。鬼火是一小团窜起的火舌和火星，单独的影只留一点淡光。
+        // 影弹 / 鬼火（影+火）：单独影弹留一道极速溶解暗紫墨环；鬼火窜起 3 缕幽冥紫边橙芯摇曳墨焰 + 飘摇火星。
         void Ghost(Vector2 at, float size)
         {
             bool blaze = size >= 0.9f;
-            float s = blaze ? 0.92f : 0.55f;
-            Flash(at, s * (blaze ? 0.18f : 0.1f), s * 0.04f, 0.1f);
+            float s = blaze ? 1.02f : 0.62f;
+            Color shadeCore = InkTheme.Hex("E9DCFF");
+            Color shadeMid = InkTheme.Hex("6B35D6");
+            Color shadeRim = InkTheme.Hex("1A0930");
             if (!blaze)
             {
-                Ring(at, s * 0.12f, s * 0.5f, 0.26f, InkTheme.ShadowHi, 0.8f, OrderHit);
+                Bit ring = FlowBit(InkFlowArt.RingMask(), at, OrderHit, shadeCore, shadeMid, shadeRim,
+                    new Vector4(1.4f, -1.8f, 1f, 0.4f), 0.18f, 0.26f, 0.25f);
+                ring.S0 = Size(ring.Sr.sprite, s * 0.25f);
+                ring.S1 = Size(ring.Sr.sprite, s * 1.1f);
+                Flash(at, s * 0.14f, s * 0.04f, 0.1f);
                 return;
             }
-            Ring(at, s * 0.1f, s * 0.72f, 0.24f, new Color(1f, 0.48f, 0.12f, 1f), 0.85f, OrderHit);
-            Ring(at, s * 0.2f, s * 0.48f, 0.3f, new Color(0.7f, 0.32f, 1f, 1f), 0.55f, OrderHit, 0.04f);
-            Sprite flame = GlowShot.Poster("ghostfire");
+            Color ghostCore = InkTheme.Hex("FFF3C4");
+            Color ghostMid = InkTheme.Hex("FF6A14");
+            Color ghostRim = InkTheme.Hex("3B0E5C");
+            // 暗紫鬼火底环
+            Bit baseRing = FlowBit(InkFlowArt.RingMask(), at, OrderHit, ghostCore, shadeMid, ghostRim,
+                new Vector4(1.8f, -2.0f, 1f, 0.6f), 0.20f, 0.30f, 0.25f);
+            baseRing.S0 = Size(baseRing.Sr.sprite, s * 0.28f);
+            baseRing.S1 = Size(baseRing.Sr.sprite, s * 1.25f);
+            Flash(at, s * 0.22f, s * 0.05f, 0.11f);
+            // 3 缕错落摇曳窜起的幽冥墨焰（纵向强噪声扭曲，动态如真火舔舐）
             for (int i = 0; i < 3; i++)
             {
-                if (flame == null) break;
-                float side = (i - 1) * s * 0.18f;
-                Bit tongue = Add(flame, at, OrderTop, Color.white, false);
+                float side = (i - 1) * s * 0.24f;
+                Bit tongue = FlowBit(InkFlowArt.WispMask(), at, OrderTop, ghostCore, ghostMid, ghostRim,
+                    new Vector4((i - 1) * 0.4f, -3.2f, 0f, 0f), 0.28f, 0.38f + i * 0.04f, 0.32f, i * 0.03f);
                 tongue.Travel = true;
-                tongue.From = at + new Vector2(side * 0.25f, 0.02f);
-                tongue.To = at + new Vector2(side, s * (0.42f + i * 0.08f));
-                tongue.Lift = side * 0.35f;
-                tongue.Life = 0.28f;
-                tongue.Delay = i * 0.03f;
-                tongue.S0 = Size(flame, s * 0.32f);
-                tongue.S1 = Size(flame, s * 0.05f);
-                tongue.Spin = Random.Range(-70f, 70f);
+                tongue.From = at + new Vector2(side * 0.4f, -0.06f);
+                tongue.To = at + new Vector2(side * 1.1f, s * (0.62f + (i == 1 ? 0.24f : 0.06f)));
+                tongue.Lift = side * 0.45f;
+                float w = i == 1 ? 0.56f : 0.40f;
+                tongue.S0 = Size(tongue.Sr.sprite, new Vector2(s * w, s * (w * 1.25f)));
+                tongue.S1 = Size(tongue.Sr.sprite, new Vector2(s * w * 0.65f, s * (w * 1.75f)));
             }
-            for (int i = 0; i < 8; i++)
+            // 10 颗向上飘摇的速度拉伸橙/紫火星
+            for (int i = 0; i < 10; i++)
             {
-                float a = i / 8f * Mathf.PI * 2f + Random.Range(-0.3f, 0.3f);
-                bool star = i % 3 == 0;
-                Color c = star ? Color.white : i % 2 == 0
-                    ? new Color(1f, 0.46f, 0.1f, 1f) : new Color(0.74f, 0.34f, 1f, 1f);
-                Bit b = Add(star ? InkFx.Star() : InkFx.Mote(), at, OrderTop, c, true);
-                b.Vel = new Vector2(Mathf.Cos(a) * Random.Range(0.7f, 1.6f), Mathf.Sin(a) * Random.Range(0.5f, 1.2f) + 0.7f);
-                b.Gravity = -1.8f;
-                b.Life = Random.Range(0.2f, 0.36f);
-                b.S0 = Vector2.one * (star ? 0.11f : 0.07f);
+                float a = Random.Range(0f, Mathf.PI * 2f);
+                Color c = i % 3 == 0 ? ghostCore : i % 2 == 0 ? ghostMid : InkTheme.Hex("A855FF");
+                Bit b = Add(InkFx.Mote(), at, OrderTop, c, false);
+                b.Vel = new Vector2(Mathf.Cos(a) * Random.Range(0.9f, 2.1f), Mathf.Sin(a) * Random.Range(0.6f, 1.5f) + 1.4f);
+                b.Drag = 4.2f;
+                b.StretchByVel = 0.20f;
+                b.Life = Random.Range(0.24f, 0.40f);
+                b.S0 = Vector2.one * Random.Range(0.08f, 0.13f);
                 b.S1 = b.S0 * 0.2f;
-                b.Spin = Random.Range(-280f, 280f);
                 b.Delay = Random.Range(0f, 0.05f);
             }
         }
@@ -769,9 +1165,243 @@ namespace InkLine
             }
         }
 
+        // ---------- 动态流体 / 丝带 / 物理碎屑辅助 ----------
+
+        Bit FlowBit(Sprite mask, Vector2 at, int order, Color core, Color mid, Color rim,
+            Vector4 flow, float distort, float life, float dissolveAt = 0.35f, float delay = 0f)
+        {
+            Bit b = Add(mask, at, order, Color.white, false);
+            b.Flow = true;
+            b.Core = core;
+            b.Mid = mid;
+            b.Rim = rim;
+            b.FlowVec = flow;
+            b.Distort = distort;
+            b.Sharp = 1f;
+            b.Phase = Random.Range(0f, 10f);
+            b.DissolveAt = dissolveAt;
+            b.Life = life;
+            b.Delay = delay;
+            b.A0 = 1f;
+            return b;
+        }
+
+        // 高速急刹 + 速度方向拉伸火花（打破均匀圆周分布，自然错落）。
+        void BurstSparks(Vector2 at, int n, Color core, Color mid, float vLo, float vHi,
+            float life, float size, int order, float drag, float stretch, float delay = 0f)
+        {
+            for (int i = 0; i < n; i++)
+            {
+                float a = (i + Random.Range(-0.42f, 0.42f)) / n * Mathf.PI * 2f;
+                float spd = Random.Range(vLo, vHi) * (i % 3 == 0 ? 1.25f : 0.85f);
+                Bit b = Add(InkFx.Mote(), at, order, i % 3 == 0 ? core : mid, false);
+                b.Vel = new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * spd;
+                b.Drag = drag;
+                b.StretchByVel = stretch;
+                b.Life = life * Random.Range(0.75f, 1.2f);
+                b.S0 = Vector2.one * (size * Random.Range(0.75f, 1.3f));
+                b.S1 = b.S0 * 0.18f;
+                b.Delay = delay + Random.Range(0f, 0.03f);
+            }
+        }
+
+        // 带深色描边的锐利多边形碎块：向上炸飞、重力下坠、落地弹跳。
+        void BurstShards(Vector2 at, int n, Color hi, Color lo, float sLo, float sHi,
+            float vLo, float vHi, float life, float floorY, int order, float delay = 0f)
+        {
+            Sprite shard = InkFlowArt.ShardPoly();
+            for (int i = 0; i < n; i++)
+            {
+                float a = Mathf.Lerp(20f, 160f, (i + Random.Range(0.1f, 0.9f)) / n) * Mathf.Deg2Rad;
+                Vector2 v = new Vector2(Mathf.Cos(a) * Random.Range(0.7f, 1.35f), Mathf.Sin(a)) * Random.Range(vLo, vHi);
+                Bit b = Add(shard, at + Random.insideUnitCircle * 0.12f, order, i % 2 == 0 ? hi : lo, false);
+                b.Vel = v;
+                b.Gravity = -12.5f;
+                b.Drag = 0.6f;
+                b.HasFloor = true;
+                b.FloorY = floorY + Random.Range(-0.08f, 0.08f);
+                b.Bounce = Random.Range(0.35f, 0.55f);
+                b.Life = life * Random.Range(0.85f, 1.15f);
+                float sz = Random.Range(sLo, sHi);
+                b.S0 = Size(shard, sz);
+                b.S1 = Size(shard, sz * 0.72f);
+                b.HoldAlpha = true;
+                b.Delay = delay;
+                b.Spin = Random.Range(-620f, 620f);
+                b.Sr.transform.localRotation = Quaternion.Euler(0f, 0f, Random.Range(0f, 360f));
+            }
+        }
+
+        void FlowRibbon(Vector2 from, Vector2 to, float lift, float life, float width, Color rim, Color mid, Color core, float delay = 0f)
+        {
+            RibbonBit r = RentRibbon();
+            r.From = from;
+            Vector2 d = to - from;
+            Vector2 side = d.sqrMagnitude > 1e-4f ? new Vector2(-d.y, d.x).normalized : Vector2.right;
+            r.Ctrl = (from + to) * 0.5f + side * lift;
+            r.To = to;
+            r.Spiral = false;
+            r.Age = 0f;
+            r.Life = Mathf.Max(0.06f, life);
+            r.Delay = delay;
+            r.Width = width * 1.15f;
+            r.Rim = rim;
+            r.Mid = mid;
+            r.Core = core;
+            r.On = true;
+        }
+
+        void FlowSpiral(Vector2 center, float r0, float r1, float ang0, float turns, float life, float width,
+            Color rim, Color mid, Color core, float delay = 0f)
+        {
+            RibbonBit r = RentRibbon();
+            r.Spiral = true;
+            r.Center = center;
+            r.R0 = r0;
+            r.R1 = r1;
+            r.Ang0 = ang0;
+            r.Turns = turns;
+            r.Age = 0f;
+            r.Life = Mathf.Max(0.08f, life);
+            r.Delay = delay;
+            r.Width = width * 1.15f;
+            r.Rim = rim;
+            r.Mid = mid;
+            r.Core = core;
+            r.On = true;
+        }
+
+        RibbonBit RentRibbon()
+        {
+            for (int i = 0; i < _ribbons.Count; i++)
+                if (!_ribbons[i].On) return _ribbons[i];
+            if (_ribbons.Count >= 36) return _ribbons[0];
+            var rb = new RibbonBit
+            {
+                Outer = MakeLine("ribOuter", OrderTop),
+                Body = MakeLine("ribBody", OrderTop + 1),
+                Inner = MakeLine("ribInner", OrderTop + 2)
+            };
+            _ribbons.Add(rb);
+            return rb;
+        }
+
+        LineRenderer MakeLine(string name, int order)
+        {
+            var go = new GameObject(name);
+            go.transform.SetParent(transform, false);
+            var lr = go.AddComponent<LineRenderer>();
+            lr.useWorldSpace = true;
+            lr.positionCount = RibbonPts;
+            lr.numCornerVertices = 2;
+            lr.numCapVertices = 3;
+            lr.sortingOrder = order;
+            lr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            lr.receiveShadows = false;
+            lr.sharedMaterial = InkFx.SpriteMat();
+            lr.widthCurve = new AnimationCurve(
+                new Keyframe(0f, 0.15f),
+                new Keyframe(0.55f, 1f),
+                new Keyframe(1f, 0.10f));
+            lr.enabled = false;
+            return lr;
+        }
+
+        void StepRibbons(float dt)
+        {
+            for (int i = 0; i < _ribbons.Count; i++)
+            {
+                RibbonBit r = _ribbons[i];
+                if (!r.On) continue;
+                if (r.Delay > 0f) { r.Delay -= dt; continue; }
+                r.Age += dt;
+                float k = Mathf.Clamp01(r.Age / r.Life);
+                if (k >= 1f)
+                {
+                    r.On = false;
+                    r.Outer.enabled = false;
+                    r.Body.enabled = false;
+                    r.Inner.enabled = false;
+                    continue;
+                }
+                // 丝带头部先冲出，尾部随后收拢，形成动态挥砍/抽吸轨迹
+                float head = Ease.OutCubic(Mathf.Clamp01(k * 1.45f));
+                float tail = InCubic(Mathf.Clamp01((k - 0.22f) / 0.78f));
+                if (head - tail < 0.01f)
+                {
+                    r.Outer.enabled = false;
+                    r.Body.enabled = false;
+                    r.Inner.enabled = false;
+                    continue;
+                }
+                for (int p = 0; p < RibbonPts; p++)
+                {
+                    float u = Mathf.Lerp(tail, head, p / (float)(RibbonPts - 1));
+                    Vector2 pt;
+                    if (r.Spiral)
+                    {
+                        float rad = Mathf.Lerp(r.R0, r.R1, u);
+                        float ang = r.Ang0 + u * r.Turns * Mathf.PI * 2f;
+                        pt = r.Center + new Vector2(Mathf.Cos(ang) * rad, Mathf.Sin(ang) * rad * 0.72f);
+                    }
+                    else
+                    {
+                        float inv = 1f - u;
+                        pt = inv * inv * r.From + 2f * inv * u * r.Ctrl + u * u * r.To;
+                    }
+                    _rPts[p] = new Vector3(pt.x, pt.y, 0f);
+                }
+                float fade = k < 0.65f ? 1f : 1f - (k - 0.65f) / 0.35f;
+                float w = r.Width * (0.45f + 0.55f * fade);
+                r.Outer.enabled = true;
+                r.Outer.SetPositions(_rPts);
+                r.Outer.widthMultiplier = w;
+                Color rim = r.Rim; rim.a = fade;
+                r.Outer.startColor = r.Outer.endColor = rim;
+
+                r.Body.enabled = true;
+                r.Body.SetPositions(_rPts);
+                r.Body.widthMultiplier = w * 0.66f;
+                Color mid = r.Mid; mid.a = fade;
+                r.Body.startColor = r.Body.endColor = mid;
+
+                r.Inner.enabled = true;
+                r.Inner.SetPositions(_rPts);
+                r.Inner.widthMultiplier = w * 0.26f;
+                Color core = r.Core; core.a = fade;
+                r.Inner.startColor = r.Inner.endColor = core;
+            }
+        }
+
+        static Vector2 EvalScale(Bit b, float k)
+        {
+            switch (b.Curve)
+            {
+                case ScaleCurve.PopBack:
+                {
+                    float p = Ease.OutBack(Mathf.Clamp01(k / 0.28f));
+                    return Vector2.LerpUnclamped(b.S0, b.S1, p);
+                }
+                case ScaleCurve.SquashLand:
+                {
+                    // 砸地瞬间（前 0.22）先压扁变宽，再弹性回弹到原始比例
+                    float u = Mathf.Clamp01(k / 0.26f);
+                    float bump = Mathf.Sin(u * Mathf.PI) * (1f - u * 0.45f);
+                    return new Vector2(b.S1.x * (1f + 0.36f * bump), b.S1.y * (1f - 0.24f * bump));
+                }
+                case ScaleCurve.ShrinkIn:
+                    return Vector2.Lerp(b.S0, b.S1, InCubic(k));
+                default:
+                    return Vector2.Lerp(b.S0, b.S1, Ease.OutCubic(k));
+            }
+        }
+
+        static float InCubic(float t) => t * t * t;
+
         void LateUpdate()
         {
             float dt = Time.deltaTime;
+            if (_mpb == null) _mpb = new MaterialPropertyBlock();
             for (int i = 0; i < _bits.Count; i++)
             {
                 Bit b = _bits[i];
@@ -804,8 +1434,15 @@ namespace InkLine
                 else
                 {
                     b.Vel.y += b.Gravity * dt;
-                    if (b.Gravity == 0f) b.Vel *= Mathf.Max(0f, 1f - 3f * dt);
+                    if (b.Drag > 0f) b.Vel *= Mathf.Exp(-b.Drag * dt);
                     b.Pos += b.Vel * dt;
+                    if (b.HasFloor && b.Pos.y < b.FloorY && b.Vel.y < 0f)
+                    {
+                        b.Pos.y = b.FloorY;
+                        b.Vel.y = -b.Vel.y * b.Bounce;
+                        b.Vel.x *= 0.72f;
+                        b.Spin *= 0.6f;
+                    }
                 }
                 if (b.Frames != null)
                 {
@@ -815,14 +1452,38 @@ namespace InkLine
                 }
                 b.Sr.enabled = true;
                 b.Sr.transform.position = new Vector3(b.Pos.x, b.Pos.y, 0f);
-                Vector2 s = Vector2.Lerp(b.S0, b.S1, Ease.OutCubic(k));
+                Vector2 s = EvalScale(b, k);
+                if (b.StretchByVel > 0f && b.Vel.sqrMagnitude > 0.02f)
+                {
+                    float spd = b.Vel.magnitude;
+                    float stretch = 1f + spd * b.StretchByVel;
+                    float squash = 1f / Mathf.Sqrt(stretch);
+                    s = new Vector2(s.x * squash, s.y * stretch);
+                    float ang = Mathf.Atan2(b.Vel.y, b.Vel.x) * Mathf.Rad2Deg - 90f;
+                    b.Sr.transform.localRotation = Quaternion.Euler(0f, 0f, ang);
+                }
+                else if (b.Spin != 0f)
+                {
+                    b.Sr.transform.Rotate(0f, 0f, b.Spin * dt);
+                }
                 b.Sr.transform.localScale = new Vector3(s.x, s.y, 1f);
-                if (b.Spin != 0f) b.Sr.transform.Rotate(0f, 0f, b.Spin * dt);
-                Color col = b.C;
-                float hold = b.HoldAlpha ? 0.6f : 0.3f;
-                col.a = b.A0 * (k < hold ? 1f : 1f - (k - hold) / (1f - hold));
-                b.Sr.color = col;
+
+                if (b.Flow)
+                {
+                    float cut = k < b.DissolveAt ? 0f : Mathf.SmoothStep(0f, 1f, (k - b.DissolveAt) / Mathf.Max(0.01f, 1f - b.DissolveAt));
+                    float alpha = b.A0 * (k < 0.85f ? 1f : 1f - (k - 0.85f) / 0.15f);
+                    InkFlowArt.Apply(b.Sr, _mpb, b.Core, b.Mid, b.Rim, b.FlowVec,
+                        new Vector4(cut, b.Distort, b.Phase, b.Sharp), alpha);
+                }
+                else
+                {
+                    Color col = b.C;
+                    float hold = b.HoldAlpha ? 0.6f : 0.3f;
+                    col.a = b.A0 * (k < hold ? 1f : 1f - (k - hold) / (1f - hold));
+                    b.Sr.color = col;
+                }
             }
+            StepRibbons(dt);
         }
     }
 }

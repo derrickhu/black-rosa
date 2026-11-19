@@ -18,14 +18,17 @@ namespace InkLine
     public sealed class StudyPage : MonoBehaviour
     {
         const int Cols = 5;
-        const float CellW = 128f;
-        const float CellH = 172f;
-        const float StepX = 140f;
-        const float StepY = 186f;
-        const float PanelY = 252f;
-        const float HintY = 268f;
-        const float FiltersY = 320f;
-        const float GridY = 392f;
+        const float CellW = 136f;
+        const float CellH = 183f;
+        const float StepX = 142f;
+        const float StepY = 196f;
+        // 第二行金箔贴在体力栏下沿再隔一条缝。整页跟着上移，金箔仍挨着说明条。
+        const float PanelY = 264f;
+        const float HintY = 280f;
+        const float FiltersY = 332f;
+        const float GridY = 404f;
+        const float FoilY = 180f;
+        const float SealY = 160f;
         const float DockH = 128f;
 
         MetaProgress _meta;
@@ -180,7 +183,7 @@ namespace InkLine
             HomeReskin.TopLeft(_view, HomeReskin.PlaceX(0f), gridY, ScreenFit.DesignW, Mathf.Max(160f, dock - gridY - 8f));
 
             RestyleFoil();
-            HomeReskin.TopLeft(_sealMark, HomeReskin.PlaceX(624f), HomeReskin.PlaceY(148f), 96f, 90f);
+            HomeReskin.TopLeft(_sealMark, HomeReskin.PlaceX(624f), HomeReskin.PlaceY(SealY), 96f, 90f);
             _foilChip.SetAsLastSibling();
             _sealMark.SetAsLastSibling();
         }
@@ -225,7 +228,7 @@ namespace InkLine
             btn.targetGraphic = hit;
             btn.onClick.AddListener(OpenSeals);
             SealArt.Medal(go.transform, "m", SealType.Fierce, SealQuality.Blue, new Vector2(0f, 16f), 54f);
-            var t = UiKit.Label(go.transform, "t", "印章", 20, new Vector2(0f, -28f), new Vector2(96f, 26f));
+            var t = UiKit.Label(go.transform, "t", "印章", 20, new Vector2(0f, -30f), new Vector2(96f, 32f));
             UiKit.Bold(t);
             var ring = UiKit.Icon(go.transform, UiSprites.Disc(), new Vector2(30f, 36f), 26f);
             ring.name = "dot";
@@ -359,7 +362,7 @@ namespace InkLine
 
         void RestyleFoil()
         {
-            HomeReskin.TopLeft(_foilChip, HomeReskin.PlaceX(97f), HomeReskin.PlaceY(168f), 162f, 32f);
+            HomeReskin.TopLeft(_foilChip, HomeReskin.PlaceX(97f), HomeReskin.PlaceY(FoilY), 168f, 40f);
             var img = _foilChip.GetComponent<Image>();
             Sprite bar = InkSprites.Load("Ui/home_bar");
             if (bar != null)
@@ -373,10 +376,10 @@ namespace InkLine
             if (shadow != null) shadow.gameObject.SetActive(false);
             Transform line = _foilChip.Find("ln");
             if (line != null) line.gameObject.SetActive(false);
-            HomeReskin.TopLeft(_foil.rectTransform, 36f, 0f, 114f, 32f);
+            HomeReskin.TopLeft(_foil.rectTransform, 40f, 0f, 116f, 40f);
             _foil.color = HomeReskin.Cream;
             _foil.alignment = TextAnchor.MiddleCenter;
-            _foil.fontSize = 20;
+            _foil.fontSize = UiKit.ReadSize(20);
             var icon = _foilChip.Find("icon") as RectTransform;
             if (icon != null)
             {
@@ -494,7 +497,7 @@ namespace InkLine
             return card;
         }
 
-        static string Face(int lv)
+        public static string Face(int lv)
         {
             switch (StudyCatalog.TierOf(lv))
             {
@@ -502,7 +505,7 @@ namespace InkLine
                 case StudyCatalog.Tier.Purple: return "study_card_purple";
                 case StudyCatalog.Tier.Blue: return "study_card_blue";
                 case StudyCatalog.Tier.Green: return "study_card_green";
-                default: return "study_card_gray";
+                default: return "study_card_white";
             }
         }
 

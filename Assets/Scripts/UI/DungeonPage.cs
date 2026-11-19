@@ -27,6 +27,31 @@ namespace InkLine
             _changed = changed;
             BindDaily();
             BindEndless();
+            FitArt(Daily);
+            FitArt(Endless);
+        }
+
+        static void FitArt(DungeonCard c)
+        {
+            if (c == null) return;
+            if (c.Art != null)
+            {
+                // 左边圆窗里放下整张场景，不再把左右裁掉。
+                c.Art.preserveAspect = true;
+                var rt = c.Art.rectTransform;
+                rt.anchorMin = rt.anchorMax = new Vector2(0f, 0.5f);
+                rt.pivot = new Vector2(0.5f, 0.5f);
+                rt.anchoredPosition = new Vector2(156f, 0f);
+                rt.sizeDelta = new Vector2(292f, 208f);
+            }
+            if (c.Frame == null || c.Frame.GetComponent<PanelKit.PanelBoost>() != null) return;
+            c.Frame.gameObject.AddComponent<PanelKit.PanelBoost>();
+            Text[] texts = c.Frame.GetComponentsInChildren<Text>(true);
+            for (int i = 0; i < texts.Length; i++)
+            {
+                if (texts[i] == null || texts[i].fontSize >= 36) continue;
+                texts[i].fontSize += texts[i].fontSize >= 28 ? 2 : 4;
+            }
         }
 
         public static bool HasPlay(MetaProgress meta) =>

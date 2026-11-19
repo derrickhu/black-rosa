@@ -66,6 +66,8 @@ namespace InkLine
         public ShotMods DoomBy;
         // 击退的冲击波把它一路顶回去，顶完这段才接着走。
         public float KnockLeft;
+        // 聚 / 旋风 / 坍缩的平滑向心拉扯偏移，大约 0.16 秒拉到位，告别单帧瞬移。
+        public Vector2 PullLeft;
         // 魔化词缀（精英、魔化词缀局）：见 DemonKind。Ward 是它自己带的减伤比例，和魔气护体相加。
         public DemonKind Demon;
         public float Ward;
@@ -3044,6 +3046,17 @@ namespace InkLine
                             if (e.Hp <= 0f) { Kill(e, null); continue; }
                         }
                     }
+                }
+                if (e.PullLeft.sqrMagnitude > 0.0001f)
+                {
+                    // 先快后慢平滑拉向中心，视觉特效和物理位移同步。
+                    float len = e.PullLeft.magnitude;
+                    float step = Mathf.Min(len, Mathf.Max(len * 14f, 2.4f) * dt);
+                    Vector2 d = e.PullLeft * (step / len);
+                    e.Pos += d;
+                    e.Pos.y = Mathf.Clamp(e.Pos.y, GameConstants.LeakY + 0.4f, GameConstants.SpawnY - 0.35f);
+                    e.PullLeft -= d;
+                    if (e.PullLeft.sqrMagnitude < 0.0004f) e.PullLeft = Vector2.zero;
                 }
                 if (e.KnockLeft > 0f)
                 {

@@ -87,6 +87,7 @@ namespace InkLine
             // 波次下面不放提示。这条留着是为了不改预制和刷新入口，字永远是空的。
             var toast = UiKit.Label(layer, "toast", "", 24, new Vector2(0, top + 62f), new Vector2(640, 44),
                 TextAnchor.MiddleCenter, Pin.Top);
+            toast.fontSize = 24;
             toast.color = InkTheme.TextDark;
             toast.gameObject.SetActive(false);
 
@@ -202,6 +203,7 @@ namespace InkLine
             TextAnchor anchor, Pin pin)
         {
             var t = UiKit.Label(parent, name, value, size, pos, box, anchor, pin);
+            t.fontSize = size;
             t.color = InkTheme.CardFace;
             UiKit.Bold(t);
             var outline = t.gameObject.AddComponent<Outline>();
@@ -587,20 +589,25 @@ namespace InkLine
             pill.GetComponent<Image>().sprite = UiSprites.Fill(UiSprites.TierFor(new Vector2(64f, 30f)));
             pill.GetComponent<Image>().type = Image.Type.Sliced;
             var ql = UiKit.Label(pill, "t", ItemCatalog.QualityName(d.Quality), 18, Vector2.zero, new Vector2(64f, 30f));
+            ql.fontSize = 18;
             ql.color = Color.white;
             UiKit.Bold(ql);
             var lvl = UiKit.Label(card, "lv", "Lv." + lv, 20, new Vector2(TipW * 0.5f - 34f, h * 0.5f - 42f),
                 new Vector2(56f, 30f));
+            lvl.fontSize = 20;
             lvl.color = ItemCatalog.QualityDeep(d.Quality);
             UiKit.Bold(lvl);
             var cd = UiKit.Label(card, "cd", "", 18, new Vector2(-TipW * 0.5f + 96f + 110f, h * 0.5f - 76f),
                 new Vector2(220f, 26f), TextAnchor.MiddleLeft);
+            cd.fontSize = 18;
             cd.color = InkTheme.TextMid;
             var blurb = UiKit.Label(card, "b", ItemCatalog.Blurb(d, lv, _world.ShotBase), 21,
                 new Vector2(0f, -22f), new Vector2(TipW - 36f, 56f), TextAnchor.UpperLeft);
+            blurb.fontSize = 21;
             blurb.horizontalOverflow = HorizontalWrapMode.Wrap;
             var when = UiKit.Label(card, "w", "自动触发：" + d.When, 18, new Vector2(0f, -h * 0.5f + 26f),
                 new Vector2(TipW - 36f, 26f), TextAnchor.MiddleLeft);
+            when.fontSize = 18;
             when.color = q;
             UiKit.Bold(when);
 

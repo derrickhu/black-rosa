@@ -47,6 +47,7 @@ namespace InkLine
             if (title != null) title.text = "图鉴";
             panel.Wire();
             panel.Refresh();
+            PanelKit.Enlarge(panel._board);
             PanelKit.Open(panel._board);
         }
 
@@ -265,9 +266,13 @@ namespace InkLine
             else if (e.Kind == CodexKind.Trio && e.Index == 1)
                 ShowArt(card, CloudArrowFrames(), 104f, tint, 180f);
             else if (e.Kind == CodexKind.Trio)
-                Put(card, "art", TrioFrame(e.Index), 104f, tint);
+                ShowArt(card, TrioFrames(e.Index), 104f, tint, 0f, e.Index == 0 ? -160f : 0f);
             else
-                ShowArt(card, PairFrames(e.Index), 104f, tint);
+            {
+                ShotFx pForm = SignaturePairs.All[e.Index].Form;
+                float pSpin = pForm == ShotFx.FormWhirl ? -150f : pForm == ShotFx.FormCollapse ? 105f : 0f;
+                ShowArt(card, PairFrames(e.Index), 104f, tint, 0f, pSpin);
+            }
 
             name.text = CodexCatalog.Title(e);
             name.color = known ? Color.white : InkTheme.Hex("D8D0C6");
@@ -305,25 +310,34 @@ namespace InkLine
             img.sprite = sprite;
             img.color = tint;
             img.preserveAspect = true;
-            img.rectTransform.localEulerAngles = Vector3.zero;
-            img.rectTransform.sizeDelta = new Vector2(size, size);
+            RectTransform rt = img.rectTransform;
+            // 把轴心归到格子正中：既让窄长形（定海针）水平居中，又避免穿云箭旋转 180° 甩出米字格。
+            Vector2 center = rt.anchoredPosition + new Vector2(
+                rt.sizeDelta.x * (0.5f - rt.pivot.x),
+                rt.sizeDelta.y * (0.5f - rt.pivot.y));
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.sizeDelta = new Vector2(size, size);
+            rt.anchoredPosition = center;
+            rt.localEulerAngles = Vector3.zero;
             CodexReel reel = img.GetComponent<CodexReel>();
             if (reel != null) reel.enabled = false;
             t.gameObject.SetActive(true);
         }
 
-        static void ShowArt(Transform card, Sprite[] frames, float size, Color tint, float spin = 0f)
+        static void ShowArt(Transform card, Sprite[] frames, float size, Color tint, float spin = 0f, float spinSpeed = 0f)
         {
             if (frames == null || frames.Length == 0 || frames[0] == null) return;
             Put(card, "art", frames[0], size, tint);
             Image img = card.Find("art").GetComponent<Image>();
             img.preserveAspect = true;
             img.rectTransform.localEulerAngles = new Vector3(0f, 0f, spin);
-            if (frames.Length < 2) return;
+            if (frames.Length < 2 && Mathf.Abs(spinSpeed) < 0.01f) return;
             CodexReel reel = img.GetComponent<CodexReel>();
             if (reel == null) reel = img.gameObject.AddComponent<CodexReel>();
             reel.Frames = frames;
             reel.Tint = tint;
+            reel.BaseAngle = spin;
+            reel.SpinSpeed = spinSpeed;
             reel.enabled = true;
         }
 
@@ -393,6 +407,23 @@ namespace InkLine
             string key = GlowShot.FormKey(form);
             return key != null ? GlowShot.Poster(key) : null;
         }
+
+        public static Sprite[] TrioFrames(int trio)
+        {
+            ShotFx form = trio == 0 ? ShotFx.FormFireWheel
+                : trio == 1 ? ShotFx.FormCloudArrow
+                : ShotFx.FormNeedle;
+            string key = GlowShot.FormKey(form);
+            if (key == null) return null;
+            int n = InkVfx.CountFrames(key + "_shot");
+            if (n > 1)
+            {
+                Sprite[] frames = InkVfx.Frames(key + "_shot", n);
+                if (frames != null && frames[0] != null) return frames;
+            }
+            Sprite one = GlowShot.Poster(key);
+            return one != null ? new[] { one } : null;
+        }
     }
 
     // 图鉴详情弹窗（Figma Panel/首页弹窗/06c_图鉴详情 定稿版）：
@@ -430,6 +461,7 @@ namespace InkLine
             if (boardImg != null) boardImg.raycastTarget = true;
 
             d.Build();
+            PanelKit.Enlarge(d._board);
             PanelKit.Open(d._board);
         }
 
@@ -594,7 +626,7 @@ namespace InkLine
                 CodexPanel.Put(card, "gc", InkArt.Bare(InkArt.Glyph(parts[2], 256)), 36f, tint);
                 gc.GetComponent<RectTransform>().anchoredPosition = new Vector2(88f, -82f);
             }
-            card.Find("plus")?.gameObject.SetActive(_e.Kind == CodexKind.Pair || _e.Kind == CodexKind.Trio);
+            card.Find("plus")?.gameObject.SetActive(_e.Kind == CodexKind.Pair);
         }
 
         void BuildShotBox()
@@ -693,6 +725,8 @@ namespace InkLine
     {
         public Sprite[] Frames;
         public Color Tint = Color.white;
+        public float BaseAngle;
+        public float SpinSpeed;
         Image _img;
 
         void OnEnable()
@@ -702,10 +736,15 @@ namespace InkLine
 
         void Update()
         {
-            if (!enabled || Frames == null || Frames.Length < 2 || _img == null) return;
-            int i = Mathf.FloorToInt(Time.unscaledTime * 8f) % Frames.Length;
-            Sprite s = Frames[i];
-            if (s != null) _img.sprite = s;
+            if (!enabled || _img == null) return;
+            if (Frames != null && Frames.Length >= 2)
+            {
+                int i = Mathf.FloorToInt(Time.unscaledTime * 8f) % Frames.Length;
+                Sprite s = Frames[i];
+                if (s != null) _img.sprite = s;
+            }
+            if (Mathf.Abs(SpinSpeed) > 0.01f)
+                _img.rectTransform.localEulerAngles = new Vector3(0f, 0f, BaseAngle + Time.unscaledTime * SpinSpeed);
             _img.color = Tint;
         }
     }

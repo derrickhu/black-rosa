@@ -213,6 +213,7 @@ namespace InkLine
             ModalKit.BindBtn(_body, "go_btn", () => PressGo(null, _selTier));
 
             Refresh();
+            PanelKit.Enlarge(_board);
             PanelKit.Open(_board);
         }
 

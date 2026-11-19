@@ -289,6 +289,13 @@ namespace InkLine
             return rt;
         }
 
+        // 重构稿按 Figma 1:1 写的字号，手机上比旧版小一档。28 以下加 4，已经够大的标题不动。
+        public static int ReadSize(int size)
+        {
+            if (size <= 0 || size >= 28) return size;
+            return size + 4;
+        }
+
         public static Text Label(Transform parent, string name, string text, int size, Vector2 pos, Vector2 box, TextAnchor anchor = TextAnchor.MiddleCenter, Pin pin = Pin.Center)
         {
             var go = new GameObject(name, typeof(RectTransform), typeof(Text));
@@ -297,7 +304,7 @@ namespace InkLine
             Place(rt, pos, box, pin);
             var t = go.GetComponent<Text>();
             t.font = Font;
-            t.fontSize = size;
+            t.fontSize = ReadSize(size);
             t.alignment = anchor;
             t.color = InkTheme.TextDark;
             t.text = text;

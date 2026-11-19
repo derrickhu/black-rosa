@@ -207,12 +207,12 @@ namespace InkLine
 
             if (_glow != null)
             {
-                // 发光弹体：普通混合整张贴，和战场上同一张图。
+                // 发光/新卡通弹体：普通混合整张贴，统一缩到 112px 高居中，保证上下浮动绝不顶破 128px 预览窗。
                 u.Body = Img(u.Root, _glow, Vector2.zero, 10f, Color.white);
-                float h = 190f;
+                float h = 112f;
                 float w = h * _glow.rect.width / Mathf.Max(1f, _glow.rect.height);
                 u.Body.rectTransform.sizeDelta = new Vector2(w, h);
-                u.Body.rectTransform.anchoredPosition = new Vector2(0f, h * 0.06f);
+                u.Body.rectTransform.anchoredPosition = Vector2.zero;
                 if (_cloudArrow != null)
                     u.Body.rectTransform.localEulerAngles = new Vector3(0f, 0f, 180f);
             }
@@ -324,6 +324,14 @@ namespace InkLine
                 {
                     Sprite s = GlowShot.Loop(_glowKey, t, i);
                     if (s != null) u.Body.sprite = s;
+                    if (_glowKey == "firewheel")
+                        u.Body.rectTransform.localRotation = Quaternion.Euler(0f, 0f, -t * 360f);
+                    else if (_glowKey == "whirl")
+                        u.Body.rectTransform.localRotation = Quaternion.Euler(0f, 0f, -t * 280f);
+                    else if (_glowKey == "collapse")
+                        u.Body.rectTransform.localRotation = Quaternion.Euler(0f, 0f, t * 180f);
+                    else if (_glowKey == "soul" || _glowKey == "ghostfire")
+                        u.Body.rectTransform.localRotation = Quaternion.Euler(0f, 0f, Mathf.Sin(t * 7f) * 4f);
                 }
                 else if (_flat && u.Body != null)
                 {

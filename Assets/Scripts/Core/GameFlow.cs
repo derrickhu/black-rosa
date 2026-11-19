@@ -1330,7 +1330,7 @@ namespace InkLine
                 });
             };
             _overlay = DraftPanel.Show(_layer, title, _offer, _offerDig, _rerolled, PickSlot,
-                _guide ? null : reroll, _guide ? null : (System.Action)CloseDraft);
+                _guide ? null : reroll, _guide ? null : (System.Action)CloseDraft, _meta);
             int pick = 0;
             if (_teach == 0 && _guide && !_taughtUp && _offer != null)
             {
