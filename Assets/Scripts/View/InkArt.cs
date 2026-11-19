@@ -100,6 +100,110 @@ namespace InkLine
 
         // 字图方底是近白宣纸。贴到别的底色上时抠掉，只留墨。
         static readonly Dictionary<int, Sprite> BareCache = new Dictionary<int, Sprite>();
+        static readonly Dictionary<int, Sprite> WordTrimCache = new Dictionary<int, Sprite>();
+        static readonly Dictionary<int, Sprite> WordRawCache = new Dictionary<int, Sprite>();
+
+        // 卡片上的单字/成词半字统一入口：成词字原图是浅土黄字身+小黑标，落在紫/金卡面上发虚，
+        // 这里翻转为和普通单字一致的「浓墨主笔 + 鎏金点睛」，并按需裁掉外圈大留白让双字排布饱满醒目。
+        public static Sprite CardGlyph(CardId id, bool trim = false)
+        {
+            if (CardCatalog.Get(id).Wake == CardWake.WordPart)
+                return WordGlyph(id, trim);
+            return Bare(Glyph(id, 256));
+        }
+
+        public static Sprite WordGlyph(CardId id, bool trim = true)
+        {
+            Dictionary<int, Sprite> dict = trim ? WordTrimCache : WordRawCache;
+            int key = (int)id;
+            if (dict.TryGetValue(key, out Sprite cached) && cached != null) return cached;
+
+            Sprite art = Glyph(id, 256);
+            if (art == null || art.texture == null) return art;
+            Texture2D src = art.texture;
+            Rect rect = art.textureRect;
+            int rx = Mathf.RoundToInt(rect.x);
+            int ry = Mathf.RoundToInt(rect.y);
+            int w = Mathf.RoundToInt(rect.width);
+            int h = Mathf.RoundToInt(rect.height);
+            Color[] px;
+            try { px = src.GetPixels(rx, ry, w, h); }
+            catch (UnityException) { return Bare(art); }
+
+            bool wordPart = CardCatalog.Get(id).Wake == CardWake.WordPart;
+            Color inkCol = new Color(0.09f, 0.07f, 0.06f, 1f);
+            Color goldCol = new Color(0.96f, 0.62f, 0.12f, 1f);
+            int minX = w, maxX = -1, minY = h, maxY = -1;
+
+            for (int y = 0; y < h; y++)
+            for (int x = 0; x < w; x++)
+            {
+                int idx = y * w + x;
+                Color c = px[idx];
+                float max = Mathf.Max(c.r, Mathf.Max(c.g, c.b));
+                float min = Mathf.Min(c.r, Mathf.Min(c.g, c.b));
+                float sat = max - min;
+                if (min > 0.90f && sat < 0.08f) c.a = 0f;
+                else if (min > 0.78f && sat < 0.07f) c.a *= Mathf.Clamp01((0.90f - min) / 0.12f);
+
+                if (wordPart && c.a > 0.005f)
+                {
+                    float tEmblem = Mathf.Clamp01((0.42f - max) / 0.24f);
+                    Color rgb = Color.Lerp(inkCol, goldCol, tEmblem);
+                    c.r = rgb.r;
+                    c.g = rgb.g;
+                    c.b = rgb.b;
+                }
+                if (c.a > 0.08f)
+                {
+                    if (x < minX) minX = x;
+                    if (x > maxX) maxX = x;
+                    if (y < minY) minY = y;
+                    if (y > maxY) maxY = y;
+                }
+                px[idx] = c;
+            }
+
+            Texture2D tex;
+            if (trim && maxX >= minX && maxY >= minY)
+            {
+                int pad = Mathf.Max(4, w / 42);
+                int span = Mathf.Max(maxX - minX + 1, maxY - minY + 1) + pad * 2;
+                int cx = (minX + maxX) / 2;
+                int cy = (minY + maxY) / 2;
+                int x0 = cx - span / 2;
+                int y0 = cy - span / 2;
+                var sub = new Color[span * span];
+                for (int sy = 0; sy < span; sy++)
+                {
+                    int py = y0 + sy;
+                    if (py < 0 || py >= h) continue;
+                    for (int sx = 0; sx < span; sx++)
+                    {
+                        int pxx = x0 + sx;
+                        if (pxx < 0 || pxx >= w) continue;
+                        sub[sy * span + sx] = px[py * w + pxx];
+                    }
+                }
+                tex = new Texture2D(span, span, TextureFormat.RGBA32, false);
+                tex.filterMode = FilterMode.Bilinear;
+                tex.wrapMode = TextureWrapMode.Clamp;
+                tex.SetPixels(sub);
+                tex.Apply();
+                cached = Sprite.Create(tex, new Rect(0, 0, span, span), new Vector2(0.5f, 0.5f), art.pixelsPerUnit);
+            }
+            else
+            {
+                tex = new Texture2D(w, h, TextureFormat.RGBA32, false);
+                tex.filterMode = FilterMode.Bilinear;
+                tex.wrapMode = TextureWrapMode.Clamp;
+                tex.SetPixels(px);
+                tex.Apply();
+                cached = Sprite.Create(tex, new Rect(0, 0, w, h), new Vector2(0.5f, 0.5f), art.pixelsPerUnit);
+            }
+            dict[key] = cached;
+            return cached;
+        }
 
         public static Sprite Bare(Sprite art)
         {

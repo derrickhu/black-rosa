@@ -209,7 +209,7 @@ namespace InkLine
             c.GetComponent<Image>().raycastTarget = false;
             if (e.Kind == CodexKind.Glyph)
             {
-                var g = UiKit.Icon(c, InkArt.Bare(InkArt.Glyph((CardId)e.Index, 256)), Vector2.zero, GlyphBox);
+                var g = UiKit.Icon(c, InkArt.CardGlyph((CardId)e.Index, false), Vector2.zero, GlyphBox);
                 g.raycastTarget = false;
             }
             else
@@ -217,9 +217,9 @@ namespace InkLine
                 CardId[] parts = CodexCatalog.PartsOf((WordId)e.Index);
                 for (int i = 0; i < parts.Length && i < 2; i++)
                 {
-                    float ox = parts.Length == 1 ? 0f : (i == 0 ? -46f : 46f);
-                    float sz = parts.Length == 1 ? GlyphBox : 106f;
-                    var g = UiKit.Icon(c, InkArt.Bare(InkArt.Glyph(parts[i], 256)), new Vector2(ox, 0f), sz);
+                    float ox = parts.Length == 1 ? 0f : (i == 0 ? -44f : 44f);
+                    float sz = parts.Length == 1 ? GlyphBox : 84f;
+                    var g = UiKit.Icon(c, InkArt.WordGlyph(parts[i], true), new Vector2(ox, 0f), sz);
                     g.raycastTarget = false;
                 }
             }

@@ -524,9 +524,10 @@ namespace InkLine
             rt.anchoredPosition = pos;
         }
 
-        static void PutGlyph(Transform parent, CardId id, float x, float y, float size)
+        static void PutGlyph(Transform parent, CardId id, float x, float y, float size, bool trimWord = false)
         {
-            var img = UiKit.Icon(parent, InkArt.Bare(InkArt.Glyph(id, 256)), Vector2.zero, size);
+            Sprite spr = trimWord ? InkArt.WordGlyph(id, true) : InkArt.CardGlyph(id, false);
+            var img = UiKit.Icon(parent, spr, Vector2.zero, size);
             img.color = Color.white;
             img.raycastTarget = false;
             HomeReskin.TopLeft(img.rectTransform, x, y, size, size);
@@ -542,12 +543,12 @@ namespace InkLine
                 PutGlyph(parent, parts[0], x, y, side);
                 return;
             }
-            float g = side * 0.56f;
-            float gap = side * 0.02f;
+            float g = side * 0.44f;
+            float gap = side * 0.025f;
             float left = x + (side - (g * 2f + gap)) * 0.5f;
             float top = y + (side - g) * 0.5f;
             for (int i = 0; i < n; i++)
-                PutGlyph(parent, parts[i], left + i * (g + gap), top, g);
+                PutGlyph(parent, parts[i], left + i * (g + gap), top, g, true);
         }
 
         static void Edge(Text t, float dist)

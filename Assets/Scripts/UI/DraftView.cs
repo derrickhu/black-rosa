@@ -62,7 +62,7 @@ namespace InkLine
                 if (card.Desc != null) card.Desc.text = "";
                 if (card.Heap != null)
                 {
-                    card.Heap.sprite = dig ? InkArt.Shovel(160) : InkArt.Bare(InkArt.Glyph(def.Id, 160));
+                    card.Heap.sprite = dig ? InkArt.Shovel(160) : InkArt.CardGlyph(def.Id, false);
                     card.Heap.preserveAspect = true;
                     card.Heap.color = Color.white;
                     card.Heap.enabled = card.Heap.sprite != null;

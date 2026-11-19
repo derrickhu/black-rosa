@@ -253,12 +253,18 @@ namespace InkLine
 
             Color tint = known ? Color.white : new Color(1f, 1f, 1f, 0.45f);
             if (e.Kind == CodexKind.Glyph)
-                Put(card, "art", InkArt.Bare(InkArt.Glyph((CardId)e.Index, 256)), 104f, tint);
+                Put(card, "art", InkArt.CardGlyph((CardId)e.Index, false), 104f, tint);
             else if (e.Kind == CodexKind.Word)
             {
                 CardId[] parts = CodexCatalog.PartsOf((WordId)e.Index);
                 for (int k = 0; k < parts.Length && k < 2; k++)
-                    Put(card, k == 0 ? "ga" : "gb", InkArt.Bare(InkArt.Glyph(parts[k], 256)), 58f, tint);
+                {
+                    string slot = k == 0 ? "ga" : "gb";
+                    Put(card, slot, InkArt.WordGlyph(parts[k], true), 46f, tint);
+                    Transform slotTr = card.Find(slot);
+                    if (slotTr != null)
+                        slotTr.GetComponent<RectTransform>().anchoredPosition = new Vector2(k == 0 ? 40f : 88f, -64f);
+                }
             }
             else if (e.Kind == CodexKind.Enemy)
                 Put(card, "art", InkSprites.Person((EnemyId)e.Index), 104f,
@@ -531,6 +537,9 @@ namespace InkLine
             if (para != null)
             {
                 para.text = lore;
+                para.fontSize = lore != null && lore.Length > 34 ? 14 : 18;
+                para.rectTransform.anchoredPosition = new Vector2(28f, -340f);
+                para.rectTransform.sizeDelta = new Vector2(592f, 44f);
                 para.color = _known ? ModalKit.TextBody : ModalKit.TextMuted;
             }
 
@@ -593,14 +602,27 @@ namespace InkLine
             }
             if (_e.Kind == CodexKind.Glyph)
             {
-                CodexPanel.Put(card, "glyph", InkArt.Bare(InkArt.Glyph((CardId)_e.Index, 256)), 88f, tint);
+                CodexPanel.Put(card, "glyph", InkArt.CardGlyph((CardId)_e.Index, false), 88f, tint);
                 _glyph = card.Find("glyph").GetComponent<Image>();
                 return;
             }
 
+            if (_e.Kind == CodexKind.Word)
+            {
+                CardId[] wParts = CodexCatalog.PartsOf((WordId)_e.Index);
+                for (int k = 0; k < wParts.Length && k < 2; k++)
+                {
+                    string slot = k == 0 ? "ga" : "gb";
+                    CodexPanel.Put(card, slot, InkArt.WordGlyph(wParts[k], true), 46f, tint);
+                    card.Find(slot).GetComponent<RectTransform>().anchoredPosition = new Vector2(k == 0 ? 40f : 88f, -64f);
+                }
+                card.Find("gc")?.gameObject.SetActive(false);
+                card.Find("plus")?.gameObject.SetActive(false);
+                return;
+            }
+
             CardId[] parts;
-            if (_e.Kind == CodexKind.Word) parts = CodexCatalog.PartsOf((WordId)_e.Index);
-            else if (_e.Kind == CodexKind.Trio)
+            if (_e.Kind == CodexKind.Trio)
             {
                 SignatureTrio t = SignatureTrios.All[_e.Index];
                 parts = new[] { t.A, t.B, t.C };
@@ -611,9 +633,15 @@ namespace InkLine
                 parts = new[] { p.A, p.B };
             }
             bool trio = parts.Length > 2;
-            CodexPanel.Put(card, "ga", InkArt.Bare(InkArt.Glyph(parts[0], 256)), trio ? 40f : 48f, tint);
-            CodexPanel.Put(card, "gb", InkArt.Bare(InkArt.Glyph(parts[1], 256)), trio ? 36f : 48f, tint);
-            if (trio)
+            CodexPanel.Put(card, "ga", InkArt.CardGlyph(parts[0], false), trio ? 40f : 48f, tint);
+            CodexPanel.Put(card, "gb", InkArt.CardGlyph(parts[1], false), trio ? 36f : 48f, tint);
+            if (!trio)
+            {
+                card.Find("ga").GetComponent<RectTransform>().anchoredPosition = new Vector2(64f, -44f);
+                card.Find("gb").GetComponent<RectTransform>().anchoredPosition = new Vector2(64f, -88f);
+                card.Find("gc")?.gameObject.SetActive(false);
+            }
+            else
             {
                 card.Find("ga").GetComponent<RectTransform>().anchoredPosition = new Vector2(64f, -40f);
                 card.Find("gb").GetComponent<RectTransform>().anchoredPosition = new Vector2(40f, -82f);
@@ -623,7 +651,7 @@ namespace InkLine
                     gc = Instantiate(card.Find("gb"), card);
                     gc.name = "gc";
                 }
-                CodexPanel.Put(card, "gc", InkArt.Bare(InkArt.Glyph(parts[2], 256)), 36f, tint);
+                CodexPanel.Put(card, "gc", InkArt.CardGlyph(parts[2], false), 36f, tint);
                 gc.GetComponent<RectTransform>().anchoredPosition = new Vector2(88f, -82f);
             }
             card.Find("plus")?.gameObject.SetActive(_e.Kind == CodexKind.Pair);
