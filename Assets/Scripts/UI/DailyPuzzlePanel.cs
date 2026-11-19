@@ -143,8 +143,14 @@ namespace InkLine
 
             var box = ModalKit.Sliced(sealGrp, "seal_box", "Ui/modal_sub_bright", ModalKit.BorderSub18,
                 62f, 430f, 500f, 134f, false);
-            ModalKit.Pic(box, "q_slot", "Ui/glyph_slot_empty_green", 24f, 21f, 88f, 92f, true);
-            ModalKit.OutlinedText(box, "q_mark", "？", 36, 24f, 21f, 88f, 88f, ModalKit.TextMuted, TextAnchor.MiddleCenter);
+            var medal = ModalKit.Pic(box, "q_slot", "Ui/glyph_slot_empty_green", 24f, 23f, 88f, 88f, true);
+            medal.rectTransform.pivot = new Vector2(0.5f, 0.5f);
+            medal.rectTransform.anchoredPosition = new Vector2(24f + 44f, -(23f + 44f));
+            var mark = ModalKit.OutlinedText(box, "q_mark", "?", 32, 24f, 23f, 88f, 88f,
+                Color.white, TextAnchor.MiddleCenter);
+            mark.alignByGeometry = true;
+            mark.rectTransform.pivot = new Vector2(0.5f, 0.5f);
+            mark.rectTransform.anchoredPosition = medal.rectTransform.anchoredPosition;
             ModalKit.SolidText(box, "t", "全部守住 · 随机得一枚印章", 20, 128f, 34f, 344f, 32f,
                 ModalKit.TextDark, TextAnchor.MiddleLeft, true);
             ModalKit.SolidText(box, "s", "绿 / 蓝 / 紫 / 金四档印章，可镶嵌在字卡插槽上", 15, 128f, 70f, 352f, 32f,
@@ -212,6 +218,39 @@ namespace InkLine
             ModalKit.FillSprite(_board, "well/chests_grp/axis", "Ui/dungeon_axis_track", BorderAxis);
             ModalKit.FillSprite(_board, "well/chests_grp/axis/fill", "Ui/dungeon_axis_fill_green", BorderAxisFill);
             ModalKit.FillSprite(_board, "well/seal_grp/seal_box/q_slot", "Ui/glyph_slot_empty_green");
+            // 预制里问号是全角「？」，笔画靠在字框左边，圆章上看着是歪的。改成半角并跟章同心。
+            var slot = _board.Find("well/seal_grp/seal_box/q_slot") as RectTransform;
+            var q = _board.Find("well/seal_grp/seal_box/q_mark")?.GetComponent<Text>();
+            if (slot != null)
+            {
+                float side = Mathf.Min(slot.sizeDelta.x, slot.sizeDelta.y);
+                if (slot.pivot.x < 0.4f)
+                {
+                    Vector2 origin = slot.anchoredPosition;
+                    float boxH = slot.sizeDelta.y;
+                    float y = -origin.y + (boxH - side) * 0.5f;
+                    slot.pivot = new Vector2(0.5f, 0.5f);
+                    slot.sizeDelta = new Vector2(side, side);
+                    slot.anchoredPosition = new Vector2(origin.x + side * 0.5f, -(y + side * 0.5f));
+                }
+                var img = slot.GetComponent<Image>();
+                if (img != null) img.preserveAspect = true;
+                if (q != null)
+                {
+                    q.text = "?";
+                    q.color = Color.white;
+                    q.fontSize = 32;
+                    q.alignment = TextAnchor.MiddleCenter;
+                    q.alignByGeometry = true;
+                    q.horizontalOverflow = HorizontalWrapMode.Overflow;
+                    q.verticalOverflow = VerticalWrapMode.Overflow;
+                    var rt = q.rectTransform;
+                    rt.pivot = new Vector2(0.5f, 0.5f);
+                    rt.sizeDelta = slot.sizeDelta;
+                    rt.anchoredPosition = slot.anchoredPosition;
+                    rt.SetAsLastSibling();
+                }
+            }
         }
 
         void Refresh()

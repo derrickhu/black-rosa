@@ -18,6 +18,10 @@ namespace InkLine
         Action _openDaily;
         Action _openEndless;
         Action _changed;
+        bool _chestHomeSaved;
+        readonly Vector2[] _chestPos = new Vector2[3];
+        readonly Vector2[] _chestSize = new Vector2[3];
+        readonly Vector2[] _chestPivot = new Vector2[3];
 
         public void Bind(MetaProgress meta, Action openDaily, Action openEndless, Action changed = null)
         {
@@ -29,6 +33,8 @@ namespace InkLine
             BindEndless();
             FitArt(Daily);
             FitArt(Endless);
+            // 字号放大在 FitArt 里，奖励图标放到它后面，问号才不会被再撑一档。
+            FitDailyReward();
         }
 
         static void FitArt(DungeonCard c)
@@ -75,6 +81,113 @@ namespace InkLine
                     !_meta.DailyAdDone);
             }
             Wire(c, _openDaily, OnDailyAd);
+            FitDailyReward();
+        }
+
+        // 卡上的奖励要和详情弹窗同一套。通关第五章前是守波宝箱，之后是一枚随机印章。
+        void FitDailyReward()
+        {
+            DungeonCard c = Daily;
+            if (c == null || c.Frame == null || _meta == null) return;
+            Transform root = c.Frame.transform;
+            var slots = new RectTransform[3];
+            var chests = new RectTransform[3];
+            for (int i = 0; i < 3; i++)
+            {
+                slots[i] = root.Find("slot" + i) as RectTransform;
+                chests[i] = root.Find("chest" + i) as RectTransform;
+            }
+            if (chests[1] == null || slots[0] == null || slots[2] == null) return;
+            if (!_chestHomeSaved)
+            {
+                for (int i = 0; i < 3; i++)
+                {
+                    if (chests[i] == null) continue;
+                    _chestPos[i] = chests[i].anchoredPosition;
+                    _chestSize[i] = chests[i].sizeDelta;
+                    _chestPivot[i] = chests[i].pivot;
+                }
+                _chestHomeSaved = true;
+            }
+
+            var head = root.Find("head")?.GetComponent<Text>();
+            bool seal = _meta.SealOpen;
+            if (head != null) head.text = seal ? "获得随机印章" : "获得每日宝箱";
+            if (!seal)
+            {
+                string[] keys = { "Ui/chest_wood", "Ui/chest_silver", "Ui/chest_gold" };
+                for (int i = 0; i < 3; i++)
+                {
+                    if (slots[i] != null) slots[i].gameObject.SetActive(true);
+                    if (chests[i] == null) continue;
+                    chests[i].gameObject.SetActive(true);
+                    chests[i].pivot = _chestPivot[i];
+                    chests[i].anchoredPosition = _chestPos[i];
+                    chests[i].sizeDelta = _chestSize[i];
+                    var icon = chests[i].GetComponent<Image>();
+                    if (icon == null) continue;
+                    Sprite spr = InkSprites.Load(keys[i]);
+                    if (spr != null) icon.sprite = spr;
+                    icon.type = Image.Type.Simple;
+                    icon.preserveAspect = true;
+                }
+                Transform old = chests[1].Find("q");
+                if (old != null) old.gameObject.SetActive(false);
+                return;
+            }
+
+            for (int i = 0; i < 3; i++)
+            {
+                if (slots[i] != null) slots[i].gameObject.SetActive(false);
+                if (i != 1 && chests[i] != null) chests[i].gameObject.SetActive(false);
+            }
+            RectTransform medal = chests[1];
+            medal.gameObject.SetActive(true);
+            float left = slots[0].anchoredPosition.x;
+            float right = slots[2].anchoredPosition.x + slots[2].sizeDelta.x;
+            float side = slots[0].sizeDelta.y;
+            medal.anchorMin = medal.anchorMax = new Vector2(0f, 1f);
+            medal.pivot = new Vector2(0.5f, 0.5f);
+            medal.sizeDelta = new Vector2(side, side);
+            medal.anchoredPosition = new Vector2((left + right) * 0.5f, slots[0].anchoredPosition.y - side * 0.5f);
+            var face = medal.GetComponent<Image>();
+            if (face != null)
+            {
+                Sprite spr = InkSprites.Load("Ui/glyph_slot_empty_green");
+                if (spr != null) face.sprite = spr;
+                face.type = Image.Type.Simple;
+                face.preserveAspect = true;
+                face.color = Color.white;
+            }
+            medal.SetAsLastSibling();
+            Text q = EnsureSealMark(medal);
+            q.gameObject.SetActive(true);
+            q.text = "?";
+            q.fontSize = 22;
+            q.color = Color.white;
+            q.alignment = TextAnchor.MiddleCenter;
+            q.alignByGeometry = true;
+        }
+
+        static Text EnsureSealMark(RectTransform medal)
+        {
+            var t = medal.Find("q")?.GetComponent<Text>();
+            if (t != null) return t;
+            t = UiKit.Label(medal, "q", "?", 22, Vector2.zero, medal.sizeDelta);
+            t.color = Color.white;
+            t.alignByGeometry = true;
+            t.fontSize = 22;
+            UiKit.Bold(t);
+            var edge = t.gameObject.AddComponent<Outline>();
+            edge.effectColor = ModalKit.Ink;
+            edge.effectDistance = new Vector2(1.2f, -1.2f);
+            var rt = t.rectTransform;
+            rt.anchorMin = Vector2.zero;
+            rt.anchorMax = Vector2.one;
+            rt.offsetMin = Vector2.zero;
+            rt.offsetMax = Vector2.zero;
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            return t;
         }
 
         void BindEndless()

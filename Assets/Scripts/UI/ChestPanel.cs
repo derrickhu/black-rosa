@@ -87,10 +87,11 @@ namespace InkLine
             var drops = new List<Drop>
             {
                 new Drop(ModalKit.InkTone, "灵墨", d.InkMin + "~" + d.InkMax, ModalKit.Load("Ui/ico_ink"), false),
-                new Drop("rose", "道具卡", "×" + d.Cards, null, false),
+                new Drop("rose", "道具卡", "×" + d.Cards, ModalKit.Load("Ui/item_card_back"), true),
             };
             if (foil) drops.Add(new Drop(ModalKit.FoilTone, "金箔", null, FoilArt.Icon, false));
-            if (seal) drops.Add(new Drop("purple", d.Tier == ChestTier.Royal ? "必得印章" : "印章", null, null, true));
+            if (seal) drops.Add(new Drop("purple", d.Tier == ChestTier.Royal ? "必得印章" : "印章",
+                null, ModalKit.Load("Ui/glyph_slot_empty_green"), true));
             LayDrops(board, drops);
 
             const float tw = 300f;
@@ -128,6 +129,21 @@ namespace InkLine
             Refresh();
         }
 
+        static void CenterIcon(RectTransform slot, float share)
+        {
+            var icon = slot.Find("icon") as RectTransform;
+            if (icon == null) return;
+            const float slotSize = 96f;
+            float s = Mathf.Round(slotSize * share);
+            float inset = (slotSize - s) * 0.5f;
+            icon.anchorMin = icon.anchorMax = new Vector2(0f, 1f);
+            icon.pivot = new Vector2(0.5f, 0.5f);
+            icon.sizeDelta = new Vector2(s, s);
+            icon.anchoredPosition = new Vector2(inset + s * 0.5f, -(inset + s * 0.5f));
+            var img = icon.GetComponent<Image>();
+            if (img != null) img.preserveAspect = true;
+        }
+
         static void LayDrops(RectTransform board, List<Drop> drops)
         {
             const float slot = 96f;
@@ -141,8 +157,15 @@ namespace InkLine
                 Drop d = drops[i];
                 float x = x0 + i * (slot + gap);
                 var rt = ModalKit.ItemSlot(board, d.Tone, 96, x, y, d.Icon, d.Count);
+                // 竖卡和圆章在左上锚点的方框里会贴边。改成中心锚，图就落在物品框正中。
+                CenterIcon(rt, d.Ask ? 0.78f : 0.60f);
                 if (d.Ask)
-                    ModalKit.OutlinedText(rt, "q", "?", 34, 0f, 22f, slot, 48f, Color.white, TextAnchor.MiddleCenter);
+                {
+                    var q = ModalKit.OutlinedText(rt, "q", "?", 30, 0f, 0f, slot, slot,
+                        Color.white, TextAnchor.MiddleCenter);
+                    q.alignByGeometry = true;
+                    q.transform.SetAsLastSibling();
+                }
                 ModalKit.SolidText(board, "cap" + i, d.Caption, 14, x - 10f, y + slot + 2f, slot + 20f, 24f,
                     ModalKit.TextDark, TextAnchor.MiddleCenter, true);
             }
