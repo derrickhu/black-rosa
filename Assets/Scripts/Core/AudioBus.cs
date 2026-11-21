@@ -17,8 +17,12 @@ namespace InkLine
         static int _next;
         static string _musicName = "";
         static bool _duck;
+        static float _heroDuckUntil;
         static readonly Dictionary<string, AudioClip> _clips = new Dictionary<string, AudioClip>();
         static readonly Dictionary<string, float> _readyAt = new Dictionary<string, float>();
+
+        static float MinorGain => Time.unscaledTime < _heroDuckUntil ? 0.62f : 1f;
+        static void HeroDuck(float dur = 0.14f) => _heroDuckUntil = Mathf.Max(_heroDuckUntil, Time.unscaledTime + dur);
 
         public static void Tap() => Cue("ui_tap", 0.72f, 0.03f, 0.035f);
         public static void Back() => Cue("ui_back", 0.7f, 0.05f, 0.02f);
@@ -34,38 +38,60 @@ namespace InkLine
         public static void CellSwap() => CueOr("cell_swap", "stamp", 0.95f, 0.06f, 1f);
         public static void WordForm() => CueOr("word_form", "chime", 1f, 0.3f, 1f);
         public static void WordBreak() => CueOr("word_break", "ui_deny", 0.8f, 0.15f, 1f);
-        // 发弹是全场最密的声音，必须比命中轻一截，否则命中被它淹掉。
-        public static void Shot(float pitch) => Cue("shot", 0.3f, 0.07f, 0.05f, pitch);
-        // 普通命中是全场最密的声音，只留一声短脆的「哒」，不垫低频：
-        // 垫了闷响，一秒十几下就压得人烦。音高随机散开，连打听着像一串而不是同一下复读。
-        public static void Hit() => Cue("hit", 0.62f, 0.045f, 0.12f);
+
+        // 蓄力字 / 成词格蓄满触发上膛弹射音。
+        public static void ChargeFire(bool word) =>
+            Cue("charge_fire", (word ? 0.62f : 0.50f) * MinorGain, 0.09f, 0.04f, word ? 1.08f : 1f);
+
+        // 发弹是全场最密的声音：Q弹短促的机关竹木炮口声，大招爆发期间自动微避让。
+        public static void Shot(float pitch) => Cue("shot", 0.36f * MinorGain, 0.065f, 0.06f, pitch);
+
+        // 普通命中：短脆有肉感的皮革木靶击打，音高随机微散，连射颗颗分明。
+        public static void Hit() => Cue("hit", 0.70f * MinorGain, 0.042f, 0.10f);
 
         public static void HitFire()
         {
-            Cue("hit_fire", 0.9f, 0.05f, 0.05f);
-            Cue("hit_thud", 0.72f, 0.05f, 0.06f);
+            Cue("hit_fire", 0.88f * MinorGain, 0.05f, 0.06f);
+            Cue("hit_thud", 0.62f * MinorGain, 0.05f, 0.05f);
         }
 
         public static void HitIce()
         {
-            Cue("hit_ice", 0.9f, 0.05f, 0.04f);
-            Cue("hit_thud", 0.66f, 0.05f, 0.06f, 1.1f);
+            Cue("hit_ice", 0.88f * MinorGain, 0.05f, 0.05f);
+            Cue("hit_thud", 0.56f * MinorGain, 0.05f, 0.05f, 1.12f);
         }
 
-        // 雷的连带传导。没有专门的电声时拿冰的脆响拔高顶上。
-        public static void Zap() => CueOr("hit_zap", "hit_ice", 0.55f, 0.1f, 1.35f);
+        // 金 / 穿 / 斩 / 破：锐器切铁破甲铮鸣。
+        public static void HitBlade()
+        {
+            CueOr("hit_blade", "hit", 0.86f * MinorGain, 0.048f, Random.Range(0.95f, 1.07f));
+            Cue("hit_thud", 0.52f * MinorGain, 0.05f, 0.04f, 1.18f);
+        }
+
+        // 土 / 重 / 击退：沉重钝器岩锤轰砸。
+        public static void HitHeavy()
+        {
+            CueOr("hit_heavy", "boom", 0.92f, 0.055f, Random.Range(0.94f, 1.05f));
+            Cue("hit_thud", 0.78f, 0.055f, 0.04f, 0.88f);
+        }
+
+        // 风 / 水 / 毒 / 聚：气旋柔劲鞭击。
+        public static void HitWind() =>
+            CueOr("hit_wind", "hit", 0.80f * MinorGain, 0.048f, Random.Range(0.94f, 1.08f));
+
+        // 雷命中与连带传导：高压电弧瞬爆。
+        public static void Zap() => CueOr("hit_zap", "hit_ice", 0.82f * MinorGain, 0.055f, Random.Range(0.94f, 1.10f));
 
         public static void Boom()
         {
-            Cue("boom", 1f, 0.07f, 0.03f);
-            Cue("hit_thud", 1f, 0.07f, 0.03f, 0.78f);
-            Cue("hit", 0.6f, 0.07f, 0.03f, 0.7f);
+            HeroDuck(0.14f);
+            Cue("boom", 1f, 0.065f, 0.05f);
+            Cue("hit_thud", 0.92f, 0.065f, 0.04f, 0.80f);
         }
 
-        // 连杀：0.7 秒内每多杀一只，爆破音按五声音阶往上走一格，最多一个八度。
-        // 一波清屏会听成一串上行的「啵啵啵」，这是全局最解压的一下。
-        static readonly int[] StreakSteps = { 0, 2, 4, 7, 9, 12 };
-        const float StreakWindow = 0.7f;
+        // 连杀：0.75 秒内每多杀一只，木琴爆珠按五声音阶往上走一格，一波清屏极其解压。
+        static readonly int[] StreakSteps = { 0, 2, 4, 7, 9, 12, 14, 16 };
+        const float StreakWindow = 0.75f;
         static int _streak;
         static float _lastKill = -10f;
 
@@ -74,21 +100,99 @@ namespace InkLine
             float now = Time.unscaledTime;
             _streak = now - _lastKill < StreakWindow ? Mathf.Min(_streak + 1, StreakSteps.Length - 1) : 0;
             _lastKill = now;
+            if (_streak >= 2) HeroDuck(0.10f);
             float pitch = Mathf.Pow(2f, StreakSteps[_streak] / 12f);
-            Cue("kill_pop", 1f, 0.035f, 0f, pitch);
-            Cue("kill", 0.6f, 0.1f, 0.03f);
+            Cue("kill_pop", 0.98f, 0.032f, 0f, pitch);
+            Cue("kill", 0.62f, 0.085f, 0.04f);
         }
 
         public static void Boss()
         {
+            HeroDuck(0.28f);
             Cue("boss", 1f, 0.4f, 0f);
-            Cue("hit_thud", 1f, 0.4f, 0f, 0.7f);
+            Cue("boom", 0.95f, 0.2f, 0f, 0.76f);
+            Cue("hit_thud", 1f, 0.4f, 0f, 0.68f);
         }
         public static void Leak() => Cue("leak", 0.86f, 0.2f, 0f);
         public static void Pickup() => Cue("pickup", 0.58f, 0.07f, 0.05f);
         // 金币入账。短促的硬币碰撞，音量留在能连着听的程度。
         public static void Coin() => Cue("coin", 0.68f, 0.05f, 0.04f);
-        public static void Spell(float pitch) => Cue("spell", 0.86f, 0.18f, 0f, pitch);
+        // 万箭齐发 / 穿云箭齐射：强劲弓弦崩响 + 破空箭雨。
+        public static void Spell(float pitch)
+        {
+            HeroDuck(0.15f);
+            Cue("spell", 0.92f, 0.14f, 0.03f, pitch);
+        }
+        // 敲钟怪给全场套盾：深沉铜钟震鸣。
+        public static void BellShield()
+        {
+            Cue("chime", 0.90f, 0.2f, 0f, 0.68f);
+            Cue("hit_thud", 0.82f, 0.2f, 0f, 0.76f);
+        }
+        // 秘卷与三字诀现场爆发专属音效（与 PairFxView 动画关键帧一一咬合）。
+        public static void PairTrigger(int kind, float size)
+        {
+            switch (kind)
+            {
+                case PairFx.Collapse:
+                    HeroDuck(0.26f);
+                    CueOr("sfx_collapse", "boom", 1f, 0.18f, Random.Range(0.96f, 1.04f));
+                    break;
+                case PairFx.Needle:
+                    HeroDuck(0.26f);
+                    CueOr("sfx_needle", "boom", 1f, 0.16f, Random.Range(0.96f, 1.04f));
+                    break;
+                case PairFx.FireWheel:
+                    if (size >= 2f) HeroDuck(0.20f);
+                    CueOr("sfx_firewheel", "hit_fire", size >= 2f ? 0.98f : 0.72f, 0.10f,
+                        size >= 2f ? Random.Range(0.94f, 1.02f) : Random.Range(1.08f, 1.18f));
+                    break;
+                case PairFx.Riposte:
+                    CueOr("sfx_riposte", "hit_blade", 0.88f, 0.08f, Random.Range(0.95f, 1.06f));
+                    break;
+                case PairFx.ThunderCut:
+                    HeroDuck(0.18f);
+                    CueOr("sfx_thundercut", "hit_zap", 0.96f, 0.12f, Random.Range(0.96f, 1.05f));
+                    break;
+                case PairFx.Crumble:
+                    HeroDuck(0.18f);
+                    CueOr("hit_heavy", "boom", 0.98f, 0.10f, 0.90f);
+                    CueOr("hit_blade", "hit", 0.72f, 0.10f, 0.88f);
+                    break;
+                case PairFx.Whirl:
+                    CueOr("hit_wind", "hit", 0.92f, 0.10f, 0.90f);
+                    CueOr("hit_wind", "hit", 0.65f, 0.04f, 1.28f);
+                    break;
+                case PairFx.Cloud:
+                    CueOr("hit_blade", "hit", 0.78f, 0.06f, 1.18f);
+                    break;
+                case PairFx.Seal:
+                case PairFx.Soul:
+                    CueOr("sfx_seal", "chime", 0.88f, 0.10f, kind == PairFx.Soul ? 0.92f : 1.06f);
+                    break;
+                case PairFx.Ghost:
+                    if (size >= 0.4f)
+                    {
+                        Cue("hit_fire", 0.82f * MinorGain, 0.07f, 0.05f, 1.12f);
+                        CueOr("sfx_seal", "hit", 0.45f * MinorGain, 0.08f, 1.26f);
+                    }
+                    break;
+                case PairFx.Shatter:
+                    Cue("hit_ice", 0.92f, 0.08f, 0.04f, 0.92f);
+                    CueOr("hit_zap", "hit_ice", 0.75f, 0.08f, 1.05f);
+                    break;
+                case PairFx.Conduct:
+                    CueOr("hit_zap", "hit_ice", 0.84f, 0.08f, 0.92f);
+                    break;
+                case PairFx.RamEarth:
+                    CueOr("hit_heavy", "boom", 0.90f, 0.10f, 0.94f);
+                    break;
+                case PairFx.ColdWind:
+                    CueOr("hit_wind", "hit", 0.80f, 0.08f, 1.12f);
+                    Cue("hit_ice", 0.65f, 0.08f, 0.04f, 1.16f);
+                    break;
+            }
+        }
         public static void ItemFire(float pitch) => CueOr("item_fire", "spell", 0.8f, 0.12f, pitch);
         // 连杀一档比一档高半个全音左右，听得出「还在往上走」。
         public static void Combo(int tier) => CueOr("combo", "res_star", 0.95f, 0.1f, 1f + 0.12f * Mathf.Clamp(tier, 0, 6));

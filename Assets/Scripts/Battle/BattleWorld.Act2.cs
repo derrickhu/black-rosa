@@ -171,7 +171,7 @@ namespace InkLine
             {
                 Pos = src.Pos, Kind = HitFx.Knock, Tint = InkTheme.GoldHi, Scale = 2.2f
             });
-            AudioBus.Spell(0.78f);
+            AudioBus.BellShield();
             AddShake(0.26f);
         }
 

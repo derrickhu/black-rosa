@@ -184,4 +184,19 @@ public sealed class InkArtImporter : AssetPostprocessor
             importer.SetPlatformTextureSettings(plat);
         }
     }
+
+    void OnPreprocessAudio()
+    {
+        string path = assetPath.Replace('\\', '/');
+        if (path.IndexOf("/Resources/Audio/", System.StringComparison.Ordinal) < 0) return;
+        bool bgm = path.EndsWith("/bgm_home.mp3");
+        var importer = (AudioImporter)assetImporter;
+        var s = importer.defaultSampleSettings;
+        s.loadType = AudioClipLoadType.DecompressOnLoad;
+        s.compressionFormat = AudioCompressionFormat.Vorbis;
+        s.quality = bgm ? 0.5f : 1f;
+        s.sampleRateSetting = AudioSampleRateSetting.PreserveSampleRate;
+        s.preloadAudioData = false;
+        importer.defaultSampleSettings = s;
+    }
 }

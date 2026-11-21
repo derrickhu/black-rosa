@@ -1518,6 +1518,7 @@ namespace InkLine
 
         void BeatCharged(int col, int kind)
         {
+            bool fired = false;
             for (int r = 0; r < OpenRows; r++)
             {
                 if (!Grid[col, r].HasValue) continue;
@@ -1529,7 +1530,9 @@ namespace InkLine
                 var p = Pulse(CellBeat.Fire, col, r);
                 p.Word = kind == ChWord ? _word[col] : WordId.None;
                 Pulses.Add(p);
+                fired = true;
             }
+            if (fired) AudioBus.ChargeFire(kind == ChWord);
         }
 
         CellPulse Pulse(CellBeat beat, int col, int row)
@@ -2671,9 +2674,14 @@ namespace InkLine
 
         static void PlayHit(ShotMods m, bool execute)
         {
-            if (execute || m.Has(CardId.Heavy)) AudioBus.Boom();
+            if (execute || m.WordLook == WordId.Crush || m.Has(CardId.Explode)) AudioBus.Boom();
+            else if (m.Has(CardId.Heavy) || m.Has(CardId.Earth) || m.WordLook == WordId.Knockback) AudioBus.HitHeavy();
+            else if (m.Has(CardId.Thunder)) AudioBus.Zap();
             else if (m.Has(CardId.Fire)) AudioBus.HitFire();
             else if (m.Has(CardId.Ice)) AudioBus.HitIce();
+            else if (m.Has(CardId.Break) || m.Has(CardId.Slash) || m.Has(CardId.Pierce)
+                     || m.Has(CardId.Gold) || m.WordLook == WordId.Cleave) AudioBus.HitBlade();
+            else if (m.Has(CardId.Wind) || m.Has(CardId.Gather) || m.Has(CardId.Water) || m.Has(CardId.Poison)) AudioBus.HitWind();
             else AudioBus.Hit();
         }
 

@@ -93,6 +93,7 @@ namespace InkLine
 
         public static void Play(PairFx fx)
         {
+            AudioBus.PairTrigger(fx.Kind, fx.Size);
             if (_pool == null) return;
             switch (fx.Kind)
             {

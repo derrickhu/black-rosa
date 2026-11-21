@@ -55,6 +55,8 @@ public static class InkShotPreview
         {
             File.Delete(LiveFlag);
             Application.runInBackground = true;
+            EditorUtility.audioMasterMute = false;
+            InkLine.AudioBus.Unlock();
             InkLine.GmBar.Fresh();
         }
     }
