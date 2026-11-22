@@ -48,59 +48,67 @@
     },
     {
       "name": "shot",
-      "text": "one short wet calligraphy brush flick, soft bristle whoosh, light and airy, quick decay, dry and close, no gunshot, no explosion, no reverb, no music, no voice",
-      "duration": 0.36,
+      "text": "casual mobile game quick snappy bamboo slingshot and toy crossbow dart launch: a crisp taut string pluck with a light zippy wooden dart whoosh, bright, bouncy, effortless, very short, close microphone, dry, no water bubble, no dark rumble, no reverb, no music, no voice",
+      "duration": 0.11,
+      "prompt_influence": 0.62,
       "output": "../../../Assets/Resources/Audio/shot.mp3",
-      "notes": "发弹。时长压短，连射才不糊"
+      "notes": "发弹：轻快爽脆的竹弩弹弓弹射声（0.11s，清亮Q弹不暗沉，高频连射清爽解压）"
     },
     {
       "name": "hit",
-      "text": "one satisfying clacky mechanical keyboard key press, crisp tactile snap, light and bright, very short, dry, close, no reverb, no music, no voice",
-      "duration": 0.2,
+      "text": "ASMR super satisfying crisp hardwood block and mahjong tile impact smack, bright snappy wooden tock with a tight bouncy rubber-leather punch, clean, light, stress-relieving casual game hit, very short, close microphone, dry, no metal clang, no water bubble, no dark bass rumble, no reverb, no music, no voice",
+      "duration": 0.1,
+      "prompt_influence": 0.62,
       "output": "../../../Assets/Resources/Audio/hit.mp3",
-      "notes": "默认命中，全场最密。入库版裁掉峰值前空段截到 0.12s（game_assets/black-rosa/audio/v2/make_tick.py）。泡泡声太软；沙袋重击 + 低频垫底又太闷太吵，连打很烦"
+      "notes": "普通命中（全场最密）：ASMR 硬木麻将牌脆响 + Q弹皮靶弹性（1.5ms 极速起峰，解压爽快）"
     },
     {
       "name": "hit_thud",
-      "text": "punchy low thump of a fist hitting a firm cushion, short tight body with a quick click on the attack, close microphone, dry, no reverb, no music, no voice",
-      "duration": 0.5,
+      "text": "bouncy firm rubber mallet hitting a wooden drum pad, tight round punchy mid-bass bounce with a clean tap on the attack, playful cartoon game feel, short decay, close, dry, no dark sub-bass mud, no metal, no reverb, no music, no voice",
+      "duration": 0.15,
+      "prompt_influence": 0.62,
       "output": "../../../Assets/Resources/Audio/hit_thud.mp3",
-      "notes": "垫在火 / 冰命中、重击、关底底下的低频身体。普通命中不再垫它"
+      "notes": "Q弹橡胶木槌中低频弹性层（135~310Hz，杜绝沉闷轰头低频）"
     },
     {
       "name": "kill_pop",
-      "text": "loud satisfying pop of a big bubble wrap bubble bursting close to the microphone, crisp snap then a tiny airy puff, dry, no music, no voice",
-      "duration": 0.5,
+      "text": "hyper-satisfying ASMR casual game enemy pop: a crisp hard candy shell and jade bead snapping open with a juicy bright pop-crunch and a tiny sparkling crystal glint, joyful, rewarding, stress-relieving, short, close microphone, dry, no wet mud, no metal pot, no voice, no music",
+      "duration": 0.19,
+      "prompt_influence": 0.62,
       "output": "../../../Assets/Resources/Audio/kill_pop.mp3",
-      "notes": "小怪死亡的清脆一下，音高随连杀往上走"
+      "notes": "小怪击杀爆点：爽脆糖壳/玉珠爆裂清响，按中国大调五声音阶（0,+2,+4,+7,+9,+12）欢快爬升"
     },
     {
       "name": "hit_fire",
-      "text": "a dry paper snap followed by one tiny charcoal crackle, sharp attack, very short decay, close and dry, no roaring fire, no explosion, no reverb, no music, no voice",
-      "duration": 0.36,
+      "text": "bright snappy cartoon fire hit: a crisp festive firecracker pop-snap followed by lively sparkling flame crackles, bright, punchy, energetic mobile game sfx, short decay, close, dry, no dark rumble, no white noise hiss, no music, no voice",
+      "duration": 0.22,
+      "prompt_influence": 0.62,
       "output": "../../../Assets/Resources/Audio/hit_fire.mp3",
-      "notes": "火字命中"
+      "notes": "火系/鬼火命中：喜庆小鞭炮脆响 + 明亮火星噼啪"
     },
     {
       "name": "hit_ice",
-      "text": "a thin porcelain chip tick, bright and glassy, one note, sharp attack, very short decay, dry and close, no wind, no reverb, no music, no voice",
-      "duration": 0.36,
+      "text": "refreshing ASMR clear ice cube cracking open with bright sparkling frost crystal tinkles, crisp glassy crunch, bright and icy casual game impact, short and clean, close microphone, dry, no dark heavy thud, no ceramic bowl clang, no music, no voice",
+      "duration": 0.22,
+      "prompt_influence": 0.62,
       "output": "../../../Assets/Resources/Audio/hit_ice.mp3",
-      "notes": "冰字命中"
+      "notes": "冰系/寒狱命中：清透冰块脆裂 + 晶莹冰晶叮当"
     },
     {
       "name": "boom",
-      "text": "a loud wet ink splash with a low thump underneath, the body lasts about a third of a second, close microphone, dry room, no debris, no music, no voice",
-      "duration": 0.46,
+      "text": "punchy cheerful cartoon cannon and festive big firecracker burst: a sharp bright pop-bang with a tight bouncy punch and sparkling firework crackles scattering briefly, exciting mobile game explosion, clean quick decay, dry room, no dark muddy rumble, no water splash, no music, no voice",
+      "duration": 0.36,
+      "prompt_influence": 0.62,
       "output": "../../../Assets/Resources/Audio/boom.mp3",
-      "notes": "重击、爆炸、斩杀"
+      "notes": "爆炸/秒杀/破甲：欢快卡通礼炮 + 大爆竹爽脆炸裂与花火散落"
     },
     {
       "name": "kill",
-      "text": "wet ink blooming into rice paper then a soft falling brush release, round and gentle, short, dry room, no scream, no music, no voice",
-      "duration": 0.5,
+      "text": "light playful cartoon enemy poof: a crisp soft wooden pop followed by a gentle airy bamboo leaf flutter, clean, buoyant, short, dry, close, no dark mud splat, no scream, no music, no voice",
+      "duration": 0.18,
+      "prompt_influence": 0.62,
       "output": "../../../Assets/Resources/Audio/kill.mp3",
-      "notes": "小怪化开"
+      "notes": "小怪化开：轻盈木块微爆 + 竹叶清风散开"
     },
     {
       "name": "boss",
@@ -132,10 +140,11 @@
     },
     {
       "name": "spell",
-      "text": "one broad wet brush stroke across rice paper, audible soft bristles, a gentle swell and a clean release, dry and close, no magic choir, no reverb tail, no music, no voice",
-      "duration": 0.72,
+      "text": "exhilarating mobile game arrow volley skill: a bright snappy bowstring twang followed immediately by five crisp bamboo arrows whistling fast upward with a light magical sparkle shimmer, upbeat and brisk, dry room, no dark bass, no music, no voice",
+      "duration": 0.36,
+      "prompt_influence": 0.62,
       "output": "../../../Assets/Resources/Audio/spell.mp3",
-      "notes": "放技能。音高在代码里按技能微调"
+      "notes": "齐射/万箭/穿云箭：清亮弓弦弹射 + 竹箭群轻快破空与星光闪烁"
     },
     {
       "name": "win",
@@ -230,10 +239,11 @@
     },
     {
       "name": "charge_fire",
-      "text": "short bright energy release, a quick rising rubbery pluck with a tiny sparkle on top, light and snappy, close and dry, no gunshot, no explosion, no reverb, no music, no voice",
-      "duration": 0.26,
+      "text": "cheerful mobile game spring-loaded power shot trigger: a crisp toy latch click followed immediately by a bright snappy string zing and a tiny crystal ping on top, upbeat, punchy, dry, close, no reverb, no music, no voice",
+      "duration": 0.18,
+      "prompt_influence": 0.62,
       "output": "../../../Assets/Resources/Audio/charge_fire.mp3",
-      "notes": "蓄力字蓄满，这一发带上效果"
+      "notes": "蓄力字/词蓄满激发：清脆弹簧卡扣 + 晶莹拨弦高光"
     },
     {
       "name": "battle_start",
@@ -468,6 +478,94 @@
       "duration": 0.6,
       "output": "../../../Assets/Resources/Audio/slot_small.mp3",
       "notes": "印章转轮：三个都不一样，拿中间那枚"
+    },
+    {
+      "name": "hit_zap",
+      "text": "bright snappy cartoon lightning spark zap: a crisp electric pop-crack with a lively fizzy spark twinkle, playful arcade game energy hit, short and punchy, close, dry, no dark rumble, no sci-fi laser pew, no music, no voice",
+      "duration": 0.19,
+      "prompt_influence": 0.62,
+      "output": "../../../Assets/Resources/Audio/hit_zap.mp3",
+      "notes": "雷系/麻痹命中：清脆卡通电火花啪滋闪耀"
+    },
+    {
+      "name": "hit_blade",
+      "text": "crisp refreshing anime katana slicing cleanly through fresh green bamboo: a bright swift air swish into a clean snappy bamboo chop, super crisp and satisfying, dead-stop with no pot clang, close, dry, no music, no voice",
+      "duration": 0.2,
+      "prompt_influence": 0.62,
+      "output": "../../../Assets/Resources/Audio/hit_blade.mp3",
+      "notes": "斩击/穿透/连斩/穿云箭命中：快刀利落劈开鲜青竹的爽脆切口声（无铁锅余振）"
+    },
+    {
+      "name": "hit_heavy",
+      "text": "playful punchy cartoon wooden mallet bonk cracking a crisp clay tile: a tight bouncy wooden thump with a bright snappy tile crack on top, energetic Clash Royale style impact, short, close, dry, no dark gloomy sub-bass, no metal ring, no music, no voice",
+      "duration": 0.24,
+      "prompt_influence": 0.62,
+      "output": "../../../Assets/Resources/Audio/hit_heavy.mp3",
+      "notes": "重锤/击退/千钧/崩山命中：Q弹大木槌敲裂脆陶瓦，有力又轻快"
+    },
+    {
+      "name": "hit_wind",
+      "text": "crisp paper folding fan snapping open with a bright swift breeze whoosh-whip, light, airy, snappy and refreshing, short decay, close microphone, dry, no dark low wind, no whistle, no music, no voice",
+      "duration": 0.19,
+      "prompt_influence": 0.62,
+      "output": "../../../Assets/Resources/Audio/hit_wind.mp3",
+      "notes": "疾风/分裂/旋风命中：纸折扇清脆开合 + 清爽风鞭"
+    },
+    {
+      "name": "combo",
+      "text": "joyful punchy mobile game combo trigger: one crisp bright woodblock and small taiko snap combined with two quick rising marimba-bell notes and a tiny sparkle, rewarding and upbeat, clean short tail, dry room, no voice, no music bed",
+      "duration": 0.34,
+      "prompt_influence": 0.62,
+      "output": "../../../Assets/Resources/Audio/combo.mp3",
+      "notes": "连携/秘卷触发：清脆木鱼小堂鼓 + 欢快上扬马林巴风铃"
+    },
+    {
+      "name": "sfx_firewheel",
+      "text": "energetic spinning firework pinwheel whooshing fast with lively bright flame crackles and two crisp wind-blade swishes, exciting and brisk cartoon game skill, short room, no dark bass, no metal clanking, no music, no voice",
+      "duration": 0.36,
+      "prompt_influence": 0.62,
+      "output": "../../../Assets/Resources/Audio/sfx_firewheel.mp3",
+      "notes": "三字诀·风火轮：旋转烟花风车呼啸 + 明亮火花噼啪与双风刃"
+    },
+    {
+      "name": "sfx_riposte",
+      "text": "snappy cartoon boomerang blade ricochet: a bright crisp swish-ping bounce like a swift dart deflecting cleanly off jade, fast, nimble and satisfying, close, dry, no long metal ring, no music, no voice",
+      "duration": 0.22,
+      "prompt_influence": 0.62,
+      "output": "../../../Assets/Resources/Audio/sfx_riposte.mp3",
+      "notes": "秘卷·回锋/返：清脆回旋镖擦玉弹射叮响"
+    },
+    {
+      "name": "sfx_thundercut",
+      "text": "two rapid crisp anime sword swishes followed immediately by a bright snappy lightning crackle spark burst, fast, flashy and exhilarating mobile game skill, dry room, no dark thunder rumble, no metal pot clang, no music, no voice",
+      "duration": 0.32,
+      "prompt_influence": 0.62,
+      "output": "../../../Assets/Resources/Audio/sfx_thundercut.mp3",
+      "notes": "秘卷·雷决：0~45ms 双连快斩破风 + 45ms 准点清亮电光爆裂"
+    },
+    {
+      "name": "sfx_seal",
+      "text": "crisp jade seal stamp click onto a talisman card followed immediately by a light bright magical sparkle chime lock, clean, snappy and mystical casual game sfx, close, dry, no dark dungeon iron, no music, no voice",
+      "duration": 0.28,
+      "prompt_influence": 0.62,
+      "output": "../../../Assets/Resources/Audio/sfx_seal.mp3",
+      "notes": "秘卷·封/影/失魂：玉印清脆落符 + 灵动风铃锁扣闪耀"
+    },
+    {
+      "name": "sfx_collapse",
+      "text": "0-190ms playful magical vortex sucking inward with a rising airy shimmer, followed at exact 190ms by an exciting arcane crystal nova pop-boom with sparkling glass-crystal chimes, clean, no dark mud, no music, no voice",
+      "duration": 0.48,
+      "prompt_influence": 0.65,
+      "output": "../../../Assets/Resources/Audio/sfx_collapse.mp3",
+      "notes": "秘卷·坍缩两段式对齐音效：0~190ms 星璇轻盈内吸 + 190ms 准点晶石星爆（对齐 PairFxView.Collapse）"
+    },
+    {
+      "name": "sfx_needle",
+      "text": "0-95ms bright swift whistling golden staff zipping downward, followed at exact 95ms by a punchy golden pillar landing impact shattering a giant clear ice crystal into sparkling shards, no dark rumble, no music, no voice",
+      "duration": 0.48,
+      "prompt_influence": 0.65,
+      "output": "../../../Assets/Resources/Audio/sfx_needle.mp3",
+      "notes": "三字诀·定海针两段式对齐音效：0~95ms 金箍清啸下坠 + 95ms 准点金柱砸裂冰晶（对齐 PairFxView.Needle）"
     }
   ]
 }

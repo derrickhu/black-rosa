@@ -1,18 +1,21 @@
-墨字防线 · 背景音乐（Suno）
+墨字防线 · 背景音乐（Vertex Lyria）
+
+不要再去 Suno。用 ~/.cursor/skills/game-sfx-gen/scripts/gen_bgm.py。
+大厅垫乐用默认的 lyria-3-clip-preview；要完整段落时加 --model lyria-3-pro-preview。
+下面的 Style 整段作为 --text，Exclude 作为 --negative。提示词保持英文。
 
 两首仍是卡通休闲，但要闷、要靠后，像垫在画面底下的一层，不是主题曲。
 共用闷马林巴、暖贝斯、毡音钢琴。首页慢慢摇。战斗换成小调，用很低的心跳把节奏压住，旋律别往前冲。
 命中、开炮、印章要比音乐清楚。不要古筝洞箫，也不要蹦跳、拍手、八音盒。
 
-生成后导出 mp3，放到：
-  Assets/Resources/Audio/bgm_home.mp3
-  Assets/Resources/Audio/bgm_battle.mp3
-文件名必须是这两个。进游戏会自动循环，战斗曲还会再被压低一档。
-首页三页共用 bgm_home。进关切到 bgm_battle，回首页切回来。
-改装和结算时音乐会再低下去。
+确认要换曲之后再覆盖。脚本会把峰值收到大约 -3dB。
+  Assets/Resources/Audio/bgm_home.mp3          进包，首页三页共用
+  CdnArt/Audio/bgm_battle.mp3                 进关；每日、无尽另有 bgm_daily、bgm_endless
+战斗、每日、无尽在 CDN 清单里，只换本地文件不会进已发出的包。
+进游戏会自动循环，战斗曲还会再被压低一档。改装和结算时音乐会再低下去。
 
 如果一首里有明显的开头和结尾，把中间最稳的一段剪成循环，再覆盖同名文件。
-导出前把音量收到大概七成，留出头顶给音效。
+Lyria 不保证首尾采样级无缝。
 
 ────────────────────────────────
 1. 首页  bgm_home
