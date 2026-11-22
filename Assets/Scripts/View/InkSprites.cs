@@ -86,6 +86,7 @@ namespace InkLine
                 case EnemyId.Phantom: return "phantom";
                 case EnemyId.BossShade: return "boss_shade";
                 case EnemyId.BossBell: return "boss_bell";
+                case EnemyId.Daruma: return "boss_daruma";
                 default: return "walker";
             }
         }

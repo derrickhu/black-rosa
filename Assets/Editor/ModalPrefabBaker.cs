@@ -28,6 +28,7 @@ namespace InkLine
             new Entry { Path = "Assets/Resources/Prefabs/GuideGift.prefab",   Mark = GuideGiftPanel.Mark,   Build = GuideGiftPanel.BuildPrefab },
             new Entry { Path = "Assets/Resources/Prefabs/DailyPuzzle.prefab", Mark = DailyPuzzlePanel.Mark, Build = DailyPuzzlePanel.BuildPrefab },
             new Entry { Path = "Assets/Resources/Prefabs/Endless.prefab",     Mark = EndlessPanel.Mark,     Build = EndlessPanel.BuildPrefab },
+            new Entry { Path = "Assets/Resources/Prefabs/Frenzy.prefab",      Mark = FrenzyPanel.Mark,      Build = FrenzyPanel.BuildPrefab },
             new Entry { Path = "Assets/Resources/Prefabs/GlyphDetail.prefab", Mark = GlyphDetailPanel.Mark, Build = GlyphDetailPanel.BuildPrefab },
             new Entry { Path = "Assets/Resources/Prefabs/Settings.prefab",    Mark = SettingsPanel.Mark,    Build = SettingsPanel.BuildPrefab },
             new Entry { Path = "Assets/Resources/Prefabs/Confirm.prefab",     Mark = ConfirmPanel.Mark,     Build = ConfirmPanel.BuildPrefab },

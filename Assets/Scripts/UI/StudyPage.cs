@@ -43,6 +43,8 @@ namespace InkLine
         Text _hint;
         Text _note;
         RectTransform _sealMark;
+        RectTransform _copyMark;
+        Text _copyLabel;
         RectTransform _panel;
         RectTransform _cap;
         RectTransform _filters;
@@ -128,6 +130,7 @@ namespace InkLine
             }
 
             FoilPlus();
+            CopybookMark();
             SealMark();
 
             var vp = new GameObject("list", typeof(RectTransform), typeof(Image), typeof(RectMask2D), typeof(ScrollRect));
@@ -184,7 +187,10 @@ namespace InkLine
 
             RestyleFoil();
             HomeReskin.TopLeft(_sealMark, HomeReskin.PlaceX(624f), HomeReskin.PlaceY(SealY), 96f, 90f);
+            float copyX = _meta != null && !_meta.SealBagShown ? 624f : 520f;
+            HomeReskin.TopLeft(_copyMark, HomeReskin.PlaceX(copyX), HomeReskin.PlaceY(SealY), 96f, 90f);
             _foilChip.SetAsLastSibling();
+            _copyMark.SetAsLastSibling();
             _sealMark.SetAsLastSibling();
         }
 
@@ -213,6 +219,23 @@ namespace InkLine
             art.type = Image.Type.Simple;
             art.preserveAspect = true;
             art.raycastTarget = false;
+        }
+
+        void CopybookMark()
+        {
+            var go = new GameObject("copybook", typeof(RectTransform), typeof(Image), typeof(Button));
+            go.transform.SetParent(_page, false);
+            var rt = go.GetComponent<RectTransform>();
+            var hit = go.GetComponent<Image>();
+            hit.color = Color.clear;
+            var btn = go.GetComponent<Button>();
+            btn.transition = Selectable.Transition.None;
+            btn.targetGraphic = hit;
+            btn.onClick.AddListener(OpenCopybook);
+            SealArt.Medal(go.transform, "m", SealType.Luck, SealQuality.Gold, new Vector2(0f, 16f), 54f);
+            _copyLabel = UiKit.Label(go.transform, "t", "字帖", 20, new Vector2(0f, -30f), new Vector2(96f, 32f));
+            UiKit.Bold(_copyLabel);
+            _copyMark = rt;
         }
 
         // 右上一枚印章标。开了插槽或攒到过印章才出现。
@@ -268,7 +291,15 @@ namespace InkLine
         {
             if (_meta == null) return;
             _foil.text = _meta.Foil.ToString();
-            _sealMark.gameObject.SetActive(_meta.SealBagShown);
+            bool showSeal = _meta.SealBagShown;
+            _sealMark.gameObject.SetActive(showSeal);
+            if (_copyMark != null)
+            {
+                _copyMark.gameObject.SetActive(true);
+                HomeReskin.TopLeft(_copyMark, HomeReskin.PlaceX(showSeal ? 520f : 624f), HomeReskin.PlaceY(SealY), 96f, 90f);
+                int copyN = _meta.CopyTotalCount;
+                if (_copyLabel != null) _copyLabel.text = copyN > 0 ? $"字帖 {copyN}" : "字帖";
+            }
             Transform dot = _sealMark.Find("dot");
             if (dot != null) dot.gameObject.SetActive(_meta.SealNew > 0);
             for (int i = 0; i < _chips.Count; i++)
@@ -326,6 +357,8 @@ namespace InkLine
             btn.targetGraphic = card.GetComponent<Image>();
             btn.onClick.AddListener(() => Open(e));
             if (_meta.HasTrial(e)) StudyCard.Tag(card, "试用", InkTheme.Teal);
+            else if (_meta.IsCopyFav(e)) StudyCard.Tag(card, "偏爱", InkTheme.Hex("E28A18"));
+            else if (_meta.IsCopyBan(e)) StudyCard.Tag(card, "封存", InkTheme.Hex("C94848"));
             if (_meta.HasLuckSeal(e)) StudyCard.Luck(card);
             if (_meta.UpgradeBlock(e) == MetaProgress.StudyBlock.None || _meta.CanFillSlot(e)) StudyCard.Dot(card);
         }
@@ -334,6 +367,12 @@ namespace InkLine
         {
             AudioBus.Tap();
             GlyphDetailPanel.Show(_layer, _meta, _shown, _shown.IndexOf(e), AfterChange);
+        }
+
+        void OpenCopybook()
+        {
+            AudioBus.Tap();
+            CopybookPanel.Show(_layer, _meta, AfterChange);
         }
 
         void OpenSeals()

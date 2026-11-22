@@ -364,16 +364,18 @@ namespace InkLine
             page.GetWorldCorners(corners);
             float pageTop = root.InverseTransformPoint(corners[1]).y;
             float inset = root.rect.yMax - pageTop;
-            float local = Mathf.Max(8f, PlaceY(168f) - inset);
+            int count = host.Frenzy != null ? 3 : 2;
+            float local = Mathf.Max(8f, PlaceY(count >= 3 ? 156f : 168f) - inset);
             float span = page.rect.width > 64f ? page.rect.width : ScreenW;
             float scaleW = (span - 16f) / DungeonPageBuilder.CardW;
-            float block = DungeonPageBuilder.CardH * 2f + DungeonPageBuilder.CardGap;
-            float room = page.rect.height - local - 16f;
+            float block = DungeonPageBuilder.CardH * count + DungeonPageBuilder.CardGap * (count - 1);
+            float room = page.rect.height - local - 14f;
             float scaleH = room / Mathf.Max(1f, block);
-            float scale = Mathf.Clamp(Mathf.Min(scaleW, scaleH), 1f, 1.12f);
+            float scale = Mathf.Clamp(Mathf.Min(scaleW, scaleH), 0.78f, 1.12f);
             PlaceCard(host.Daily.transform as RectTransform, local, scale);
             float step = (DungeonPageBuilder.CardH + DungeonPageBuilder.CardGap) * scale;
             PlaceCard(host.Endless != null ? host.Endless.transform as RectTransform : null, local + step, scale);
+            PlaceCard(host.Frenzy != null ? host.Frenzy.transform as RectTransform : null, local + step * 2f, scale);
         }
 
         static void PlaceCard(RectTransform rt, float y, float scale)

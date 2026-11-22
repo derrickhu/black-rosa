@@ -7,6 +7,7 @@ namespace InkLine
     {
         readonly Transform _root;
         readonly List<SpriteRenderer> _grid = new List<SpriteRenderer>();
+        readonly List<SpriteRenderer> _terrains = new List<SpriteRenderer>();
         readonly List<SpriteRenderer> _hints = new List<SpriteRenderer>();
         readonly List<SpriteRenderer> _stamps = new List<SpriteRenderer>();
         readonly List<SpriteRenderer> _plates = new List<SpriteRenderer>();
@@ -71,6 +72,10 @@ namespace InkLine
                 var cell = Make("cell", InkArt.Cell(), FieldLayout.CellPos(c, r), GameConstants.CellWidth);
                 cell.sortingOrder = 0;
                 _grid.Add(cell);
+                var terr = Make("terrain", InkSprites.Load("Ui/cell_inkwell") ?? InkArt.Cell(), FieldLayout.CellPos(c, r), GameConstants.CellWidth);
+                terr.sortingOrder = 5;
+                terr.enabled = false;
+                _terrains.Add(terr);
                 var hint = Make("hint", InkArt.Cell(), FieldLayout.CellPos(c, r), GameConstants.CellWidth);
                 hint.sortingOrder = 6;
                 hint.enabled = false;
@@ -275,17 +280,20 @@ namespace InkLine
             for (int r = 0; r < GameConstants.Rows; r++, i++)
             {
                 bool open = w.IsOpen(c, r);
+                bool crystal = w.HasCrystal(c, r);
+                CellTerrain terr = w.Terrain[c, r];
                 Vector3 home = FieldLayout.CellPos(c, r);
-                _grid[i].enabled = open;
+                _grid[i].enabled = open || crystal;
                 _juice.Base(c, r, out Vector2 baseShift, out Color baseTint);
-                _grid[i].color = baseTint;
+                _grid[i].color = terr == CellTerrain.Stele ? Color.Lerp(baseTint, InkTheme.Teal, 0.25f) : baseTint;
                 _grid[i].transform.position = home + (Vector3)baseShift;
+                PaintTerrain(i, terr, crystal ? w.CrystalHp[c, r] : 0, home + (Vector3)baseShift);
                 _hints[i].enabled = false;
-                if (open && w.Grid[c, r].HasValue)
+                if (open && !crystal && w.Grid[c, r].HasValue)
                 {
                     CardId id = w.Grid[c, r].Value;
                     _stamps[i].enabled = true;
-                    int star = Mathf.Max(1, w.Stars[c, r]);
+                    int star = Mathf.Max(1, w.EffectiveStar(c, r));
                     PaintStamp(_stamps[i], id, star);
                     bool sleep = w.CellAsleep(c, r);
                     _juice.Shape(c, r, out Vector2 squash, out Vector2 shift, out float alpha, out Color glint);
@@ -612,9 +620,54 @@ namespace InkLine
         {
             InkVfx.Stop(stamp);
             stamp.sprite = InkArt.Heap(id, star, 128);
-            // 1 星 0.88，2 星略大，3 星明显大一圈。格子宽 1.16，3 星仍留一条缝。
-            float fit = star >= 3 ? 1.04f : star >= 2 ? 0.96f : 0.88f;
+            // 1 星 0.88，2 星略大，3 星明显大一圈，4 星极意略再丰满一点。
+            float fit = star >= 4 ? 1.07f : star >= 3 ? 1.04f : star >= 2 ? 0.96f : 0.88f;
             stamp.transform.localScale = Vector3.one * fit;
+        }
+
+        void PaintTerrain(int i, CellTerrain terr, int crystalHp, Vector3 pos)
+        {
+            SpriteRenderer tr = _terrains[i];
+            if (terr == CellTerrain.Crystal && crystalHp > 0)
+            {
+                Sprite sp = InkSprites.Load("Ui/cell_crystal");
+                if (sp == null) { tr.enabled = false; return; }
+                tr.sprite = sp;
+                tr.enabled = true;
+                tr.sortingOrder = 5;
+                float bodyW = Mathf.Max(0.01f, sp.bounds.size.x);
+                float baseFit = GameConstants.CellWidth * 0.90f / bodyW;
+                float pulse = 1f + 0.025f * Mathf.Sin(Time.unscaledTime * 3.6f + i);
+                // 血越少越亮，快敲开时闪紫金光。
+                float low = 1f - Mathf.Clamp01(crystalHp / (float)BattleWorld.CrystalMaxHp);
+                tr.color = Color.Lerp(Color.white, InkTheme.GoldHi, low * 0.35f);
+                tr.transform.position = pos;
+                tr.transform.localScale = Vector3.one * (baseFit * pulse);
+                return;
+            }
+            if (terr == CellTerrain.Inkwell || terr == CellTerrain.Stele)
+            {
+                Sprite sp = InkSprites.Load("Ui/cell_inkwell");
+                if (sp == null) { tr.enabled = false; return; }
+                tr.sprite = sp;
+                tr.enabled = true;
+                tr.sortingOrder = 5;
+                float bodyW = Mathf.Max(0.01f, sp.bounds.size.x);
+                float baseFit = GameConstants.CellWidth * 1.04f / bodyW;
+                if (terr == CellTerrain.Inkwell)
+                {
+                    float glow = 0.88f + 0.12f * Mathf.Sin(Time.unscaledTime * 2.8f + i * 0.7f);
+                    tr.color = new Color(1f, 0.97f, 0.88f, glow);
+                }
+                else
+                {
+                    tr.color = new Color(0.55f, 0.94f, 0.86f, 0.88f);
+                }
+                tr.transform.position = pos;
+                tr.transform.localScale = Vector3.one * baseFit;
+                return;
+            }
+            tr.enabled = false;
         }
 
         static void PaintZi(SpriteRenderer stamp, CardId id, bool sleep)
@@ -652,6 +705,7 @@ namespace InkLine
         // 方块色标，不做成圆章，免得读成金币。1 星是生蜂蜜黄，往上越亮、越大。
         static readonly Color Honey = new Color(0.93f, 0.72f, 0.32f, 1f);
         static readonly Color HoneyMid = new Color(0.96f, 0.58f, 0.12f, 1f);
+        static readonly Color HoneyApex = InkTheme.Hex("FF5E2B");
 
         // 右上角方块是星级，星越高方块越大越亮。下面的槽：常驻字一整条茶叶绿，每发都生效；
         // 蓄力字按「过 N 发」分成 N 段，满格是茶叶绿，空格是淡青瓷。
@@ -676,7 +730,7 @@ namespace InkLine
             Vector3 c = card.center;
 
             float margin = half * 2f * 0.08f;
-            float rest = half * 2f * (star >= 3 ? 0.26f : star >= 2 ? 0.22f : 0.17f);
+            float rest = half * 2f * (star >= 4 ? 0.30f : star >= 3 ? 0.26f : star >= 2 ? 0.22f : 0.17f);
             float badge = rest * pop;
             var bp = new Vector3(
                 c.x + half - margin - rest * 0.5f,
@@ -684,8 +738,11 @@ namespace InkLine
                 0f);
             SpriteRenderer plate = _plates[i];
             plate.enabled = true;
-            Color honey = star >= 3 ? InkTheme.GoldHi : star >= 2 ? HoneyMid : Honey;
-            if (star >= 3 && !sleep)
+            Color honey = star >= 4 ? HoneyApex : star >= 3 ? InkTheme.GoldHi : star >= 2 ? HoneyMid : Honey;
+            if (star >= 4 && !sleep)
+                honey = Color.Lerp(HoneyApex, InkTheme.GoldHi,
+                    0.45f + 0.45f * (0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * 4.8f + i)));
+            else if (star >= 3 && !sleep)
                 honey = Color.Lerp(InkTheme.Gold, InkTheme.GoldHi,
                     0.62f + 0.38f * (0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * 2.4f + i)));
             if (sleep) honey.a = 0.4f;
@@ -697,7 +754,7 @@ namespace InkLine
             rank.gameObject.SetActive(true);
             rank.text = star.ToString();
             rank.characterSize = badge * 0.13f;
-            Color ink = InkTheme.Ink;
+            Color ink = star >= 4 && !sleep ? Color.white : InkTheme.Ink;
             if (sleep) ink.a = 0.45f;
             rank.color = ink;
             rank.transform.position = bp;

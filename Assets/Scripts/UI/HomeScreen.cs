@@ -856,6 +856,7 @@ namespace InkLine
                 _view.GoButton.onClick.AddListener(() => Go(NextStage()));
                 HomeReskin.FitGo(_view, canGo);
             }
+            BindSortieCopybook(_pages[1]);
             if (_view.AdButton != null) _view.AdButton.gameObject.SetActive(false);
             EnsureChests(_pages[1]);
             if (_view.Help != null) _view.Help.gameObject.SetActive(false);
@@ -1456,6 +1457,68 @@ namespace InkLine
             EndlessPanel.Show(_layer, _meta, () => StartEndless?.Invoke(), AfterReward);
         }
 
+        public Action StartFrenzy;
+
+        public void OpenFrenzy()
+        {
+            if (!_meta.FrenzyOpen)
+            {
+                AudioBus.Deny();
+                InkToast.Show(_layer, "通关第" + GameConstants.ChapterName(GameConstants.FrenzyOpenChapter) + "章开放");
+                return;
+            }
+            AudioBus.Tap();
+            FrenzyPanel.Show(_layer, _meta, () => StartFrenzy?.Invoke(), AfterReward);
+        }
+
+        void BindSortieCopybook(RectTransform page)
+        {
+            if (page == null) return;
+            Transform found = page.Find("copybook_btn");
+            if (!_meta.StudyOpen)
+            {
+                if (found != null) found.gameObject.SetActive(false);
+                return;
+            }
+            Button btn = found != null ? found.GetComponent<Button>() : null;
+            if (btn == null)
+            {
+                var go = new GameObject("copybook_btn", typeof(RectTransform), typeof(Image), typeof(Button));
+                go.transform.SetParent(page, false);
+                var img = go.GetComponent<Image>();
+                img.sprite = InkSprites.Load("Ui/home_tag_normal");
+                img.type = Image.Type.Simple;
+                img.preserveAspect = false;
+                btn = go.GetComponent<Button>();
+                btn.transition = Selectable.Transition.None;
+                btn.targetGraphic = img;
+                var lb = UiKit.Label(go.transform, "t", "字帖", 17, Vector2.zero, new Vector2(124f, 44f));
+                lb.color = HomeReskin.Ink;
+                UiKit.Bold(lb);
+                var lr = lb.rectTransform;
+                lr.anchorMin = Vector2.zero;
+                lr.anchorMax = Vector2.one;
+                lr.offsetMin = new Vector2(4f, 4f);
+                lr.offsetMax = new Vector2(-4f, -2f);
+                found = go.transform;
+            }
+            found.gameObject.SetActive(true);
+            HomeReskin.TopLeft((RectTransform)found, HomeReskin.PlaceX(534f), HomeReskin.PlaceY(862f), 128f, 52f);
+            var text = found.Find("t")?.GetComponent<Text>();
+            if (text != null)
+            {
+                int total = _meta.CopyTotalCount;
+                text.text = total > 0 ? $"字帖 {total}" : "字帖";
+            }
+            btn.onClick.RemoveAllListeners();
+            btn.onClick.AddListener(() =>
+            {
+                AudioBus.Tap();
+                CopybookPanel.Show(_layer, _meta, AfterReward);
+            });
+            found.SetAsLastSibling();
+        }
+
         // 没开的入口留在原位，压一把锁，图标压暗。开了就把锁拿掉。
         static void PaintLock(Button btn, bool locked)
         {
@@ -1532,7 +1595,8 @@ namespace InkLine
             if (page == null) return;
             DungeonPage view = page.GetComponent<DungeonPage>();
             if (view == null) view = DungeonPageBuilder.Build(page);
-            view.Bind(_meta, OpenDailyPuzzle, OpenEndless, AfterReward);
+            view.Bind(_meta, OpenDailyPuzzle, OpenEndless, AfterReward, OpenFrenzy);
+            HomeReskin.FitDungeon(_view);
         }
 
         // 通关第二章之前，底栏「副本」一直锁着，点了只提示条件，不切页。

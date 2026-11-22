@@ -111,6 +111,16 @@ namespace InkLine
         public StageRule Rule;
         // 十一、十二章：开局只留 Mask 里那几格，其余靠改装里的铲子挖。
         public bool Dig;
+        // 百鬼狂潮：限时爽刷割草模式，开局满盘 + 灵砚四星格 + 压轴不倒金翁喷金箔。
+        public bool Frenzy;
+        // 活棋盘地形格（灵砚四星格 / 墨晶宝矿格 / 古碑格），null 表示全普通格。
+        public CellTerrain[,] Terrain;
+
+        public CellTerrain TerrainAt(int col, int row) =>
+            Terrain != null && col >= 0 && col < Terrain.GetLength(0) && row >= 0 && row < Terrain.GetLength(1)
+                ? Terrain[col, row]
+                : CellTerrain.None;
+
         // 战场底图，空着按章节取。
         public string Backdrop;
 
@@ -204,7 +214,7 @@ namespace InkLine
         // 前两章一局的怪多、局也长，系数反而要压低；改波次或只数之后跑 check_stages 重新对一遍。
         // 第五章起只数按 ChapterPress 加过。这里把掉墨系数按同一比例收回，多出来的怪不加首通墨。
         // 金币不走这个系数，改装价会跟着只数变贵。
-        static readonly float[] ChapterInk = { 1.55f, 0.82f, 1.08f, 1.26f, 1.283f, 0.877f, 0.818f, 0.730f, 0.475f, 0.531f, 0.482f, 0.428f, 0.32f, 0.31f };
+        static readonly float[] ChapterInk = { 1.55f, 0.82f, 1.08f, 1.26f, 1.283f, 0.877f, 0.818f, 0.730f, 0.475f, 0.531f, 0.482f, 0.428f, 0.292f, 0.312f };
 
         public static float InkOf(int chapter) =>
             ChapterInk[Mathf.Clamp(chapter, 0, ChapterInk.Length - 1)];
@@ -217,7 +227,7 @@ namespace InkLine
 
         public static float LateHpOf(StageDef s)
         {
-            if (s == null || s.Endless || s.Daily || s.Event) return 1f;
+            if (s == null || s.Endless || s.Daily || s.Event || s.Frenzy) return 1f;
             return ChapterLateHp[Mathf.Clamp(s.Chapter, 0, ChapterLateHp.Length - 1)];
         }
 
@@ -268,10 +278,56 @@ namespace InkLine
             public bool TeachDraft;
             public bool TeachStar;
             public bool Dig;
+            public CellTerrain[,] Terrain;
+            public List<PresetGlyph> Presets;
+
+            void EnsureTerrain()
+            {
+                if (Terrain == null) Terrain = new CellTerrain[GameConstants.Columns, GameConstants.Rows];
+            }
 
             public Plan Give(params CardId[] ids) { Gives = ids; return this; }
             public Plan Teach(bool draft, bool star) { TeachDraft = draft; TeachStar = star; return this; }
             public Plan DigBoard() { Dig = true; return this; }
+
+            // 灵砚格：传入成对的 (col, row)，落在此格的字星级 +1（可突破 ★4 极意）。
+            public Plan Inkwell(params int[] colRows)
+            {
+                EnsureTerrain();
+                for (int i = 0; i + 1 < colRows.Length; i += 2)
+                {
+                    int c = colRows[i], r = colRows[i + 1];
+                    if (c >= 0 && c < GameConstants.Columns && r >= 0 && r < GameConstants.Rows)
+                        Terrain[c, r] = CellTerrain.Inkwell;
+                }
+                return this;
+            }
+
+            // 墨晶宝矿格：传入成对的 (col, row)，炮弹经过该列顺手敲碎爆金币 + 免费落 ★2 字。
+            public Plan Crystal(params int[] colRows)
+            {
+                EnsureTerrain();
+                for (int i = 0; i + 1 < colRows.Length; i += 2)
+                {
+                    int c = colRows[i], r = colRows[i + 1];
+                    if (c >= 0 && c < GameConstants.Columns && r >= 0 && r < GameConstants.Rows)
+                        Terrain[c, r] = CellTerrain.Crystal;
+                }
+                return this;
+            }
+
+            // 古碑格：开局预刻一枚字，可喂同字升星，不能被异字覆盖。
+            public Plan Stele(int col, int row, CardId id, int star = 2)
+            {
+                EnsureTerrain();
+                if (col >= 0 && col < GameConstants.Columns && row >= 0 && row < GameConstants.Rows)
+                {
+                    Terrain[col, row] = CellTerrain.Stele;
+                    if (Presets == null) Presets = new List<PresetGlyph>();
+                    Presets.Add(new PresetGlyph(col, row, id, star));
+                }
+                return this;
+            }
         }
 
         static Plan P(string title, string[] shape, params WaveDef[] waves) =>
@@ -674,6 +730,8 @@ namespace InkLine
                     TeachDraft = p.TeachDraft,
                     TeachStar = p.TeachStar,
                     Dig = p.Dig,
+                    Terrain = p.Terrain,
+                    Preset = p.Presets != null ? p.Presets.ToArray() : null,
                     Backdrop = p.Dig ? BattleBackdrop(ch) : null,
                     Hp = HpOf(ch, slot, finale),
                     Finale = finale,
@@ -751,7 +809,7 @@ namespace InkLine
         // 份额按章收：第五到八章、十一章、十二章的起价仍高于旧曲线，后面的步长更陡。
         // 第九、十章头一两次比旧价略低，否则铺满会拖过整关八成时间；铺满那一段的平均价仍明显更高。
         static readonly float[] DraftFirstShareByChapter =
-            { 0.68f, 0.68f, 0.68f, 0.68f, 0.64f, 0.68f, 0.56f, 0.48f, 0.32f, 0.30f, 0.46f, 0.52f, 0.30f, 0.30f };
+            { 0.68f, 0.68f, 0.68f, 0.68f, 0.64f, 0.68f, 0.56f, 0.48f, 0.32f, 0.30f, 0.46f, 0.52f, 0.15f, 0.14f };
         const float DraftStepLift = 1.18f;
         // 同一章里有的关特别容易出钱、有的关起价会被平均价压得很低。按章设一个地板，避免那种关打几下就弹改装。
         const int DraftFirstChapterStep = 3;

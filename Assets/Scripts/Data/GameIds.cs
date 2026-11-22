@@ -96,7 +96,17 @@ namespace InkLine
         Monk,
         Phantom,
         BossShade,
-        BossBell
+        BossBell,
+        // 百鬼狂潮压轴金翁（受击喷金箔，不进主线章底统计）。
+        Daruma
+    }
+
+    public enum CellTerrain
+    {
+        None = 0,
+        Inkwell = 1,   // 灵砚格：落在此格的字星级 +1（可突破 ★4 极意）
+        Crystal = 2,   // 墨晶矿：本列炮弹穿过时顺手敲击，敲碎爆金币并白送一张 ★2 字
+        Stele = 3      // 古碑格：开局预刻好字，可喂同字升星但不能被异字顶掉
     }
 
     public static class EnemyIds
@@ -104,7 +114,8 @@ namespace InkLine
         // 只给视图层和关卡表用：程序化兜底画法只拿得到 id，拿不到 EnemyDef。
         // 数值上谁是关底以 EnemyCatalog 里的 boss: 参数为准，这里要和那边一致。
         public static bool IsBoss(EnemyId id) =>
-            (id >= EnemyId.BossDrum && id <= EnemyId.BossKing) || id >= EnemyId.BossShade;
+            (id >= EnemyId.BossDrum && id <= EnemyId.BossKing)
+            || (id >= EnemyId.BossShade && id <= EnemyId.BossBell);
     }
 
     public readonly struct CardDef

@@ -36,6 +36,7 @@ namespace InkLine
             Foil = Mathf.Max(0, Foil);
             if (TrialKind < 0 || TrialKind > 2) TrialKind = 0;
             NormalizeSeals();
+            NormalizeFrenzy();
         }
 
         bool RollStudy()

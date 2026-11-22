@@ -83,7 +83,7 @@ namespace InkLine
                         }
                     }
                 }
-                for (int i = 0; i < EnemyCatalog.IdCount; i++)
+                for (int i = 0; i <= (int)EnemyId.BossBell; i++)
                     if (added.Add(i)) list.Add(new CodexEntry(CodexKind.Enemy, i));
                 _enemies = list.ToArray();
                 return _enemies;

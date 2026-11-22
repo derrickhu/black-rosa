@@ -1,9 +1,10 @@
 using System.Collections.Generic;
 using static InkLine.EnemyId;
+using static InkLine.CardId;
 
 namespace InkLine
 {
-    // 第十二章 · 地宫：仍不发新字。开局五格，比墨窟略松，还是得挖。
+    // 第十二章 · 地宫：开局五格，地宫古阵中嵌有「灵砚四星格」、埋藏「墨晶」与残存「古碑铭文」。
     // 中段再打一次钟魔，章底换成墨王，钟魔在旁边敲盾。
     public static partial class StageCatalog
     {
@@ -16,7 +17,7 @@ namespace InkLine
                 W(S(0.3f, Belt, -1, 4), S(4f, Monk, -1, 2), S(8.5f, Warden, 2)),
                 W(S(0.3f, Shade, -1, 4), S(4f, Splitter, -1, 3), S(8.5f, Elite, 1)),
                 W(S(0.3f, Runner, -1, 5), S(4f, Monk, -1, 2), S(8.5f, Bulwark, -1, 2))
-            ).DigBoard());
+            ).DigBoard().Inkwell(1, 0).Crystal(3, 0));
 
             s.Add(P("甬道", G("XX.X..", "X..X.."),
                 W(S(0.3f, Strafer, -1, 4), S(3.5f, Monk, 2), S(8f, Shade, -1, 4)),
@@ -25,7 +26,7 @@ namespace InkLine
                 W(S(0.3f, Sprinter, -1, 4), S(4f, Swarm, -1, 4), S(8.5f, Elite, -1, 2)),
                 W(S(0.3f, Monk, 0), S(0.9f, Monk, 3), S(5f, Belt, -1, 4), S(9.5f, Shade, -1, 4)),
                 W(S(0.3f, Splitter, -1, 3), S(4f, Warden, 2), S(8.5f, Bulwark, -1, 2))
-            ).DigBoard());
+            ).DigBoard().Inkwell(3, 0).Crystal(2, 0));
 
             s.Add(P("耳室", G(".XXX..", "X...X."),
                 W(S(0.3f, Elite, 2), S(1.2f, Monk, 3), S(5.5f, Shade, -1, 4), S(10f, Swarm, -1, 4)),
@@ -34,7 +35,7 @@ namespace InkLine
                 W(S(0.3f, Elite, 0), S(1.5f, Elite, 5), S(6f, Belt, -1, 4), S(10.5f, Shade, -1, 4)),
                 W(S(0.3f, Monk, 1), S(1.2f, Warden, 4), S(6f, Swarm, -1, 4), S(10f, Elite, 2)),
                 W(S(0.3f, Runner, -1, 5), S(4f, Monk, -1, 2), S(8.5f, Bulwark, -1, 2))
-            ).DigBoard());
+            ).DigBoard().Inkwell(2, 0).Crystal(4, 0));
 
             s.Add(P("祭台", G("X.XX..", "..X.X."),
                 W(S(0.3f, Monk, -1, 2), S(3.5f, Shade, -1, 4), S(8f, Elite, 1)),
@@ -43,7 +44,7 @@ namespace InkLine
                 W(S(0.3f, Elite, 1), S(1.5f, Elite, 4), S(6f, Swarm, -1, 5), S(10.5f, Monk, -1, 2)),
                 W(S(0.3f, Belt, -1, 4), S(4f, Shade, -1, 4), S(8.5f, Bulwark, -1, 2)),
                 W(S(0.3f, Splitter, -1, 3), S(4f, Monk, -1, 2), S(8.5f, Elite, -1, 2))
-            ).DigBoard());
+            ).DigBoard().Inkwell(2, 0).Inkwell(2, 1).Crystal(1, 0));
 
             s.Add(P("再钟", G("XX..X.", "X.X..."),
                 W(S(0.3f, Monk, -1, 2), S(3.5f, Elite, 2), S(8f, Shade, -1, 4)),
@@ -51,7 +52,7 @@ namespace InkLine
                 W(S(0.3f, Shade, -1, 4), S(4f, Monk, -1, 2), S(8.5f, Sprinter, -1, 3)),
                 W(S(0.3f, Elite, 0), S(1.5f, Elite, 5), S(6f, Swarm, -1, 4), S(10.5f, Monk, 3)),
                 Boss(BossBell, S(6f, Shade, -1, 4), S(12f, Monk, 2), S(18f, Elite, 4), S(24f, Warden, 1))
-            ).DigBoard());
+            ).DigBoard().Inkwell(1, 0).Stele(4, 0, Break, 2).Crystal(2, 0));
 
             s.Add(P("藏书", G(".XX.X.", ".X..X."),
                 W(S(0.3f, Strafer, -1, 4), S(3.5f, Monk, 1), S(8f, Shade, -1, 4)),
@@ -60,7 +61,7 @@ namespace InkLine
                 W(S(0.3f, Elite, 0), S(1.2f, Elite, 3), S(5.5f, Belt, -1, 4), S(10f, Swarm, -1, 4)),
                 W(S(0.3f, Monk, 1), S(0.9f, Monk, 4), S(5f, Shade, -1, 4), S(9.5f, Warden, 2)),
                 W(S(0.3f, Bulwark, -1, 2), S(4f, Splitter, -1, 3), S(8.5f, Elite, -1, 2))
-            ).DigBoard());
+            ).DigBoard().Inkwell(1, 0).Crystal(3, 0).Crystal(2, 1));
 
             s.Add(P("金井", G("X..XXX", ".X...."),
                 W(S(0.3f, Monk, 2), S(1.2f, Swarm, -1, 4), S(5.5f, Shade, -1, 4), S(10f, Elite, 4)),
@@ -69,7 +70,7 @@ namespace InkLine
                 W(S(0.3f, Elite, 1), S(1.5f, Elite, 3), S(6f, Belt, -1, 4), S(10.5f, Monk, 0)),
                 W(S(0.3f, Bulwark, -1, 2), S(4f, Shade, -1, 4), S(8.5f, Swarm, -1, 4)),
                 W(S(0.3f, Splitter, -1, 3), S(4f, Warden, 2), S(8.5f, Monk, -1, 2))
-            ).DigBoard());
+            ).DigBoard().Inkwell(3, 0).Crystal(1, 0).Crystal(2, 0));
 
             s.Add(P("偏殿", G("XXX.X.", "....X."),
                 W(S(0.3f, Elite, 1), S(1.2f, Monk, 2), S(5.5f, Shade, -1, 4), S(10f, Runner, -1, 4)),
@@ -78,7 +79,7 @@ namespace InkLine
                 W(S(0.3f, Belt, -1, 4), S(4f, Elite, -1, 2), S(8.5f, Shade, -1, 4)),
                 W(S(0.3f, Monk, 1), S(0.9f, Monk, 3), S(5f, Bulwark, -1, 2), S(9.5f, Runner, -1, 4)),
                 W(S(0.3f, Warden, 2), S(1.5f, Splitter, -1, 3), S(6f, Elite, 5), S(10.5f, Shade, -1, 4))
-            ).DigBoard());
+            ).DigBoard().Inkwell(2, 0).Crystal(3, 0).Crystal(2, 1));
 
             s.Add(P("墨王", G("XX.XX.", "..X..."),
                 W(S(0.3f, Monk, -1, 2), S(3.5f, Elite, -1, 2), S(8f, Shade, -1, 4)),
@@ -88,7 +89,7 @@ namespace InkLine
                 W(S(0.3f, Monk, 2), S(1.2f, Monk, 3), S(6f, Shade, -1, 4), S(10.5f, Bulwark, -1, 2)),
                 W(S(0.3f, Splitter, -1, 3), S(4f, Warden, -1, 2), S(8.5f, Elite, -1, 2)),
                 Boss(BossKing, S(8f, BossBell, 4), S(14f, Monk, 1), S(20f, Shade, -1, 4), S(26f, Elite, -1, 2))
-            ).DigBoard());
+            ).DigBoard().Inkwell(3, 0).Stele(0, 0, Thunder, 2).Crystal(2, 0));
         }
     }
 }

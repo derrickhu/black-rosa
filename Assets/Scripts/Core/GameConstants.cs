@@ -26,6 +26,15 @@ namespace InkLine
         // 每日残局通关第三章开，每天一局，看广告再加一局，续一次命。
         // 残局的字池、移速和掉墨仍按第四章，见 StageDaily。
         public const int DailyOpenChapter = 2;
+        // 百鬼狂潮通关第四章开（和字卡同步），每天免费一局、广告加一局，爽刷金箔和印章。
+        public const int FrenzyOpenChapter = 3;
+        public const int FrenzyPlaysPerDay = 1;
+        public const int FrenzyAdPlays = 1;
+        public const float FrenzySeconds = 96f;
+        // 轻量化字帖：最多偏爱两张、封存两张。
+        public const int CopybookFavMax = 2;
+        public const int CopybookBanMax = 2;
+        public const float CopybookFavMul = 1.65f;
 
         public static string ChapterName(int chapter)
         {

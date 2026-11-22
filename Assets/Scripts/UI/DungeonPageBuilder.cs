@@ -9,7 +9,7 @@ namespace InkLine
     public static class DungeonPageBuilder
     {
         // 烘出来的预制里有这个空节点。换布局就改这个名字，编辑器编译后只重烘这一页。
-        public const string Mark = "dungeon_v8";
+        public const string Mark = "dungeon_v10";
 
         public const float CardW = 640f;
         public const float CardH = 240f;
@@ -91,9 +91,23 @@ namespace InkLine
                 Art = "Ui/dungeon_endless",
                 Chip = InkTheme.Hex("C6AEF8"),
             });
+            host.Frenzy = BuildFrenzy(page);
             var mark = new GameObject(Mark, typeof(RectTransform));
             mark.transform.SetParent(page, false);
             return host;
+        }
+
+        public static DungeonCard BuildFrenzy(RectTransform page)
+        {
+            return Card(page, CardTop + (CardH + CardGap) * 2f, new Tone
+            {
+                Name = "frenzy",
+                Title = "百鬼狂潮",
+                Head = "获得金箔印章",
+                Plate = "Ui/mode_plate_gold",
+                Art = "Ui/dungeon_frenzy",
+                Chip = InkTheme.Hex("D68A28"),
+            });
         }
 
         // 次数条和加号成一组，相对进入键左右居中。没有加号时次数条自己居中。

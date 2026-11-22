@@ -114,7 +114,7 @@ namespace InkLine
     public static class EnemyCatalog
     {
         // 给按 EnemyId 索引的数组用，加怪时跟着枚举一起长。
-        public const int IdCount = (int)EnemyId.BossBell + 1;
+        public const int IdCount = (int)EnemyId.Daruma + 1;
 
         public static string Name(EnemyId id)
         {
@@ -150,6 +150,7 @@ namespace InkLine
                 case EnemyId.Phantom: return "幻影";
                 case EnemyId.BossShade: return "影姬";
                 case EnemyId.BossBell: return "钟魔";
+                case EnemyId.Daruma: return "不倒金翁";
                 default: return "墨丁";
             }
         }
@@ -188,6 +189,7 @@ namespace InkLine
                 case EnemyId.Phantom: return "影姬分出来的影子。和墨影一样，得用炮弹本体先打显形。";
                 case EnemyId.BossShade: return "章底。打到半血分出两只幻影，三个一起往下压。范围清不掉影子。";
                 case EnemyId.BossBell: return "章底。每 8 秒敲一次钟，全场都挂上一层盾。破的三星、穿和分专门拆盾。";
+                case EnemyId.Daruma: return "百鬼狂潮压轴登场的黄金不倒翁。从不扣基地血，每挨痛打就往外喷落金箔与金币。";
                 default: return "一团墨。";
             }
         }
@@ -364,6 +366,9 @@ namespace InkLine
                 case EnemyId.BossBell:      // 十关 · 钟魔：每 8 秒全场加盾 + 甲 + 推不动，考拆盾
                     return new EnemyDef(id, 320f, 0.17f, 36, 9.0f, 0.74f,
                         boss: true, armor: 1f, noKnock: true, bell: 8f);
+                case EnemyId.Daruma:        // 百鬼狂潮压轴金翁：慢步横晃，挨打狂喷金箔，不扣基地血
+                    return new EnemyDef(id, 900f, 0.11f, 30, 8.0f, 0.68f,
+                        strafe: true, stunImmune: true, noKnock: true);
 
                 default:
                     return new EnemyDef(EnemyId.Walker, 4.5f, 0.62f, 2, 0.18f, 0.26f);

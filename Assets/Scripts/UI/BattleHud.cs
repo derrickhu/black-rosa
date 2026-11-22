@@ -433,7 +433,13 @@ namespace InkLine
             // 最后一波计时走完，下标会拨到总波数外面，用来等场上的怪清完再结算。
             // 显示停在最后一波，清场时才不会看成 3/2、6/5。
             int wave = Mathf.Min(world.WaveIndex + 1, world.Stage.Waves.Length);
-            if (world.Stage.Endless) Wave.text = $"第 {wave}/{world.Stage.Waves.Length} 波";
+            if (world.Stage.Frenzy)
+            {
+                int sec = Mathf.CeilToInt(world.FrenzyLeft);
+                string clock = $"{sec / 60:00}:{sec % 60:00}";
+                Wave.text = world.DarumaActive ? $"金翁 {clock}" : $"狂潮 {clock}";
+            }
+            else if (world.Stage.Endless) Wave.text = $"第 {wave}/{world.Stage.Waves.Length} 波";
             else if (world.BossSpawned) Wave.text = world.Stage.Hard ? "精英 · 关底" : "关底";
             else Wave.text = world.Stage.Hard ? $"精英 {wave}/{world.Stage.Waves.Length}" : $"波 {wave}/{world.Stage.Waves.Length}";
             PaintMire(world);
@@ -458,10 +464,21 @@ namespace InkLine
         void PaintMire(BattleWorld world)
         {
             if (Mire == null) return;
+            if (world.Stage != null && world.Stage.Frenzy)
+            {
+                if (!Mire.gameObject.activeSelf) Mire.gameObject.SetActive(true);
+                Mire.color = InkTheme.Hex("FFE455");
+                Mire.text = $"击破 {world.Kills}  ·  金箔 +{world.FrenzyTotalFoil}";
+                return;
+            }
             int pct = world.WardPercent;
             bool on = pct > 0;
             if (Mire.gameObject.activeSelf != on) Mire.gameObject.SetActive(on);
-            if (on) Mire.text = "魔气减伤 " + pct + "%";
+            if (on)
+            {
+                Mire.color = InkTheme.Hex("FF7AD9");
+                Mire.text = "魔气减伤 " + pct + "%";
+            }
         }
 
         // 看广告加炮：改装左边的青色中号尖角按钮，场记板图标加「加一门炮」。

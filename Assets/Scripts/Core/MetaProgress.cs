@@ -548,6 +548,7 @@ namespace InkLine
             if (RollEvent()) dirty = true;
             if (RollEndless()) dirty = true;
             if (RollDaily()) dirty = true;
+            if (RollFrenzy()) dirty = true;
             if (RollTasks()) dirty = true;
             if (RollStudy()) dirty = true;
             if (RegenStamina()) dirty = true;
@@ -1035,6 +1036,7 @@ namespace InkLine
         }
 
         // 字卡开放后的三选一字池：账号打到过的最远一关为止，所有关卡字池的并集，再并上这关自己的。
+        // 字帖里「封存」的字/词从池子里剔掉（每日残局除外；首通关卡的新字与池子不足 6 张时保底留着）。
         public CardId[] AccountPool(StageDef stage)
         {
             int top = 0;
@@ -1044,6 +1046,30 @@ namespace InkLine
             var list = new List<CardId>();
             for (int s = 0; s <= top; s++) AddPool(StageCatalog.Get(s).Pool, seen, list);
             if (stage != null) AddPool(stage.Pool, seen, list);
+            if (StudyOpen && CopyBanCount > 0 && (stage == null || !stage.Daily) && list.Count > 6)
+            {
+                CardId[] fresh = stage != null && !StageCleared(stage) ? stage.Fresh : null;
+                bool guardFresh = fresh != null && fresh.Length > 0;
+                var kept = new List<CardId>(list.Count);
+                var cut = new List<CardId>(4);
+                for (int i = 0; i < list.Count; i++)
+                {
+                    CardId id = list[i];
+                    bool protect = false;
+                    if (guardFresh)
+                    {
+                        WordId w = CardCatalog.Get(id).Word;
+                        for (int f = 0; f < fresh.Length; f++)
+                            if (fresh[f] == id || (w != WordId.None && CardCatalog.Get(fresh[f]).Word == w))
+                            { protect = true; break; }
+                    }
+                    if (!protect && CardBanned(id)) cut.Add(id);
+                    else kept.Add(id);
+                }
+                for (int i = 0; i < cut.Count && kept.Count < 6; i++)
+                    kept.Add(cut[i]);
+                return kept.ToArray();
+            }
             return list.ToArray();
         }
 
@@ -1059,10 +1085,10 @@ namespace InkLine
             }
         }
 
-        // 主线看 Stars，精英看 HardStars。无尽、活动、每日没有首通一说。
+        // 主线看 Stars，精英看 HardStars。无尽、活动、每日、狂潮没有首通一说。
         public bool StageCleared(StageDef stage)
         {
-            if (stage == null || stage.Endless || stage.Event || stage.Daily) return true;
+            if (stage == null || stage.Endless || stage.Event || stage.Daily || stage.Frenzy) return true;
             int[] book = stage.Hard ? HardStars : Stars;
             return stage.Index < 0 || stage.Index >= book.Length || book[stage.Index] > 0;
         }

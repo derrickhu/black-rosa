@@ -138,15 +138,16 @@ namespace InkLine
             return false;
         }
 
-        // 三选一的字运倍率。词的字运作用在两个半边字上；同一个字两边都有时取大的。
+        // 三选一的字运倍率。词的字运作用在两个半边字上；同一个字两边都有时取大的；再叠乘字帖「偏爱」倍率。
         public float OfferLuck(CardId id)
         {
-            if (!SealOpen) return 1f;
+            float copy = CopybookLuck(id);
+            if (!SealOpen) return copy;
             float best = LuckAt(new CodexEntry(CodexKind.Glyph, (int)id));
             CardDef def = CardCatalog.Get(id);
             if (def.Wake == CardWake.WordPart && def.Word != WordId.None)
                 best = Mathf.Max(best, LuckAt(new CodexEntry(CodexKind.Word, (int)def.Word)));
-            return best;
+            return best * copy;
         }
 
         // 这个字上镶着的字运倍率叠乘。空着的字运槽不算。

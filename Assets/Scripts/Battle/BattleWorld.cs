@@ -636,11 +636,16 @@ namespace InkLine
             _comboGap = 0f;
             _comboTier = 0;
             ResetChests();
+            BeginTerrainAndFrenzy();
             if (stage.Preset != null)
                 for (int i = 0; i < stage.Preset.Length; i++)
                 {
                     PresetGlyph p = stage.Preset[i];
-                    if (!IsOpen(p.Col, p.Row)) continue;
+                    if (!IsOpen(p.Col, p.Row))
+                    {
+                        Open[p.Col, p.Row] = true;
+                        OpenRows = Mathf.Max(OpenRows, p.Row + 1);
+                    }
                     Grid[p.Col, p.Row] = p.Id;
                     Stars[p.Col, p.Row] = Mathf.Clamp(p.Star, 1, GameConstants.MaxStar);
                 }
@@ -802,6 +807,7 @@ namespace InkLine
             if (HaltAura > 0f) HaltAura -= dt;
             if (FrostLeft > 0f) FrostLeft -= dt;
             if (PreviewFill) TickPreview(dt);
+            TickFrenzy(dt);
             TickWaves(dt);
             TickEmitters(dt);
             TickBullets(dt);
@@ -1286,7 +1292,7 @@ namespace InkLine
                 CardId id = Grid[col, row].Value;
                 // 新特效预览把蓄力字、词组字也先标上，出膛就是秘卷的样子。
                 if (GmLookKind != 2 && CardCatalog.Get(id).Wake != CardWake.Always) continue;
-                b.Mods.Mark(id, Stars[col, row]);
+                b.Mods.Mark(id, EffectiveStar(col, row));
             }
             NotePairs(b.Mods);
         }
@@ -1380,19 +1386,24 @@ namespace InkLine
 
         void ApplyRows(BulletActor b)
         {
-            while (b.NextRow < OpenRows && b.Pos.y >= FieldLayout.RowApplyY(b.NextRow))
+            int maxRow = Mathf.Max(OpenRows, GameConstants.Rows);
+            while (b.NextRow < maxRow && b.Pos.y >= FieldLayout.RowApplyY(b.NextRow))
             {
                 int col = FieldLayout.ColumnAtX(b.Pos.x);
-                if (b.Mother && (_charge != null) && (b.ChargedMask & (1 << col)) == 0)
-                    StampColumn(b, col);
-                CardId? id = Grid[col, b.NextRow];
-                if (id.HasValue)
+                CheckCrystalPass(b, col, b.NextRow);
+                if (b.NextRow < OpenRows)
                 {
-                    CardDef def = CardCatalog.Get(id.Value);
-                    if (def.Wake == CardWake.Always)
+                    if (b.Mother && (_charge != null) && (b.ChargedMask & (1 << col)) == 0)
+                        StampColumn(b, col);
+                    CardId? id = Grid[col, b.NextRow];
+                    if (id.HasValue)
                     {
-                        ApplyMod(b, id.Value, Stars[col, b.NextRow]);
-                        if (b.Mother) Beat(CellBeat.Pass, col, b.NextRow);
+                        CardDef def = CardCatalog.Get(id.Value);
+                        if (def.Wake == CardWake.Always)
+                        {
+                            ApplyMod(b, id.Value, EffectiveStar(col, b.NextRow));
+                            if (b.Mother) Beat(CellBeat.Pass, col, b.NextRow);
+                        }
                     }
                 }
                 b.NextRow++;
@@ -1576,7 +1587,7 @@ namespace InkLine
                 CardId? id = Grid[col, row];
                 if (!id.HasValue) continue;
                 if (CardCatalog.Get(id.Value).Wake != CardWake.Always) continue;
-                int s = Stars[col, row];
+                int s = EffectiveStar(col, row);
                 GlyphDef g = GlyphTable.Get(id.Value);
                 m.Mark(id.Value, s);
                 if (g.Family != GlyphFamily.Hurt) continue;
@@ -1847,7 +1858,7 @@ namespace InkLine
                     CardId? id = Grid[col, row];
                     if (!id.HasValue || id.Value == CardId.Shadow || id.Value == CardId.Split) continue;
                     if (CardCatalog.Get(id.Value).Wake != CardWake.Always) continue;
-                    ApplyMod(dummy, id.Value, Stars[col, row]);
+                    ApplyMod(dummy, id.Value, EffectiveStar(col, row));
                 }
             }
             float share = Mathf.Clamp(src.Mods.GhostShare, 0.05f, 1f);
@@ -2259,7 +2270,9 @@ namespace InkLine
             if (m.Leech > 0f && !echo) PourLeech(Mathf.Min(dmg, e.Hp) * m.Leech, m.LeechCap);
 
             // 6 扣血
+            float prevHp = e.Hp;
             e.Hp -= dmg;
+            NoteDarumaHit(e, prevHp);
             e.HitFlash = heavy || execute ? 0.2f : 0.16f;
 
             // 7 状族、8 位族。回响只补伤害，不把灼烧和击退再铺一圈。
@@ -3110,6 +3123,7 @@ namespace InkLine
                 }
                 if (e.Pos.y <= GameConstants.LeakY)
                 {
+                    if (HandleFrenzyLeak(e)) continue;
                     // 漏进基地只扣血，不算出死。送回入口，打死才算清掉，
                     // 否则最后一只撞线的瞬间场上没人，会直接判过关。
                     BaseHp = Mathf.Max(0, BaseHp - 1);
@@ -3199,6 +3213,17 @@ namespace InkLine
 
         void CheckEnd(float dt)
         {
+            if (Stage != null && Stage.Frenzy)
+            {
+                if (BattleTime >= GameConstants.FrenzySeconds)
+                {
+                    Victory = true;
+                    Paused = true;
+                    FlushDrops();
+                    Chests.Clear();
+                }
+                return;
+            }
             if (BaseHp <= 0)
             {
                 _clearHold = 0f;
@@ -3330,10 +3355,12 @@ namespace InkLine
 
         public PlaceResult PeekPlace(CardId id, int col, int row)
         {
+            if (HasCrystal(col, row)) return PlaceResult.LockedRow;
             if (!IsOpen(col, row)) return PlaceResult.LockedRow;
             if (!Grid[col, row].HasValue) return PlaceResult.Placed;
             if (Grid[col, row] == id)
                 return Stars[col, row] >= GameConstants.MaxStar ? PlaceResult.RejectedMaxStar : PlaceResult.Upgraded;
+            if (IsStele(col, row)) return PlaceResult.RejectedMaxStar;
             return PlaceResult.NeedConfirm;
         }
 
@@ -3347,16 +3374,27 @@ namespace InkLine
             if (peek == PlaceResult.LockedRow || peek == PlaceResult.RejectedMaxStar) return peek;
             if (peek == PlaceResult.NeedConfirm && !overwrite) return peek;
             CardId old = Grid[col, row] ?? CardId.None;
+            Vector2 cell = FieldLayout.CellPos(col, row);
             if (peek == PlaceResult.Upgraded)
             {
                 Stars[col, row]++;
                 if (Stars[col, row] >= GameConstants.MaxStar) TopStars++;
-                ShowToast($"{CardCatalog.Get(id).Name} {Stars[col, row]} 星");
+                int eff = EffectiveStar(col, row);
+                ShowToast(eff >= 4
+                    ? $"灵砚极意 · {CardCatalog.Get(id).Name} 4 星！"
+                    : $"{CardCatalog.Get(id).Name} {eff} 星");
+                if (eff >= 4) ShowFloat(cell + Vector2.up * 0.42f, "四星·极意！", InkTheme.GoldHi, 1.16f);
             }
             else
             {
                 Grid[col, row] = id;
-                Stars[col, row] = 1;
+                bool frenzyJump = Stage != null && Stage.Frenzy && !PreviewFill && UnityEngine.Random.value < 0.55f;
+                Stars[col, row] = frenzyJump ? 2 : 1;
+                int eff = EffectiveStar(col, row);
+                if (Terrain[col, row] == CellTerrain.Inkwell)
+                    ShowFloat(cell + Vector2.up * 0.38f, $"灵砚 ★{eff}", InkTheme.GoldHi, 1.05f);
+                else if (frenzyJump)
+                    ShowFloat(cell + Vector2.up * 0.35f, "狂潮直升 ★2", InkTheme.GoldHi, 0.98f);
             }
             WordId before = _word != null ? _word[col] : WordId.None;
             RefreshCol(col);
@@ -3367,7 +3405,6 @@ namespace InkLine
                 : peek == PlaceResult.NeedConfirm ? CellBeat.Replace : CellBeat.Drop, col, row);
             beat.Old = old;
             Pulses.Add(beat);
-            Vector2 cell = FieldLayout.CellPos(col, row);
             if (peek != PlaceResult.Upgraded) StudyPop(cell, StudyLevelOf(id), (int)id == StudyTrialGlyph, SealCatalog.KeyOf(id));
 
             if (_word[col] != WordId.None && _word[col] != before)
@@ -3453,7 +3490,7 @@ namespace InkLine
             {
                 if (!Grid[col, r].HasValue) continue;
                 CardId id = Grid[col, r].Value;
-                int star = Stars[col, r];
+                int star = EffectiveStar(col, r);
                 if (id == CardId.Pierce) _pierceStar[col] = Mathf.Max(_pierceStar[col], star);
                 if (id == CardId.Explode) _explodeStar[col] = Mathf.Max(_explodeStar[col], star);
                 if (id == CardId.Heavy) _heavyStar[col] = Mathf.Max(_heavyStar[col], star);
@@ -3504,7 +3541,7 @@ namespace InkLine
             CardDef def = CardCatalog.Get(Grid[col, row].Value);
             if (def.Wake == CardWake.Charge)
             {
-                need = CardCatalog.ChargeNeed(def.Id, def.Id == CardId.Heavy ? _heavyStar[col] : Stars[col, row]);
+                need = CardCatalog.ChargeNeed(def.Id, def.Id == CardId.Heavy ? _heavyStar[col] : EffectiveStar(col, row));
                 now = Mathf.Min(_charge[col, ChargeKind(def.Id)], need);
             }
             else if (def.Wake == CardWake.WordPart && _word[col] == def.Word)

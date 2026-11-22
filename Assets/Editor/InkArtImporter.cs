@@ -69,7 +69,8 @@ public sealed class InkArtImporter : AssetPostprocessor
         bool codexBig = path.EndsWith("/codex_board.png") || path.Contains("/codex_row");
         // 图鉴卡按原比例整张贴，不走九宫格；格子 190 宽、详情 196 宽，留两倍超采样。
         bool codexCard = path.Contains("/codex_face") || path.EndsWith("/codex_back.png")
-                         || path.Contains("/Ui/loot_") || path.Contains("/Ui/study_card_");
+                         || path.Contains("/Ui/loot_") || path.Contains("/Ui/study_card_")
+                         || path.EndsWith("/Ui/dungeon_frenzy.png");
         int size = stage || homeBg || modePlate || terrace || modalBig ? 2048
             : (panel || codexBig || home || itemKit || skinHex || modalKit ? 1024 : codexCard ? 512 : 256);
         importer.maxTextureSize = size;

@@ -10,6 +10,7 @@ namespace InkLine
     {
         public DungeonCard Daily;
         public DungeonCard Endless;
+        public DungeonCard Frenzy;
 
         static readonly Color Dimmed = new Color(0.58f, 0.58f, 0.60f, 1f);
         static readonly Color GoOff = new Color(0.72f, 0.72f, 0.72f, 1f);
@@ -17,24 +18,38 @@ namespace InkLine
         MetaProgress _meta;
         Action _openDaily;
         Action _openEndless;
+        Action _openFrenzy;
         Action _changed;
         bool _chestHomeSaved;
         readonly Vector2[] _chestPos = new Vector2[3];
         readonly Vector2[] _chestSize = new Vector2[3];
         readonly Vector2[] _chestPivot = new Vector2[3];
 
-        public void Bind(MetaProgress meta, Action openDaily, Action openEndless, Action changed = null)
+        public void Bind(MetaProgress meta, Action openDaily, Action openEndless, Action changed = null, Action openFrenzy = null)
         {
             _meta = meta;
             _openDaily = openDaily;
             _openEndless = openEndless;
+            _openFrenzy = openFrenzy;
             _changed = changed;
+            EnsureFrenzyCard();
             BindDaily();
             BindEndless();
+            BindFrenzy();
             FitArt(Daily);
             FitArt(Endless);
+            FitArt(Frenzy);
             // 字号放大在 FitArt 里，奖励图标放到它后面，问号才不会被再撑一档。
             FitDailyReward();
+            FitFrenzyReward();
+        }
+
+        void EnsureFrenzyCard()
+        {
+            if (Frenzy != null) return;
+            Transform existing = transform.Find("frenzy");
+            if (existing != null) Frenzy = existing.GetComponent<DungeonCard>();
+            if (Frenzy == null) Frenzy = DungeonPageBuilder.BuildFrenzy(transform as RectTransform);
         }
 
         static void FitArt(DungeonCard c)
@@ -61,7 +76,9 @@ namespace InkLine
         }
 
         public static bool HasPlay(MetaProgress meta) =>
-            (meta.DailyOpen && meta.DailyPlaysLeft > 0) || (meta.EndlessOpen && meta.EndlessPlaysLeft > 0);
+            (meta.DailyOpen && meta.DailyPlaysLeft > 0)
+            || (meta.EndlessOpen && meta.EndlessPlaysLeft > 0)
+            || (meta.FrenzyOpen && meta.FrenzyPlaysLeft > 0);
 
         void BindDaily()
         {
@@ -212,6 +229,55 @@ namespace InkLine
             Wire(c, _openEndless, OnEndlessAd);
         }
 
+        void BindFrenzy()
+        {
+            DungeonCard c = Frenzy;
+            if (c == null || _meta == null) return;
+            if (c.Frame != null && c.Frame.sprite == null)
+            {
+                Sprite plate = InkSprites.Load("Ui/mode_plate_gold");
+                if (plate != null) c.Frame.sprite = plate;
+            }
+            CdnAssets.Bind(c.Art, "Ui/dungeon_frenzy");
+            if (!_meta.FrenzyOpen)
+            {
+                Locked(c, "通关第" + GameConstants.ChapterName(GameConstants.FrenzyOpenChapter) + "章开放");
+            }
+            else
+            {
+                CdnAssets.Prefetch(StageCatalog.FrenzyBackdrop);
+                Open(c, "零耗体爽刷",
+                    "剩余次数：" + _meta.FrenzyPlaysLeft + "/" + _meta.FrenzyPlaysCap,
+                    _meta.FrenzyPlaysLeft > 0,
+                    _meta.CanFrenzyAd);
+            }
+            Wire(c, _openFrenzy, OnFrenzyAd);
+            FitFrenzyReward();
+        }
+
+        void FitFrenzyReward()
+        {
+            DungeonCard c = Frenzy;
+            if (c == null || c.Frame == null) return;
+            Transform root = c.Frame.transform;
+            string[] slotKeys = { "Ui/modal_slot_60_purple", "Ui/modal_slot_60_orange", "Ui/modal_slot_60_green" };
+            string[] iconKeys = { "Ui/ico_ink", "Ui/ico_foil", "Ui/seal_ico_fierce" };
+            for (int i = 0; i < 3; i++)
+            {
+                var si = root.Find("slot" + i)?.GetComponent<Image>();
+                Sprite s = InkSprites.Load(slotKeys[i]);
+                if (si != null && s != null) si.sprite = s;
+                var ci = root.Find("chest" + i)?.GetComponent<Image>();
+                Sprite ic = InkSprites.Load(iconKeys[i]);
+                if (ci != null && ic != null)
+                {
+                    ci.sprite = ic;
+                    ci.type = Image.Type.Simple;
+                    ci.preserveAspect = true;
+                }
+            }
+        }
+
         static void Open(DungeonCard c, string chip, string plays, bool ready, bool plus)
         {
             Repair(c);
@@ -320,6 +386,17 @@ namespace InkLine
                 if (this == null || _meta == null || !_meta.GrantEndlessAdPlays()) return;
                 if (_changed != null) _changed();
                 else BindEndless();
+            });
+        }
+
+        void OnFrenzyAd()
+        {
+            AudioBus.Tap();
+            AdStub.Reward("frenzy_plays", () =>
+            {
+                if (this == null || _meta == null || !_meta.GrantFrenzyAdPlays()) return;
+                if (_changed != null) _changed();
+                else BindFrenzy();
             });
         }
 

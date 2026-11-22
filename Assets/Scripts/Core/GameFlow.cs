@@ -29,6 +29,7 @@ namespace InkLine
         bool _endless;
         // 每日残局也走闯波那一套（_endless 同时为真），结算和次数另算，不上榜。
         bool _daily;
+        bool _frenzy;
         bool _hard;
         // 这一局的功课已经记过了。赢、输、撤退各走各的路，只记一次。
         bool _tallied;
@@ -350,7 +351,12 @@ namespace InkLine
                     ShowHome();
                     return;
                 }
-                // 无尽撤退也按已打完的波数结算、上榜，不白打。
+                // 无尽/狂潮撤退也按已取得的成绩直接结算，不白打。
+                if (_frenzy)
+                {
+                    SettleFrenzy();
+                    return;
+                }
                 if (_endless)
                 {
                     SettleEndless(false);
@@ -365,6 +371,7 @@ namespace InkLine
             }
 
             string leaveNote = BattleWorld.GmLook ? "这局只是预览，撤退不记进度"
+                : _frenzy ? "提前收兵将按当前击破数直接结算，次数不退还"
                 : _endless ? "撤退按已打完的波数结算，次数不退还"
                 : _eventTier >= 0 ? "撤退不存金币，次数也不退还" : "撤退后没有奖励，体力也不退还";
             dim = SettingsPanel.Show(_layer, leaveNote, Stay, Leave);
@@ -402,16 +409,18 @@ namespace InkLine
             _teach = 0;
             _eventTier = -1;
             _endless = false;
+            _frenzy = false;
             InkSprites.EnemyTheme = null;
             _home = HomeScreen.Build(_layer, _meta, StartStage, ReloadSave, tab);
             _home.StartEvent = StartEvent;
             _home.StartEndless = StartEndless;
             _home.StartDaily = StartDaily;
+            _home.StartFrenzy = StartFrenzy;
             _home.StartHard = StartHard;
             AudioBus.Music("bgm_home");
             AudioBus.Warm("bgm_battle");
             if (_meta.DailyOpen) AudioBus.Warm("bgm_daily");
-            if (_meta.EndlessOpen) AudioBus.Warm("bgm_endless");
+            if (_meta.EndlessOpen || _meta.FrenzyOpen) AudioBus.Warm("bgm_endless");
             _home.TabPicked += OnHomeTab;
             _home.ForgeBought += OnHomeForge;
             _home.ChestOpened += OnChestPanel;
@@ -713,6 +722,7 @@ namespace InkLine
             _eventTier = -1;
             _endless = false;
             _daily = false;
+            _frenzy = false;
             _hard = false;
             _teachAim = index == 0 && !guide;
             BeginBattle(StageCatalog.Get(index));
@@ -734,6 +744,7 @@ namespace InkLine
             _eventTier = -1;
             _endless = false;
             _daily = false;
+            _frenzy = false;
             _hard = true;
             _teachAim = false;
             BeginBattle(StageCatalog.HardStage(index));
@@ -755,6 +766,7 @@ namespace InkLine
             _eventTier = -1;
             _endless = true;
             _daily = true;
+            _frenzy = false;
             _hard = false;
             _teachAim = false;
             StageDef stage = StageCatalog.DailyStage(DayClock.Today, DayClock.Week);
@@ -775,6 +787,7 @@ namespace InkLine
             _eventTier = tier;
             _endless = false;
             _daily = false;
+            _frenzy = false;
             _hard = false;
             _teachAim = false;
             BeginBattle(StageCatalog.EventStage(tier, _meta.EventPool()));
@@ -794,12 +807,33 @@ namespace InkLine
             _eventTier = -1;
             _endless = true;
             _daily = false;
+            _frenzy = false;
             _hard = false;
             _teachAim = false;
             StageRule rule = StageRules.ThisWeek;
             BeginBattle(StageCatalog.EndlessStage(_meta.EventPool(), rule));
             string best = _meta.EndlessWeekBest > 0 ? "，本周最好第 " + _meta.EndlessWeekBest + " 波" : "";
             _world.ShowToast("本周词缀 · " + rule.Name + "：" + rule.Desc + best, 3f);
+        }
+
+        // 百鬼狂潮：扣当天狂潮次数，不扣体力，96 秒爽刷割草。
+        void StartFrenzy()
+        {
+            if (!_meta.FrenzyOpen) return;
+            _meta.StorePending();
+            if (HoldOverflow(StartFrenzy)) return;
+            _overflowSnooze = false;
+            if (!_meta.SpendFrenzyPlay()) return;
+            _guide = false;
+            _teach = 0;
+            _eventTier = -1;
+            _endless = false;
+            _daily = false;
+            _frenzy = true;
+            _hard = false;
+            _teachAim = false;
+            BeginBattle(StageCatalog.FrenzyStage(_meta.EventPool(), _meta.ClearedCount() / GameConstants.ChapterSize));
+            _world.ShowToast("百鬼狂潮：中央灵砚直冲 ★4 极意，射碎墨晶白送字牌！", 3.2f);
         }
 
         // 首页 GM：盘上已经是鬼火和失魂，两门炮对准这两列。不扣体力，不记进度。
@@ -971,9 +1005,10 @@ namespace InkLine
             };
         }
 
-        // 埋点里的关卡号。主线是正数，活动是 -1~-3，无尽、每日各一个，精英在主线号上加 1000。
+        // 埋点里的关卡号。主线是正数，活动是 -1~-3，无尽、每日、狂潮各一个，精英在主线号上加 1000。
         const int EndlessLevelId = -100;
         const int DailyLevelId = -101;
+        const int FrenzyLevelId = -102;
         const int HardLevelBase = 1000;
 
         void BeginBattle(StageDef stage, bool look = false, int lookKind = 0)
@@ -992,7 +1027,7 @@ namespace InkLine
                 out _world.StudyTrialGlyph, out _world.StudyTrialWord);
             _world.Seals = _meta.TakeSeals(stage.Daily);
             _offerPool = !stage.Daily && _meta.StudyOpen ? _meta.AccountPool(stage) : null;
-            _offerFresh = !stage.Endless && !stage.Event && !_meta.StageCleared(stage);
+            _offerFresh = !stage.Endless && !stage.Event && !stage.Frenzy && !_meta.StageCleared(stage);
             _world.Begin(stage, _meta.Forged, look ? new int[0] : _meta.Equipped);
             _world.ApplySkin(_meta.Skin);
             if (look)
@@ -1025,7 +1060,7 @@ namespace InkLine
             _view.EmitterTint = _meta.SkinTint;
             if (!BattleWorld.PreviewFill && !look)
             {
-                int levelId = stage.Daily ? DailyLevelId : stage.Endless ? EndlessLevelId
+                int levelId = stage.Daily ? DailyLevelId : stage.Frenzy ? FrenzyLevelId : stage.Endless ? EndlessLevelId
                     : stage.Event ? -(stage.EventTier + 1)
                     : stage.Hard ? HardLevelBase + stage.Index + 1 : stage.Index + 1;
                 Analytics.LevelStart(levelId, stage.Name ?? "");
@@ -1039,7 +1074,7 @@ namespace InkLine
             _rerolled = false;
             _dragging = false;
             // 每日关也标着 Endless。先看每日，不然会和无限播同一首。
-            AudioBus.Music(stage.Daily ? "bgm_daily" : stage.Endless ? "bgm_endless" : "bgm_battle");
+            AudioBus.Music(stage.Daily ? "bgm_daily" : (stage.Endless || stage.Frenzy) ? "bgm_endless" : "bgm_battle");
             if (BattleWorld.PreviewFill || look)
             {
                 _screen = Screen.Battle;
@@ -1284,10 +1319,11 @@ namespace InkLine
         {
             CardDef def = CardCatalog.Get(id);
             bool onBoard = HasSameOnBoard(id);
+            bool frenzy = _world != null && _world.Stage != null && _world.Stage.Frenzy;
             int w = 10;
             if (_offerFresh && !onBoard && IsFresh(id)) w = 26;
-            else if (def.Wake == CardWake.WordPart && HasSameOnBoard(CardCatalog.Partner(id))) w = 22;
-            else if (onBoard) w = 16;
+            else if (def.Wake == CardWake.WordPart && HasSameOnBoard(CardCatalog.Partner(id))) w = frenzy ? 32 : 22;
+            else if (onBoard) w = frenzy ? 24 : 16;
             return Mathf.Max(1, Mathf.RoundToInt(w * _meta.OfferLuck(id)));
         }
 
@@ -1539,13 +1575,13 @@ namespace InkLine
             if (result == BattleWorld.PlaceResult.LockedRow)
             {
                 _world.DenyCell(col, row);
-                _world.ShowToast("这格还没开");
+                _world.ShowToast(_world.HasCrystal(col, row) ? "先用炮弹射碎墨晶！" : "这格还没开");
                 return;
             }
             if (result == BattleWorld.PlaceResult.RejectedMaxStar)
             {
                 _world.DenyCell(col, row);
-                _world.ShowToast("已满星");
+                _world.ShowToast(_world.Terrain[col, row] == CellTerrain.Stele ? "古碑铭文不可替换" : "已满星");
                 return;
             }
             if (result == BattleWorld.PlaceResult.NeedConfirm)
@@ -1636,6 +1672,11 @@ namespace InkLine
             _screen = Screen.Result;
             _world.Paused = true;
             _inkDoubled = false;
+            if (_frenzy)
+            {
+                SettleFrenzy();
+                return;
+            }
             if (_eventTier >= 0)
             {
                 FinishEvent(win);
@@ -1838,7 +1879,7 @@ namespace InkLine
             _meta.NoteBattle(new BattleTally
             {
                 Win = win,
-                Main = !s.Endless && !s.Event && !s.Hard,
+                Main = !s.Endless && !s.Event && !s.Frenzy && !s.Hard,
                 Hard = s.Hard,
                 Daily = s.Daily,
                 Endless = s.Endless && !s.Daily,
@@ -1851,6 +1892,48 @@ namespace InkLine
                 Items = _world.ItemsUsed,
                 Combo = _world.BestCombo,
             });
+        }
+
+        void SettleFrenzy()
+        {
+            _screen = Screen.Result;
+            if (_world != null) _world.Paused = true;
+            DropOverlay();
+            AudioBus.Win();
+            int kills = _world != null ? _world.Kills : 0;
+            int earnedFoil = _world != null ? _world.FrenzyTotalFoil : 0;
+            Analytics.LevelClear(3);
+            FrenzyGrant g = _meta.ApplyFrenzy(kills, earnedFoil);
+            Tally(true);
+            _inkDoubled = false;
+            FrenzyResultPanel panel = null;
+            panel = FrenzyResultPanel.Show(_layer, _meta, new FrenzyResultArgs
+            {
+                Grant = g,
+                Double = g.Ink <= 0 && g.Foil <= 0 ? (System.Action)null : () =>
+                {
+                    if (_inkDoubled) return;
+                    AdStub.Reward("frenzy_double", () =>
+                    {
+                        if (_inkDoubled) return;
+                        _inkDoubled = true;
+                        _meta.DoubleFrenzyReward(g.Foil, g.Ink);
+                        if (panel != null) panel.Doubled();
+                    });
+                },
+                Again = () =>
+                {
+                    if (_meta.FrenzyPlaysLeft <= 0 || !_meta.FrenzyOpen)
+                    {
+                        AudioBus.Deny();
+                        if (_layer != null) InkToast.Show(_layer, "今日狂潮次数已用完，明天再来爽刷");
+                        return;
+                    }
+                    StartFrenzy();
+                },
+                Home = () => ShowHome(HomeScreen.TabDungeon)
+            });
+            _overlay = panel.Root;
         }
 
         void ShowEventResult(bool win, int banked, string unlocked, int purse = 0)
