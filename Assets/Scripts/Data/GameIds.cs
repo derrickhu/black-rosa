@@ -36,7 +36,12 @@ namespace InkLine
         Jun,
         // 第十三、十四章。图鉴和字卡按下标记位，只能往后接。
         Shadow,
-        Seal
+        Seal,
+        // 第十五、十六章：魔城与墨渊终章新词「横扫」、新字「财」「护」。
+        Heng,
+        Sao,
+        Wealth,
+        Guard
     }
 
     public enum CardWake
@@ -53,7 +58,8 @@ namespace InkLine
         ArrowRain,
         Knockback,
         Cleave,
-        Crush
+        Crush,
+        Sweep
     }
 
     public enum EnemyId
@@ -98,7 +104,12 @@ namespace InkLine
         BossShade,
         BossBell,
         // 百鬼狂潮压轴金翁（受击喷金箔，不进主线章底统计）。
-        Daruma
+        Daruma,
+        // 第十五、十六章：魔城鼓吏、墨渊污墨童，以及两只终章首领判官、魔尊。
+        Drummer,
+        Imp,
+        BossJudge,
+        BossAbyss
     }
 
     public enum CellTerrain
@@ -115,7 +126,8 @@ namespace InkLine
         // 数值上谁是关底以 EnemyCatalog 里的 boss: 参数为准，这里要和那边一致。
         public static bool IsBoss(EnemyId id) =>
             (id >= EnemyId.BossDrum && id <= EnemyId.BossKing)
-            || (id >= EnemyId.BossShade && id <= EnemyId.BossBell);
+            || (id >= EnemyId.BossShade && id <= EnemyId.BossBell)
+            || (id >= EnemyId.BossJudge && id <= EnemyId.BossAbyss);
     }
 
     public readonly struct CardDef

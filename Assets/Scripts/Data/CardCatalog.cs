@@ -37,11 +37,15 @@ namespace InkLine
             new CardDef(CardId.Qian, "千", "和「钧」同列才醒", InkShape.Square, CardWake.WordPart, WordId.Crush, 4),
             new CardDef(CardId.Jun, "钧", "和「千」同列才醒", InkShape.Square, CardWake.WordPart, WordId.Crush, 4),
             new CardDef(CardId.Shadow, "影", "每 4 发补一发影弹", InkShape.Arc, CardWake.Charge, WordId.None, 4),
-            new CardDef(CardId.Seal, "封", "打中后封住对方的技能", InkShape.Ring)
+            new CardDef(CardId.Seal, "封", "打中后封住对方的技能", InkShape.Ring),
+            new CardDef(CardId.Heng, "横", "和「扫」同列才醒", InkShape.Bar, CardWake.WordPart, WordId.Sweep, 3),
+            new CardDef(CardId.Sao, "扫", "和「横」同列才醒", InkShape.Arc, CardWake.WordPart, WordId.Sweep, 3),
+            new CardDef(CardId.Wealth, "财", "击杀迸元宝爆金震晕", InkShape.Diamond),
+            new CardDef(CardId.Guard, "护", "底线立金盾弹回漏怪", InkShape.Square)
         };
 
         // 给按 CardId 索引的数组用，加字时跟着枚举一起长。
-        public const int IdCount = (int)CardId.Seal + 1;
+        public const int IdCount = (int)CardId.Guard + 1;
 
         public static CardDef Get(CardId id)
         {
@@ -66,6 +70,8 @@ namespace InkLine
                 case CardId.Slash: return CardId.Link;
                 case CardId.Qian: return CardId.Jun;
                 case CardId.Jun: return CardId.Qian;
+                case CardId.Heng: return CardId.Sao;
+                case CardId.Sao: return CardId.Heng;
                 default: return CardId.None;
             }
         }
@@ -79,6 +85,7 @@ namespace InkLine
                 case WordId.Knockback: return "击退";
                 case WordId.Cleave: return "连斩";
                 case WordId.Crush: return "千钧";
+                case WordId.Sweep: return "横扫";
                 default: return "";
             }
         }
@@ -117,6 +124,6 @@ namespace InkLine
         public static int CleaveJumps(int star) => GlyphTable.Word(WordId.Cleave).Count.IntAt(star);
 
         // 词的种数，给按 WordId 索引的数组用。
-        public const int WordCount = (int)WordId.Crush + 1;
+        public const int WordCount = (int)WordId.Sweep + 1;
     }
 }

@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace InkLine
 {
-    public sealed class BattleView
+    public sealed partial class BattleView
     {
         readonly Transform _root;
         readonly List<SpriteRenderer> _grid = new List<SpriteRenderer>();
@@ -513,6 +513,7 @@ namespace InkLine
             w.DartPops.Clear();
             ArrowRainView.Bind(_root);
             ArrowRainView.Sync(w.Rain);
+            SyncFinale(w);
         }
 
         public const float DartScale = 0.64f;

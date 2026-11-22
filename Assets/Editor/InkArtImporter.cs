@@ -22,7 +22,9 @@ public sealed class InkArtImporter : AssetPostprocessor
                                || path.Contains("/hitv_")
                                || path.Contains("/burn_body_")
                                || path.Contains("/ice_crust_")
-                               || path.Contains("/dot_"));
+                               || path.Contains("/dot_")
+                               || path.EndsWith("/sweep_arc.png")
+                               || path.EndsWith("/judge_seal.png"));
         var importer = (TextureImporter)assetImporter;
         importer.textureType = TextureImporterType.Sprite;
         importer.spriteImportMode = SpriteImportMode.Single;

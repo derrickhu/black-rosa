@@ -181,20 +181,21 @@ namespace InkLine
     {
         public static readonly string[] ChapterNames =
         {
-            "草地", "土路", "石院", "沙漠", "森林", "河滩", "雪原", "火山", "竹林", "古寺", "墨窟", "地宫", "云海", "冥河"
+            "草地", "土路", "石院", "沙漠", "森林", "河滩", "雪原", "火山", "竹林", "古寺", "墨窟", "地宫", "云海", "冥河", "魔城", "墨渊"
         };
 
         public static string ChapterLabel(int chapter) => "第" + GameConstants.ChapterName(chapter) + "章";
 
-        // 十三章云海、十四章冥河各有自己的底图。
-        public static string BattleBackdrop(int chapter) => "Bg/battle_bg_" + (Mathf.Clamp(chapter, 0, 13) + 1);
+        // 十三章云海、十四章冥河、十五章魔城、十六章墨渊各有自己的底图。
+        public static string BattleBackdrop(int chapter) =>
+            "Bg/battle_bg_" + (Mathf.Clamp(chapter, 0, GameConstants.Chapters - 1) + 1);
 
         // 章底数。章内每关再加 5%，章底额外 ×1.15。
         // 格子逐章慢开、第三排留给以后的章节，前几章盘面小，血量跟着压低；后面靠星级、词条和道具补上差距。
         // 第二幕（九、十章）第三排整排开满，火力上一个台阶，血量跟着抬。
         // 十一、十二章开局格子少。出怪血按字卡升到 9、10 级来定，升满的人比第十章略紧，没升的人明显吃力。
-        // 十三、十四章的章底只抬到 4.3 / 4.6。多出来的血在 ChapterLateHp，不进掉落。
-        static readonly float[] ChapterHp = { 1.15f, 1.3f, 1.52f, 1.76f, 1.85f, 2.2f, 2.5f, 2.8f, 3.1f, 3.5f, 3.75f, 4.0f, 4.3f, 4.6f };
+        // 十三～十六章多出来的血在 ChapterLateHp，不进掉落。
+        static readonly float[] ChapterHp = { 1.15f, 1.3f, 1.52f, 1.76f, 1.85f, 2.2f, 2.5f, 2.8f, 3.1f, 3.5f, 3.75f, 4.0f, 4.3f, 4.6f, 4.95f, 5.35f };
         const float SlotHpStep = 0.05f;
         const float FinaleHp = 1.15f;
 
@@ -205,7 +206,7 @@ namespace InkLine
         }
 
         // 怪的移速章节系数。前两章格子少、字少，怪慢一点玩家才来得及看清字在干什么。
-        static readonly float[] ChapterSpeed = { 0.75f, 0.85f, 0.92f, 1f, 1f, 1.04f, 1.07f, 1.1f, 1.12f, 1.14f, 1.16f, 1.18f, 1.20f, 1.22f };
+        static readonly float[] ChapterSpeed = { 0.75f, 0.85f, 0.92f, 1f, 1f, 1.04f, 1.07f, 1.1f, 1.12f, 1.14f, 1.16f, 1.18f, 1.20f, 1.22f, 1.24f, 1.26f };
 
         public static float SpeedOf(int chapter) =>
             ChapterSpeed[Mathf.Clamp(chapter, 0, ChapterSpeed.Length - 1)];
@@ -214,7 +215,7 @@ namespace InkLine
         // 前两章一局的怪多、局也长，系数反而要压低；改波次或只数之后跑 check_stages 重新对一遍。
         // 第五章起只数按 ChapterPress 加过。这里把掉墨系数按同一比例收回，多出来的怪不加首通墨。
         // 金币不走这个系数，改装价会跟着只数变贵。
-        static readonly float[] ChapterInk = { 1.55f, 0.82f, 1.08f, 1.26f, 1.283f, 0.877f, 0.818f, 0.730f, 0.475f, 0.531f, 0.482f, 0.428f, 0.292f, 0.312f };
+        static readonly float[] ChapterInk = { 1.55f, 0.82f, 1.08f, 1.26f, 1.283f, 0.877f, 0.818f, 0.730f, 0.475f, 0.531f, 0.482f, 0.428f, 0.285f, 0.300f, 0.313f, 0.252f };
 
         public static float InkOf(int chapter) =>
             ChapterInk[Mathf.Clamp(chapter, 0, ChapterInk.Length - 1)];
@@ -222,8 +223,8 @@ namespace InkLine
         // 后期怪血补强。前四章不动。第五章起逐章抬，每一只怪出生时都乘，前面几波和最后一波一起涨。
         // 只乘在出怪那一下，掉落、关卡定价、boss 表都还按 ChapterHp 算，所以血变厚不多掉墨、不多掉金。
         // 精英吃主线这一份再乘 HardHp。
-        // 第十二章出怪血是 4.0×2.30。十三章大约 1.8 倍（4.3×3.9），十四章大约 2.4 倍（4.6×4.8）。
-        static readonly float[] ChapterLateHp = { 1f, 1f, 1f, 1f, 1.12f, 1.24f, 1.36f, 1.50f, 1.66f, 1.84f, 2.06f, 2.30f, 3.9f, 4.8f };
+        // 第十二章出怪血是 4.0×2.30。十三～十六章逐章稳步上台阶。
+        static readonly float[] ChapterLateHp = { 1f, 1f, 1f, 1f, 1.12f, 1.24f, 1.36f, 1.50f, 1.66f, 1.84f, 2.06f, 2.30f, 3.9f, 4.8f, 5.4f, 6.0f };
 
         public static float LateHpOf(StageDef s)
         {
@@ -705,6 +706,8 @@ namespace InkLine
             Chapter12(plans);
             Chapter13(plans);
             Chapter14(plans);
+            Chapter15(plans);
+            Chapter16(plans);
 
             var have = new List<CardId>();
             var s = new StageDef[GameConstants.StageCount];
@@ -767,7 +770,13 @@ namespace InkLine
                 CardId.Myriad, CardId.Arrow, CardId.Break, CardId.Gold, CardId.Thunder },
             // 冥河：封、惑、冰、土、聚，定海针和失魂放得进同一关。
             new[] { CardId.Seal, CardId.Confuse, CardId.Ice, CardId.Earth, CardId.Gather,
-                CardId.Thunder, CardId.Poison, CardId.Water, CardId.Break, CardId.Wood }
+                CardId.Thunder, CardId.Poison, CardId.Water, CardId.Break, CardId.Wood },
+            // 魔城：横扫、财、返、瞄，断岳横江与万剑归宗同台开刷。
+            new[] { CardId.Heng, CardId.Sao, CardId.Wealth, CardId.Rebound, CardId.Track,
+                CardId.Gold, CardId.Thunder, CardId.Break, CardId.Gather, CardId.Seal },
+            // 墨渊终章：护、横扫、千钧、万剑归宗全明星汇聚，迎战魔尊。
+            new[] { CardId.Guard, CardId.Heng, CardId.Sao, CardId.Wealth, CardId.Rebound,
+                CardId.Track, CardId.Qian, CardId.Jun, CardId.Seal, CardId.Gather }
         };
 
         static CardId[] CappedPool(int ch, List<CardId> have, CardId[] fresh)
@@ -809,7 +818,7 @@ namespace InkLine
         // 份额按章收：第五到八章、十一章、十二章的起价仍高于旧曲线，后面的步长更陡。
         // 第九、十章头一两次比旧价略低，否则铺满会拖过整关八成时间；铺满那一段的平均价仍明显更高。
         static readonly float[] DraftFirstShareByChapter =
-            { 0.68f, 0.68f, 0.68f, 0.68f, 0.64f, 0.68f, 0.56f, 0.48f, 0.32f, 0.30f, 0.46f, 0.52f, 0.15f, 0.14f };
+            { 0.68f, 0.68f, 0.68f, 0.68f, 0.64f, 0.68f, 0.56f, 0.48f, 0.32f, 0.30f, 0.46f, 0.52f, 0.15f, 0.14f, 0.11f, 0.11f };
         const float DraftStepLift = 1.18f;
         // 同一章里有的关特别容易出钱、有的关起价会被平均价压得很低。按章设一个地板，避免那种关打几下就弹改装。
         const int DraftFirstChapterStep = 3;

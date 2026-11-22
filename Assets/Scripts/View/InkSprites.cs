@@ -87,6 +87,10 @@ namespace InkLine
                 case EnemyId.BossShade: return "boss_shade";
                 case EnemyId.BossBell: return "boss_bell";
                 case EnemyId.Daruma: return "boss_daruma";
+                case EnemyId.Drummer: return "drummer";
+                case EnemyId.Imp: return "imp";
+                case EnemyId.BossJudge: return "boss_judge";
+                case EnemyId.BossAbyss: return "boss_abyss";
                 default: return "walker";
             }
         }
@@ -128,6 +132,10 @@ namespace InkLine
                 case CardId.Jun: return "jun";
                 case CardId.Shadow: return "shadow";
                 case CardId.Seal: return "seal";
+                case CardId.Heng: return "heng";
+                case CardId.Sao: return "sao";
+                case CardId.Wealth: return "wealth";
+                case CardId.Guard: return "guard";
                 default: return "fire";
             }
         }

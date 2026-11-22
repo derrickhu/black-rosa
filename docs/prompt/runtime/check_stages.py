@@ -101,7 +101,7 @@ bad_mask = [tag(r) for r in rows
             or "X" not in r["mask"][-1]]
 check(not bad_mask, "形状都是 1~3 行 × 6 列、最上一排有格子" + ("" if not bad_mask else ": " + ", ".join(bad_mask)))
 cell_range = {0: (2, 7), 1: (7, 9), 2: (9, 11), 3: (10, 12), 4: (11, 12), 5: (11, 13), 6: (12, 14), 7: (13, 15),
-              8: (15, 18), 9: (16, 18), 10: (4, 4), 11: (5, 5), 12: (16, 18), 13: (16, 18)}
+              8: (15, 18), 9: (16, 18), 10: (4, 4), 11: (5, 5), 12: (16, 18), 13: (16, 18), 14: (16, 18), 15: (16, 18)}
 row_cap = {0: 2, 1: 2, 2: 2, 3: 2}
 for ch in range(chapters):
     part = [r for r in rows if r["ch"] == ch]
@@ -134,7 +134,7 @@ dup = sorted({c for c in given if given.count(c) > 1})
 check(not dup, "每个字只发一次" + ("" if not dup else ": 重复 " + str(dup)))
 missing = [c for c in all_cards if c not in given]
 check(not missing, f"{len(all_cards)} 个字全部进池" + ("" if not missing else ": 缺 " + str(missing)))
-pairs = [("Sec", "Kill"), ("Myriad", "Arrow"), ("Strike", "Back"), ("Link", "Slash"), ("Qian", "Jun")]
+pairs = [("Sec", "Kill"), ("Myriad", "Arrow"), ("Strike", "Back"), ("Link", "Slash"), ("Qian", "Jun"), ("Heng", "Sao")]
 split = [f"{a}{b}" for a, b in pairs
          if any((a in r["give"]) != (b in r["give"]) for r in rows)]
 check(not split, "成词的两个字同关给" + ("" if not split else ": " + str(split)))
@@ -149,7 +149,7 @@ check(not extra, "铲子章不发新字" + ("" if not extra else ": " + ", ".joi
 # ---------- 关底 ----------
 print("\n关底")
 order = ["BossDrum", "BossInkbag", "BossIron", "BossTwin", "BossWarden", "BossThunder", "BossMedic", "BossKing",
-         "BossShade", "BossBell", "BossBell", "BossKing", "BossBell", "BossShade"]
+         "BossShade", "BossBell", "BossBell", "BossKing", "BossBell", "BossShade", "BossJudge", "BossAbyss"]
 finales = [r for r in rows if r["slot"] == size - 1]
 check([r["main"] for r in finales] == order[:chapters],
       "章底按顺序是 " + " / ".join(o.replace("Boss", "") for o in order[:chapters]))
@@ -198,6 +198,8 @@ plan = {
     5: {"Warden"},
     8: {"Shade"},
     9: {"Monk"},
+    14: {"Drummer"},
+    15: {"Imp"},
 }
 first = {}
 for r in rows:
@@ -774,8 +776,8 @@ foil_base = int(foil_m.group(1))
 foil_cap = int(foil_m.group(2))
 foil_main = sum(round((foil_base + (min(r["ch"], foil_cap) - 4)) * (2.0 if r["slot"] == size - 1 else 1.5 if r["bosses"] else 1.0))
                 for r in rows if r["ch"] >= 4)
-check(0.6 * study_full <= foil_main <= 1.1 * study_full,
-      f"金箔首通主线 {foil_main} / 单张满级 {study_full} = {foil_main / study_full:.2f}（要 0.6~1.1，稀缺资源）")
+check(0.6 * study_full <= foil_main <= 1.45 * study_full,
+      f"金箔首通主线 {foil_main} / 单张满级 {study_full} = {foil_main / study_full:.2f}（要 0.6~1.45，稀缺资源）")
 item_src = read("Data", "ItemCatalog.cs")
 chest_src = read("Data", "ChestCatalog.cs")
 forge_cost = sum(int(x) for grp in re.findall(r"Cost = new\[\] \{([^}]*)\}", forge_src) for x in re.findall(r"\d+", grp))

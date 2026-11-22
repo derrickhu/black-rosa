@@ -49,7 +49,9 @@ namespace InkLine
         HaloBreak, OrbitGather, TrailRebound, FormCrush,
         FormCrumble, FormCollapse, FormWhirl, FormRiposte,
         // 第二幕后加的组合：鬼火、失魂、风火轮、穿云箭、定海针。接在最后。
-        FormGhostFire, FormSoul, FormFireWheel, FormCloudArrow, FormNeedle
+        FormGhostFire, FormSoul, FormFireWheel, FormCloudArrow, FormNeedle,
+        // 第十五、十六章：横扫与两套新三字诀。
+        FormSweep, FormBladeStorm, FormHeavySweep
     }
 
     // 三档数值。星只放大数字，★3 才允许加新动词。
@@ -331,7 +333,26 @@ namespace InkLine
             new GlyphDef { Id = CardId.Link, Form = ShotFx.FormCleave, Hit = HitFx.Cleave },
             new GlyphDef { Id = CardId.Slash, Form = ShotFx.FormCleave, Hit = HitFx.Cleave },
             new GlyphDef { Id = CardId.Qian, Form = ShotFx.FormCrush, Hit = HitFx.Heavy },
-            new GlyphDef { Id = CardId.Jun, Form = ShotFx.FormCrush, Hit = HitFx.Heavy }
+            new GlyphDef { Id = CardId.Jun, Form = ShotFx.FormCrush, Hit = HitFx.Heavy },
+            new GlyphDef { Id = CardId.Heng, Form = ShotFx.FormSweep, Hit = HitFx.Cleave },
+            new GlyphDef { Id = CardId.Sao, Form = ShotFx.FormSweep, Hit = HitFx.Cleave },
+
+            // ---- 第十五、十六章单字：财（击杀爆元宝）、护（底线金盾） ----
+            new GlyphDef
+            {
+                Id = CardId.Wealth, Family = GlyphFamily.Hurt,
+                AddDamage = new Tri(0.8f, 1.4f, 2.2f),
+                Power = new Tri(0.28f, 0.44f, 0.65f),
+                Radius = new Tri(1.25f), Time = new Tri(0.5f),
+                Halo = ShotFx.HaloGold, Hit = HitFx.Gold
+            },
+            new GlyphDef
+            {
+                Id = CardId.Guard, Family = GlyphFamily.Move, Axis = MoveAxis.Column,
+                Move = new Tri(0.25f, 0.40f, 0.60f), Time = new Tri(0.25f),
+                Count = new Tri(1f, 2f, 3f),
+                Halo = ShotFx.HaloGold, Hit = HitFx.Knock
+            }
         };
 
         static readonly WordDef[] Words =
@@ -372,6 +393,14 @@ namespace InkLine
                 Id = WordId.Crush, Charge = 4,
                 Damage = new Tri(0.08f, 0.12f, 0.16f),
                 Form = ShotFx.FormCrush, Hit = HitFx.Heavy
+            },
+            // 横扫：每 3 发蓄满一次，命中时劈开跨列金黑弧月刀波，扫荡横向整排敌人。
+            new WordDef
+            {
+                Id = WordId.Sweep, Charge = 3,
+                Count = new Tri(3f, 5f, 6f),
+                Damage = new Tri(0.75f, 0.95f, 1.20f),
+                Form = ShotFx.FormSweep, Hit = HitFx.Cleave
             }
         };
 

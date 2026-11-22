@@ -146,7 +146,7 @@ namespace InkLine
         {
             int need = GameConstants.ItemSlotChapter[slot];
             if (need == GameConstants.ItemSlotClosed) return "后续开放";
-            return "通关第" + (need + 1) + "章解锁";
+            return "通关" + (need + 1) + "章";
         }
 
         static string LockToast(int slot)

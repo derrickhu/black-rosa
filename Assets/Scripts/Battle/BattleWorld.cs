@@ -86,6 +86,10 @@ namespace InkLine
         public int Phantoms;
         // 盾是别人挂上去的（墨僧、钟魔、魔化），视图要另画一圈罩子。
         public bool ShieldGiven;
+        // 第十五、十六章：鼓吏擂鼓冷却与提速时长、判官落印冷却、魔尊渊墨护壁时长。
+        public float FinaleCd;
+        public float DrumBoost;
+        public float AbyssVortex;
 
         public bool Held => HardTime > 0f && (Hard == StatusKind.Freeze || Hard == StatusKind.Stun);
         public bool Confused => HardTime > 0f && Hard == StatusKind.Confuse;
@@ -637,6 +641,7 @@ namespace InkLine
             _comboTier = 0;
             ResetChests();
             BeginTerrainAndFrenzy();
+            BeginFinale();
             if (stage.Preset != null)
                 for (int i = 0; i < stage.Preset.Length; i++)
                 {
@@ -808,6 +813,7 @@ namespace InkLine
             if (FrostLeft > 0f) FrostLeft -= dt;
             if (PreviewFill) TickPreview(dt);
             TickFrenzy(dt);
+            TickFinale(dt);
             TickWaves(dt);
             TickEmitters(dt);
             TickBullets(dt);
@@ -841,6 +847,7 @@ namespace InkLine
                 WaveTime = 0f;
                 _eventFileTime = -1f;
                 _leechGiven = 0f;
+                RefillGuardsForNewWave();
                 if (Stage.Event) PayInterest();
                 // 上一波在计时走完之前就被打光了，切波这一刻补发狂暴。
                 WaveDone(WaveIndex - 1);
@@ -1052,6 +1059,7 @@ namespace InkLine
 
         bool Splittable(EnemyId id)
         {
+            if (id == EnemyId.Drummer || id == EnemyId.Imp) return false;
             EnemyDef d = EnemyCatalog.Get(id, Stage.Hp);
             return !d.IsBoss && !d.HasShield && d.SplitCount == 0 && d.HealAura <= 0f && d.Armor <= 0f;
         }
@@ -1176,7 +1184,8 @@ namespace InkLine
                 Hidden = def.Stealth && !PreviewFill,
                 ShieldAura = def.ShieldAura,
                 Bell = def.Bell,
-                Phantoms = def.Phantoms
+                Phantoms = def.Phantoms,
+                FinaleCd = id == EnemyId.BossJudge ? 3.2f : id == EnemyId.Drummer ? UnityEngine.Random.Range(1.5f, 3.0f) : 1.0f
             };
             e.AuraCd = def.Bell > 0f ? BellFirst : def.ShieldAura * UnityEngine.Random.Range(0.4f, 0.8f);
             if (e.IsBoss) BossSpawned = true;
@@ -1412,6 +1421,7 @@ namespace InkLine
 
         void StampColumn(BulletActor b, int col)
         {
+            WashColumnDust(col);
             NoteTrios(col);
             if (GmLook) GmPreviewMods(b, col);
             b.ChargedMask |= 1 << col;
@@ -1504,6 +1514,17 @@ namespace InkLine
                         m.Mark(CardId.Qian, ws);
                         m.Mark(CardId.Jun, ws);
                         m.Crush = Mathf.Max(m.Crush, w.Damage.At(ws) * (1f + f));
+                        break;
+                    case WordId.Sweep:
+                        m.Mark(CardId.Heng, ws);
+                        m.Mark(CardId.Sao, ws);
+                        m.SweepCols = Mathf.Max(m.SweepCols, w.Count.IntAt(ws));
+                        m.SweepShare = Mathf.Max(m.SweepShare, w.Damage.At(ws) * (1f + f));
+                        if (ColumnHas(col, CardId.Heavy))
+                        {
+                            m.HeavySweep = true;
+                            m.Mark(CardId.Heavy, Mathf.Max(1, _heavyStar[col]));
+                        }
                         break;
                 }
             }
@@ -1730,6 +1751,8 @@ namespace InkLine
                         m.Leech += g.Leech.At(star) * (1f + f);
                         m.LeechCap = Mathf.Max(m.LeechCap, g.LeechCap.At(star));
                     }
+                    if (id == CardId.Wealth)
+                        m.WealthChance = Mathf.Max(m.WealthChance, g.Power.At(star));
                     break;
                 case GlyphFamily.Status:
                     m.AddStatus(SealStatus(id, new StatusHit
@@ -1991,6 +2014,7 @@ namespace InkLine
                 _cleaveStep = 0;
                 ResolveHit(e, b.Mods, b, HitSource.Direct);
                 SkinEcho(e, b);
+                if (b.Mods.SweepCols > 0) StrikeSweep(b, e);
                 if (b.Mods.Splash > 0f) Splash(b, e);
                 while (b.Mods.CleaveLeft > 0) Cleave(b);
                 if (b.Mods.GatherR > 0f) Gather(b, e);
@@ -2007,6 +2031,7 @@ namespace InkLine
                     break;
                 }
             }
+            if (!b.Dead && HitJudgeSeals(b)) b.Dead = true;
             if (!b.Dead && HitChests(b)) b.Dead = true;
         }
 
@@ -2211,6 +2236,8 @@ namespace InkLine
             // 4.3 暴击词条，同样乘整发
             bool crit = _critChance > 0f && UnityEngine.Random.value < _critChance;
             if (crit) dmg *= ForgeCatalog.CritMul;
+            // 4.35 魔尊半血渊墨护壁：成词 / 秘卷 / 三字诀一击破防并叠 1.5 倍易伤硬直，普通散弹减半。
+            dmg *= ResolveAbyssVortex(e, m, from);
             // 4.4 破：易伤放大整发，排在甲前面，甲照样按固定值削。
             if (e.VulnTime > 0f) dmg *= 1f + e.Vuln;
             // 4.41 烈度印章：冻 / 晕期间、被推拉之后的那一小段，额外受伤。
@@ -2751,6 +2778,7 @@ namespace InkLine
             }
             if (e.SplitCount > 0 && e.SkillSeal <= 0f) SpawnSplit(e, e.SplitCount);
             if (m != null && m.BurnPop) BurnPop(e.Pos, m);
+            TryWealthBurst(e, m);
             if (CodexHit != null && !PreviewFill) CodexHit(CodexKind.Enemy, (int)e.Type);
             Chain();
             // 放在裂之后：裂出来的墨粒算同一波，先记上再减母体，这一波才不会提前判清。
@@ -3023,6 +3051,7 @@ namespace InkLine
                 if (e.ColorPhase && e.Hp <= e.MaxHp * 0.5f) e.Colored = true;
                 if (e.HealAura > 0f && e.SkillSeal <= 0f) TickHealAura(e, dt);
                 TickAct2(e, dt);
+                TickFinaleEnemy(e, dt);
                 float vuln = e.VulnTime > 0f ? 1f + e.Vuln : 1f;
                 if (e.BurnTime > 0f)
                 {
@@ -3101,6 +3130,7 @@ namespace InkLine
                 if (e.Confused) { TickConfused(e, dt); continue; }
 
                 float speed = e.Speed * e.Slow;
+                if (e.DrumBoost > 0f) speed *= 1.28f;
                 // 狂化：半血后提速。这几只同时开了 ColorPhase，所以染红那个
                 // 反馈现在就是「它加速了」的信号，不再只是装饰。
                 if (e.SkillSeal <= 0f && e.RageSpeed > 1f && e.Hp <= e.MaxHp * 0.5f) speed *= e.RageSpeed;
@@ -3124,6 +3154,7 @@ namespace InkLine
                 if (e.Pos.y <= GameConstants.LeakY)
                 {
                     if (HandleFrenzyLeak(e)) continue;
+                    if (TryGuardBounce(e)) continue;
                     // 漏进基地只扣血，不算出死。送回入口，打死才算清掉，
                     // 否则最后一只撞线的瞬间场上没人，会直接判过关。
                     BaseHp = Mathf.Max(0, BaseHp - 1);
@@ -3484,8 +3515,8 @@ namespace InkLine
             _shadowStar[col] = 0;
             bool sec = false, kill = false, myriad = false, arrow = false, strike = false, back = false, link = false, slash = false;
             int secS = 0, killS = 0, myriadS = 0, arrowS = 0, strikeS = 0, backS = 0, linkS = 0, slashS = 0;
-            bool qian = false, jun = false;
-            int qianS = 0, junS = 0;
+            bool qian = false, jun = false, heng = false, sao = false;
+            int qianS = 0, junS = 0, hengS = 0, saoS = 0;
             for (int r = 0; r < OpenRows; r++)
             {
                 if (!Grid[col, r].HasValue) continue;
@@ -3506,6 +3537,8 @@ namespace InkLine
                 if (id == CardId.Slash) { slash = true; slashS = star; }
                 if (id == CardId.Qian) { qian = true; qianS = star; }
                 if (id == CardId.Jun) { jun = true; junS = star; }
+                if (id == CardId.Heng) { heng = true; hengS = star; }
+                if (id == CardId.Sao) { sao = true; saoS = star; }
             }
             if (sec && kill) { _word[col] = WordId.InstantKill; _wordStar[col] = Mathf.Max(secS, killS); }
             else if (myriad && arrow)
@@ -3517,11 +3550,13 @@ namespace InkLine
             else if (strike && back) { _word[col] = WordId.Knockback; _wordStar[col] = Mathf.Max(strikeS, backS); }
             else if (link && slash) { _word[col] = WordId.Cleave; _wordStar[col] = Mathf.Max(linkS, slashS); }
             else if (qian && jun) { _word[col] = WordId.Crush; _wordStar[col] = Mathf.Max(qianS, junS); }
+            RefreshFinaleCol(col, heng, hengS, sao, saoS);
         }
 
         public bool CellAsleep(int col, int row)
         {
             if (Grid == null || !Grid[col, row].HasValue) return false;
+            if (DustTimer[col, row] > 0f) return true;
             CardDef def = CardCatalog.Get(Grid[col, row].Value);
             return def.Wake == CardWake.WordPart && _word[col] != def.Word;
         }

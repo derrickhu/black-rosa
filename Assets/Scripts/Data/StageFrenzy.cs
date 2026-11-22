@@ -25,7 +25,7 @@ namespace InkLine
                 : Get(Mathf.Clamp(clearedChapters * GameConstants.ChapterSize - 1, 8, GameConstants.StageCount - 1)).Pool;
 
             // 怪血特意按爽刷割草校准：脆皮成片爆，不倒金翁够耐揍喷金箔。
-            float tierScale = 1.15f + Mathf.Clamp(clearedChapters - 3, 0, 10) * 0.22f;
+            float tierScale = 1.15f + Mathf.Clamp(clearedChapters - 3, 0, 12) * 0.22f;
             var waves = new WaveDef[FrenzyWaves];
             var bodies = new int[FrenzyWaves][];
             var waveHp = new float[FrenzyWaves];
@@ -76,7 +76,7 @@ namespace InkLine
             return new StageDef
             {
                 Index = 0,
-                Chapter = Mathf.Clamp(clearedChapters - 1, 3, 13),
+                Chapter = Mathf.Clamp(clearedChapters - 1, 3, GameConstants.Chapters - 1),
                 Title = "百鬼狂潮",
                 Name = "百鬼狂潮",
                 Frenzy = true,

@@ -12,8 +12,8 @@ namespace InkLine
         public static void ApplyLawn(Image art, int chapter)
         {
             if (art == null) return;
-            // 第一章沿用 home_lawn。第二章起是 home_lawn_2 到 home_lawn_14。
-            int n = Mathf.Clamp(chapter, 0, 13) + 1;
+            // 第一章沿用 home_lawn。第二章起是 home_lawn_2 到 home_lawn_16。
+            int n = Mathf.Clamp(chapter, 0, GameConstants.Chapters - 1) + 1;
             Sprite lawn = InkSprites.Load("Ui/home_lawn_" + n) ?? InkSprites.Load("Ui/home_lawn");
             if (lawn == null) return;
             art.sprite = lawn;

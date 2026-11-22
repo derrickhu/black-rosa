@@ -114,8 +114,12 @@ namespace InkLine
                 case CardId.Rebound: return Rebound;
                 case CardId.Shadow: return Shadow;
                 case CardId.Seal: return GlyphSeal;
+                case CardId.Wealth: return CoinFace;
+                case CardId.Guard: return Gold;
                 case CardId.Qian:
                 case CardId.Jun:
+                case CardId.Heng:
+                case CardId.Sao:
                 case CardId.Sec:
                 case CardId.Kill:
                 case CardId.Myriad:

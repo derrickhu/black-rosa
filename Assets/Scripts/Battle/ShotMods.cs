@@ -89,6 +89,12 @@ namespace InkLine
         public bool GhostFire;         // 鬼火：影弹的灼烧不打折
         public bool FireWheel;         // 风火轮
         public bool Pin;               // 定海针
+        // 第十五、十六章：横扫、万剑归宗、断岳横江、财
+        public int SweepCols;          // 横扫覆盖列数（3 / 5 / 6）
+        public float SweepShare;       // 横扫刀波伤害倍率
+        public bool BladeStorm;        // 万剑归宗：折返时锁血厚目标全额突刺
+        public bool HeavySweep;        // 断岳横江：横扫附带震退定身
+        public float WealthChance;     // 财：击杀迸金元宝概率
 
         // 印章
         public float Splash;           // 广域：没有半径的字命中时溅到身边，半径（格）
@@ -277,6 +283,11 @@ namespace InkLine
             GhostFire = src.GhostFire;
             FireWheel = src.FireWheel;
             Pin = src.Pin;
+            SweepCols = src.SweepCols;
+            SweepShare = src.SweepShare;
+            BladeStorm = src.BladeStorm;
+            HeavySweep = src.HeavySweep;
+            WealthChance = src.WealthChance;
             Splash = src.Splash;
             MarkPush = src.MarkPush;
             MarkWind = src.MarkWind;

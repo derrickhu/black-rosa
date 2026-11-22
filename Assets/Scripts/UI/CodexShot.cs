@@ -96,7 +96,8 @@ namespace InkLine
             m.Mark(t.A, 1);
             m.Mark(t.B, 1);
             m.Mark(t.C, 1);
-            Show(m, 1, 1);
+            int copies = t.A == CardId.Split ? 3 : 1;
+            Show(m, 1, copies);
         }
 
         public void ShowPair(int pair)

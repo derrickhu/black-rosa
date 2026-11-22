@@ -53,7 +53,12 @@ namespace InkLine
         {
             if (string.IsNullOrEmpty(name)) return null;
             if (ArtCache.TryGetValue(name, out Sprite s) && s != null) return s;
-            s = InkSprites.Load("Vfx/" + name);
+            if (name == "sweep_shot" || name == "heavysweep_shot")
+                s = InkSprites.Load("Vfx/sweep_arc");
+            else if (name == "bladestorm_shot")
+                s = InkSprites.Load("Vfx/riposte_shot_00") ?? InkSprites.Load("Vfx/riposte_shot");
+            else
+                s = InkSprites.Load("Vfx/" + name);
             ArtCache[name] = s;
             return s;
         }
@@ -75,6 +80,9 @@ namespace InkLine
                 case ShotFx.FormFireWheel: return "firewheel";
                 case ShotFx.FormCloudArrow: return "cloudarrow";
                 case ShotFx.FormNeedle: return "needle";
+                case ShotFx.FormSweep: return "sweep";
+                case ShotFx.FormBladeStorm: return "bladestorm";
+                case ShotFx.FormHeavySweep: return "heavysweep";
                 default: return null;
             }
         }
@@ -126,7 +134,8 @@ namespace InkLine
         static bool Painted(string key) =>
             key == "crumble" || key == "collapse" || key == "whirl" || key == "riposte"
             || key == "ghostfire" || key == "soul" || key == "crush"
-            || key == "break" || key == "gather" || key == "rebound" || key == "shadow";
+            || key == "break" || key == "gather" || key == "rebound" || key == "shadow"
+            || key == "sweep" || key == "heavysweep" || key == "bladestorm";
 
         // 是否沿飞行轨迹喷射对应色系的硬边卡通碎晶簇（*_shards.png）。
         static bool DropsShards(string key) =>

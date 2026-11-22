@@ -20,6 +20,8 @@ namespace InkLine
                 { "Bg/battle_bg_12", ("Bg/battle_bg_12_418172be64a00f11ddf005c4adf2507b.jpg", "Bg/battle_bg_12.png") },
                 { "Bg/battle_bg_13", ("Bg/battle_bg_13_35f43976fa6ec45cbc0d8d10139cc068.jpg", "Bg/battle_bg_13.png") },
                 { "Bg/battle_bg_14", ("Bg/battle_bg_14_1f3b57ae15d281599ec51eb8677a4146.jpg", "Bg/battle_bg_14.png") },
+                { "Bg/battle_bg_15", ("Bg/battle_bg_15_47c7ce63b5d9439aa730e8997ab1e5a4.jpg", "Bg/battle_bg_15.png") },
+                { "Bg/battle_bg_16", ("Bg/battle_bg_16_698a0a41dc9041667a8f9e8d63cd5bdc.jpg", "Bg/battle_bg_16.png") },
                 { "Bg/battle_bg_2", ("Bg/battle_bg_2_e100de608c3b86b76a8f28686e8f9e80.jpg", "Bg/battle_bg_2.png") },
                 { "Bg/battle_bg_3", ("Bg/battle_bg_3_a8bda397b8e0c6f198b886c1b462a54a.jpg", "Bg/battle_bg_3.png") },
                 { "Bg/battle_bg_4", ("Bg/battle_bg_4_dae7ca5c1fcc006db91f250d72049b4d.jpg", "Bg/battle_bg_4.png") },
@@ -43,6 +45,7 @@ namespace InkLine
                 { "Ui/chapter_9", ("Ui/chapter_9_594a0f1e9de869a0cc84edac04a3e640.png", "Ui/chapter_9.png") },
                 { "Ui/dungeon_daily", ("Ui/dungeon_daily_98d49547e4c63a07a05789f9d69e8a3c.png", "Ui/dungeon_daily.png") },
                 { "Ui/dungeon_endless", ("Ui/dungeon_endless_cc4194f50b82b00a39c109de67f4ad60.png", "Ui/dungeon_endless.png") },
+                { "Ui/dungeon_frenzy", ("Ui/dungeon_frenzy_990b7728af80f906595561ac50454572.png", "Ui/dungeon_frenzy.png") },
             };
     }
 }

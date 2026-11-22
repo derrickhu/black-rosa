@@ -83,8 +83,11 @@ namespace InkLine
                         }
                     }
                 }
-                for (int i = 0; i <= (int)EnemyId.BossBell; i++)
+                for (int i = 0; i <= (int)EnemyId.BossAbyss; i++)
+                {
+                    if ((EnemyId)i == EnemyId.Daruma) continue;
                     if (added.Add(i)) list.Add(new CodexEntry(CodexKind.Enemy, i));
+                }
                 _enemies = list.ToArray();
                 return _enemies;
             }
@@ -176,6 +179,7 @@ namespace InkLine
                 case WordId.Knockback: return new[] { CardId.Strike, CardId.Back };
                 case WordId.Cleave: return new[] { CardId.Link, CardId.Slash };
                 case WordId.Crush: return new[] { CardId.Qian, CardId.Jun };
+                case WordId.Sweep: return new[] { CardId.Heng, CardId.Sao };
                 default: return new CardId[0];
             }
         }
@@ -319,6 +323,8 @@ namespace InkLine
                 case CardId.Rebound: return "炮弹飞到头（或穿透用完）会折回来往下再打一遍，回程伤害打折。";
                 case CardId.Shadow: return "这一列每 4 发经过，紧跟着补一发影弹。影弹只带这一列的常驻字，不带蓄力字和词，也不会再套一发。";
                 case CardId.Seal: return "打中后对方的光环、分裂、隐身和狂化停一会儿。甲还在，推不动的也还是推不动。头目被封的时间减半。";
+                case CardId.Wealth: return "给炮弹添一笔加算伤害；击倒敌人时有几率迸出一枚弹跳金元宝，当场赏 2 金币并把身边的怪震晕。";
+                case CardId.Guard: return "给炮弹带轻击退，更在本列防线底边立起金盾。敌人漏到底线时消耗一层金盾将其猛弹回中场并震晕。";
                 default: return CardCatalog.Get(id).Desc;
             }
         }
@@ -374,6 +380,10 @@ namespace InkLine
                     return $"每 4 发补一发，伤害 ×{F(g.Power.At(s))}";
                 case CardId.Seal:
                     return $"封技能 {F(g.Time.At(s))} 秒，头目减半";
+                case CardId.Wealth:
+                    return $"伤害 +{D(g.AddDamage.At(s))}；击倒敌人 {P(g.Power.At(s))} 迸金元宝（+2 金币并震晕邻怪）";
+                case CardId.Guard:
+                    return $"每波立 {g.Count.IntAt(s)} 层底线金盾，弹回漏怪 2.2 格" + (s >= 3 ? "；弹回时震晕周围敌人" : "");
                 default:
                     return "";
             }
@@ -391,6 +401,7 @@ namespace InkLine
                 case WordId.Knockback: return pair + $"每 {need} 发蓄满一次，那一发把敌人远远击退。";
                 case WordId.Cleave: return pair + $"每 {need} 发蓄满一次，那一发命中后接连斩向身边的敌人。";
                 case WordId.Crush: return pair + $"每 {need} 发蓄满一次，那一发按敌人眼下的血量再砸掉一截，越肉越疼；头目减半。";
+                case WordId.Sweep: return pair + $"每 {need} 发蓄满一次，命中时劈开跨列弧月刀波，横扫同排成片敌人。";
                 default: return pair;
             }
         }
@@ -405,6 +416,7 @@ namespace InkLine
                 case WordId.Knockback: return $"击退 {F(w.Move.At(s))} 格";
                 case WordId.Cleave: return $"连斩 {w.Count.IntAt(s)} 次，每跳伤害 ×{F(w.Decay.At(s))}";
                 case WordId.Crush: return $"追加目标当前血量的 {P(w.Damage.At(s))}；头目 {P(w.Damage.At(s) * 0.5f)}";
+                case WordId.Sweep: return $"刀波横跨 {w.Count.IntAt(s)} 列，伤害 ×{F(w.Damage.At(s))}";
                 default: return "";
             }
         }

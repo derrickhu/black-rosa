@@ -19,7 +19,8 @@ namespace InkLine
         int _bid = -1;
 
         public static bool Owns(ShotMods m) =>
-            m.Word == WordId.InstantKill || m.Word == WordId.Cleave || m.Word == WordId.Knockback;
+            m.Word == WordId.InstantKill || m.Word == WordId.Cleave
+            || m.Word == WordId.Knockback || m.Word == WordId.Sweep;
 
         public void Sync(BulletActor b)
         {
@@ -43,6 +44,7 @@ namespace InkLine
             {
                 case WordId.InstantKill: Kill(b.Pos, dir, born); break;
                 case WordId.Cleave: Cleave(b.Pos, dir, born); break;
+                case WordId.Sweep: Sweep(b.Pos, dir, b.Mods.HeavySweep, born); break;
                 default: Knock(b.Pos, dir, ang, born); break;
             }
         }
@@ -52,6 +54,27 @@ namespace InkLine
             if (_body == null) return;
             _halo.enabled = _body.enabled = _hot.enabled = _glint.enabled = false;
             for (int i = 0; i < Ghosts; i++) _ghost[i].enabled = false;
+        }
+
+        // 横扫：一道金黑弧月斩波，断岳横江时更宽更亮，身后拖金辉刀影与火星。
+        void Sweep(Vector2 pos, Vector2 dir, bool heavy, float born)
+        {
+            float t = _age;
+            float wide = (heavy ? 2.25f : 1.85f) * born * (1f + 0.05f * Mathf.Sin(t * 16f));
+            Fit(_body, WordFx.Art("sweep_arc"), wide, Color.white);
+            _body.transform.localPosition = new Vector3(0f, 0.10f, 0f);
+            Color glowC = heavy ? WordFx.Ember : InkTheme.Word;
+            Soft(_halo, glowC, new Vector2(wide * 1.2f, 0.95f) * born, 0.48f, -0.04f);
+            Soft(_hot, Color.white, new Vector2(wide * 0.65f, 0.22f) * born, 0.50f, 0.22f);
+            Glint(0.32f, 0.42f, InkTheme.GoldHi);
+            Trail(WordFx.Art("sweep_arc"), wide * 0.88f, InkTheme.GoldHi, 0.48f, 0.08f, 0f, 0f);
+            if (t >= _fxAt)
+            {
+                _fxAt = t + 0.055f;
+                Vector2 side = new Vector2(-dir.y, dir.x) * Random.Range(-0.85f, 0.85f);
+                WordFx.Spark(pos + side, -dir * Random.Range(1.0f, 2.2f),
+                    Random.Range(0.16f, 0.26f), Random.value < 0.5f ? InkTheme.GoldHi : WordFx.Ember, 0.26f);
+            }
         }
 
         // 秒杀：一把竖着的红光刀，刃尖一颗闪星，身后拖三道淡下去的刀影，沿路掉火星。
@@ -279,6 +302,25 @@ namespace InkLine
                 case WordId.InstantKill: _pool.PinKill(h); break;
                 case WordId.Cleave: _pool.Slash(h); break;
                 case WordId.Knockback: _pool.PinKnock(h); break;
+                case WordId.Sweep: _pool.SweepWave(h); break;
+            }
+        }
+
+        // 横扫命中：横跨多列的金黑弧月斩波向前推进并洒出一排金芒火花。
+        void SweepWave(WordHit h)
+        {
+            Vector2 at = Seen(h.Target);
+            float span = Mathf.Max(2.8f, h.Step * GameConstants.CellWidth * 0.92f);
+            Add("sweep_arc", at, Vector2.up * 2.2f, new Vector2(span * 0.45f, 0.85f), new Vector2(span, 1.45f), 0.28f,
+                Color.white, 1f, 0f, 0f, false, 15);
+            Add("sweep_arc", at + Vector2.up * 0.08f, Vector2.up * 2.6f, new Vector2(span * 0.4f, 0.65f), new Vector2(span * 1.08f, 1.25f), 0.24f,
+                InkTheme.GoldHi, 0.72f, 0f, 0f, true, 16);
+            for (int i = 0; i < 10; i++)
+            {
+                float u = (i / 9f - 0.5f) * span * 0.9f;
+                Vector2 v = new Vector2(u * 0.7f + Random.Range(-0.6f, 0.6f), Random.Range(1.4f, 3.2f));
+                Add("dart_spark", at + new Vector2(u * 0.45f, 0f), v, Vector2.one * 0.24f, Vector2.one * 0.05f,
+                    0.26f, i % 2 == 0 ? InkTheme.GoldHi : Ember, 1f, Random.Range(0f, 90f), Random.Range(-300f, 300f), true, 16);
             }
         }
 

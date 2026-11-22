@@ -114,7 +114,7 @@ namespace InkLine
     public static class EnemyCatalog
     {
         // 给按 EnemyId 索引的数组用，加怪时跟着枚举一起长。
-        public const int IdCount = (int)EnemyId.Daruma + 1;
+        public const int IdCount = (int)EnemyId.BossAbyss + 1;
 
         public static string Name(EnemyId id)
         {
@@ -151,6 +151,10 @@ namespace InkLine
                 case EnemyId.BossShade: return "影姬";
                 case EnemyId.BossBell: return "钟魔";
                 case EnemyId.Daruma: return "不倒金翁";
+                case EnemyId.Drummer: return "鼓吏";
+                case EnemyId.Imp: return "污墨童";
+                case EnemyId.BossJudge: return "判官";
+                case EnemyId.BossAbyss: return "魔尊";
                 default: return "墨丁";
             }
         }
@@ -190,6 +194,10 @@ namespace InkLine
                 case EnemyId.BossShade: return "章底。打到半血分出两只幻影，三个一起往下压。范围清不掉影子。";
                 case EnemyId.BossBell: return "章底。每 8 秒敲一次钟，全场都挂上一层盾。破的三星、穿和分专门拆盾。";
                 case EnemyId.Daruma: return "百鬼狂潮压轴登场的黄金不倒翁。从不扣基地血，每挨痛打就往外喷落金箔与金币。";
+                case EnemyId.Drummer: return "擂动战鼓催同伴疾行。封住或控住它，整列冲锋就歇了。";
+                case EnemyId.Imp: return "倒下时溅一抹浮墨蒙住同列一格，连开三炮就冲刷干净；被封着打倒则溅不出墨。";
+                case EnemyId.BossJudge: return "魔城章底。每隔数秒落一枚朱砂劫印，滑炮将其击碎即可反噬判官重创并爆出金币。";
+                case EnemyId.BossAbyss: return "第二幕压轴魔尊。半血开启渊墨护壁削弱散弹，任一成词或秘卷大招命中即破盾大硬直、受创剧增。";
                 default: return "一团墨。";
             }
         }
@@ -212,6 +220,10 @@ namespace InkLine
             if (d.ShieldAura > 0f) parts.Add("给周围加盾");
             if (d.Bell > 0f) parts.Add("每 " + d.Bell.ToString("0") + " 秒全场加盾");
             if (d.Phantoms > 0) parts.Add("半血分出 " + d.Phantoms + " 只幻影");
+            if (d.Id == EnemyId.Drummer) parts.Add("擂鼓加速周围同伴");
+            if (d.Id == EnemyId.Imp) parts.Add("亡语浮墨蒙一格（开火即净）");
+            if (d.Id == EnemyId.BossJudge) parts.Add("落朱砂劫印（击碎反噬掉血）");
+            if (d.Id == EnemyId.BossAbyss) parts.Add("半血渊墨护壁（成词或秘卷破盾硬直）");
             return parts.Count == 0 ? "没有特别的本事" : string.Join(" · ", parts);
         }
 
@@ -243,6 +255,7 @@ namespace InkLine
                 case EnemyId.Sprinter:
                 case EnemyId.Splitter:
                 case EnemyId.Shade:
+                case EnemyId.Imp:
                     return 2;
                 default:
                     return 1;
@@ -369,6 +382,16 @@ namespace InkLine
                 case EnemyId.Daruma:        // 百鬼狂潮压轴金翁：慢步横晃，挨打狂喷金箔，不扣基地血
                     return new EnemyDef(id, 900f, 0.11f, 30, 8.0f, 0.68f,
                         strafe: true, stunImmune: true, noKnock: true);
+                case EnemyId.Drummer:       // 十五章 · 鼓吏：每 4 秒擂鼓催动身边同伴加速
+                    return new EnemyDef(id, 16f, 0.38f, 6, 0.44f, 0.31f);
+                case EnemyId.Imp:           // 十六章 · 污墨童：亡语溅浮墨短蒙一格，开火三下即净
+                    return new EnemyDef(id, 7.5f, 0.64f, 4, 0.32f, 0.24f);
+                case EnemyId.BossJudge:     // 十五章底 · 判官：落朱砂劫印，击碎反噬掉血爆金
+                    return new EnemyDef(id, 360f, 0.19f, 36, 9.2f, 0.70f,
+                        boss: true, strafe: true, shield: true);
+                case EnemyId.BossAbyss:     // 十六章底 · 魔尊：半血渊墨护壁，成词或秘卷破盾大硬直
+                    return new EnemyDef(id, 420f, 0.17f, 38, 9.8f, 0.76f,
+                        boss: true, shield: true, armor: 1f, noKnock: true);
 
                 default:
                     return new EnemyDef(EnemyId.Walker, 4.5f, 0.62f, 2, 0.18f, 0.26f);

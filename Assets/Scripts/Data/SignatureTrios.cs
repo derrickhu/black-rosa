@@ -30,6 +30,16 @@ namespace InkLine
             {
                 A = CardId.Ice, B = CardId.Earth, C = CardId.Gather, Name = "定海针",
                 Note = "聚过来的敌人被钉住，移速降到四成，持续 2 秒"
+            },
+            new SignatureTrio
+            {
+                A = CardId.Split, B = CardId.Rebound, C = CardId.Track, Name = "万剑归宗",
+                Note = "裂弹折返化剑，齐聚场上血最高的目标，回程不打折"
+            },
+            new SignatureTrio
+            {
+                A = CardId.Heng, B = CardId.Sao, C = CardId.Heavy, Name = "断岳横江",
+                Note = "横扫刀波加宽并震退整排敌人，落地定身半秒"
             }
         };
 
@@ -39,14 +49,18 @@ namespace InkLine
             return m.Has(t.A) && m.Has(t.B) && m.Has(t.C);
         }
 
-        // 风火轮、定海针的字都是常驻，炮弹爬完这一列就收集齐了。
-        // 穿云箭里的「穿」是蓄力字，落箭那条看格子，不看这发有没有蓄满。
+        // 风火轮、定海针、万剑归宗的字都是常驻，炮弹爬完这一列就收集齐了。
+        // 穿云箭里的「穿」、断岳横江里的「重」是蓄力字，触发时直接按格子或本发是否带齐判。
         public static void Apply(ShotMods m)
         {
             if (m.Has(CardId.Fire) && m.Has(CardId.Wind) && m.Has(CardId.Rebound))
                 m.FireWheel = true;
             if (m.Has(CardId.Ice) && m.Has(CardId.Earth) && m.Has(CardId.Gather))
                 m.Pin = true;
+            if (m.Has(CardId.Split) && m.Has(CardId.Rebound) && m.Has(CardId.Track))
+                m.BladeStorm = true;
+            if (m.Has(CardId.Heng) && m.Has(CardId.Sao) && m.Has(CardId.Heavy))
+                m.HeavySweep = true;
         }
     }
 }

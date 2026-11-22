@@ -193,6 +193,10 @@ namespace InkLine
                 return ShotFx.FormCloudArrow;
             if (m.Has(CardId.Ice) && m.Has(CardId.Earth) && m.Has(CardId.Gather))
                 return ShotFx.FormNeedle;
+            if (m.Has(CardId.Split) && m.Has(CardId.Rebound) && m.Has(CardId.Track))
+                return ShotFx.FormBladeStorm;
+            if (m.Has(CardId.Heng) && m.Has(CardId.Sao) && m.Has(CardId.Heavy))
+                return ShotFx.FormHeavySweep;
             return ShotFx.None;
         }
 
@@ -209,6 +213,9 @@ namespace InkLine
                 case ShotFx.FormFireWheel: return ShotFx.FormFire;
                 case ShotFx.FormCloudArrow: return ShotFx.FormArrow;
                 case ShotFx.FormNeedle: return ShotFx.FormIce;
+                case ShotFx.FormBladeStorm: return ShotFx.FormPierce;
+                case ShotFx.FormHeavySweep:
+                case ShotFx.FormSweep: return ShotFx.FormCleave;
                 default: return ShotFx.None;
             }
         }

@@ -46,7 +46,7 @@ namespace InkLine
         }
 
         // 第 ch 章（从 0 数）打完时，常用的几个字大致升到几级。第五章（下标 4）起才有。
-        static readonly int[] Expected = { 0, 0, 0, 0, 1, 2, 3, 4, 5, 6, 9, 10, 10, 10 };
+        static readonly int[] Expected = { 0, 0, 0, 0, 1, 2, 3, 4, 5, 6, 9, 10, 10, 10, 10, 10 };
         // 怪血补满预期加成：后期本来就偏松，升到预期的人难度持平，没升的人吃亏。
         const float HpShare = 1f;
 

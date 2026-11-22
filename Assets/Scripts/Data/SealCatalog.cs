@@ -119,7 +119,8 @@ namespace InkLine
 
         public static bool HasRadius(int key) =>
             key == (int)CardId.Water || key == (int)CardId.Thunder
-            || key == (int)CardId.Gather || key == (int)CardId.Explode;
+            || key == (int)CardId.Gather || key == (int)CardId.Explode
+            || key == (int)CardId.Wealth;
 
         static bool HasTime(int key) =>
             key == (int)CardId.Fire || key == (int)CardId.Poison || key == (int)CardId.Ice
@@ -129,7 +130,7 @@ namespace InkLine
 
         static bool HasMove(int key) =>
             key == (int)CardId.Earth || key == (int)CardId.Wind || key == (int)CardId.Gather
-            || key == KeyOf(WordId.Knockback);
+            || key == (int)CardId.Guard || key == KeyOf(WordId.Knockback);
 
         static bool HasKeep(int key) =>
             key == (int)CardId.Split || key == (int)CardId.Pierce || key == (int)CardId.Explode
@@ -366,6 +367,7 @@ namespace InkLine
                         case CardId.Water: return "减速范围";
                         case CardId.Thunder: return "连带范围";
                         case CardId.Gather: return "拉怪范围";
+                        case CardId.Wealth: return "元宝波及";
                         default: return "爆炸范围";
                     }
                 case SealType.Last: return key == (int)CardId.Earth ? "硬直时长" : "状态时长";
@@ -373,7 +375,8 @@ namespace InkLine
                     if (key == KeyOf(WordId.Knockback)) return "击退距离";
                     switch ((CardId)key)
                     {
-                        case CardId.Earth: return "推开距离";
+                        case CardId.Earth:
+                        case CardId.Guard: return "推开距离";
                         case CardId.Wind: return "多吹几率";
                         default: return "拉怪距离";
                     }
@@ -400,12 +403,14 @@ namespace InkLine
                     case WordId.Knockback: return "退后易伤";
                     case WordId.Cleave: return "每跳伤害";
                     case WordId.Crush: return "追加伤害";
+                    case WordId.Sweep: return "刀波伤害";
                     default: return "强度";
                 }
             }
             switch ((CardId)key)
             {
-                case CardId.Gold: return "加算伤害";
+                case CardId.Gold:
+                case CardId.Wealth: return "加算伤害";
                 case CardId.Heavy: return "重击倍率";
                 case CardId.Wood: return "吸血比例";
                 case CardId.Fire: return "灼烧伤害";
@@ -416,7 +421,8 @@ namespace InkLine
                 case CardId.Stun: return "晕住易伤";
                 case CardId.Confuse: return "惑乱强度";
                 case CardId.Break: return "易伤比例";
-                case CardId.Earth: return "推后易伤";
+                case CardId.Earth:
+                case CardId.Guard: return "推后易伤";
                 case CardId.Wind: return "吹后易伤";
                 case CardId.Gather: return "拉后易伤";
                 case CardId.Split: return "裂弹伤害";
@@ -462,6 +468,7 @@ namespace InkLine
                 case CardId.Water: return "减速波及的半径变大";
                 case CardId.Thunder: return "连带的半径变大";
                 case CardId.Gather: return "拉怪的半径变大";
+                case CardId.Wealth: return "金元宝弹跳震晕的半径变大";
                 default: return "爆炸半径变大";
             }
         }
@@ -471,7 +478,8 @@ namespace InkLine
             if (key == KeyOf(WordId.Knockback)) return "击退的距离变远";
             switch ((CardId)key)
             {
-                case CardId.Earth: return "推开的距离变远";
+                case CardId.Earth:
+                case CardId.Guard: return "推开的距离变远";
                 case CardId.Wind: return "有几率多吹开一列";
                 default: return "拉怪的距离变远";
             }
@@ -499,12 +507,14 @@ namespace InkLine
                     case WordId.Knockback: return "被击退的怪之后两秒受到的伤害提高";
                     case WordId.Cleave: return "每一跳的伤害提高";
                     case WordId.Crush: return "按当前生命追加的那段伤害提高";
+                    case WordId.Sweep: return "横扫刀波的伤害提高";
                     default: return "";
                 }
             }
             switch ((CardId)key)
             {
-                case CardId.Gold: return "加算伤害提高";
+                case CardId.Gold:
+                case CardId.Wealth: return "加算伤害提高";
                 case CardId.Heavy: return "重击的倍率提高";
                 case CardId.Wood: return "吸血比例提高";
                 case CardId.Fire: return "灼烧每秒伤害提高";
@@ -515,7 +525,8 @@ namespace InkLine
                 case CardId.Stun: return "晕住期间受到的伤害提高";
                 case CardId.Confuse: return "被惑的怪咬同伴更狠，头目减速更多";
                 case CardId.Break: return "易伤比例提高";
-                case CardId.Earth: return "被推开的怪之后两秒受到的伤害提高";
+                case CardId.Earth:
+                case CardId.Guard: return "被推开的怪之后两秒受到的伤害提高";
                 case CardId.Wind: return "被吹开的怪之后两秒受到的伤害提高";
                 case CardId.Gather: return "被拉过来的怪之后两秒受到的伤害提高";
                 case CardId.Split: return "每发裂弹的伤害提高";

@@ -100,8 +100,8 @@ namespace InkLine
         public int CodexNewWord;
         public int CodexNewPair;
         public int CodexNewTrio;
-        public int CodexEnemy;
-        public int CodexNewEnemy;
+        public long CodexEnemy;
+        public long CodexNewEnemy;
         // 三栏各三枚印，第 tab*3+i 位表示第 i 枚已经领过。
         public int CodexMileClaim;
         // 词条：Seen 是「已经亮过相」，过关时没亮过的才弹解锁卡；
@@ -1587,7 +1587,7 @@ namespace InkLine
             {
                 case CodexKind.Glyph: return (CodexGlyph & (1L << i)) != 0;
                 case CodexKind.Word: return (CodexWord & (1 << i)) != 0;
-                case CodexKind.Enemy: return (CodexEnemy & (1 << i)) != 0;
+                case CodexKind.Enemy: return (CodexEnemy & (1L << i)) != 0;
                 case CodexKind.Trio: return (CodexTrio & (1 << i)) != 0;
                 default: return (CodexPair & (1 << i)) != 0;
             }
@@ -1599,7 +1599,7 @@ namespace InkLine
             {
                 case CodexKind.Glyph: return (CodexNewGlyph & (1L << i)) != 0;
                 case CodexKind.Word: return (CodexNewWord & (1 << i)) != 0;
-                case CodexKind.Enemy: return (CodexNewEnemy & (1 << i)) != 0;
+                case CodexKind.Enemy: return (CodexNewEnemy & (1L << i)) != 0;
                 case CodexKind.Trio: return (CodexNewTrio & (1 << i)) != 0;
                 default: return (CodexNewPair & (1 << i)) != 0;
             }
@@ -1658,7 +1658,7 @@ namespace InkLine
             {
                 case CodexKind.Glyph: CodexGlyph |= 1L << i; CodexNewGlyph |= 1L << i; break;
                 case CodexKind.Word: CodexWord |= 1 << i; CodexNewWord |= 1 << i; break;
-                case CodexKind.Enemy: CodexEnemy |= 1 << i; CodexNewEnemy |= 1 << i; break;
+                case CodexKind.Enemy: CodexEnemy |= 1L << i; CodexNewEnemy |= 1L << i; break;
                 case CodexKind.Trio: CodexTrio |= 1 << i; CodexNewTrio |= 1 << i; break;
                 default: CodexPair |= 1 << i; CodexNewPair |= 1 << i; break;
             }
@@ -1673,7 +1673,7 @@ namespace InkLine
             {
                 case CodexKind.Glyph: CodexNewGlyph &= ~(1L << i); break;
                 case CodexKind.Word: CodexNewWord &= ~(1 << i); break;
-                case CodexKind.Enemy: CodexNewEnemy &= ~(1 << i); break;
+                case CodexKind.Enemy: CodexNewEnemy &= ~(1L << i); break;
                 case CodexKind.Trio: CodexNewTrio &= ~(1 << i); break;
                 default: CodexNewPair &= ~(1 << i); break;
             }

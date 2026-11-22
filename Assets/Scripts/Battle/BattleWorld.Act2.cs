@@ -24,13 +24,31 @@ namespace InkLine
             SignaturePairs.Tune(m);
             b.Returning = true;
             b.Mother = false;
-            float k = m.Riposte ? 1f : m.Rebound;
-            if (m.Has(CardId.Split)) k = Mathf.Min(k, ReboundSplitCap);
-            if (!m.Riposte) k *= 1f + SealFierce(CardId.Rebound);
+            float k = m.Riposte || m.BladeStorm ? 1f : m.Rebound;
+            if (m.Has(CardId.Split) && !m.BladeStorm) k = Mathf.Min(k, ReboundSplitCap);
+            if (!m.Riposte && !m.BladeStorm) k *= 1f + SealFierce(CardId.Rebound);
             m.Decay *= k;
             if (m.Riposte) m.Pierce += 1;
             float speed = b.Vel.magnitude;
-            b.Vel = new Vector2(b.Vel.x * 0.3f, -Mathf.Max(0.5f, Mathf.Abs(b.Vel.y))).normalized * speed;
+            if (m.BladeStorm)
+            {
+                EnemyActor mark = BestBladeTarget();
+                Vector2 aim = mark != null
+                    ? (mark.Pos - b.Pos).normalized
+                    : new Vector2(b.Vel.x * 0.3f, -Mathf.Max(0.5f, Mathf.Abs(b.Vel.y))).normalized;
+                b.Vel = aim * (speed * 1.35f);
+                m.Homing = Mathf.Max(m.Homing, 9.5f);
+                if (_bladeStormShoutCd <= 0f)
+                {
+                    _bladeStormShoutCd = 0.35f;
+                    PairPop(PairFx.Riposte, b.Pos, b.Pos + aim, 1.15f);
+                    ShowFloat(b.Pos + Vector2.up * 0.24f, "万剑归宗", InkTheme.ReboundHi, 1.28f);
+                }
+            }
+            else
+            {
+                b.Vel = new Vector2(b.Vel.x * 0.3f, -Mathf.Max(0.5f, Mathf.Abs(b.Vel.y))).normalized * speed;
+            }
             b.HitIds.Clear();
             if (last != null) b.HitIds.Add(last.Id);
             if (m.Riposte)
