@@ -1890,7 +1890,7 @@ namespace InkLine
                 Main = !s.Endless && !s.Event && !s.Frenzy && !s.Hard,
                 Hard = s.Hard,
                 Daily = s.Daily,
-                Endless = s.Endless && !s.Daily,
+                Endless = s.Endless && !s.Daily && !s.Frenzy,
                 Waves = _world.WavesCleared,
                 Kills = _world.Kills,
                 KillsWith = _world.KillsWith,

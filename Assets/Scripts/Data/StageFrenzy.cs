@@ -96,7 +96,6 @@ namespace InkLine
                 Name = "百鬼狂潮",
                 Frenzy = true,
                 Endless = true,
-                Daily = true,
                 Mask = new[] { "XXXXXX", "XXXXXX", "..XX.." },
                 Terrain = terrain,
                 Pool = pool,

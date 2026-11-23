@@ -367,8 +367,12 @@ namespace InkLine
             for (int i = JudgeSeals.Count - 1; i >= 0; i--)
             {
                 JudgeSealActor s = JudgeSeals[i];
+                if (b.HitIds.Contains(s.Id)) continue;
                 if (Mathf.Abs(s.Pos.x - hit.Pos.x) <= halfW && Mathf.Abs(s.Pos.y - hit.Pos.y) <= bandY + 0.4f)
+                {
+                    b.HitIds.Add(s.Id);
                     DamageJudgeSeal(i, 2);
+                }
             }
         }
 

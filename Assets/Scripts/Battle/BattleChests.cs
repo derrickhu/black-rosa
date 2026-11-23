@@ -49,8 +49,8 @@ namespace InkLine
             if (!e.IsBoss && Random.value >= StageCatalog.ChestChance) return;
             if (Chests.Count >= ChestCap) return;
             bool gold = Stage.Event || Random.value < StageCatalog.ChestGoldShare;
-            // 每日残局不出墨箱。金币箱照旧，否则二十波的墨会厚过主线一关。
-            if (Stage.Daily && !gold) return;
+            // 每日残局和百鬼狂潮不出墨箱，避免宝箱掉墨挤占局内收益与节奏。
+            if ((Stage.Daily || Stage.Frenzy) && !gold) return;
             int col = FieldLayout.ColumnAtX(e.Pos.x);
             float low = FieldLayout.GridTop + 0.9f;
             float high = GameConstants.SpawnY - 1.6f;
@@ -60,7 +60,7 @@ namespace InkLine
             if (Stage.Endless)
             {
                 amount = Mathf.Max(1, Mathf.RoundToInt(amount * EnemyCatalog.DropMul(hp) / EnemyCatalog.DropMul(Stage.HpAt(0))));
-                if (!gold && !Stage.Daily)
+                if (!gold && !Stage.Daily && !Stage.Frenzy)
                     amount = Mathf.Max(1, Mathf.RoundToInt(amount * StageCatalog.EndlessInkShare(e.Wave)));
             }
             Chests.Add(new ChestActor

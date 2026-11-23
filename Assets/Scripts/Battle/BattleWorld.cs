@@ -670,7 +670,7 @@ namespace InkLine
 
         // 这局还能加到几门炮。无尽和每日残局只允许多看两次广告（续命附赠的一门也占名额）。
         public int EmitterCap =>
-            Stage != null && Stage.Endless
+            Stage != null && Stage.Endless && !Stage.Frenzy
                 ? Mathf.Min(GameConstants.AdEmitterCap, _emitterBase + GameConstants.EndlessAdEmitters)
                 : GameConstants.AdEmitterCap;
 
@@ -1151,7 +1151,7 @@ namespace InkLine
             EnemyDef def = EnemyCatalog.Get(id, Stage.HpAt(wave));
             float hp = Stage.Endless
                 ? Mathf.Max(1f, StageCatalog.SurvivalHpOf(id, Stage.HpAt(wave)) * hpShare
-                    * (Stage.Daily ? 1f : StageCatalog.EndlessLateHp(wave)))
+                    * (Stage.Daily || Stage.Frenzy ? 1f : StageCatalog.EndlessLateHp(wave)))
                 : Mathf.Max(1f, def.Hp * hpShare * _spawnHp);
             float speed = def.Speed * StageCatalog.SpeedOf(Stage.Chapter) * Stage.SpeedAt(wave);
             var e = new EnemyActor
@@ -1168,6 +1168,7 @@ namespace InkLine
                 Ink = Stage.Event ? 0f
                     : def.Ink * StageCatalog.InkOf(Stage.Chapter)
                         * (Stage.Daily ? StageCatalog.DailyInkShare
+                            : Stage.Frenzy ? 0.5f
                             : Stage.Endless ? StageCatalog.EndlessInkShare(wave) : 1f),
                 Shield = def.HasShield,
                 Strafe = def.Strafe,
@@ -1408,7 +1409,7 @@ namespace InkLine
                     if (id.HasValue)
                     {
                         CardDef def = CardCatalog.Get(id.Value);
-                        if (def.Wake == CardWake.Always)
+                        if (def.Wake == CardWake.Always && DustTimer[col, b.NextRow] <= 0f)
                         {
                             ApplyMod(b, id.Value, EffectiveStar(col, b.NextRow));
                             if (b.Mother) Beat(CellBeat.Pass, col, b.NextRow);
