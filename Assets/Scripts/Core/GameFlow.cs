@@ -354,7 +354,7 @@ namespace InkLine
                 // 无尽/狂潮撤退也按已取得的成绩直接结算，不白打。
                 if (_frenzy)
                 {
-                    SettleFrenzy();
+                    SettleFrenzy(false);
                     return;
                 }
                 if (_endless)
@@ -1674,7 +1674,8 @@ namespace InkLine
             _inkDoubled = false;
             if (_frenzy)
             {
-                SettleFrenzy();
+                if (!win && _world.RevivesUsed < GameConstants.EndlessRevives) ShowRevive();
+                else SettleFrenzy(win);
                 return;
             }
             if (_eventTier >= 0)
@@ -1791,11 +1792,13 @@ namespace InkLine
         void ShowRevive()
         {
             DropOverlay();
-            int left = (_endless ? GameConstants.EndlessRevives : GameConstants.MaxRevives) - _world.RevivesUsed;
+            int left = ((_endless || _frenzy) ? GameConstants.EndlessRevives : GameConstants.MaxRevives) - _world.RevivesUsed;
             bool gun = _world.EmitterCount < _world.EmitterCap;
             bool share = _meta.ShareReviveReady;
-            float progress = _endless ? _world.WavesCleared / (float)_world.Stage.Waves.Length : _world.Progress;
-            string done = _endless ? "已撑过 " + _world.WavesCleared + " 波" : null;
+            float progress = _frenzy ? Mathf.Clamp01(_world.BattleTime / GameConstants.FrenzySeconds)
+                : _endless ? _world.WavesCleared / (float)_world.Stage.Waves.Length : _world.Progress;
+            string done = _frenzy ? "已击破 " + _world.Kills + " 只"
+                : _endless ? "已撑过 " + _world.WavesCleared + " 波" : null;
             _overlay = RevivePanel.Show(_layer, progress, left, gun, share, () =>
             {
                 if (share) ShareRevive();
@@ -1835,6 +1838,11 @@ namespace InkLine
 
         void ShowLoss()
         {
+            if (_frenzy)
+            {
+                SettleFrenzy(false);
+                return;
+            }
             if (_endless)
             {
                 SettleEndless(false);
@@ -1894,21 +1902,23 @@ namespace InkLine
             });
         }
 
-        void SettleFrenzy()
+        void SettleFrenzy(bool win = true)
         {
             _screen = Screen.Result;
             if (_world != null) _world.Paused = true;
             DropOverlay();
-            AudioBus.Win();
+            if (win) AudioBus.Win();
             int kills = _world != null ? _world.Kills : 0;
             int earnedFoil = _world != null ? _world.FrenzyTotalFoil : 0;
-            Analytics.LevelClear(3);
+            if (win) Analytics.LevelClear(3);
+            else Analytics.LevelFail("hp_zero", Mathf.Clamp(Mathf.RoundToInt((_world != null ? _world.BattleTime : 0f) / GameConstants.FrenzySeconds * 100f), 0, 99));
             FrenzyGrant g = _meta.ApplyFrenzy(kills, earnedFoil);
-            Tally(true);
+            Tally(win);
             _inkDoubled = false;
             FrenzyResultPanel panel = null;
             panel = FrenzyResultPanel.Show(_layer, _meta, new FrenzyResultArgs
             {
+                Win = win,
                 Grant = g,
                 Double = g.Ink <= 0 && g.Foil <= 0 ? (System.Action)null : () =>
                 {

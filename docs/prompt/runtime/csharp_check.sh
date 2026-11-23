@@ -51,4 +51,22 @@ else
   echo "跳过：缺 .venv-mock（需要 fontTools）"
 fi
 
+echo "=== 广告位核对 ==="
+python3 - "$REPO" <<'PY' || fail=1
+import pathlib, re, sys
+root = pathlib.Path(sys.argv[1])
+ad_text = (root / "Assets/Scripts/Platform/AdStub.cs").read_text(encoding="utf-8")
+unit_body = ad_text.split("static string UnitOf", 1)[1].split("public static bool HasUnit", 1)[0]
+mapped = set(re.findall(r'case\s+"([^"]+)"', unit_body))
+used = set()
+for p in (root / "Assets/Scripts").rglob("*.cs"):
+    for m in re.finditer(r'AdStub\.Reward\(\s*"([^"]+)"', p.read_text(encoding="utf-8")):
+        used.add(m.group(1))
+missing = sorted(used - mapped)
+if missing:
+    print("未配置广告 ID 的 slot:", ", ".join(missing))
+    sys.exit(1)
+print(f"全部 {len(used)} 个显式广告 slot 均有广告位映射")
+PY
+
 exit $fail

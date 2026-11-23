@@ -1,5 +1,7 @@
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Text.RegularExpressions;
 using UnityEditor;
 using UnityEngine;
 using WeChatWASM;
@@ -13,11 +15,41 @@ public static class WxPack
     [MenuItem("微信小游戏/打微信包")]
     public static void Build()
     {
+        if (!VerifyAdSlots())
+        {
+            if (Application.isBatchMode) EditorApplication.Exit(1);
+            return;
+        }
+        InkLine.ModalPrefabBaker.Bake(false);
         WXConvertCore.WXExportError err = WXConvertCore.DoExport(true);
         UnityEngine.Debug.Log("Wx pack: " + err);
         bool ok = err == WXConvertCore.WXExportError.SUCCEED && UploadDataPackage();
         if (Application.isBatchMode)
             EditorApplication.Exit(ok ? 0 : 1);
+    }
+
+    // 打包前拦截未配置微信 adunit 的激励视频 slot，避免带「还没配好」的广告点上线。
+    static bool VerifyAdSlots()
+    {
+        string scriptsDir = Path.Combine(Application.dataPath, "Scripts");
+        var rx = new Regex(@"AdStub\.Reward\(\s*""([^""]+)""");
+        var missing = new List<string>();
+        foreach (string file in Directory.GetFiles(scriptsDir, "*.cs", SearchOption.AllDirectories))
+        {
+            string text = File.ReadAllText(file);
+            foreach (Match m in rx.Matches(text))
+            {
+                string slot = m.Groups[1].Value;
+                if (!InkLine.AdStub.HasUnit(slot) && !missing.Contains(slot))
+                    missing.Add(slot);
+            }
+        }
+        if (missing.Count > 0)
+        {
+            UnityEngine.Debug.LogError("Wx pack: 存在未配置微信广告 ID 的 slot: " + string.Join(", ", missing));
+            return false;
+        }
+        return true;
     }
 
     // 只上传这一份带哈希的首包。失败就让打包失败，避免代码包先发出去、玩家却下不到资源。

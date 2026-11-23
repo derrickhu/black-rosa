@@ -21,14 +21,17 @@ namespace InkLine
         const string Glyph = "adunit-793c39c14611f6d7";
 
         // 签到当天补领一份和当场翻倍是同一个广告位。结算翻倍也走原来的翻倍位。
-        // 招财进宝的加次数、存钱翻倍、失败存回共用一个；无尽的看广告加次数也走这一条。
+        // 招财进宝、无尽、每日残局、百鬼狂潮的次数/活动类广告共用 Event；结算翻倍统一走 Double。
         static string UnitOf(string slot)
         {
             switch (slot)
             {
                 case "glyph_trial":
                 case "foil_double": return Glyph;
-                case "double": return Double;
+                case "double":
+                case "daily_double":
+                case "endless_double":
+                case "frenzy_double": return Double;
                 case "reroll": return Reroll;
                 case "revive": return Revive;
                 case "chest_speed": return ChestSpeed;
@@ -41,10 +44,14 @@ namespace InkLine
                 case "event_plays":
                 case "event_double":
                 case "event_salvage":
-                case "endless_plays": return Event;
+                case "endless_plays":
+                case "daily_plays":
+                case "frenzy_plays": return Event;
                 default: return null;
             }
         }
+
+        public static bool HasUnit(string slot) => !string.IsNullOrEmpty(UnitOf(slot));
 
         // 返回 false 表示这次没播成（没广告位，或上一条还在播）。播成了才会在结束时调 onSettled，
         // 看完、中途关掉、加载失败都算结束。编辑器里没有广告，当场发奖并结束。

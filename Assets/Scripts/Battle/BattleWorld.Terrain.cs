@@ -64,8 +64,8 @@ namespace InkLine
                 Terrain[c, r] = t;
                 if (t == CellTerrain.Crystal)
                 {
-                    CrystalHp[c, r] = CrystalMaxHp;
-                    // 即使在铲子章（11/12章），墨晶矿显露在盘面上供炮弹敲击，敲爆后自动解锁该格！
+                    CrystalHp[c, r] = Stage != null && Stage.Frenzy ? 14 : CrystalMaxHp;
+                    // 即使该格尚未开启，墨晶矿也显露在盘面上供炮弹敲击，敲爆后自动解锁该格！
                 }
                 else
                 {
@@ -75,9 +75,9 @@ namespace InkLine
 
             if (Stage != null && Stage.Frenzy)
             {
-                // 百鬼狂潮：开局保底 4 门炮 + 射速狂飙！
-                EmitterCount = Mathf.Max(EmitterCount, 4);
-                _intervalMul *= 0.62f;
+                // 百鬼狂潮：开局 3 门炮 + 适度提速，走位破晶开格、守住底线才能冲高分！
+                EmitterCount = Mathf.Max(EmitterCount, 3);
+                _intervalMul *= 0.78f;
                 RailX = FieldLayout.ColumnX(Mathf.Max(0, (GameConstants.Columns - EmitterCount) / 2));
             }
         }
@@ -146,28 +146,23 @@ namespace InkLine
         void TickFrenzy(float dt)
         {
             if (Stage == null || !Stage.Frenzy) return;
-            if (_frenzyBoostStage == 0 && BattleTime >= 28f)
+            if (_frenzyBoostStage == 0 && WaveIndex >= 2)
             {
                 _frenzyBoostStage = 1;
                 if (EmitterCount < GameConstants.AdEmitterCap) EmitterCount++;
                 ClampRail();
-                RushTime = Mathf.Max(RushTime, 4.5f);
-                Shouts.Add(new Shout { Kind = ShoutKind.Rush, Text = "狂热升温！", Sub = "免费增援一门火炮" });
+                RushTime = Mathf.Max(RushTime, 3.5f);
+                Shouts.Add(new Shout { Kind = ShoutKind.Rush, Text = "头目来袭！", Sub = "增援一门火炮迎敌" });
                 AudioBus.Rush();
             }
-            else if (_frenzyBoostStage == 1 && BattleTime >= 56f)
+            else if (_frenzyBoostStage == 1 && WaveIndex >= StageCatalog.FrenzyWaves - 1 && !DarumaActive)
             {
                 _frenzyBoostStage = 2;
-                EmitterCount = GameConstants.AdEmitterCap;
-                ClampRail();
-                RushTime = Mathf.Max(RushTime, 5.0f);
-                Shouts.Add(new Shout { Kind = ShoutKind.Rush, Text = "六炮齐射！", Sub = "全列满编无限火力" });
-                AudioBus.Rush();
-            }
-            else if (_frenzyBoostStage == 2 && WaveIndex >= StageCatalog.FrenzyWaves - 1 && !DarumaActive)
-            {
                 DarumaActive = true;
-                Shouts.Add(new Shout { Kind = ShoutKind.Horde, Text = "不倒金翁驾到！", Sub = "痛扁金翁狂爆金箔" });
+                if (EmitterCount < GameConstants.AdEmitterCap) EmitterCount++;
+                ClampRail();
+                RushTime = Mathf.Max(RushTime, 4.0f);
+                Shouts.Add(new Shout { Kind = ShoutKind.Horde, Text = "不倒金翁驾到！", Sub = "守线痛扁金翁狂爆金箔" });
                 AudioBus.SlotJackpot();
                 AddShake(0.24f);
             }
@@ -197,21 +192,13 @@ namespace InkLine
             }
         }
 
-        // 百鬼狂潮绝不失败：怪碰到底线时触发金光震波弹回，零挫败爽玩到底！
+        // 百鬼狂潮里仅「不倒金翁」碰线弹回留场挨揍；普通与精英怪撞线照常扣心（或触发「护」字金盾）！
         bool HandleFrenzyLeak(EnemyActor e)
         {
-            if (Stage == null || !Stage.Frenzy) return false;
-            if (e.Type == EnemyId.Daruma)
-            {
-                e.Pos.y = GameConstants.LeakY + 2.4f;
-                ShowFloat(e.Pos + Vector2.up * 0.3f, "不倒翁弹回！", InkTheme.GoldHi, 1.05f);
-                AudioBus.CellDrop();
-                return true;
-            }
-            e.Pos.y = Mathf.Min(GameConstants.SpawnY - 0.6f, e.Pos.y + 2.6f);
-            e.HoldTime = Mathf.Max(e.HoldTime, 0.7f);
-            Bursts.Add(new FxBurst { Pos = new Vector2(e.Pos.x, GameConstants.LeakY + 0.2f), Kind = HitFx.Knock, Tint = InkTheme.GoldHi, Scale = 1.1f });
-            AudioBus.HitWind();
+            if (Stage == null || !Stage.Frenzy || e.Type != EnemyId.Daruma) return false;
+            e.Pos.y = GameConstants.LeakY + 2.4f;
+            ShowFloat(e.Pos + Vector2.up * 0.3f, "不倒翁弹回！", InkTheme.GoldHi, 1.05f);
+            AudioBus.CellDrop();
             return true;
         }
     }

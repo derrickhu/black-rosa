@@ -3244,6 +3244,14 @@ namespace InkLine
 
         void CheckEnd(float dt)
         {
+            if (BaseHp <= 0)
+            {
+                _clearHold = 0f;
+                Defeat = true;
+                Paused = true;
+                FlushDrops();
+                return;
+            }
             if (Stage != null && Stage.Frenzy)
             {
                 if (BattleTime >= GameConstants.FrenzySeconds)
@@ -3253,14 +3261,6 @@ namespace InkLine
                     FlushDrops();
                     Chests.Clear();
                 }
-                return;
-            }
-            if (BaseHp <= 0)
-            {
-                _clearHold = 0f;
-                Defeat = true;
-                Paused = true;
-                FlushDrops();
                 return;
             }
             // 前两关是教学关，没有关底。原来这里硬要求 BossKilled，
@@ -3419,7 +3419,7 @@ namespace InkLine
             else
             {
                 Grid[col, row] = id;
-                bool frenzyJump = Stage != null && Stage.Frenzy && !PreviewFill && UnityEngine.Random.value < 0.55f;
+                bool frenzyJump = Stage != null && Stage.Frenzy && !PreviewFill && UnityEngine.Random.value < 0.22f;
                 Stars[col, row] = frenzyJump ? 2 : 1;
                 int eff = EffectiveStar(col, row);
                 if (Terrain[col, row] == CellTerrain.Inkwell)

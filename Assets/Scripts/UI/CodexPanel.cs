@@ -717,7 +717,8 @@ namespace InkLine
             if (_glyph != null)
             {
                 Sprite s = InkSprites.Heap(id, star);
-                if (s != null) _glyph.sprite = s;
+                Sprite clean = s != null ? (CardCatalog.Get(id).Wake == CardWake.WordPart ? InkArt.WordGlyph(id, false) : InkArt.Bare(s)) : null;
+                if (clean != null) _glyph.sprite = clean;
             }
             Highlight(star);
         }

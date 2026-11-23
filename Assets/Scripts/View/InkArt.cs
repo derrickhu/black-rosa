@@ -247,47 +247,7 @@ namespace InkLine
             return s;
         }
 
-        static bool NeedsCard(CardId id)
-        {
-            switch (id)
-            {
-                case CardId.Fire:
-                case CardId.Ice:
-                case CardId.Split:
-                case CardId.Track:
-                case CardId.Pierce:
-                case CardId.Explode:
-                case CardId.Accel:
-                case CardId.Heavy:
-                case CardId.Stun:
-                case CardId.Sec:
-                case CardId.Kill:
-                case CardId.Myriad:
-                case CardId.Arrow:
-                case CardId.Strike:
-                case CardId.Back:
-                case CardId.Link:
-                case CardId.Slash:
-                case CardId.Gold:
-                case CardId.Wood:
-                case CardId.Water:
-                case CardId.Earth:
-                case CardId.Wind:
-                case CardId.Thunder:
-                case CardId.Poison:
-                case CardId.Confuse:
-                case CardId.Break:
-                case CardId.Gather:
-                case CardId.Rebound:
-                case CardId.Qian:
-                case CardId.Jun:
-                case CardId.Shadow:
-                case CardId.Seal:
-                    return true;
-                default:
-                    return false;
-            }
-        }
+        static bool NeedsCard(CardId id) => id != CardId.None;
 
         // 星级越高，字在牌面里越大。1 星留最宽的边，3 星几乎顶到金边。
         static float GlyphPad(CardId id, int star)
@@ -601,6 +561,10 @@ namespace InkLine
                 case CardId.Jun:
                 case CardId.Shadow:
                 case CardId.Seal:
+                case CardId.Heng:
+                case CardId.Sao:
+                case CardId.Wealth:
+                case CardId.Guard:
                     DrawShaped(px, n, CardCatalog.Get(id).Shape, InkTheme.Accent(id));
                     return;
                 default:

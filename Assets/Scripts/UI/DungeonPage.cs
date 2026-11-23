@@ -261,7 +261,7 @@ namespace InkLine
             if (c == null || c.Frame == null) return;
             Transform root = c.Frame.transform;
             string[] slotKeys = { "Ui/modal_slot_60_purple", "Ui/modal_slot_60_orange", "Ui/modal_slot_60_green" };
-            string[] iconKeys = { "Ui/ico_ink", "Ui/ico_foil", "Ui/seal_ico_fierce" };
+            string[] iconKeys = { "Ui/ico_ink", "Ui/ico_foil", "Ui/glyph_slot_empty_green" };
             for (int i = 0; i < 3; i++)
             {
                 var si = root.Find("slot" + i)?.GetComponent<Image>();
@@ -274,6 +274,17 @@ namespace InkLine
                     ci.sprite = ic;
                     ci.type = Image.Type.Simple;
                     ci.preserveAspect = true;
+                    ci.color = Color.white;
+                }
+                if (i == 2 && ci != null)
+                {
+                    Text q = EnsureSealMark(ci.rectTransform);
+                    q.gameObject.SetActive(true);
+                    q.text = "?";
+                    q.fontSize = 20;
+                    q.color = Color.white;
+                    q.alignment = TextAnchor.MiddleCenter;
+                    q.alignByGeometry = true;
                 }
             }
         }

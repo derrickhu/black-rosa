@@ -6,6 +6,7 @@ namespace InkLine
 {
     public sealed class FrenzyResultArgs
     {
+        public bool Win = true;
         public FrenzyGrant Grant;
         public Action Double;
         public Action Again;
@@ -65,13 +66,14 @@ namespace InkLine
             var rays = ResultKit.Rays(stage, new Vector2(0f, BannerY - 20f), 780f, new Color(1f, 0.84f, 0.42f, 0.88f));
             _anim.Fade(rays, 0f, 0.45f, 0f, 0.88f).Spin(rays.transform, 16f).Pop(rays.transform, 0f, 0.55f, 0.35f);
 
-            var banner = ResultKit.Banner(stage, true, "满载而归", new Vector2(0f, BannerY), 620f);
+            bool win = _a.Win;
+            var banner = ResultKit.Banner(stage, win, win ? "满载而归" : "鏖战收兵", new Vector2(0f, BannerY), 620f);
             _anim.Move(banner, new Vector2(0f, 860f), new Vector2(0f, BannerY), 0.05f, 0.4f, Ease.OutBack)
                  .Punch(banner, 0.45f, 0.1f, 0.28f)
                  .At(0.42f, AudioBus.Stamp);
 
             FrenzyGrant g = _a.Grant;
-            var sub = UiKit.Label(stage, "sub", "百鬼狂潮 · 爽刷收官", 28,
+            var sub = UiKit.Label(stage, "sub", win ? "百鬼狂潮 · 完守收官" : "防线失守 · 按当前击破结算", 28,
                 new Vector2(0f, SubY), new Vector2(620f, 40f));
             sub.color = Amber;
             UiKit.Bold(sub);

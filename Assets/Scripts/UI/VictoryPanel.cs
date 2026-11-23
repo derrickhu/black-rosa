@@ -479,7 +479,7 @@ namespace InkLine
                 var glow = UiKit.Icon(host, InkSprites.Load("Ui/result_rays"), new Vector2(x, glyphY), icon + 64f);
                 glow.color = new Color(1f, 0.78f, 0.35f, 0.9f);
                 _anim.Spin(glow.transform, -30f);
-                var heap = UiKit.Icon(host, InkSprites.Heap(fresh[i]), new Vector2(x, glyphY), icon);
+                var heap = UiKit.Icon(host, InkArt.Heap(fresh[i], 1, 128), new Vector2(x, glyphY), icon);
                 _anim.Pop(heap.transform, at + 0.25f + i * 0.08f, 0.4f, 0f)
                      .Breathe(heap.transform, at + 0.7f, 0.06f, 1.1f);
             }

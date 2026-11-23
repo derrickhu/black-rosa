@@ -9,7 +9,7 @@ namespace InkLine
     public sealed class FrenzyPanel : MonoBehaviour
     {
         public const string PrefabPath = "Prefabs/Frenzy";
-        public const string Mark = "frenzy_v2";
+        public const string Mark = "frenzy_v3";
 
         const float BoardW = 648f;
         const float BoardH = 764f;
@@ -68,14 +68,14 @@ namespace InkLine
             ModalKit.OutlinedText(banner, "best", "今日待战", 36, 280f, 62f, 320f, 64f,
                 InkTheme.Hex("FFE866"), TextAnchor.MiddleLeft, 1.8f);
             var pill = ModalKit.Sliced(banner, "pill", "Ui/dungeon_pill_gold", BorderPill, 294f, 136f, 256f, 30f, false);
-            ModalKit.SolidText(pill, "t", "96秒爽刷 · 零耗体 · 漏怪不败", 13, 0f, 0f, 256f, 30f,
+            ModalKit.SolidText(pill, "t", "96秒限时 · 零耗体 · 守线冲榜", 13, 0f, 0f, 256f, 30f,
                 InkTheme.Hex("FFF3D6"), TextAnchor.MiddleCenter, true);
 
             // 2. 中段爽刷法则暗条
             var bar = ModalKit.Sliced(well, "rule", "Ui/dungeon_intel_gold", BorderIntel, 20f, 216f, 584f, 74f, false);
             var tag = ModalKit.Sliced(bar, "tag", "Ui/modal_tag_coral", BorderTicket, 18f, 19f, 112f, 36f, false);
-            ModalKit.OutlinedText(tag, "t", "狂潮特权", 18, 0f, 0f, 112f, 34f, Color.white, TextAnchor.MiddleCenter, 1.35f);
-            ModalKit.SolidText(bar, "desc", "中宫四格升 ★4 极意 · 终幕扁金翁爆金箔", 15,
+            ModalKit.OutlinedText(tag, "t", "狂潮法则", 18, 0f, 0f, 112f, 34f, Color.white, TextAnchor.MiddleCenter, 1.35f);
+            ModalKit.SolidText(bar, "desc", "灵砚升 ★4 极意 · 破晶开格 · 终幕扁金翁", 15,
                 142f, 0f, 426f, 74f, ModalKit.CreamLight, TextAnchor.MiddleLeft, true);
 
             // 3. 狂潮掉落轴
@@ -93,9 +93,9 @@ namespace InkLine
             const float s = 96f, gap = 68f;
             float left = Mathf.Round((WellW - (s * n + gap * (n - 1))) * 0.5f);
             string[] tones = { ModalKit.InkTone, ModalKit.FoilTone, "green" };
-            string[] icons = { "Ui/ico_ink", "Ui/ico_foil", "Ui/seal_ico_fierce" };
-            string[] counts = { "海量", "狂掉", "1" };
-            string[] gates = { "保底必得", "痛扁金翁", $"击破 {StageCatalog.FrenzySealKillNeed}" };
+            string[] icons = { "Ui/ico_ink", "Ui/ico_foil", "Ui/glyph_slot_empty_green" };
+            string[] counts = { "海量", "狂掉", null };
+            string[] gates = { "按击破结", "痛扁金翁", $"击破 {StageCatalog.FrenzySealKillNeed}" };
             string[] names = { "灵墨", "金箔雨", "随机印章" };
             for (int i = 0; i < n; i++)
             {
@@ -104,6 +104,25 @@ namespace InkLine
                 slot.name = "slot" + i;
                 slot.pivot = new Vector2(0.5f, 0.5f);
                 slot.anchoredPosition = new Vector2(sx + 48f, -(375f + 48f));
+                if (i == 2)
+                {
+                    var iconRt = slot.Find("icon") as RectTransform;
+                    if (iconRt != null)
+                    {
+                        float isz = Mathf.Round(s * 0.78f);
+                        float inset = (s - isz) * 0.5f;
+                        iconRt.anchorMin = iconRt.anchorMax = new Vector2(0f, 1f);
+                        iconRt.pivot = new Vector2(0.5f, 0.5f);
+                        iconRt.sizeDelta = new Vector2(isz, isz);
+                        iconRt.anchoredPosition = new Vector2(inset + isz * 0.5f, -(inset + isz * 0.5f));
+                        var img = iconRt.GetComponent<Image>();
+                        if (img != null) img.preserveAspect = true;
+                    }
+                    var q = ModalKit.OutlinedText(slot, "q", "?", 30, 0f, 0f, s, s,
+                        Color.white, TextAnchor.MiddleCenter);
+                    q.alignByGeometry = true;
+                    q.transform.SetAsLastSibling();
+                }
 
                 ModalKit.SolidText(well, "w" + i, gates[i], 16, sx - 16f, 476f, 128f, 28f,
                     ModalKit.TextBody, TextAnchor.MiddleCenter, true);
@@ -188,6 +207,10 @@ namespace InkLine
             }
 
             const float trackW = 420f;
+            var rwSub = _well.Find("rw_sub")?.GetComponent<Text>();
+            if (rwSub != null) rwSub.text = $"击破满 {StageCatalog.FrenzySealKillNeed} 只加送随机印章";
+            var w2Txt = _well.Find("w2")?.GetComponent<Text>();
+            if (w2Txt != null) w2Txt.text = $"击破 {StageCatalog.FrenzySealKillNeed}";
             float ratio = Mathf.Clamp01(_meta.FrenzyBestKills / (float)StageCatalog.FrenzySealKillNeed);
             var fill = _well.Find("axis/fill") as RectTransform;
             if (fill != null)
