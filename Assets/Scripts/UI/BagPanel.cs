@@ -212,23 +212,23 @@ namespace InkLine
 
         void BuildNote(RectTransform dim, RectTransform anchor)
         {
-            const float w = 420f;
-            const float h = 172f;
-            var card = UiKit.Stroke(dim, "tip", Vector2.zero, new Vector2(w, h), Pin.Center, 3f, radius: 18f);
-            foreach (var g in card.GetComponentsInChildren<Graphic>(true))
-                g.raycastTarget = false;
-            var body = UiKit.Label(card, "t",
-                "· 首次通关\n· 每日签到\n· 开宝箱\n· 炮台及道具满级后，碎片自动转换\n· 每日兑换",
-                20, Vector2.zero, new Vector2(w - 36f, h - 16f), TextAnchor.MiddleLeft);
-            body.lineSpacing = 1.12f;
-
+            const float w = 456f;
+            const float h = 216f;
             Vector3 under = anchor != null
                 ? anchor.TransformPoint(new Vector3(0f, -anchor.rect.height - 8f, 0f))
                 : dim.TransformPoint(new Vector3(0f, dim.rect.height * 0.5f - 80f, 0f));
             RectTransformUtility.ScreenPointToLocalPointInRectangle(
                 dim, RectTransformUtility.WorldToScreenPoint(null, under), null, out Vector2 local);
             float limit = Mathf.Max(0f, dim.rect.width * 0.5f - w * 0.5f - 12f);
-            card.anchoredPosition = new Vector2(Mathf.Clamp(local.x, -limit, limit), local.y - h * 0.5f);
+            Vector2 cardPos = new Vector2(Mathf.Clamp(local.x, -limit, limit), local.y - h * 0.5f);
+
+            var card = UiKit.Stroke(dim, "tip", cardPos, new Vector2(w, h), Pin.Center, 3f, radius: 18f);
+            foreach (var g in card.GetComponentsInChildren<Graphic>(true))
+                g.raycastTarget = false;
+            var body = UiKit.Label(card, "t",
+                "· 首次通关\n· 百鬼狂潮\n· 每日签到\n· 开宝箱\n· 炮台及道具满级后，碎片自动转换\n· 每日兑换",
+                19, Vector2.zero, new Vector2(w - 36f, h - 24f), TextAnchor.MiddleLeft);
+            body.lineSpacing = 1.15f;
         }
     }
 }
