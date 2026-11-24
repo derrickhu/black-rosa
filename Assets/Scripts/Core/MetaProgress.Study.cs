@@ -25,7 +25,7 @@ namespace InkLine
         public bool StudyOpen => StudyCatalog.IsOpen(ClearedCount());
         public int StudyCap => StudyCatalog.CapOf(ClearedCount());
 
-        void NormalizeStudy()
+        bool NormalizeStudy()
         {
             GlyphLevel = Fit(GlyphLevel, CardCatalog.IdCount);
             WordLevel = Fit(WordLevel, CardCatalog.WordCount);
@@ -35,8 +35,9 @@ namespace InkLine
                 WordLevel[i] = Mathf.Clamp(WordLevel[i], 0, StudyCatalog.MaxLevel);
             Foil = Mathf.Max(0, Foil);
             if (TrialKind < 0 || TrialKind > 2) TrialKind = 0;
-            NormalizeSeals();
+            bool migrated = NormalizeSeals();
             NormalizeFrenzy();
+            return migrated;
         }
 
         bool RollStudy()

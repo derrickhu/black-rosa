@@ -21,9 +21,15 @@ namespace InkLine
         public bool FrenzyAdDone;
         public int FrenzyBestKills;
         public int FrenzyBestFoil;
-        // 字帖：存放 SealCatalog.KeyOf(entry) 编码（字 = CardId，词 = CardCatalog.IdCount + WordId）。
+        // 字帖：单字存 CardId (1..IdCount-1)，成词存 CopyWordBase + WordId，避免新增单字顶歪成词编码。
+        public const int CopyWordBase = 1000;
         public int[] CopyFav = new int[0];
         public int[] CopyBan = new int[0];
+
+        public static int CopyKeyOf(CodexEntry e) =>
+            e.Kind == CodexKind.Word ? CopyWordBase + e.Index : e.Index;
+        public static int CopyKeyOf(CardId id) => (int)id;
+        public static int CopyKeyOf(WordId w) => CopyWordBase + (int)w;
 
         public bool FrenzyOpen => ChapterCleared(GameConstants.FrenzyOpenChapter);
 
@@ -56,11 +62,15 @@ namespace InkLine
         {
             if (src == null || src.Length == 0) return new int[0];
             var list = new List<int>(cap);
-            int maxKey = SealCatalog.KeyCount;
             for (int i = 0; i < src.Length && list.Count < cap; i++)
             {
                 int k = src[i];
-                if (k <= 0 || k >= maxKey || list.Contains(k)) continue;
+                // 兼容早期用 CardCatalog.IdCount(37) + WordId 编码的成词键值
+                if (k >= CardCatalog.IdCount && k < CardCatalog.IdCount + CardCatalog.WordCount)
+                    k = CopyWordBase + (k - CardCatalog.IdCount);
+                bool validGlyph = k > 0 && k < CardCatalog.IdCount && CardCatalog.Get((CardId)k).Wake != CardWake.WordPart;
+                bool validWord = k > CopyWordBase && k < CopyWordBase + CardCatalog.WordCount;
+                if ((!validGlyph && !validWord) || list.Contains(k)) continue;
                 if (exclude != null && System.Array.IndexOf(exclude, k) >= 0) continue;
                 list.Add(k);
             }
@@ -138,8 +148,8 @@ namespace InkLine
         public int CopyBanCount => CopyBan != null ? CopyBan.Length : 0;
         public int CopyTotalCount => CopyFavCount + CopyBanCount;
 
-        public bool IsCopyFav(CodexEntry e) => HasCopyKey(CopyFav, SealCatalog.KeyOf(e));
-        public bool IsCopyBan(CodexEntry e) => HasCopyKey(CopyBan, SealCatalog.KeyOf(e));
+        public bool IsCopyFav(CodexEntry e) => HasCopyKey(CopyFav, CopyKeyOf(e));
+        public bool IsCopyBan(CodexEntry e) => HasCopyKey(CopyBan, CopyKeyOf(e));
 
         static bool HasCopyKey(int[] arr, int key) =>
             arr != null && key > 0 && System.Array.IndexOf(arr, key) >= 0;
@@ -147,7 +157,7 @@ namespace InkLine
         public bool ToggleCopyFav(CodexEntry e)
         {
             if (!StudyOpen || !StudyOwned(e)) return false;
-            int key = SealCatalog.KeyOf(e);
+            int key = CopyKeyOf(e);
             if (HasCopyKey(CopyFav, key))
             {
                 CopyFav = RemoveKey(CopyFav, key);
@@ -164,7 +174,7 @@ namespace InkLine
         public bool ToggleCopyBan(CodexEntry e)
         {
             if (!StudyOpen || !StudyOwned(e)) return false;
-            int key = SealCatalog.KeyOf(e);
+            int key = CopyKeyOf(e);
             if (HasCopyKey(CopyBan, key))
             {
                 CopyBan = RemoveKey(CopyBan, key);
@@ -207,19 +217,19 @@ namespace InkLine
         public bool CardBanned(CardId id)
         {
             if (!StudyOpen || CopyBanCount == 0 || id == CardId.None) return false;
-            if (HasCopyKey(CopyBan, SealCatalog.KeyOf(id))) return true;
+            if (HasCopyKey(CopyBan, CopyKeyOf(id))) return true;
             CardDef def = CardCatalog.Get(id);
             if (def.Wake == CardWake.WordPart && def.Word != WordId.None)
-                return HasCopyKey(CopyBan, SealCatalog.KeyOf(def.Word));
+                return HasCopyKey(CopyBan, CopyKeyOf(def.Word));
             return false;
         }
 
         public float CopybookLuck(CardId id)
         {
             if (!StudyOpen || CopyFavCount == 0 || id == CardId.None) return 1f;
-            if (HasCopyKey(CopyFav, SealCatalog.KeyOf(id))) return GameConstants.CopybookFavMul;
+            if (HasCopyKey(CopyFav, CopyKeyOf(id))) return GameConstants.CopybookFavMul;
             CardDef def = CardCatalog.Get(id);
-            if (def.Wake == CardWake.WordPart && def.Word != WordId.None && HasCopyKey(CopyFav, SealCatalog.KeyOf(def.Word)))
+            if (def.Wake == CardWake.WordPart && def.Word != WordId.None && HasCopyKey(CopyFav, CopyKeyOf(def.Word)))
                 return GameConstants.CopybookFavMul;
             return 1f;
         }

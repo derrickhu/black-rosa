@@ -89,7 +89,7 @@ function normalizeCleared(value) {
     throw httpError(400, 'BAD_CLEARED', 'cleared 必须为非负整数');
   }
   const cleared = Math.floor(n);
-  const max = envInt('RANK_MAX_CLEARED', DEFAULT_MAX_CLEARED);
+  const max = Math.max(envInt('RANK_MAX_CLEARED', DEFAULT_MAX_CLEARED), DEFAULT_MAX_CLEARED);
   if (cleared > max) {
     throw httpError(400, 'CLEARED_TOO_HIGH', `cleared 超出上限: ${cleared} > ${max}`);
   }

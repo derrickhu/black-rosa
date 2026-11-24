@@ -339,7 +339,7 @@ namespace InkLine
             Ink = Mathf.Max(0, Ink);
             Diamond = Mathf.Max(0, Diamond);
             Token = Mathf.Max(0, Token);
-            NormalizeStudy();
+            if (NormalizeStudy()) rulesChanged = true;
             if (FillSlots()) rulesChanged = true;
             // 奖励来的体力可以超过上限，这里只防负数，否则重进游戏多出来的就被削掉。
             Stamina = Mathf.Max(0, Stamina);

@@ -4,12 +4,18 @@ using UnityEngine;
 namespace InkLine
 {
     // 插槽和印章。数值在 SealCatalog。
-    // 槽下标 = 条目号 × 3 + 第几个槽。SlotType 是 (int)SealType，0 是还没刷出；
-    // SlotSeal 是镶着的印章品质 + 1，0 是空。镶上的印章从背包里扣掉，卸下或刷新时退回。
+    // 单字槽存 SlotType / SlotSeal（下标 = CardId × 3 + 槽位），成词槽独立存 WordSlotType / WordSlotSeal（下标 = WordId × 3 + 槽位），
+    // 彻底解耦 CardCatalog.IdCount 扩容，防止后续新增字牌再次顶歪成词插槽！
+    // SlotType 是 (int)SealType，0 是还没刷出；SlotSeal 是镶着的印章品质 + 1，0 是空。
     public sealed partial class MetaProgress
     {
-        public int[] SlotType = new int[SealCatalog.SlotCount];
-        public int[] SlotSeal = new int[SealCatalog.SlotCount];
+        public const int CurrentSealLayoutVer = 1;
+
+        public int[] SlotType = new int[CardCatalog.IdCount * SealCatalog.SlotsPer];
+        public int[] SlotSeal = new int[CardCatalog.IdCount * SealCatalog.SlotsPer];
+        public int[] WordSlotType = new int[CardCatalog.WordCount * SealCatalog.SlotsPer];
+        public int[] WordSlotSeal = new int[CardCatalog.WordCount * SealCatalog.SlotsPer];
+        public int SealLayoutVer;
         // 背包按 类型 × 品质 叠，见 SealCatalog.BagIndex。
         public int[] SealBag = new int[SealCatalog.BagSize];
         // 背包里有几枚是打开背包之后才拿到的，字卡页「印章」挂红点。
@@ -22,18 +28,262 @@ namespace InkLine
         // 字卡页的「印章」按钮：开了插槽，或者已经攒到过印章。
         public bool SealBagShown => SealOpen || SealTotal > 0 || AnySocketed;
 
-        void NormalizeSeals()
+        bool SlotRef(CodexEntry e, int k, out int[] types, out int[] seals, out int idx)
         {
-            SlotType = Fit(SlotType, SealCatalog.SlotCount);
-            SlotSeal = Fit(SlotSeal, SealCatalog.SlotCount);
+            if (e.Kind == CodexKind.Word)
+            {
+                types = WordSlotType;
+                seals = WordSlotSeal;
+            }
+            else
+            {
+                types = SlotType;
+                seals = SlotSeal;
+            }
+            idx = e.Index * SealCatalog.SlotsPer + k;
+            return types != null && seals != null && k >= 0 && k < SealCatalog.SlotsPer
+                && idx >= 0 && idx < types.Length && idx < seals.Length;
+        }
+
+        bool NormalizeSeals()
+        {
             SealBag = Fit(SealBag, SealCatalog.BagSize);
-            for (int i = 0; i < SlotType.Length; i++)
+            for (int i = 0; i < SealBag.Length; i++) SealBag[i] = Mathf.Max(0, SealBag[i]);
+
+            bool migrated = false;
+            if (SealLayoutVer < CurrentSealLayoutVer)
+            {
+                MigrateLegacyWordSeals();
+                SealLayoutVer = CurrentSealLayoutVer;
+                migrated = true;
+            }
+
+            int glyphSlots = CardCatalog.IdCount * SealCatalog.SlotsPer;
+            int wordSlots = CardCatalog.WordCount * SealCatalog.SlotsPer;
+            SlotType = Fit(SlotType, glyphSlots);
+            SlotSeal = Fit(SlotSeal, glyphSlots);
+            WordSlotType = Fit(WordSlotType, wordSlots);
+            WordSlotSeal = Fit(WordSlotSeal, wordSlots);
+
+            CleanSlotArrays(SlotType, SlotSeal, false, ref migrated);
+            CleanSlotArrays(WordSlotType, WordSlotSeal, true, ref migrated);
+
+            SealNew = Mathf.Max(0, SealNew);
+            return migrated;
+        }
+
+        // 无损迁移旧版混排在 SlotType/SlotSeal 尾部的成词插槽与印章：
+        // 兼容两种存档状态：
+        //   1) 14 章旧档直接升上来（OldIdCount = 33，词 1..5 存在 entry 34..38）；
+        //   2) 已在 16 章首版打开过的档（数组被垫长到 132，原词 1..5 仍留在 entry 34..38，且 39..43 可能新刷/新镶了槽）。
+        // 任何无法原位安放或超出槽数的已镶嵌印章一律退回 SealBag，确保零丢失！
+        void MigrateLegacyWordSeals()
+        {
+            const int S = SealCatalog.SlotsPer;
+            const int OldIdCount = 33; // Phase B 前 CardCatalog.IdCount = 33（Fire=1..Seal=32）
+            const int OldWordMax = 5;  // InstantKill(1)..Crush(5)
+            const int PhaseBIdCount = 37;
+
+            int rawLen = Mathf.Min(SlotType != null ? SlotType.Length : 0, SlotSeal != null ? SlotSeal.Length : 0);
+            WordSlotType = Fit(WordSlotType, CardCatalog.WordCount * S);
+            WordSlotSeal = Fit(WordSlotSeal, CardCatalog.WordCount * S);
+            if (rawLen <= OldIdCount * S) return;
+
+            for (int i = 0; i < rawLen; i++)
             {
                 if (SlotType[i] < 0 || SlotType[i] > SealCatalog.TypeCount) SlotType[i] = 0;
                 if (SlotSeal[i] < 0 || SlotSeal[i] > SealCatalog.QualityCount || SlotType[i] == 0) SlotSeal[i] = 0;
             }
-            for (int i = 0; i < SealBag.Length; i++) SealBag[i] = Mathf.Max(0, SealBag[i]);
-            SealNew = Mathf.Max(0, SealNew);
+
+            int ReadT(int entry, int k)
+            {
+                int idx = entry * S + k;
+                return idx >= 0 && idx < rawLen ? SlotType[idx] : 0;
+            }
+            int ReadQ(int entry, int k)
+            {
+                int idx = entry * S + k;
+                return idx >= 0 && idx < rawLen ? SlotSeal[idx] : 0;
+            }
+            void Refund(int t, int q1)
+            {
+                if (t > 0 && t <= SealCatalog.TypeCount && q1 > 0 && q1 <= SealCatalog.QualityCount)
+                {
+                    SealBag[SealCatalog.BagIndex((SealType)t, (SealQuality)(q1 - 1))]++;
+                    SealNew++;
+                }
+            }
+
+            // 判断是否带有 OldIdCount=33 时期的旧成词槽位数据：
+            // 1) 数组长度仍是 117（<= 39*3）；
+            // 2) entry 34（扫，半边字不可能开槽）或 entry 37（WordId.None，不可能开槽）非空；
+            // 3) entry 35/36（财/护）有槽数据但对应新字等级还不到开槽线（<4级）；
+            // 4) entry 38 有槽数据，且秒杀未到 4 级而千钧已到 4 级。
+            bool hasOld33 = rawLen <= (OldIdCount + OldWordMax + 1) * S;
+            if (!hasOld33)
+            {
+                for (int k = 0; k < S; k++)
+                {
+                    if (ReadT(34, k) != 0 || ReadT(37, k) != 0) { hasOld33 = true; break; }
+                    if (ReadT(35, k) != 0 && SealCatalog.SlotsAt(GlyphLevel[35]) <= k) { hasOld33 = true; break; }
+                    if (ReadT(36, k) != 0 && SealCatalog.SlotsAt(GlyphLevel[36]) <= k) { hasOld33 = true; break; }
+                    if (ReadT(38, k) != 0
+                        && SealCatalog.SlotsAt(WordLevel[(int)WordId.InstantKill]) <= k
+                        && SealCatalog.SlotsAt(WordLevel[(int)WordId.Crush]) > k)
+                    {
+                        hasOld33 = true;
+                        break;
+                    }
+                }
+            }
+
+            if (hasOld33)
+            {
+                // 1) 先把 OldIdCount=33 下 entry 34..38 里的原成词（秒杀..千钧）迁回 WordSlot[1..5]
+                for (int w = 1; w <= OldWordMax && w < CardCatalog.WordCount; w++)
+                {
+                    int oldEntry = OldIdCount + w;
+                    // 若极端情况下玩家今天已把「财(35)」或「护(36)」升到 4 级且原「万箭/击退」根本没开槽，则保留给财/护
+                    if ((oldEntry == 35 || oldEntry == 36)
+                        && SealCatalog.SlotsAt(WordLevel[w]) == 0
+                        && SealCatalog.SlotsAt(GlyphLevel[oldEntry]) > 0)
+                        continue;
+
+                    for (int k = 0; k < S; k++)
+                    {
+                        int t = ReadT(oldEntry, k);
+                        int q1 = ReadQ(oldEntry, k);
+                        int srcIdx = oldEntry * S + k;
+                        if (srcIdx < rawLen) { SlotType[srcIdx] = 0; SlotSeal[srcIdx] = 0; }
+                        if (t <= 0) continue;
+
+                        // entry 38 同时是旧「千钧(w=5)」和新版误映射的「秒杀(w=1)」：
+                        // 若千钧没开这个槽而秒杀开了槽且秒杀该槽为空，则归还给秒杀。
+                        int dstW = w;
+                        if (oldEntry == 38 && SealCatalog.SlotsAt(WordLevel[w]) <= k
+                            && SealCatalog.SlotsAt(WordLevel[(int)WordId.InstantKill]) > k
+                            && WordSlotType[(int)WordId.InstantKill * S + k] == 0)
+                        {
+                            dstW = (int)WordId.InstantKill;
+                        }
+
+                        int dst = dstW * S + k;
+                        if (WordSlotType[dst] == 0)
+                        {
+                            WordSlotType[dst] = t;
+                            WordSlotSeal[dst] = q1;
+                        }
+                        else
+                        {
+                            Refund(t, q1);
+                        }
+                    }
+                }
+
+                // 2) 若玩家在 16 章首版里还在 entry 39..43（万箭..横扫）新刷了槽或新镶了章，合并或无损退回背包
+                for (int w = 2; w < CardCatalog.WordCount; w++)
+                {
+                    int bEntry = PhaseBIdCount + w;
+                    for (int k = 0; k < S; k++)
+                    {
+                        int t = ReadT(bEntry, k);
+                        int q1 = ReadQ(bEntry, k);
+                        int srcIdx = bEntry * S + k;
+                        if (srcIdx < rawLen) { SlotType[srcIdx] = 0; SlotSeal[srcIdx] = 0; }
+                        if (t <= 0) continue;
+
+                        int dst = w * S + k;
+                        if (WordSlotType[dst] == 0)
+                        {
+                            WordSlotType[dst] = t;
+                            WordSlotSeal[dst] = q1;
+                        }
+                        else if (q1 > 0 && WordSlotSeal[dst] == 0 && WordSlotType[dst] == t)
+                        {
+                            WordSlotSeal[dst] = q1;
+                        }
+                        else
+                        {
+                            Refund(t, q1);
+                        }
+                    }
+                }
+            }
+            else
+            {
+                // 纯 16 章首版新档：成词在 PhaseBIdCount(37) + w
+                for (int w = 1; w < CardCatalog.WordCount; w++)
+                {
+                    int bEntry = PhaseBIdCount + w;
+                    for (int k = 0; k < S; k++)
+                    {
+                        int t = ReadT(bEntry, k);
+                        int q1 = ReadQ(bEntry, k);
+                        int srcIdx = bEntry * S + k;
+                        if (srcIdx < rawLen) { SlotType[srcIdx] = 0; SlotSeal[srcIdx] = 0; }
+                        if (t <= 0) continue;
+                        int dst = w * S + k;
+                        WordSlotType[dst] = t;
+                        WordSlotSeal[dst] = q1;
+                    }
+                }
+            }
+
+            // 3) 兜底清扫：超出 CardCatalog.IdCount 的旧残留槽位若还有印章，全部退回背包
+            for (int idx = CardCatalog.IdCount * S; idx < rawLen; idx++)
+            {
+                if (SlotSeal[idx] > 0) Refund(SlotType[idx], SlotSeal[idx]);
+                SlotType[idx] = 0;
+                SlotSeal[idx] = 0;
+            }
+        }
+
+        // 校验每个槽位是否合法（非半边字、等级达标、词条允许）；不合法槽上的印章一律退回背包，绝不吞章。
+        void CleanSlotArrays(int[] types, int[] seals, bool isWord, ref bool changed)
+        {
+            const int S = SealCatalog.SlotsPer;
+            int count = types.Length / S;
+            for (int id = 0; id < count; id++)
+            {
+                bool validHost;
+                int openSlots;
+                int key;
+                if (isWord)
+                {
+                    validHost = id > 0 && id < CardCatalog.WordCount;
+                    openSlots = validHost ? SealCatalog.SlotsAt(WordLevel[id]) : 0;
+                    key = validHost ? SealCatalog.KeyOf((WordId)id) : 0;
+                }
+                else
+                {
+                    validHost = id > 0 && id < CardCatalog.IdCount
+                        && CardCatalog.Get((CardId)id).Wake != CardWake.WordPart;
+                    openSlots = validHost ? SealCatalog.SlotsAt(GlyphLevel[id]) : 0;
+                    key = id;
+                }
+
+                for (int k = 0; k < S; k++)
+                {
+                    int s = id * S + k;
+                    int t = types[s];
+                    int q1 = seals[s];
+                    if (t < 0 || t > SealCatalog.TypeCount) { t = 0; types[s] = 0; changed = true; }
+                    if (q1 < 0 || q1 > SealCatalog.QualityCount || t == 0) { q1 = 0; seals[s] = 0; }
+
+                    bool slotValid = validHost && k < openSlots && (t == 0 || SealCatalog.Allowed(key, (SealType)t));
+                    if (!slotValid && (t != 0 || q1 != 0))
+                    {
+                        if (t > 0 && q1 > 0)
+                        {
+                            SealBag[SealCatalog.BagIndex((SealType)t, (SealQuality)(q1 - 1))]++;
+                            SealNew++;
+                        }
+                        types[s] = 0;
+                        seals[s] = 0;
+                        changed = true;
+                    }
+                }
+            }
         }
 
         // 到了等级、还没刷出类型的槽，现在刷。老档第一次开放插槽时一次补齐。
@@ -49,9 +299,9 @@ namespace InkLine
                 int open = SealCatalog.SlotsAt(StudyLevel(e));
                 for (int k = 0; k < open; k++)
                 {
-                    int s = key * SealCatalog.SlotsPer + k;
-                    if (SlotType[s] != 0) continue;
-                    SlotType[s] = (int)SealCatalog.RollSlot(key);
+                    if (!SlotRef(e, k, out int[] types, out _, out int s)) continue;
+                    if (types[s] != 0) continue;
+                    types[s] = (int)SealCatalog.RollSlot(key);
                     changed = true;
                 }
             }
@@ -67,19 +317,15 @@ namespace InkLine
 
         public int SlotsOpen(CodexEntry e) => SealOpen ? SealCatalog.SlotsAt(StudyLevel(e)) : 0;
 
-        public SealType SlotTypeOf(CodexEntry e, int k)
-        {
-            int s = SealCatalog.KeyOf(e) * SealCatalog.SlotsPer + k;
-            return s >= 0 && s < SlotType.Length ? (SealType)SlotType[s] : SealType.None;
-        }
+        public SealType SlotTypeOf(CodexEntry e, int k) =>
+            SlotRef(e, k, out int[] types, out _, out int s) ? (SealType)types[s] : SealType.None;
 
         // 镶着的印章品质；空槽返回 false。
         public bool SlotSealOf(CodexEntry e, int k, out SealQuality q)
         {
-            int s = SealCatalog.KeyOf(e) * SealCatalog.SlotsPer + k;
             q = SealQuality.Green;
-            if (s < 0 || s >= SlotSeal.Length || SlotSeal[s] <= 0) return false;
-            q = (SealQuality)(SlotSeal[s] - 1);
+            if (!SlotRef(e, k, out _, out int[] seals, out int s) || seals[s] <= 0) return false;
+            q = (SealQuality)(seals[s] - 1);
             return true;
         }
 
@@ -112,6 +358,8 @@ namespace InkLine
             get
             {
                 for (int i = 0; i < SlotSeal.Length; i++) if (SlotSeal[i] > 0) return true;
+                if (WordSlotSeal != null)
+                    for (int i = 0; i < WordSlotSeal.Length; i++) if (WordSlotSeal[i] > 0) return true;
                 return false;
             }
         }
@@ -188,12 +436,12 @@ namespace InkLine
         public bool Socket(CodexEntry e, int k, SealQuality q)
         {
             if (!SealOpen || k < 0 || k >= SlotsOpen(e)) return false;
-            SealType t = SlotTypeOf(e, k);
+            if (!SlotRef(e, k, out int[] types, out int[] seals, out int s)) return false;
+            SealType t = (SealType)types[s];
             if (t == SealType.None || BagCount(t, q) <= 0) return false;
-            int s = SealCatalog.KeyOf(e) * SealCatalog.SlotsPer + k;
-            if (SlotSeal[s] > 0) SealBag[SealCatalog.BagIndex(t, (SealQuality)(SlotSeal[s] - 1))]++;
+            if (seals[s] > 0) SealBag[SealCatalog.BagIndex(t, (SealQuality)(seals[s] - 1))]++;
             SealBag[SealCatalog.BagIndex(t, q)]--;
-            SlotSeal[s] = (int)q + 1;
+            seals[s] = (int)q + 1;
             Save();
             return true;
         }
@@ -201,18 +449,18 @@ namespace InkLine
         public bool Unsocket(CodexEntry e, int k)
         {
             if (!SealOpen || k < 0 || k >= SealCatalog.SlotsPer) return false;
-            int s = SealCatalog.KeyOf(e) * SealCatalog.SlotsPer + k;
-            if (SlotSeal[s] <= 0) return false;
-            ReturnSeal(s);
+            if (!SlotRef(e, k, out int[] types, out int[] seals, out int s)) return false;
+            if (seals[s] <= 0) return false;
+            ReturnSlot(types, seals, s);
             Save();
             return true;
         }
 
-        void ReturnSeal(int s)
+        void ReturnSlot(int[] types, int[] seals, int s)
         {
-            if (SlotSeal[s] <= 0 || SlotType[s] <= 0) return;
-            SealBag[SealCatalog.BagIndex((SealType)SlotType[s], (SealQuality)(SlotSeal[s] - 1))]++;
-            SlotSeal[s] = 0;
+            if (seals[s] <= 0 || types[s] <= 0) return;
+            SealBag[SealCatalog.BagIndex((SealType)types[s], (SealQuality)(seals[s] - 1))]++;
+            seals[s] = 0;
         }
 
         public SealBlock RerollBlock(CodexEntry e)
@@ -232,14 +480,14 @@ namespace InkLine
             int open = SlotsOpen(e);
             for (int k = 0; k < open; k++)
             {
-                int s = key * SealCatalog.SlotsPer + k;
-                ReturnSeal(s);
-                SlotType[s] = 0;
+                if (!SlotRef(e, k, out int[] types, out int[] seals, out int s)) continue;
+                ReturnSlot(types, seals, s);
+                types[s] = 0;
             }
             for (int k = 0; k < open; k++)
             {
-                int s = key * SealCatalog.SlotsPer + k;
-                SlotType[s] = (int)SealCatalog.RollSlot(key);
+                if (!SlotRef(e, k, out int[] types, out _, out int s)) continue;
+                types[s] = (int)SealCatalog.RollSlot(key);
             }
             Save();
             return open;
