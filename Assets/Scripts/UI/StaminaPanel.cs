@@ -87,7 +87,9 @@ namespace InkLine
             AudioBus.Tap();
             if (!_meta.CanAdStamina)
             {
-                InkToast.Show(transform.parent, "今天的广告次数用完了");
+                InkToast.Show(transform.parent, _meta.AdStaminaToday >= GameConstants.AdStaminaPerDay
+                    ? "今天的广告次数用完了"
+                    : "当前体力很充足，先去闯关消耗一点吧");
                 return;
             }
             AdStub.Reward("stamina", () =>

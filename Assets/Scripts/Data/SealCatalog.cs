@@ -49,6 +49,8 @@ namespace InkLine
         public const int QualityCount = 4;
         // 一次刷新这个字上所有已开的槽。只花钻石，不限次数，不按槽数加价。
         public const int RerollDiamond = 10;
+        // 灵墨拓印：用富余灵墨直接抽取一枚印章（金箱级奖池），回收中后期溢出灵墨。
+        public const int MintInkCost = 3000;
 
         public static int KeyCount => CardCatalog.IdCount + CardCatalog.WordCount;
         public static int SlotCount => KeyCount * SlotsPer;

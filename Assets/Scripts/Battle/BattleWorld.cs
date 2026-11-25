@@ -90,6 +90,7 @@ namespace InkLine
         public float FinaleCd;
         public float DrumBoost;
         public float AbyssVortex;
+        public int AbyssWallHits;
 
         public bool Held => HardTime > 0f && (Hard == StatusKind.Freeze || Hard == StatusKind.Stun);
         public bool Confused => HardTime > 0f && Hard == StatusKind.Confuse;
@@ -1495,7 +1496,7 @@ namespace InkLine
                     case WordId.InstantKill:
                         m.InstantKill = true;
                         m.ExecuteHp = Mathf.Max(m.ExecuteHp, Mathf.Min(0.95f, w.ExecuteHp.At(ws) * (1f + f)));
-                        m.ExecuteBoss = Mathf.Max(m.ExecuteBoss, Mathf.Min(0.95f, w.ExecuteBoss.At(ws) * (1f + f)));
+                        m.ExecuteBoss = Mathf.Max(m.ExecuteBoss, Mathf.Min(0.25f, w.ExecuteBoss.At(ws) * (1f + f)));
                         break;
                     case WordId.ArrowRain:
                         // 万、箭平时不写进炮弹。穿也在这一发上时，体槽才能换成穿云箭。
@@ -3118,7 +3119,8 @@ namespace InkLine
                     if (e.KnockLeft < 0.01f) e.KnockLeft = 0f;
                     continue;
                 }
-                if (HaltAura > 0f)
+                // 闹钟只定住已走进战场的非免控普通怪；刚刷在顶线外的怪不卡死以免拖长单局，首领与免定身怪降级为减速。
+                if (HaltAura > 0f && !e.IsBoss && !e.StunImmune && e.Pos.y < GameConstants.SpawnY - 0.65f)
                 {
                     if (e.SlowTime > 0f) e.SlowTime -= dt;
                     else e.Slow = 1f;
@@ -3130,7 +3132,9 @@ namespace InkLine
                 else e.Slow = 1f;
                 if (e.Confused) { TickConfused(e, dt); continue; }
 
-                float speed = e.Speed * e.Slow;
+                float effSlow = e.IsBoss ? Mathf.Lerp(1f, e.Slow, 0.5f) : e.Slow;
+                float speed = e.Speed * effSlow;
+                if (HaltAura > 0f && (e.IsBoss || e.StunImmune)) speed *= 0.48f;
                 if (e.DrumBoost > 0f) speed *= 1.28f;
                 // 狂化：半血后提速。这几只同时开了 ColorPhase，所以染红那个
                 // 反馈现在就是「它加速了」的信号，不再只是装饰。
@@ -3156,9 +3160,10 @@ namespace InkLine
                 {
                     if (HandleFrenzyLeak(e)) continue;
                     if (TryGuardBounce(e)) continue;
-                    // 漏进基地只扣血，不算出死。送回入口，打死才算清掉，
+                    // 漏进基地只扣血，不算出死（首领突破扣 2 血，普通怪扣 1 血）。送回入口，打死才算清掉，
                     // 否则最后一只撞线的瞬间场上没人，会直接判过关。
-                    BaseHp = Mathf.Max(0, BaseHp - 1);
+                    int leakDmg = e.IsBoss ? 2 : 1;
+                    BaseHp = Mathf.Max(0, BaseHp - leakDmg);
                     AudioBus.Leak();
                     AddShake(0.7f);
                     ShowToast("防线被突破");

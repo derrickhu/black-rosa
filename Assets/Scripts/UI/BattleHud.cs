@@ -439,7 +439,12 @@ namespace InkLine
                 string clock = $"{sec / 60:00}:{sec % 60:00}";
                 Wave.text = world.DarumaActive ? $"金翁 {clock}" : $"狂潮 {clock}";
             }
-            else if (world.Stage.Endless) Wave.text = $"第 {wave}/{world.Stage.Waves.Length} 波";
+            else if (world.Stage.Endless)
+            {
+                Wave.text = world.Stage.Daily
+                    ? $"第 {wave}/{world.Stage.Waves.Length} 波"
+                    : (wave <= StageCatalog.EndlessInkWaves ? $"第 {wave}/{StageCatalog.EndlessInkWaves} 波" : $"冲榜 第 {wave} 波");
+            }
             else if (world.BossSpawned) Wave.text = world.Stage.Hard ? "精英 · 关底" : "关底";
             else Wave.text = world.Stage.Hard ? $"精英 {wave}/{world.Stage.Waves.Length}" : $"波 {wave}/{world.Stage.Waves.Length}";
             PaintMire(world);

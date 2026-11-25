@@ -19,6 +19,12 @@ const { httpError } = require('./http');
 const { requireUser } = require('./auth');
 const { getCollection } = require('./db');
 const { getMaxBytes } = require('./config');
+const {
+  inspectMetaPayload,
+  notifyTamperAndBlockRank,
+  unblockRankOnFreshWipe,
+  recycleTokenViaMail,
+} = require('./anticheat');
 
 async function handlePull(req) {
   const { userId, platform } = requireUser(req);
@@ -141,6 +147,24 @@ async function handlePush(req) {
   }
 
   const now = Date.now();
+  const audit = inspectMetaPayload(mergedPayload);
+  let cheatFlag = Boolean(existing && existing.cheatFlag);
+  let cheatReasons = (existing && existing.cheatReasons) || [];
+
+  if (audit.tampered) {
+    cheatFlag = true;
+    cheatReasons = audit.reasons;
+    await notifyTamperAndBlockRank(userId, audit.reasons, now);
+  } else if (cheatFlag && audit.isFreshWipe) {
+    cheatFlag = false;
+    cheatReasons = [];
+    await unblockRankOnFreshWipe(userId, now);
+  }
+
+  if (audit.tokenToRecycle > 0) {
+    await recycleTokenViaMail(userId, audit.tokenToRecycle, now);
+  }
+
   const docData = {
     userId,
     platform,
@@ -150,6 +174,8 @@ async function handlePush(req) {
     clientFingerprint,
     payload: mergedPayload,
     payloadKeys: mergedPayloadKeys,
+    cheatFlag,
+    cheatReasons,
     lastWriteAt: now,
   };
 

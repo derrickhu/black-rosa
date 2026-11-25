@@ -115,7 +115,7 @@ namespace InkLine
             if (Lit(m, CardId.Slash, CardId.Thunder))               // 雷决
             {
                 m.ExecuteHp += 0.08f;
-                m.ExecuteBoss += 0.08f;
+                m.ExecuteBoss = Mathf.Min(0.25f, m.ExecuteBoss + 0.05f);
                 m.ThunderCut = true;
             }
             if (Lit(m, CardId.Break, CardId.Heavy))                 // 崩山

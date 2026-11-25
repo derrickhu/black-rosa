@@ -35,7 +35,7 @@ namespace InkLine
         public const int InterestCap = 5;
         // 小集硬存大约 200、正常打完抽牌大约 60；大集硬存大约 420。门槛按这个大约砍半。
         public const int SkinTarget = 3000;
-        // 已经有福袋时，这一档折成活动币。
+        // 已经有福袋时，这一档折成灵墨（活动币已统一按墨回收下线）。
         public const int SkinTokenRefund = 500;
 
         public static readonly EventTierDef[] Tiers =
@@ -47,12 +47,11 @@ namespace InkLine
 
         public static readonly EventMilestone[] Milestones =
         {
-            // 第一档给墨。够升一级前期伤害，活动不再发钻石。
+            // 第一、二档给墨（原活动币已停用折墨），活动不再发钻石与孤儿货币。
             new EventMilestone { Need = 500, Prize = EventPrize.Ink, Amount = 120 },
-            new EventMilestone { Need = 1200, Prize = EventPrize.Token, Amount = 300 },
+            new EventMilestone { Need = 1200, Prize = EventPrize.Ink, Amount = 240 },
             new EventMilestone { Need = 2000, Prize = EventPrize.Chest, Amount = (int)ChestTier.Gold },
             new EventMilestone { Need = SkinTarget, Prize = EventPrize.Skin, Amount = SkinCatalog.Lucky },
-            // 福袋之后活动币没处花了，后两档改发墨和皇家箱。
             new EventMilestone { Need = 4000, Prize = EventPrize.Ink, Amount = 400 },
             new EventMilestone { Need = 5000, Prize = EventPrize.Chest, Amount = (int)ChestTier.Royal }
         };

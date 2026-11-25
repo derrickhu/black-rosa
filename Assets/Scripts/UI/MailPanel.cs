@@ -230,6 +230,7 @@ namespace InkLine
                 if (slot != null)
                 {
                     slot.gameObject.SetActive(true);
+                    ModalKit.TopLeft(slot, 20f + shown * 78f, 90f, 68f, 68f);
                     ModalKit.SetItemSlot(slot, GoodsSpec[i].tone, 68, ModalKit.Load(GoodsSpec[i].icon), n.ToString());
                 }
                 shown++;
@@ -242,9 +243,30 @@ namespace InkLine
 
             string id = row.id;
             bool goods = shown > 0;
+            if (bodyTxt != null)
+            {
+                bodyTxt.horizontalOverflow = HorizontalWrapMode.Wrap;
+                bodyTxt.lineSpacing = 1.12f;
+                if (goods)
+                {
+                    bodyTxt.fontSize = body.Length > 34 ? 14 : 15;
+                    bodyTxt.verticalOverflow = VerticalWrapMode.Truncate;
+                    bodyTxt.alignment = body.Length > 34 ? TextAnchor.UpperLeft : TextAnchor.MiddleLeft;
+                    ModalKit.TopLeft(bodyTxt.rectTransform, 56f, 44f, 524f, 42f);
+                }
+                else
+                {
+                    bodyTxt.fontSize = 15;
+                    bodyTxt.verticalOverflow = VerticalWrapMode.Truncate;
+                    bodyTxt.alignment = body.Length > 24 ? TextAnchor.UpperLeft : TextAnchor.MiddleLeft;
+                    ModalKit.TopLeft(bodyTxt.rectTransform, 56f, 48f, 378f, 108f);
+                }
+            }
+
             var take = card.Find("take")?.GetComponent<Button>();
             if (take != null)
             {
+                ModalKit.TopLeft(take.GetComponent<RectTransform>(), 450f, goods ? 96f : 90f, 130f, 56f);
                 string kind = goods ? "sm_yellow" : "sm_cyan";
                 ModalKit.SetHexBtnGray(take, kind, "sm_gray", false);
                 ModalKit.SetBtnLabel(take, kind, goods ? "领取" : "知道了");

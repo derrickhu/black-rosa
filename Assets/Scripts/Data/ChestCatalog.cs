@@ -92,7 +92,7 @@ namespace InkLine
         // 只从「集碎片到手」的炮里抽。稀有单独占一小截，其余炮平分剩下的概率。
         public const string CannonName = "炮台宝箱";
         public const string CannonArt = "cannon";
-        public const float CannonRare = 0.05f;
+        public const float CannonRare = 0.18f;
         public const int CannonShards = 2;
 
         public struct CannonRoll
@@ -130,8 +130,11 @@ namespace InkLine
 
         public static ChestTier ForStage(StageDef s, bool firstClear, int cycle)
         {
-            if (s.Finale) return firstClear ? ChestTier.Royal : ChestTier.Gold;
-            if (s.HasBoss) return ChestTier.Gold;
+            if (firstClear)
+            {
+                if (s.Finale) return ChestTier.Royal;
+                if (s.HasBoss) return ChestTier.Gold;
+            }
             return Cycle[((cycle % Cycle.Length) + Cycle.Length) % Cycle.Length];
         }
 

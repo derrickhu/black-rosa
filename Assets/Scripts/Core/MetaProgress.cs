@@ -113,8 +113,9 @@ namespace InkLine
         public int SkinSeen;
         // 开放了、炮台页还没去看过的皮肤，底栏炮台页签挂红点。
         public int SkinNew;
-        // 活动货币，留给皮肤专属词条。ForgeCoin.Token 从这里扣。
+        // 活动货币（已停用并统一按墨回收；RecycledToken 供云端核对补发折算邮件）。
         public int Token;
+        public int RecycledToken;
         // 招财进宝：期号、聚宝盆累计、里程碑领取位、当天打了几局、当天广告加次数和翻倍用过没。
         // 期号和 EventCatalog.Id 对不上就整份清零。
         public int EventId;
@@ -339,6 +340,12 @@ namespace InkLine
             Ink = Mathf.Max(0, Ink);
             Diamond = Mathf.Max(0, Diamond);
             Token = Mathf.Max(0, Token);
+            if (Token > 0)
+            {
+                RecycledToken = Mathf.Max(RecycledToken, Token);
+                Token = 0;
+                rulesChanged = true;
+            }
             if (NormalizeStudy()) rulesChanged = true;
             if (FillSlots()) rulesChanged = true;
             // 奖励来的体力可以超过上限，这里只防负数，否则重进游戏多出来的就被削掉。
@@ -666,12 +673,13 @@ namespace InkLine
         {
             RollEndless();
             waves = Mathf.Clamp(waves, 0, StageCatalog.EndlessWaves);
+            int rewardWaves = Mathf.Min(waves, StageCatalog.EndlessInkWaves);
             var r = new EndlessResult
             {
                 Waves = waves,
                 OldBest = EndlessWeekBest,
                 NewBest = waves > EndlessWeekBest,
-                Ink = Mathf.Max(0, collected) + waves * GameConstants.EndlessInkPerWave,
+                Ink = Mathf.Max(0, collected) + rewardWaves * GameConstants.EndlessInkPerWave,
                 Chest = EndlessChestTier(waves),
                 ChestSlot = -2,
             };
@@ -1003,12 +1011,12 @@ namespace InkLine
             switch (m.Prize)
             {
                 case EventPrize.Ink: Ink += m.Amount; break;
-                case EventPrize.Token: Token += m.Amount; break;
+                case EventPrize.Token: Ink += m.Amount; break;
                 case EventPrize.Chest: chest = GrantChest((ChestTier)m.Amount); break;
                 default:
                     if (!GrantSkin(m.Amount))
                     {
-                        Token += EventCatalog.SkinTokenRefund;
+                        Ink += EventCatalog.SkinTokenRefund;
                         refunded = true;
                     }
                     break;
@@ -1152,8 +1160,8 @@ namespace InkLine
             Save();
         }
 
-        // 上限只管自动回复停不停。奖励、购买来的体力一律照加，可以超过上限。
-        public bool CanAdStamina => AdStaminaToday < GameConstants.AdStaminaPerDay;
+        // 上限只管自动回复停不停；广告补体力另设软顶，防满关期无限囤积上千体力。
+        public bool CanAdStamina => AdStaminaToday < GameConstants.AdStaminaPerDay && Stamina < GameConstants.AdStaminaCap;
 
         public void GrantAdStamina()
         {
@@ -1368,7 +1376,7 @@ namespace InkLine
                 Foil += r.Foil;
             }
             ChestTier tier = ChestCatalog.ForStage(def, r.FirstClear, ChestCycle);
-            if (!def.Finale && !def.HasBoss) ChestCycle++;
+            if (!r.FirstClear || (!def.Finale && !def.HasBoss)) ChestCycle++;
             // 宝箱先挂在结算页上：看广告当场开就不占位，离开结算页才放进宝箱位。
             ResolvePending();
             PendingChest = (int)tier + 1;

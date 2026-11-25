@@ -519,6 +519,18 @@ namespace InkLine
             Save();
         }
 
+        // 灵墨拓印：花费灵墨抽取一枚金箱品阶池的随机印章。
+        public bool TryMintSeal(out SealDrop drop)
+        {
+            drop = default;
+            if (Ink < SealCatalog.MintInkCost) return false;
+            Ink -= SealCatalog.MintInkCost;
+            drop = SealCatalog.Roll(SealCatalog.Source.Gold);
+            GrantSeals(new List<SealDrop>(1) { drop });
+            Save();
+            return true;
+        }
+
         // 掉落入账。调用方负责 Save。
         void GrantSeals(List<SealDrop> drops)
         {

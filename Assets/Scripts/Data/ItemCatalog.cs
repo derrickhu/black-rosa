@@ -66,7 +66,7 @@ namespace InkLine
             new ItemDef
             {
                 Id = ItemId.Slow, Name = "胶水", Desc = "全场大幅减速",
-                When = "有敌人过了半场", Quality = ItemQuality.Green, Cooldown = 24f, Tint = InkTheme.Water
+                When = "有敌人过了半场", Quality = ItemQuality.Green, Cooldown = 26f, Tint = InkTheme.Water
             },
             new ItemDef
             {
@@ -135,17 +135,16 @@ namespace InkLine
         }
 
         // 持续时间一律整秒。文案、结算和演出都读这里。
-        // 闹钟要盖住一整波往前涌；胶水减速比冰块狠，时间也更长。
-        public static int HaltTime(int lv) => 6 + lv;
-        public static int RageTime(int lv) => 10 + lv;
+        // 闹钟与胶水收紧时长，避免叠满道具冷却后出现「持续时间 ≥ 冷却」的全屏永控。
+        public static int HaltTime(int lv) => 4 + lv;
+        public static int RageTime(int lv) => 4 + lv;
         public static int SplashTime(int lv) => 8 + lv;
         public static int FrostTime(int lv) => 5 + lv;
-        // 胶水要够长，脚底下的水纹才看得出来。冷却 24 秒起，满级 15 秒仍盖过这阵减速。
-        public static int SlowTime(int lv) => 7 + lv;
+        public static int SlowTime(int lv) => 3 + lv;
         // 光球穿过敌人，总伤靠多飞几个来回。冷却 75 秒起，满级 16 秒仍盖得过。
         public static int DartTime(int lv) => 8 + lv;
-        // 每级加 0.5 倍。1 级 2 倍，5 级 4 倍，和原来的 5 级一样；满级 5.5 倍、18 秒。
-        public static float RageMul(int lv) => 1.5f + 0.5f * Mathf.Clamp(lv, 1, MaxLevel);
+        // 能量饮料：每级 +0.2 倍，1 级 1.6 倍，满级 3.0 倍（持续 12 秒），消除常驻 5.5 倍的超模乘区。
+        public static float RageMul(int lv) => 1.4f + 0.2f * Mathf.Clamp(lv, 1, MaxLevel);
 
         // 回血和次数错开涨，每一级文案都变。2 级单次停在 1，先多给一次。
         static readonly int[] MendHeals = { 1, 1, 2, 3, 3, 4, 5, 6 };
@@ -175,9 +174,9 @@ namespace InkLine
         public static float FrostMul(int lv) => (1.46f + 0.47f * Mathf.Clamp(lv, 1, MaxLevel)) * Effect;
         // 冰块只是变慢。1 级 72%，每级少 4 个点，5 级 56%，满级 44%。
         public static float FrostFactor(int lv) => 0.72f - 0.04f * (Mathf.Clamp(lv, 1, MaxLevel) - 1);
-        // 胶水比冰块狠。1 级 35%，每级少 4 个点，5 级 19%，满级 10%，仍走得动。
+        // 胶水比冰块狠。1 级移速降到 58%（减速 42%），每级再减 4%，满级移速降到 30%（减速 70%）。
         public static float SlowFactor(int lv) =>
-            Mathf.Max(0.10f, 0.35f - 0.04f * (Mathf.Clamp(lv, 1, MaxLevel) - 1));
+            Mathf.Max(0.30f, 0.58f - 0.04f * (Mathf.Clamp(lv, 1, MaxLevel) - 1));
         public static float SnipeMul(int lv) => (2f + 2f * Mathf.Clamp(lv, 1, MaxLevel)) * Effect / ShotMods.DefaultBase;
         // 浇在最密的一列，再盖住左右。半宽 1.5 格收到邻列外沿，再远的一列碰不到。
         public const float SplashHalf = 1.5f;
@@ -225,8 +224,8 @@ namespace InkLine
         static string Pct(float factor) => Mathf.RoundToInt(factor * 100f) + "%";
         static string MulText(float m)
         {
-            int n = Mathf.RoundToInt(m * 2f);
-            return n % 2 == 0 ? (n / 2).ToString() : (n / 2) + ".5";
+            float r = Mathf.Round(m * 10f) / 10f;
+            return r.ToString("0.#");
         }
 
         static string Times(int n) => n <= 1 ? "一" : n == 2 ? "两" : "三";
@@ -327,7 +326,7 @@ namespace InkLine
             get
             {
                 string stat = "";
-                if (DamageAdd > 0.01f) stat = "炮弹伤害 +" + Mathf.RoundToInt(DamageAdd);
+                if (DamageAdd > 0.01f) stat = "炮弹伤害 +" + DamageAdd.ToString("0.#");
                 else if (GoldAdd > 0) stat = "开局金币 +" + GoldAdd;
                 else if (RateAdd > 0.001f) stat = "射速 +" + Mathf.RoundToInt(RateAdd * 100f) + "%";
                 if (stat.Length > 0 && !string.IsNullOrEmpty(Bonus)) return stat + "，" + Bonus;
@@ -411,7 +410,7 @@ namespace InkLine
             {
                 Name = "霜晶", Key = "frost", Price = 0, Way = SkinWay.Shard,
                 Rarity = SkinRarity.Advanced, Shards = 6,
-                Tint = InkTheme.Hex("7ED0E8"), Note = "炮口结着冰晶，打出去带着霜。", Shot = "冰晶弹", DamageAdd = 2f
+                Tint = InkTheme.Hex("7ED0E8"), Note = "炮口结着冰晶，打出去带着霜。", Shot = "冰晶弹", DamageAdd = 1.2f
             },
             new SkinDef
             {

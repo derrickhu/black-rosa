@@ -178,8 +178,13 @@ namespace InkLine
             int next = (waves / step + 1) * step;
             int cur = _a.Result.Chest;
             string tip;
-            float goal = total;
-            if (next <= total)
+            float goal = _a.Daily ? total : StageCatalog.EndlessInkWaves;
+            if (!_a.Daily && waves >= StageCatalog.EndlessInkWaves)
+            {
+                tip = $"已领满 {StageCatalog.EndlessInkWaves} 波灵墨 · 极限冲榜第 {waves} 波！";
+                goal = waves;
+            }
+            else if (next <= total)
             {
                 int nextTier = (int)TierAt(next);
                 if (cur < 0)
@@ -191,6 +196,11 @@ namespace InkLine
                 {
                     tip = $"再撑 {next - waves} 波，下一只是{ChestCatalog.Get(nextTier).Name}";
                     goal = next;
+                }
+                else if (!_a.Daily)
+                {
+                    tip = $"再撑 {StageCatalog.EndlessInkWaves - waves} 波领满全部灵墨奖励";
+                    goal = StageCatalog.EndlessInkWaves;
                 }
                 else tip = $"再撑 {total - waves} 波就全部守住";
             }

@@ -204,13 +204,14 @@ namespace InkLine
                 if (e.Hp > e.MaxHp * 0.55f) return;
                 e.FinaleCd -= dt;
                 if (e.FinaleCd > 0f) return;
-                e.FinaleCd = 10.5f;
-                e.AbyssVortex = 4.8f;
+                e.FinaleCd = 11.5f;
+                e.AbyssVortex = 6.0f;
+                e.AbyssWallHits = 3;
                 ShowFloat(e.Pos + Vector2.up * 0.55f, "渊墨护壁！", InkTheme.Violet, 1.38f);
                 if (!_abyssTaught)
                 {
                     _abyssTaught = true;
-                    Shouts.Add(new Shout { Kind = ShoutKind.Horde, Text = "魔尊开渊壁！", Sub = "成词或秘卷大招一击破防" });
+                    Shouts.Add(new Shout { Kind = ShoutKind.Horde, Text = "魔尊开渊壁！", Sub = "成词或秘卷连击三下破防" });
                 }
                 AudioBus.Horde();
                 AddShake(0.24f);
@@ -290,7 +291,7 @@ namespace InkLine
             }
         }
 
-        // 魔尊半血渊墨护壁：成词 / 秘卷 / 三字诀直接震碎护壁并打出 3.5 秒 1.5 倍易伤大硬直！
+        // 魔尊半血渊墨护壁：需承受 3 记成词 / 秘卷 / 三字诀重击方可震碎护壁并打出 3.5 秒 1.5 倍易伤大硬直！
         float ResolveAbyssVortex(EnemyActor e, ShotMods m, HitSource from)
         {
             if (e.AbyssVortex <= 0f) return 1f;
@@ -300,6 +301,14 @@ namespace InkLine
                 || (from == HitSource.Arrow && m.Has(CardId.Pierce));
             if (powerShot)
             {
+                e.AbyssWallHits = Mathf.Max(0, e.AbyssWallHits - 1);
+                if (e.AbyssWallHits > 0)
+                {
+                    e.HitFlash = 0.20f;
+                    ShowFloat(e.Pos + Vector2.up * 0.44f, $"裂壁 {3 - e.AbyssWallHits}/3", InkTheme.GoldHi, 1.12f);
+                    AudioBus.Hit();
+                    return 0.75f;
+                }
                 e.AbyssVortex = 0f;
                 e.FinaleCd = Mathf.Max(e.FinaleCd, 9.5f);
                 e.Hard = StatusKind.Stun;

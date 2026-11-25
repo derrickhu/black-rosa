@@ -47,6 +47,7 @@ namespace InkLine
         Button _cancel;
         Button _pickGreen;
         RectTransform _divider;
+        Button _mint;
         Button _main;
         SealType _filter;
         bool _scrap;
@@ -138,7 +139,8 @@ namespace InkLine
                 ModalKit.TextDark, TextAnchor.MiddleLeft, true);
 
             _divider = ModalKit.Divider(board, "div", 36f, 792f, 576f);
-            _main = ModalKit.HexBtn(board, "wide_yellow", (BoardW - 314f) * 0.5f, 806f, "分解印章", OnMain, out _);
+            _mint = ModalKit.HexBtn(board, "md_cyan", 46f, 814f, $"拓印 {SealCatalog.MintInkCost}墨", OnMint, out _);
+            _main = ModalKit.HexBtn(board, "wide_yellow", 286f, 806f, "分解印章", OnMain, out _);
 
             Paint();
         }
@@ -296,6 +298,7 @@ namespace InkLine
             int n = scrap ? PickCount(out foil) : 0;
             if (scrap)
             {
+                _mint.gameObject.SetActive(false);
                 _sum.text = "已选 " + n + " 枚 · 分解可得";
                 _foilNum.text = foil.ToString();
                 float sumW = ModalKit.MeasureText(_sum.text, 20);
@@ -312,13 +315,33 @@ namespace InkLine
             }
             else
             {
+                _mint.gameObject.SetActive(true);
+                bool noInk = _meta.Ink < SealCatalog.MintInkCost;
+                ModalKit.SetBtnLabel(_mint, noInk ? "md_gray" : "md_cyan", $"拓印 {SealCatalog.MintInkCost}墨");
+                ModalKit.SetHexBtnGray(_mint, "md_cyan", "md_gray", noInk);
                 ModalKit.TopLeft(_divider, 36f, 792f, 576f, 2f);
-                ModalKit.TopLeft(_main.GetComponent<RectTransform>(), (BoardW - 314f) * 0.5f, 806f, 314f, 80f);
+                ModalKit.TopLeft(_main.GetComponent<RectTransform>(), 286f, 806f, 314f, 80f);
             }
 
             ModalKit.SetBtnLabel(_main, "wide_yellow", scrap ? "分解" : "分解印章");
             bool dimmed = scrap ? n == 0 : _meta.SealTotal == 0;
             ModalKit.SetHexBtnGray(_main, "wide_yellow", "wide_gray", dimmed);
+        }
+
+        void OnMint()
+        {
+            if (_meta.Ink < SealCatalog.MintInkCost)
+            {
+                AudioBus.Deny();
+                InkToast.Show(_layer, $"灵墨不足，还差 {SealCatalog.MintInkCost - _meta.Ink} 灵墨");
+                return;
+            }
+            if (!_meta.TryMintSeal(out SealDrop drop)) return;
+            _meta.MarkSealsSeen();
+            AudioBus.SlotJackpot();
+            InkToast.Show(_layer, $"拓印获得：{SealCatalog.DropName(drop)}");
+            Paint();
+            _changed?.Invoke();
         }
 
         void OnMain()

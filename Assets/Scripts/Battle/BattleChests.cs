@@ -61,7 +61,15 @@ namespace InkLine
             {
                 amount = Mathf.Max(1, Mathf.RoundToInt(amount * EnemyCatalog.DropMul(hp) / EnemyCatalog.DropMul(Stage.HpAt(0))));
                 if (!gold && !Stage.Daily && !Stage.Frenzy)
-                    amount = Mathf.Max(1, Mathf.RoundToInt(amount * StageCatalog.EndlessInkShare(e.Wave)));
+                {
+                    float inkShare = StageCatalog.EndlessInkShare(e.Wave);
+                    if (inkShare <= 0.001f)
+                    {
+                        gold = true;
+                        amount = Mathf.Max(1, Mathf.RoundToInt(Stage.ChestGold * EnemyCatalog.DropMul(hp) / EnemyCatalog.DropMul(Stage.HpAt(0))));
+                    }
+                    else amount = Mathf.Max(1, Mathf.RoundToInt(amount * inkShare));
+                }
             }
             Chests.Add(new ChestActor
             {

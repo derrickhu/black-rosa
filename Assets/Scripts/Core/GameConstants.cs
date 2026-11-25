@@ -21,8 +21,8 @@ namespace InkLine
         public const int RecommendChapter = 1;
         public const int EndlessPlaysPerDay = 1;
         public const int EndlessAdPlays = 1;
-        // 无尽每打完一波另给的墨。打满 70 波原来再给 350，和击杀掉落叠在一起偏多。
-        public const int EndlessInkPerWave = 3;
+        // 无尽前 70 波每打完一波另给的墨；71 波起为纯冲榜挑战层，不再产墨。
+        public const int EndlessInkPerWave = 2;
         // 每日残局通关第三章开，每天一局，看广告再加一局，续一次命。
         // 残局的字池、移速和掉墨仍按第四章，见 StageDaily。
         public const int DailyOpenChapter = 2;
@@ -76,6 +76,8 @@ namespace InkLine
         public const int StaminaRegenMinutes = 15;
         public const int AdStaminaGain = 10;
         public const int AdStaminaPerDay = 5;
+        // 体力软顶：攒够 60 点（30 关）时暂停看广告补体力，避免满关期无限囤积上千体力。
+        public const int AdStaminaCap = 60;
         // 开局墨加上第一关掉的墨，正好够新手指引里升一级伤害（ForgeCatalog 伤害 Cost[0]）。
         public const int StarterInk = 100;
         // 新手指引走完送一份。弹弓卡分两笔：第一关木箱 3 张，这份奖励再 3 张，正好够解锁。

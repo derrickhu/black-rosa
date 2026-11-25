@@ -215,7 +215,7 @@ namespace InkLine
         // 前两章一局的怪多、局也长，系数反而要压低；改波次或只数之后跑 check_stages 重新对一遍。
         // 第五章起只数按 ChapterPress 加过。这里把掉墨系数按同一比例收回，多出来的怪不加首通墨。
         // 金币不走这个系数，改装价会跟着只数变贵。
-        static readonly float[] ChapterInk = { 1.55f, 0.82f, 1.08f, 1.26f, 1.283f, 0.877f, 0.818f, 0.730f, 0.475f, 0.531f, 0.482f, 0.428f, 0.285f, 0.300f, 0.313f, 0.252f };
+        static readonly float[] ChapterInk = { 1.62f, 0.85f, 1.14f, 1.26f, 1.283f, 0.877f, 0.818f, 0.730f, 0.475f, 0.531f, 0.482f, 0.428f, 0.272f, 0.274f, 0.271f, 0.212f };
 
         public static float InkOf(int chapter) =>
             ChapterInk[Mathf.Clamp(chapter, 0, ChapterInk.Length - 1)];
@@ -223,8 +223,8 @@ namespace InkLine
         // 后期怪血补强。前四章不动。第五章起逐章抬，每一只怪出生时都乘，前面几波和最后一波一起涨。
         // 只乘在出怪那一下，掉落、关卡定价、boss 表都还按 ChapterHp 算，所以血变厚不多掉墨、不多掉金。
         // 精英吃主线这一份再乘 HardHp。
-        // 第十二章出怪血是 4.0×2.30。十三～十六章逐章稳步上台阶。
-        static readonly float[] ChapterLateHp = { 1f, 1f, 1f, 1f, 1.12f, 1.24f, 1.36f, 1.50f, 1.66f, 1.84f, 2.06f, 2.30f, 3.9f, 4.8f, 5.4f, 6.0f };
+        // 第十二章出怪血是 4.0×2.30。十三～十六章纳入道具、皮肤与印章期望倍率后稳步抬升斜率。
+        static readonly float[] ChapterLateHp = { 1f, 1f, 1f, 1f, 1.12f, 1.24f, 1.36f, 1.50f, 1.66f, 1.84f, 2.06f, 2.30f, 4.4f, 5.6f, 6.8f, 8.2f };
 
         public static float LateHpOf(StageDef s)
         {
@@ -366,10 +366,10 @@ namespace InkLine
 
         // 每章非关底波的目标时长。一局要够走完「铺满棋盘 → 升星 → 顶住最后一波」这条弧，
         // 前两章也不能太短，否则格子还空着关就过了。以后加章只往这张表后面加一个数。
-        static readonly float[] ChapterWaveSpan = { 16f, 18f, 19f, 20f, 22f, 22f, 23f, 23f, 24f, 24f, 26f, 26f };
+        static readonly float[] ChapterWaveSpan = { 16f, 17f, 19f, 20f, 22f, 22f, 23f, 23f, 24f, 24f, 26f, 26f, 26f, 26f, 26f, 26f };
         // 第三章起每波再留的秒数。平铺经常已经比目标时长更长，只抬目标时长补不上，
         // 所以直接加在每波收尾上。格子从这里铺开，一波要打得更久。
-        static readonly float[] ChapterWavePad = { 0f, 0f, 4f, 4f, 5f, 5f, 6f, 6f, 6f, 7f, 8f, 8f };
+        static readonly float[] ChapterWavePad = { 0f, 0f, 4f, 4f, 5f, 5f, 6f, 6f, 6f, 7f, 8f, 8f, 8f, 8f, 8f, 8f };
         // 最后一波多留的几秒。改装变贵后，铺满棋盘的那一抽常常落在最后一波里，
         // 多留一段，钱到了关卡还没被判结束。
         const float LastWaveHold = 28f;
@@ -439,13 +439,13 @@ namespace InkLine
 
         // 每章杂兵只数。钱跟着怪走，抽牌价由钱袋反推。
         // 第三章起和波长一起抬：第五、六章原来还打着折，这里补回到和其他章差不多。
-        static readonly float[] ChapterBodies = { 1f, 1f, 1.22f, 1.18f, 1.10f, 1.08f, 1.12f, 1.06f, 1.06f, 1.06f, 1.06f, 1.06f };
+        static readonly float[] ChapterBodies = { 1f, 1f, 1.22f, 1.18f, 1.10f, 1.08f, 1.12f, 1.06f, 1.06f, 1.06f, 1.06f, 1.06f, 1.06f, 1.06f, 1.06f, 1.06f };
         // 第三章起，最后一波的密度不动。第一波少刷一点，中间几波加厚。
         // 格子变多的关靠中段的怪把变贵的改装买满，开局那一波凑不满。
-        static readonly float[] ChapterMidBodies = { 1f, 1f, 1.15f, 1.18f, 1.22f, 1.12f, 1.22f, 1.30f, 1.30f, 1.30f, 1.30f, 1.30f };
+        static readonly float[] ChapterMidBodies = { 1f, 1f, 1.15f, 1.18f, 1.22f, 1.12f, 1.22f, 1.30f, 1.30f, 1.30f, 1.30f, 1.30f, 1.30f, 1.30f, 1.30f, 1.30f };
         // 第一波少刷一点。开局金币来得慢，改装不会进关就弹；少掉的怪补在中间几波。
         // 第六章起不再砍第一波：后面按血摊，镇守和精英一拨常常只剩一只。
-        static readonly float[] ChapterOpenBodies = { 1f, 1f, 0.72f, 0.70f, 0.68f, 1f, 1f, 1f, 1f, 1f, 1f, 1f };
+        static readonly float[] ChapterOpenBodies = { 1f, 1f, 0.72f, 0.70f, 0.68f, 1f, 1f, 1f, 1f, 1f, 1f, 1f, 1f, 1f, 1f, 1f };
         // 第一章头三关：新手引导、刚学升星、刚学冰火，怪再少一截。
         static readonly float[] FirstChapterEase = { 0.6f, 0.75f, 0.9f };
 
@@ -601,7 +601,7 @@ namespace InkLine
         // 第三波到倒数第二波吃满加成，最后一波保持原来的收尾比例，不单堆在关底。
         // boss 本人不加只数。金币随只数涨，改装价在 Price 里按钱袋重算，所以每次改装更贵。
         // 掉墨系数从第五章起按这个比例收回，多出来的怪不加首通墨。
-        static readonly float[] ChapterPress = { 1f, 1f, 1f, 1f, 1.08f, 1.16f, 1.24f, 1.32f, 1.40f, 1.48f, 1.56f, 1.64f };
+        static readonly float[] ChapterPress = { 1f, 1f, 1f, 1f, 1.08f, 1.16f, 1.24f, 1.32f, 1.40f, 1.48f, 1.56f, 1.64f, 1.72f, 1.80f, 1.90f, 2.00f };
         const float PressWave1Share = 0.30f;
         const float PressWave2Share = 0.65f;
         const float PressMidShare = 1.15f;
@@ -818,10 +818,10 @@ namespace InkLine
         // 份额按章收：第五到八章、十一章、十二章的起价仍高于旧曲线，后面的步长更陡。
         // 第九、十章头一两次比旧价略低，否则铺满会拖过整关八成时间；铺满那一段的平均价仍明显更高。
         static readonly float[] DraftFirstShareByChapter =
-            { 0.68f, 0.68f, 0.68f, 0.68f, 0.64f, 0.68f, 0.56f, 0.48f, 0.32f, 0.30f, 0.46f, 0.52f, 0.15f, 0.14f, 0.11f, 0.11f };
+            { 0.68f, 0.68f, 0.68f, 0.68f, 0.64f, 0.68f, 0.56f, 0.48f, 0.32f, 0.30f, 0.46f, 0.52f, 0.12f, 0.11f, 0.04f, 0.06f };
         const float DraftStepLift = 1.18f;
         // 同一章里有的关特别容易出钱、有的关起价会被平均价压得很低。按章设一个地板，避免那种关打几下就弹改装。
-        const int DraftFirstChapterStep = 3;
+        const int DraftFirstChapterStep = 1;
 
         // 掉落跟着怪走，这里只是把整关加一遍当统计用：校验脚本、抽牌定价和结算页读它。
         // 算法和 BattleWorld.Spawn + Make 必须一致 —— 只数用 RampCounts 摊过的 Bodies，

@@ -102,7 +102,7 @@ namespace InkLine
                 W(S(0.3f, Bulwark, -1, 3), S(4.5f, Shade, -1, 6), S(10.5f, Splitter, -1, 4)),
                 W(S(0.3f, Elite, 1), S(2f, Elite, 4), S(6.5f, Drummer, 2), S(8.5f, Warden, 3), S(12.5f, Sprinter, -1, 5)),
                 W(S(0.3f, Bulwark, -1, 2), S(4f, Drummer, -1, 2), S(8.5f, Monk, -1, 2), S(12f, Runner, -1, 6)),
-                Boss(BossJudge, S(1.2f, Drummer, -1, 2), S(7f, BossShade, 1), S(11.5f, Monk, 4), S(15.5f, Shade, -1, 3))
+                Boss(BossJudge, S(2f, Drummer, -1, 2), S(10f, BossShade, 1), S(20f, Monk, 4), S(30f, Shade, -1, 3))
             ).Inkwell(2, 1).Inkwell(3, 1).Stele(0, 1, Sao, 2));
         }
     }

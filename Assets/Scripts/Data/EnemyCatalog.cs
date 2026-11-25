@@ -341,7 +341,7 @@ namespace InkLine
                 // 章底 boss 血量逐章单调上升（check_stages.py 会核）。
                 // 双首基础血特意压到别人一半 —— 它是两只，总量才对得上。
                 case EnemyId.BossDrum:      // 一关 · 鼓面：挡一发 + 横移，考基础输出
-                    return new EnemyDef(id, 70f, 0.22f, 14, 3.5f, 0.62f,
+                    return new EnemyDef(id, 60f, 0.22f, 14, 3.5f, 0.62f,
                         shield: true, strafe: true, boss: true);
                 case EnemyId.BossInkbag:    // 二关 · 墨囊：死后裂成四只，考死时别松懈
                     return new EnemyDef(id, 85f, 0.26f, 16, 4.0f, 0.62f,

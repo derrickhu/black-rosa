@@ -32,12 +32,12 @@ namespace InkLine
 
             // 击退：一上一下摆在同一列就成词。大头和长墨排成串顶上来，推回去最解气。
             s.Add(P("击退", G(".XXXX.", "XXXXXX"),
-                W(S(0.3f, Runner, -1, 3), S(3f, Chubby, 2), S(3.6f, Chubby, 3), S(7f, Belt, -1, 2)),
-                W(S(0.3f, Splitter, -1, 2), S(3.5f, Crawler, 2), S(4.1f, Crawler, 3), S(8f, Swarm, -1, 4)),
+                W(S(0.3f, Runner, -1, 2), S(3f, Chubby, 2), S(3.6f, Chubby, 3), S(7f, Belt, -1, 2)),
+                W(S(0.3f, Splitter, -1, 2), S(3.5f, Crawler, 2), S(4.1f, Crawler, 3), S(8f, Swarm, -1, 3)),
                 W(S(0.3f, BigHead, 2, 2), S(2.5f, Tall, 2, 2), S(5.5f, Shield, -1, 2), S(9f, Strafer, -1, 2)),
-                W(S(0.3f, Chubby, -1, 3), S(3.5f, Runner, -1, 3), S(7.5f, Splitter, -1, 2)),
-                W(S(0.3f, Crawler, -1, 3), S(3f, Shield, 1), S(3.8f, Shield, 4), S(8f, Belt, -1, 2)),
-                W(S(0.3f, Splitter, 2), S(1f, Splitter, 3), S(4.5f, BigHead, -1, 3), S(9f, Runner, -1, 3))
+                W(S(0.3f, Chubby, -1, 2), S(3.5f, Runner, -1, 2), S(7.5f, Splitter, -1, 2)),
+                W(S(0.3f, Crawler, -1, 2), S(3f, Shield, 1), S(3.8f, Shield, 4), S(8f, Belt, -1, 2)),
+                W(S(0.3f, Splitter, 2), S(1.2f, Splitter, 3), S(4.5f, BigHead, -1, 2), S(9f, Runner, -1, 2))
             ).Give(Strike, Back));
 
             s.Add(P("裂墨", G("XXXXXX", "X.X.X."),
@@ -69,11 +69,11 @@ namespace InkLine
 
             // 成团的墨粒一团一团压下来，分和炸比单发值钱。
             s.Add(P("墨团", G("XXXXXX", "X.XX.X"),
-                W(S(0.3f, Swarm, 2, 4), S(2.5f, Swarm, 3, 4), S(6f, Runner, -1, 2)),
-                W(S(0.3f, Splitter, -1, 2), S(3f, Swarm, 1, 4), S(5f, Swarm, 4, 4), S(9f, Shield, 3)),
-                W(S(0.3f, Chubby, -1, 2), S(2.5f, Ball, -1, 4), S(6f, Swarm, 2, 5), S(9.5f, Belt, -1, 2)),
-                W(S(0.3f, Strafer, -1, 2), S(3.5f, Crawler, -1, 3), S(8f, Swarm, -1, 5)),
-                W(S(0.3f, Swarm, 0, 4), S(1.5f, Swarm, 5, 4), S(4.5f, Splitter, -1, 3), S(9f, BigHead, -1, 2))
+                W(S(0.3f, Swarm, 2, 3), S(2.5f, Swarm, 3, 3), S(6f, Runner, -1, 2)),
+                W(S(0.3f, Splitter, -1, 2), S(3f, Swarm, 1, 3), S(5f, Swarm, 4, 3), S(9f, Shield, 3)),
+                W(S(0.3f, Chubby, -1, 2), S(2.5f, Ball, -1, 3), S(6f, Swarm, 2, 4), S(9.5f, Belt, -1, 2)),
+                W(S(0.3f, Strafer, -1, 2), S(3.5f, Crawler, -1, 2), S(8f, Swarm, -1, 4)),
+                W(S(0.3f, Swarm, 0, 3), S(1.5f, Swarm, 5, 3), S(4.5f, Splitter, -1, 2), S(9f, BigHead, -1, 2))
             ));
 
             // 一排盾墙接一排盾墙，晕和击退轮流开路。

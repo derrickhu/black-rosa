@@ -1743,7 +1743,6 @@ namespace InkLine
                         if (canInk && !preview)
                         {
                             _meta.AddInk(info.Ink);
-                            _meta.AddFoil(info.Foil);
                         }
                         ChestLoot loot = canChest ? _meta.OpenPending() : null;
                         if (loot == null)

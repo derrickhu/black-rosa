@@ -10,7 +10,7 @@ namespace InkLine
     public sealed class EndlessPanel : MonoBehaviour
     {
         public const string PrefabPath = "Prefabs/Endless";
-        public const string Mark = "endless_v1";
+        public const string Mark = "endless_v3";
 
         const float BoardW = 648f;
         const float BoardH = 764f;
@@ -68,8 +68,8 @@ namespace InkLine
                 InkTheme.Hex("DEC7FF"), TextAnchor.MiddleLeft, false);
             ModalKit.OutlinedText(banner, "best", "本周还没打", 36, 280f, 62f, 320f, 64f,
                 InkTheme.Hex("FFE455"), TextAnchor.MiddleLeft, 1.8f);
-            var pill = ModalKit.Sliced(banner, "pill", "Ui/dungeon_pill_purple", BorderPill, 282f, 136f, 256f, 30f, false);
-            ModalKit.SolidText(pill, "t", $"共 {StageCatalog.EndlessWaves} 波 · 7天后换词缀清榜", 14, 0f, 0f, 256f, 30f,
+            var pill = ModalKit.Sliced(banner, "pill", "Ui/dungeon_pill_purple", BorderPill, 294f, 136f, 304f, 30f, false);
+            ModalKit.SolidText(pill, "t", "70波满墨 · 冲榜 · 7天后清榜", 13, 8f, 0f, 288f, 30f,
                 InkTheme.Hex("E6D4FF"), TextAnchor.MiddleCenter, true);
 
             // 2. 中段深紫词缀暗条
@@ -195,8 +195,8 @@ namespace InkLine
             if (pillTxt != null)
             {
                 pillTxt.text = days <= 1
-                    ? $"共 {StageCatalog.EndlessWaves} 波 · 今晚零点换词缀清榜"
-                    : $"共 {StageCatalog.EndlessWaves} 波 · {days}天后换词缀清榜";
+                    ? "70波满墨 · 冲榜 · 今晚零点清榜"
+                    : $"70波满墨 · 冲榜 · {days}天后清榜";
             }
 
             StageRule rule = StageRules.ThisWeek;

@@ -36,6 +36,8 @@ __pycache__/
 # 本机编辑器 / 微信私有配置
 .cursor/
 project.private.config.json
+Assets/UnityMCP/
+Assets/UnityMCP.meta
 
 # 字标评审图与生图母版放仓库外 game_assets
 Assets/Resources/Art/Ui/logo_[a-z].png

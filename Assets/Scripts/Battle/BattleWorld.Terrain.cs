@@ -20,19 +20,21 @@ namespace InkLine
             ? Mathf.Max(0f, GameConstants.FrenzySeconds - BattleTime)
             : 0f;
 
+        public const int FrenzyFoilCap = 24;
+
         public int FrenzyKillFoil
         {
             get
             {
                 if (Stage == null || !Stage.Frenzy) return 0;
-                int f = 3 + Kills / 28;
+                int f = 3 + Kills / 32;
                 for (int i = 0; i < StageCatalog.FrenzyKillGoals.Length; i++)
-                    if (Kills >= StageCatalog.FrenzyKillGoals[i]) f += 3;
-                return Mathf.Min(22, f);
+                    if (Kills >= StageCatalog.FrenzyKillGoals[i]) f += 2;
+                return Mathf.Min(15, f);
             }
         }
 
-        public int FrenzyTotalFoil => FrenzyKillFoil + DarumaFoil;
+        public int FrenzyTotalFoil => Mathf.Min(FrenzyFoilCap, FrenzyKillFoil + DarumaFoil);
 
         // 算上灵砚格 (+1 星，最高突破 ★4 极意) 后的实际生效星级。
         public int EffectiveStar(int col, int row)

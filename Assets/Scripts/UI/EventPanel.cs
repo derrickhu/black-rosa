@@ -11,7 +11,7 @@ namespace InkLine
     public sealed class EventPanel : MonoBehaviour
     {
         public const string PrefabPath = "Prefabs/Event";
-        public const string Mark = "event_v2";
+        public const string Mark = "event_v4";
 
         const float BoardW = 648f;
         const float BoardH = 988f;
@@ -62,9 +62,9 @@ namespace InkLine
             ModalKit.Pic(basin, "pouch", "Ui/modal_ico_pouch", 18f, 14f, 36f, 36f, true);
 
             int max = EventCatalog.Milestones[EventCatalog.Milestones.Length - 1].Need;
-            ModalKit.SolidText(basin, "bank", $"聚宝盆已攒：0 / {max} 金", 20,
-                62f, 16f, 290f, 30f, ModalKit.TextDark, TextAnchor.MiddleLeft, true);
-            ModalKit.Tag(basin, "Ui/modal_tag_slate", 356f, 16f, 226f, 28f, "赢局全入盆 · 输局看广告存半", false, 13);
+            ModalKit.SolidText(basin, "bank", "聚宝盆已攒：0 金", 18,
+                62f, 16f, 244f, 30f, ModalKit.TextDark, TextAnchor.MiddleLeft, true);
+            ModalKit.Tag(basin, "Ui/modal_tag_slate", 312f, 16f, 270f, 28f, "赢局全入盆 · 输局看广告存半", false, 12);
             ModalKit.ProgressBar(basin, 22f, 62f, ProgW, ProgH, 0f, $"0 / {max}", out _, out _);
 
             int n = EventCatalog.Milestones.Length;
@@ -124,7 +124,7 @@ namespace InkLine
             BuildSpotNode(mapRt, 1, 296f, 162f);
             BuildSpotNode(mapRt, 2, 476f, 84f);
 
-            ModalKit.Tag(card, "Ui/modal_tag_dark", 16f, 16f, 256f, 34f, "点击集市开打 · 福袋炮台拾金+10%", false, 13);
+            ModalKit.Tag(card, "Ui/modal_tag_dark", 16f, 16f, 326f, 34f, "点击集市开打 · 福袋炮台拾金+10%", false, 12);
             ModalKit.SlantTag(card, "yellow", 458f, 14f, EventCatalog.Tier(0).Name + "·可进", out _);
 
             var bot = ModalKit.Sliced(card, "bot_bar", "Ui/modal_sub_dark", ModalKit.BorderSub16,
@@ -248,7 +248,7 @@ namespace InkLine
             var basin = _body.Find("basin");
             int max = EventCatalog.Milestones[EventCatalog.Milestones.Length - 1].Need;
             var bankTxt = basin.Find("bank")?.GetComponent<Text>();
-            if (bankTxt != null) bankTxt.text = $"聚宝盆已攒：{_meta.EventBank} / {max} 金";
+            if (bankTxt != null) bankTxt.text = $"聚宝盆已攒：{_meta.EventBank} 金";
 
             float ratio = max > 0 ? Mathf.Min(_meta.EventBank, max) / (float)max : 0f;
             ModalKit.SetProgress(basin.Find("prog/fill") as RectTransform, ProgW, ProgH, ratio);
@@ -336,11 +336,11 @@ namespace InkLine
 
         static RewardFly.Piece[] PrizePieces(RectTransform layer, EventMilestone m, bool refunded, int chest)
         {
-            if (refunded) return new[] { RewardFly.Token(layer, EventCatalog.SkinTokenRefund) };
+            if (refunded) return new[] { RewardFly.Ink(layer, EventCatalog.SkinTokenRefund) };
             switch (m.Prize)
             {
                 case EventPrize.Ink: return new[] { RewardFly.Ink(layer, m.Amount) };
-                case EventPrize.Token: return new[] { RewardFly.Token(layer, m.Amount) };
+                case EventPrize.Token: return new[] { RewardFly.Ink(layer, m.Amount) };
                 case EventPrize.Chest:
                     if (chest == -3) return new[] { RewardFly.Ink(layer, ChestCatalog.InkAvg((ChestTier)m.Amount)) };
                     if (chest < 0) return new RewardFly.Piece[0];
@@ -364,13 +364,12 @@ namespace InkLine
             Vector2 from = RewardFly.Local(_layer, card);
             if (!_meta.ClaimEvent(i, out bool refunded, out int chest)) return;
             AudioBus.CountTick();
-            string got = refunded ? $"已有福袋炮台，折成活动币 ×{EventCatalog.SkinTokenRefund}"
+            string got = refunded ? $"已有福袋炮台，折成灵墨 ×{EventCatalog.SkinTokenRefund}"
                 : chest == -1 ? "宝箱位满了，选个位置放下"
                 : chest == -3 ? $"宝箱位满了，换成 {ChestCatalog.InkAvg((ChestTier)m.Amount)} 灵墨"
                 : $"领到 {EventCatalog.PrizeName(m)} {EventCatalog.PrizeCount(m)}";
             InkToast.Show(_layer, got);
-            if (m.Prize != EventPrize.Token && !refunded)
-                RewardFly.Play(_layer, from, PrizePieces(_layer, m, refunded, chest));
+            RewardFly.Play(_layer, from, PrizePieces(_layer, m, refunded, chest));
             _changed?.Invoke();
             Refresh();
             if (chest == -1) ChestOverflowView.Show(_layer, _meta, _changed);

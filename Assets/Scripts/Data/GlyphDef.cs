@@ -361,7 +361,7 @@ namespace InkLine
             {
                 Id = WordId.InstantKill, Charge = 4,
                 ExecuteHp = new Tri(0.35f, 0.45f, 0.60f),
-                ExecuteBoss = new Tri(0.22f, 0.30f, 0.40f),
+                ExecuteBoss = new Tri(0.12f, 0.16f, 0.20f),
                 Form = ShotFx.FormKill, Hit = HitFx.Kill
             },
             new WordDef

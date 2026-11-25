@@ -55,7 +55,7 @@ async function sendMailOnce(input) {
   const sourceId = String((input && input.sourceId) || '').trim();
   if (!userId || !sourceId) return 'dup';
   const rewards = packRewards(input.rewards);
-  if (Object.keys(rewards).length === 0) return 'dup';
+  if (Object.keys(rewards).length === 0 && !input.allowEmpty) return 'dup';
   const dedupeKey = `${source}:${sourceId}`;
   const col = collection(COLLECTION);
   try {

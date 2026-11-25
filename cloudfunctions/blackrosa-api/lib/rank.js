@@ -29,11 +29,12 @@ const { getDb, getRankingCollection, collection } = require('./db');
 const { httpError } = require('./http');
 const { readEnvPrefer, gameKeyUpper } = require('./config');
 const { sendMailOnce } = require('./mail');
+const { isUserCheatFlagged, notifyTamperAndBlockRank } = require('./anticheat');
 
 // 必须等于客户端 GameConstants.StageCount（ChapterSize × Chapters）。加章节只改客户端、这里不跟着改，
 // 超过旧上限的通关数会被拒，榜就停在旧关数。check_stages.py 会核这一条。
 const DEFAULT_MAX_CLEARED = 144;
-const DEFAULT_MAX_ENDLESS = 70;
+const DEFAULT_MAX_ENDLESS = 200;
 const DEFAULT_MAX_DAILY = 20;
 const DEFAULT_LIST_LIMIT = 50;
 const MAX_LIST_LIMIT = 100;
@@ -173,15 +174,18 @@ function publicRecord(doc, userId, rank) {
 }
 
 // 编辑器用 anon 身份联调。微信玩家看不到 anon 记录，编辑器里能看到全部，
-// 这样本地调界面有数据可看，线上榜也不会混进测试号。
+// 这样本地调界面有数据可看，线上榜也不会混进测试号。被反作弊屏蔽的记录全端不展示。
 function audience(platform) {
-  return platform === 'anon' ? {} : { platform: getDb().command.neq('anon') };
+  const _ = getDb().command;
+  return platform === 'anon'
+    ? { blocked: _.neq(true) }
+    : { platform: _.neq('anon'), blocked: _.neq(true) };
 }
 
 async function findMine(col, userId, platform, board, now) {
   const res = await col.where({ userId }).limit(1).get();
   const doc = (res && Array.isArray(res.data) && res.data[0]) || null;
-  if (!doc || !(Number(doc[board.score]) > 0)) return null;
+  if (!doc || doc.blocked === true || !(Number(doc[board.score]) > 0)) return null;
   const period = periodScope(board, now);
   if (board.key && Number(doc[board.key]) !== period[board.key]) return null;
   const _ = getDb().command;
@@ -246,7 +250,7 @@ function awardGroups(rows) {
   const blocked = blockedUsers();
   const groups = [];
   for (const doc of rows || []) {
-    if (!doc || doc.platform === 'anon' || !doc.userId || blocked.has(doc.userId)) continue;
+    if (!doc || doc.blocked === true || doc.platform === 'anon' || !doc.userId || blocked.has(doc.userId)) continue;
     const score = Math.floor(Number(doc.weekly) || 0);
     if (score <= 0) continue;
     const last = groups[groups.length - 1];
@@ -268,7 +272,7 @@ async function loadAwardRows(week) {
   let skip = 0;
   while (groupsComplete(rows) === false) {
     const res = await col
-      .where({ week, weekly: _.gt(0) })
+      .where({ week, weekly: _.gt(0), blocked: _.neq(true) })
       .orderBy('weekly', 'desc')
       .orderBy('weeklyAt', 'asc')
       .skip(skip)
@@ -374,6 +378,14 @@ async function handleSubmit(req) {
   const col = getRankingCollection();
   const res = await col.where({ userId }).limit(1).get();
   const existing = (res && Array.isArray(res.data) && res.data[0]) || null;
+  if (existing && existing.blocked === true) {
+    return { updated: false, reason: 'CHEAT_BLOCKED', record: null };
+  }
+  const cheat = await isUserCheatFlagged(userId);
+  if (cheat.flagged) {
+    await notifyTamperAndBlockRank(userId, cheat.reasons, now);
+    return { updated: false, reason: 'CHEAT_BLOCKED', record: null };
+  }
   const displayName = sanitizeDisplayName(
     body.displayName,
     (existing && existing.displayName) || displayNameForUser(userId),
@@ -387,6 +399,7 @@ async function handleSubmit(req) {
     const docData = {
       userId,
       platform,
+      blocked: false,
       cleared,
       reachedAt: now,
       endless,

@@ -24,7 +24,9 @@ namespace InkLine
     // 不进主线关卡表，也不进 check_stages 的主线曲线。
     public static partial class StageCatalog
     {
-        public const int EndlessWaves = 70;
+        // 无尽上限开放至 200 波供周榜深度冲层区分名次；前 70 波正常产墨领满基础收益，71 波起为纯荣耀冲榜层（0 产墨、指数加压）。
+        public const int EndlessWaves = 200;
+        public const int EndlessInkWaves = 70;
         // 血量和移速收到这一波为止，和加尾段之前的 50 波完全一样。每日残局也读这条曲线。
         const int EndlessPaceWaves = 50;
         public const int EndlessBossEvery = 10;
@@ -79,12 +81,16 @@ namespace InkLine
             new[] { Walker, Chubby, Tall, Ball, BigHead },
             new[] { Runner, Shield, Swarm, Strafer, Belt },
             new[] { Crawler, Splitter, Mender, Elite, Sprinter },
-            new[] { Bulwark, Warden, Shade, Monk },
+            new[] { Bulwark, Warden, Shade, Monk, Drummer, Imp },
         };
         static readonly int[] EndlessTierFrom = { 0, 5, 15, 30 };
         static readonly EnemyId[] EndlessBosses =
         {
-            BossInkbag, BossTwin, BossThunder, BossMedic, BossKing, BossShade, BossBell
+            BossInkbag, BossTwin, BossThunder, BossMedic, BossKing, BossShade, BossBell, BossJudge, BossAbyss
+        };
+        static readonly EnemyId[] EndlessApexBosses =
+        {
+            BossKing, BossShade, BossBell, BossJudge, BossAbyss
         };
 
         public static float EndlessHp(int wave)
@@ -95,12 +101,13 @@ namespace InkLine
                 float u = 1f - Mathf.Pow(1f - Mathf.Clamp01(k), EndlessHpEase);
                 return EndlessHpOpen * Mathf.Pow(EndlessHpTop / EndlessHpOpen, u);
             }
-            return Mathf.Lerp(EndlessHpTop, EndlessHpTail, Tail(k));
+            if (wave < EndlessInkWaves)
+                return Mathf.Lerp(EndlessHpTop, EndlessHpTail, Tail(k));
+            return EndlessHpTail + (wave - (EndlessInkWaves - 1)) * 0.25f;
         }
 
         // 无尽后段血量。第 9 波及以前是 1。第 10 波 ×1.15，用 1.35 次方把前段抬起来，第 70 波 ×5。
-        // 只乘在出怪上。金币掉落、基础血量曲线都不动，每日残局不读这个函数。
-        // 乘完之后第 30 波的血大约赶上旧的第 70 波，第 70 波大约是旧的 3.6 倍。
+        // 71 波起进入周榜极限冲层，每波按 1.075 倍指数抬升，彻底拉开头部老玩家周榜层数差距。
         const float EndlessLateOpen = 1.15f;
         const float EndlessLateTop = 5f;
         const float EndlessLateEase = 1.35f;
@@ -109,28 +116,31 @@ namespace InkLine
         {
             int n = wave + 1;
             if (n < EndlessDarkFrom) return 1f;
-            float k = (n - EndlessDarkFrom) / (float)(EndlessWaves - EndlessDarkFrom);
-            float u = 1f - Mathf.Pow(1f - Mathf.Clamp01(k), EndlessLateEase);
-            return Mathf.Lerp(EndlessLateOpen, EndlessLateTop, u);
+            if (n <= EndlessInkWaves)
+            {
+                float k = (n - EndlessDarkFrom) / (float)(EndlessInkWaves - EndlessDarkFrom);
+                float u = 1f - Mathf.Pow(1f - Mathf.Clamp01(k), EndlessLateEase);
+                return Mathf.Lerp(EndlessLateOpen, EndlessLateTop, u);
+            }
+            return EndlessLateTop * Mathf.Pow(1.075f, n - EndlessInkWaves);
         }
 
-        // 击杀掉墨的份额。前 9 波照旧。第 10 波 0.82，线性收到第 70 波 0.34。
-        // 怪自己的墨还按基础血量的 0.6 次方涨，后 40 波原来吃掉将近八成，打满一局大约 3900。
-        // 收到大约一半。金币箱不走这里。
-        const float EndlessInkOpen = 0.82f;
-        const float EndlessInkTail = 0.34f;
+        // 击杀掉墨的份额。前 9 波照旧；第 10～70 波线性收口（满 70 波约 1500 墨）；71 波起纯冲榜不产墨（返回 0）。
+        const float EndlessInkOpen = 0.68f;
+        const float EndlessInkTail = 0.24f;
 
         public static float EndlessInkShare(int wave)
         {
             int n = wave + 1;
+            if (n > EndlessInkWaves) return 0f;
             if (n < EndlessDarkFrom) return 1f;
-            float k = (n - EndlessDarkFrom) / (float)(EndlessWaves - EndlessDarkFrom);
+            float k = (n - EndlessDarkFrom) / (float)(EndlessInkWaves - EndlessDarkFrom);
             return Mathf.Lerp(EndlessInkOpen, EndlessInkTail, Mathf.Clamp01(k));
         }
 
         // 第 50 波之后的进度，第 70 波正好是 1。
         static float Tail(float k) =>
-            Mathf.Clamp01((k - 1f) / ((EndlessWaves - 1f) / (EndlessPaceWaves - 1f) - 1f));
+            Mathf.Clamp01((k - 1f) / ((EndlessInkWaves - 1f) / (EndlessPaceWaves - 1f) - 1f));
 
         // 闯波类关卡里这一只的血：关底吃满倍率；杂兵基础血先托到 EndlessThinHp。mul 是当波倍率（含词缀）。
         public static float SurvivalHpOf(EnemyId id, float mul)
@@ -195,9 +205,14 @@ namespace InkLine
             var cells = new int[EndlessWaves];
             for (int w = 0; w < EndlessWaves; w++)
             {
-                EnemyId? boss = EndlessBossWave(w)
-                    ? EndlessBosses[Mathf.Clamp((w + 1) / EndlessBossEvery - 1, 0, EndlessBosses.Length - 1)]
-                    : (EnemyId?)null;
+                EnemyId? boss = null;
+                if (EndlessBossWave(w))
+                {
+                    int bIdx = (w + 1) / EndlessBossEvery - 1;
+                    boss = bIdx < EndlessBosses.Length
+                        ? EndlessBosses[Mathf.Max(0, bIdx)]
+                        : EndlessApexBosses[(bIdx - EndlessBosses.Length) % EndlessApexBosses.Length];
+                }
                 SurvivalWave(w, boss, new System.Random(7919 + w * 131), countMul * EndlessCrowd(w), w, out waves[w], out bodies[w]);
                 hp[w] = EndlessHp(w);
                 gold[w] = EndlessDrop(w);
@@ -316,7 +331,7 @@ namespace InkLine
                 heads += n;
             }
 
-            float span = EndlessSpanOpen + EndlessSpanStep * depth;
+            float span = EndlessSpanOpen + EndlessSpanStep * Mathf.Min(depth, 80);
             float open = boss.HasValue ? 2.4f : 0.4f;
             float room = Mathf.Max(1f, span - EndlessTail - open);
             int cols = GameConstants.Columns;

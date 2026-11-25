@@ -109,7 +109,7 @@ namespace InkLine
         public FrenzyGrant ApplyFrenzy(int kills, int earnedFoil)
         {
             var g = new FrenzyGrant { Kills = Mathf.Max(0, kills) };
-            int baseFoil = Mathf.Max(4, earnedFoil);
+            int baseFoil = Mathf.Clamp(earnedFoil, 4, BattleWorld.FrenzyFoilCap);
             int ink = 28 + Mathf.Min(92, g.Kills / 2);
             g.Foil = baseFoil;
             g.Ink = ink;
