@@ -43,11 +43,8 @@ public sealed class InkArtImporter : AssetPostprocessor
         // 屏幕上最大的用法是 160px 的抽卡字面，256 已经是两倍超采样。
         // 章节图、战斗背景这类大图的高清版在 CdnArt/，这里只是先顶上的缩略图。
         bool panel = path.Contains("/panel_") || path.EndsWith("/tab_dock.png") || path.EndsWith("/tab_plaque.png");
-        // 展台在炮台页上铺到 640 宽，256 会被拉糊。按两倍超采样留 2048。
-        bool stage = path.EndsWith("/skin_stage.png");
         // 炮台页上半底铺满 720×660，按两倍宽出。
-        bool terrace = path.EndsWith("/turret_terrace.png") || path.EndsWith("/turret_upper.png")
-                       || path.EndsWith("/skin_stripe.png");
+        bool terrace = path.EndsWith("/turret_upper.png");
         bool skinHex = path.Contains("/skin_hex_") || path.EndsWith("/tag_exclusive.png") || path.EndsWith("/stat_pill.png");
         // 首页整屏底是 720×1280。默认 256 会把它压糊，1024 也会把长边缩掉。
         bool homeBg = path.EndsWith("/home_bg.png");
@@ -67,14 +64,11 @@ public sealed class InkArtImporter : AssetPostprocessor
                         || path.Contains("/Ui/dungeon_ban_");
         // 玩法底板是 1280×480 的整张图，弧线不能九宫格拉，也不能压到 256。
         bool modePlate = path.Contains("/mode_plate");
-        // 图鉴底板铺满整屏、星级条拉到 570 宽，256 会糊。
-        bool codexBig = path.EndsWith("/codex_board.png") || path.Contains("/codex_row");
-        // 图鉴卡按原比例整张贴，不走九宫格；格子 190 宽、详情 196 宽，留两倍超采样。
-        bool codexCard = path.Contains("/codex_face") || path.EndsWith("/codex_back.png")
-                         || path.Contains("/Ui/loot_") || path.Contains("/Ui/study_card_")
+        // 图鉴卡与副本横幅按原比例整张贴，不走九宫格。
+        bool codexCard = path.Contains("/Ui/loot_") || path.Contains("/Ui/study_card_")
                          || path.EndsWith("/Ui/dungeon_frenzy.png");
-        int size = stage || homeBg || modePlate || terrace || modalBig ? 2048
-            : (panel || codexBig || home || itemKit || skinHex || modalKit ? 1024 : codexCard ? 512 : 256);
+        int size = homeBg || modePlate || terrace || modalBig ? 2048
+            : (panel || home || itemKit || skinHex || modalKit ? 1024 : codexCard ? 512 : 256);
         importer.maxTextureSize = size;
         if (panel) importer.spritePixelsPerUnit = 100;
         else if (modalKit) importer.spritePixelsPerUnit = 200;
@@ -89,30 +83,14 @@ public sealed class InkArtImporter : AssetPostprocessor
         // SetTextureSettings 会把 border 冲掉，九宫格必须写在它后面。
         if (path.EndsWith("/tab_dock.png"))
             importer.spriteBorder = new Vector4(88f, 70f, 88f, 70f);
-        else if (path.Contains("/panel_board") || path.Contains("/panel_spell"))
-            importer.spriteBorder = Vector4.zero;
-        else if (path.EndsWith("/panel_item_shelf.png"))
-            importer.spriteBorder = new Vector4(110f, 70f, 110f, 70f);
-        else if (path.Contains("/panel_item_card") || path.EndsWith("/panel_item_plaque.png"))
+        else if (path.Contains("/panel_board"))
             importer.spriteBorder = Vector4.zero;
         else if (path.Contains("/panel_card"))
             importer.spriteBorder = new Vector4(18f, 18f, 18f, 18f);
-        else if (path.Contains("/panel_skin"))
-            importer.spriteBorder = new Vector4(30f, 34f, 30f, 30f);
         else if (path.Contains("/panel_strip"))
             importer.spriteBorder = new Vector4(28f, 10f, 28f, 10f);
         else if (path.Contains("/panel_row"))
             importer.spriteBorder = new Vector4(44f, 8f, 44f, 8f);
-        else if (path.Contains("/panel_price"))
-            importer.spriteBorder = new Vector4(22f, 8f, 22f, 8f);
-        else if (path.EndsWith("/codex_board.png"))
-            importer.spriteBorder = new Vector4(80f, 80f, 80f, 80f);
-        else if (path.Contains("/codex_row"))
-            importer.spriteBorder = new Vector4(110f, 100f, 110f, 100f);
-        else if (path.EndsWith("/loot_fill.png"))
-            importer.spriteBorder = new Vector4(16f, 0f, 16f, 0f);
-        else if (path.EndsWith("/codex_box.png"))
-            importer.spriteBorder = new Vector4(48f, 48f, 48f, 48f);
         // 图鉴底只圆上沿。44 像素边对应设计稿上 22 的圆角（这张图 1 像素 = 0.5 设计单位）。
         if (path.EndsWith("/item_panel.png"))
         {
@@ -121,18 +99,18 @@ public sealed class InkArtImporter : AssetPostprocessor
         }
         else if (path.EndsWith("/modal_panel_body.png"))
             importer.spriteBorder = new Vector4(72f, 72f, 72f, 72f);
-        else if (path.EndsWith("/modal_head_yellow.png") || path.EndsWith("/modal_head_blue.png"))
+        else if (path.EndsWith("/modal_head_yellow.png"))
             importer.spriteBorder = new Vector4(64f, 0f, 64f, 0f);
         else if (path.EndsWith("/modal_info_strip.png"))
             importer.spriteBorder = new Vector4(56f, 0f, 56f, 0f);
         else if (path.EndsWith("/modal_sub_cream.png") || path.EndsWith("/modal_sub_warm.png")
-                 || path.EndsWith("/modal_sub_bright.png") || path.EndsWith("/modal_sub_dim.png")
+                 || path.EndsWith("/modal_sub_bright.png")
                  || path.EndsWith("/modal_rank_row_me.png"))
             importer.spriteBorder = new Vector4(44f, 44f, 44f, 44f);
         else if (path.EndsWith("/modal_sub_dark.png") || path.EndsWith("/modal_sub_charcoal.png")
                  || path.Contains("/modal_rank_row_"))
             importer.spriteBorder = new Vector4(40f, 40f, 40f, 40f);
-        else if (path.EndsWith("/modal_sub_tip.png") || path.EndsWith("/modal_tab_on.png"))
+        else if (path.EndsWith("/modal_tab_on.png"))
             importer.spriteBorder = new Vector4(30f, 0f, 30f, 0f);
         else if (path.EndsWith("/modal_sub_honey.png"))
             importer.spriteBorder = new Vector4(44f, 44f, 44f, 44f);
@@ -167,7 +145,7 @@ public sealed class InkArtImporter : AssetPostprocessor
         else if (path.EndsWith("/glyph_lv_track.png"))
             importer.spriteBorder = new Vector4(28f, 0f, 28f, 0f);
         // 写在 SetTextureSettings 后面。只改 maxTextureSize 时，微信目标仍用 meta 里的 256，草地会被压糊。
-        if (home || homeBg || stage || modePlate || itemKit || terrace || skinHex || modalKit || codexCard)
+        if (home || homeBg || modePlate || itemKit || terrace || skinHex || modalKit || codexCard)
             ApplyUiSize(importer, size);
     }
 
