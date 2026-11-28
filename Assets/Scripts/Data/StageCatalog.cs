@@ -113,6 +113,11 @@ namespace InkLine
         public bool Dig;
         // 百鬼狂潮：限时爽刷割草模式，开局满盘 + 灵砚四星格 + 压轴不倒金翁喷金箔。
         public bool Frenzy;
+        // 无尽破阵直通：开局跳过的波数（0 表示从第 1 波起打）及折算补发的灵墨、金币与已抽牌次数。
+        public int StartWave;
+        public int StartInk;
+        public int StartGoldBonus;
+        public int StartDraftCount;
         // 活棋盘地形格（灵砚四星格 / 墨晶宝矿格 / 古碑格），null 表示全普通格。
         public CellTerrain[,] Terrain;
 

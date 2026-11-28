@@ -39,6 +39,8 @@ namespace InkLine
         readonly RectTransform _wavePlate;
         RectTransform _adGun;
         RectTransform _gmClear;
+        Button _speedBtn;
+        bool _speed2x;
 
         BattleHud(RectTransform layer, Text gold, RectTransform goldChip, Image[] hearts,
             RectTransform heartsWrap, RectTransform wavePlate, Text wave, Text mire, Text toast, Text ink, RectTransform inkChip,
@@ -62,7 +64,8 @@ namespace InkLine
         }
 
         public static BattleHud Build(RectTransform layer, BattleWorld world,
-            System.Action retreat, System.Action draft, System.Action addEmitter)
+            System.Action retreat, System.Action draft, System.Action addEmitter,
+            System.Action toggleSpeed = null, bool speed2x = false)
         {
             // ScreenFit 在没有刘海时也保底 36，那是给首页顶栏的呼吸。
             // 战斗页贴着安全区上沿排，不再往下加一截，免得读数掉进走怪区。
@@ -119,6 +122,11 @@ namespace InkLine
                 btn.onClick.AddListener(() => hud.ToggleTip(k));
             }
             hud.BuildAdGun(addEmitter);
+            if (toggleSpeed != null && world != null && world.Stage != null
+                && world.Stage.Endless && !world.Stage.Daily && !world.Stage.Frenzy)
+            {
+                hud.BuildSpeedBtn(toggleSpeed, speed2x);
+            }
             if (WxBridge.IsSimulator && world != null && world.Stage != null && world.Stage.Daily)
                 hud._gmClear = GmClearButton(layer, () => world.GmClear());
             hud.Layout();
@@ -247,14 +255,17 @@ namespace InkLine
             float row = top + Gear + 6f;
             PinTop(Settings.transform as RectTransform, new Vector2(Side, top),
                 new Vector2(Gear, Gear), 6f, Pin.TopLeft);
+            if (_speedBtn != null)
+                PinTop(_speedBtn.transform as RectTransform, new Vector2(Side + Gear + 8f, top + 13f),
+                    new Vector2(132f, 51f), 0f, Pin.TopLeft);
             if (_gmClear != null)
                 PinTop(_gmClear, new Vector2(Side + Gear + 8f, top + 16f),
                     new Vector2(112f, 44f), 0f, Pin.TopLeft);
             PinTop(GoldChip, new Vector2(Side, row), new Vector2(ReadW, ReadH), 0f, Pin.TopLeft);
             // 波次和设置同一行，垂直居中在齿轮高度里。金币和墨仍在下一行。
-            PinTop(_wavePlate, new Vector2(0f, top), new Vector2(220f, Gear), 0f, Pin.Top);
+            PinTop(_wavePlate, new Vector2(0f, top), new Vector2(236f, Gear), 0f, Pin.Top);
             if (Mire != null)
-                PinTop(Mire.rectTransform, new Vector2(0f, row), new Vector2(280f, ReadH), 0f, Pin.Top);
+                PinTop(Mire.rectTransform, new Vector2(0f, row), new Vector2(340f, ReadH), 0f, Pin.Top);
             PinTop(InkChip, new Vector2(Side, row), new Vector2(ReadW, ReadH), 0f, Pin.TopRight);
             PinBottom(Draft.transform as RectTransform, new Vector2(0f, bot),
                 new Vector2(DraftW, DraftH), 0f, Pin.Bottom);
@@ -482,7 +493,10 @@ namespace InkLine
             if (on)
             {
                 Mire.color = InkTheme.Hex("FF7AD9");
-                Mire.text = "魔气减伤 " + pct + "%";
+                bool rush = world.Stage != null && world.Stage.Endless && !world.Stage.Daily && !world.Stage.Frenzy
+                    && world.WaveIndex >= StageCatalog.EndlessInkWaves;
+                Mire.fontSize = rush ? 25 : 30;
+                Mire.text = rush ? $"已清 {world.WavesCleared} 波 · 减伤 {pct}%" : "魔气减伤 " + pct + "%";
             }
         }
 
@@ -496,6 +510,23 @@ namespace InkLine
             _adGun.gameObject.SetActive(false);
         }
 
+        void BuildSpeedBtn(System.Action toggleSpeed, bool speed2x)
+        {
+            _speedBtn = ModalKit.HexBtn(_layer, "sm_cyan", 0f, 0f, "倍速 ×1", toggleSpeed, out _);
+            _speedBtn.name = "speed_btn";
+            SetSpeed2x(speed2x);
+        }
+
+        public void SetSpeed2x(bool speed2x)
+        {
+            _speed2x = speed2x;
+            if (_speedBtn == null) return;
+            string kind = speed2x ? "sm_yellow" : "sm_cyan";
+            var img = _speedBtn.GetComponent<Image>();
+            if (img != null) img.sprite = ModalKit.Load(speed2x ? "Ui/modal_btn_sm_yellow" : "Ui/modal_btn_sm_cyan");
+            ModalKit.SetBtnLabel(_speedBtn, kind, speed2x ? "倍速 ×2" : "倍速 ×1");
+        }
+
         // 新手第一关：不给设置（里面有撤退）和看广告加炮，只留打仗要用的。
         public bool Guided
         {
@@ -504,6 +535,7 @@ namespace InkLine
             {
                 _guided = value;
                 if (Settings != null) Settings.gameObject.SetActive(!value);
+                if (_speedBtn != null) _speedBtn.gameObject.SetActive(!value);
             }
         }
         bool _guided;

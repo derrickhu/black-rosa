@@ -45,6 +45,7 @@ namespace InkLine
                 case "event_double":
                 case "event_salvage":
                 case "endless_plays":
+                case "endless_skip":
                 case "daily_plays":
                 case "frenzy_plays": return Event;
                 default: return null;

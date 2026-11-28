@@ -10,14 +10,16 @@ namespace InkLine
     public sealed class EndlessPanel : MonoBehaviour
     {
         public const string PrefabPath = "Prefabs/Endless";
-        public const string Mark = "endless_v3";
+        public const string Mark = "endless_v4";
 
         const float BoardW = 648f;
         const float BoardH = 764f;
+        const float BoardSkipH = 848f;
         const float WellX = 12f;
         const float WellY = 12f;
         const float WellW = 624f;
         const float WellH = 728f;
+        const float WellSkipH = 812f;
 
         static readonly Vector4 BorderShell = new Vector4(84f, 108f, 84f, 84f);
         static readonly Vector4 BorderIntel = new Vector4(40f, 40f, 40f, 40f);
@@ -27,14 +29,14 @@ namespace InkLine
         static readonly Vector4 BorderAxisFill = new Vector4(14f, 0f, 14f, 0f);
 
         MetaProgress _meta;
-        Action _start;
+        Action<int> _start;
         Action _changed;
         RectTransform _layer;
         RectTransform _stage;
         RectTransform _board;
         RectTransform _well;
 
-        public static void Show(RectTransform layer, MetaProgress meta, Action start, Action changed)
+        public static void Show(RectTransform layer, MetaProgress meta, Action<int> start, Action changed)
         {
             var dim = ModalKit.SpawnPrefab(layer, PrefabPath, "endless_panel", Mark, null, BuildPrefab, out RectTransform stage);
             var panel = dim.gameObject.AddComponent<EndlessPanel>();
@@ -119,6 +121,17 @@ namespace InkLine
                 aimTag.gameObject.SetActive(false);
             }
 
+            // 3.5 破阵直通跳层条（历史最高 >= 30 波时激活显示）
+            var skipBar = ModalKit.Sliced(well, "skip_bar", "Ui/dungeon_intel_purple", BorderIntel, 20f, 546f, 584f, 84f, false);
+            ModalKit.OutlinedText(skipBar, "title", "破阵直通 · 第 51 波", 16, 20f, 12f, 362f, 28f,
+                InkTheme.Hex("FFE455"), TextAnchor.MiddleLeft, 1.35f);
+            ModalKit.SolidText(skipBar, "sub", "配双列★2成词 + 前50波军饷灵墨", 12, 20f, 44f, 362f, 26f,
+                InkTheme.Hex("E6D4FF"), TextAnchor.MiddleLeft, false);
+            var skipBtn = ModalKit.HexBtn(skipBar, "md_cyan", 392f, 10f, "", null, out _);
+            skipBtn.gameObject.name = "skip_btn";
+            ModalKit.SetAdBtnLabel(skipBtn, "md_cyan", "直通 51波", true, 18);
+            skipBar.gameObject.SetActive(false);
+
             // 4. 底部次数与主按钮
             ModalKit.SolidText(well, "plays", "今日剩余 1 / 1 次", 16, 26f, 586f, 176f, 26f,
                 ModalKit.TextMuted, TextAnchor.MiddleCenter, true);
@@ -155,6 +168,7 @@ namespace InkLine
             ModalKit.BindClose(_board, Close);
             ModalKit.BindBtn(_well, "ad_btn", OnAd);
             ModalKit.BindBtn(_well, "go_btn", OnStart);
+            ModalKit.BindBtn(_well, "skip_bar/skip_btn", OnSkipStart);
             RepairArt();
 
             Refresh();
@@ -171,6 +185,7 @@ namespace InkLine
             ModalKit.FillSprite(_board, "well/banner/pill", "Ui/dungeon_pill_purple", BorderPill);
             ModalKit.FillSprite(_board, "well/rule", "Ui/dungeon_intel_purple", BorderIntel);
             ModalKit.FillSprite(_board, "well/rule/tag", "Ui/glyph_tag_purple", BorderTicket);
+            ModalKit.FillSprite(_board, "well/skip_bar", "Ui/dungeon_intel_purple", BorderIntel);
             ModalKit.FillSprite(_board, "well/axis", "Ui/dungeon_axis_track", BorderAxis);
             ModalKit.FillSprite(_board, "well/axis/fill", "Ui/dungeon_axis_fill_purple", BorderAxisFill);
         }
@@ -260,23 +275,63 @@ namespace InkLine
             int cap = _meta.EndlessPlaysCap;
             int left = _meta.EndlessPlaysLeft;
             bool hasAd = !_meta.EndlessAdDone;
+            int skipWaves = StageCatalog.EndlessSkipWave(_meta.EndlessBest);
+            bool canSkip = skipWaves > 0;
+
+            float targetBoardH = canSkip ? BoardSkipH : BoardH;
+            float targetWellH = canSkip ? WellSkipH : WellH;
+            if (Mathf.Abs(_board.sizeDelta.y - targetBoardH) > 0.5f)
+            {
+                _board.sizeDelta = new Vector2(BoardW, targetBoardH);
+                ModalKit.TopLeft(_well, WellX, WellY, WellW, targetWellH);
+                ModalKit.SettleBoard(_board);
+            }
+
+            var skipBar = _well.Find("skip_bar") as RectTransform;
+            if (skipBar != null)
+            {
+                skipBar.gameObject.SetActive(canSkip);
+                if (canSkip)
+                {
+                    int entryWave = skipWaves + 1;
+                    var sTitle = skipBar.Find("title")?.GetComponent<Text>();
+                    if (sTitle != null) sTitle.text = $"破阵直通 · 第 {entryWave} 波";
+                    var sSub = skipBar.Find("sub")?.GetComponent<Text>();
+                    if (sSub != null) sSub.text = $"配双列★2成词 + 前{skipWaves}波军饷灵墨";
+                    var sBtn = skipBar.Find("skip_btn")?.GetComponent<Button>();
+                    if (sBtn != null)
+                    {
+                        string skipKind = left <= 0 ? "md_gray" : "md_cyan";
+                        ModalKit.SetHexBtnGray(sBtn, "md_cyan", "md_gray", left <= 0);
+                        ModalKit.SetAdBtnLabel(sBtn, skipKind, $"直通 {entryWave}波", true, 18);
+                    }
+                }
+            }
+
+            float shiftY = canSkip ? (BoardSkipH - BoardH) : 0f;
 
             var playsTxt = _well.Find("plays")?.GetComponent<Text>();
             if (playsTxt != null)
             {
                 playsTxt.text = $"今日剩余 {left} / {cap} 次";
-                if (hasAd) ModalKit.TopLeft(playsTxt.rectTransform, 26f, 586f, 176f, 26f);
-                else ModalKit.TopLeft(playsTxt.rectTransform, 0f, 584f, WellW, 26f);
+                if (hasAd) ModalKit.TopLeft(playsTxt.rectTransform, 26f, 586f + shiftY, 176f, 26f);
+                else ModalKit.TopLeft(playsTxt.rectTransform, 0f, 584f + shiftY, WellW, 26f);
             }
 
-            var adTr = _well.Find("ad_btn");
-            if (adTr != null) adTr.gameObject.SetActive(hasAd);
+            var adTr = _well.Find("ad_btn") as RectTransform;
+            if (adTr != null)
+            {
+                adTr.gameObject.SetActive(hasAd);
+                if (hasAd) ModalKit.TopLeft(adTr, 26f, 626f + shiftY, 176f, 63f);
+            }
 
             var goBtn = _well.Find("go_btn")?.GetComponent<Button>();
             if (goBtn != null)
             {
                 float goX = hasAd ? 286f : (WellW - 314f) * 0.5f;
-                ModalKit.TopLeft(goBtn.GetComponent<RectTransform>(), goX, 618f, 314f, 80f);
+                ModalKit.TopLeft(goBtn.GetComponent<RectTransform>(), goX, 618f + shiftY, 314f, 80f);
+                string goKind = left <= 0 ? "wide_gray" : "wide_yellow";
+                ModalKit.SetBtnLabel(goBtn, goKind, canSkip ? "第 1 波开始" : "开始");
                 ModalKit.SetHexBtnGray(goBtn, "wide_yellow", "wide_gray", left <= 0);
             }
         }
@@ -294,18 +349,36 @@ namespace InkLine
 
         void OnStart()
         {
-            if (_meta.EndlessPlaysLeft <= 0)
-            {
-                AudioBus.Deny();
-                InkToast.Show(_layer, _meta.EndlessAdDone
-                    ? "今天的次数用完了，明天再来"
-                    : $"今天的次数用完了，看广告再开 {GameConstants.EndlessAdPlays} 局");
-                return;
-            }
+            if (!CheckPlaysAvailable()) return;
             AudioBus.Tap();
-            Action start = _start;
+            Action<int> start = _start;
             Destroy(gameObject);
-            start?.Invoke();
+            start?.Invoke(0);
+        }
+
+        void OnSkipStart()
+        {
+            if (!CheckPlaysAvailable()) return;
+            int skipWaves = StageCatalog.EndlessSkipWave(_meta.EndlessBest);
+            if (skipWaves <= 0) return;
+            AudioBus.Tap();
+            AdStub.Reward("endless_skip", () =>
+            {
+                if (this == null || _meta.EndlessPlaysLeft <= 0) return;
+                Action<int> start = _start;
+                Destroy(gameObject);
+                start?.Invoke(skipWaves);
+            });
+        }
+
+        bool CheckPlaysAvailable()
+        {
+            if (_meta.EndlessPlaysLeft > 0) return true;
+            AudioBus.Deny();
+            InkToast.Show(_layer, _meta.EndlessAdDone
+                ? "今天的次数用完了，明天再来"
+                : $"今天的次数用完了，看广告再开 {GameConstants.EndlessAdPlays} 局");
+            return false;
         }
     }
 }

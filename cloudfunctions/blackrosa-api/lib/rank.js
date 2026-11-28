@@ -34,7 +34,7 @@ const { isUserCheatFlagged, notifyTamperAndBlockRank } = require('./anticheat');
 // 必须等于客户端 GameConstants.StageCount（ChapterSize × Chapters）。加章节只改客户端、这里不跟着改，
 // 超过旧上限的通关数会被拒，榜就停在旧关数。check_stages.py 会核这一条。
 const DEFAULT_MAX_CLEARED = 144;
-const DEFAULT_MAX_ENDLESS = 200;
+const DEFAULT_MAX_ENDLESS = 300;
 const DEFAULT_MAX_DAILY = 20;
 const DEFAULT_LIST_LIMIT = 50;
 const MAX_LIST_LIMIT = 100;
@@ -105,7 +105,7 @@ function normalizeEndless(value) {
     throw httpError(400, 'BAD_ENDLESS', 'endless 必须为非负整数');
   }
   const endless = Math.floor(n);
-  const max = envInt('RANK_MAX_ENDLESS', DEFAULT_MAX_ENDLESS);
+  const max = Math.max(envInt('RANK_MAX_ENDLESS', DEFAULT_MAX_ENDLESS), DEFAULT_MAX_ENDLESS);
   if (endless > max) {
     throw httpError(400, 'ENDLESS_TOO_HIGH', `endless 超出上限: ${endless} > ${max}`);
   }
@@ -360,7 +360,7 @@ async function handleSubmit(req) {
   const body = req.body || {};
   const cleared = normalizeCleared(body.cleared);
   const endless = normalizeEndless(body.endless);
-  const maxEndless = envInt('RANK_MAX_ENDLESS', DEFAULT_MAX_ENDLESS);
+  const maxEndless = Math.max(envInt('RANK_MAX_ENDLESS', DEFAULT_MAX_ENDLESS), DEFAULT_MAX_ENDLESS);
   const now = Date.now();
   const period = serverPeriod(now);
   // 期号对不上（改了系统时间、跨期太久）就当没报这一项。

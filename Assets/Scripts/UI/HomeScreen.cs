@@ -1443,7 +1443,7 @@ namespace InkLine
             EventPanel.Show(_layer, _meta, tier => StartEvent?.Invoke(tier), AfterReward);
         }
 
-        public Action StartEndless;
+        public Action<int> StartEndless;
 
         public void OpenEndless()
         {
@@ -1454,7 +1454,7 @@ namespace InkLine
                 return;
             }
             AudioBus.Tap();
-            EndlessPanel.Show(_layer, _meta, () => StartEndless?.Invoke(), AfterReward);
+            EndlessPanel.Show(_layer, _meta, skip => StartEndless?.Invoke(skip), AfterReward);
         }
 
         public Action StartFrenzy;

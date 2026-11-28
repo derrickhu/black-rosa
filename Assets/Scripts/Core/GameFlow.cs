@@ -31,6 +31,9 @@ namespace InkLine
         bool _daily;
         bool _frenzy;
         bool _hard;
+        bool _speed2x;
+
+        bool PureEndless => _endless && !_daily && !_frenzy && !BattleWorld.PreviewFill && !BattleWorld.GmLook;
         // 这一局的功课已经记过了。赢、输、撤退各走各的路，只记一次。
         bool _tallied;
         ResultInfo _result;
@@ -116,6 +119,7 @@ namespace InkLine
 
         void OnDestroy()
         {
+            Time.timeScale = 1f;
             if (_it == this) _it = null;
             CloudSync.Imported -= OnCloudImported;
             ItemPanel.Opened -= OnItemPanel;
@@ -194,6 +198,10 @@ namespace InkLine
                 if (_loadingCover == 0) WxBridge.HideLoadingCover();
             }
             if (_canvas == null) return;
+            bool fastBattle = PureEndless && _speed2x && _screen == Screen.Battle
+                && _world != null && !_world.Paused && !_world.Victory && !_world.Defeat && !_askingRetreat;
+            float wantScale = fastBattle ? 2f : 1f;
+            if (Mathf.Abs(Time.timeScale - wantScale) > 0.01f) Time.timeScale = wantScale;
             PromoTick();
             if (_leftGame)
             {
@@ -230,7 +238,10 @@ namespace InkLine
                     if (!uiHit || _dragging) HandleRail();
                     // 切后台再回来，这一帧的 deltaTime 能到几十秒。按这个往前算，
                     // 波次和道具时长会一下跳完，看起来就是卡住。
-                    _world.Tick(Mathf.Min(Time.deltaTime, 0.05f));
+                    float stepDt = Mathf.Min(Time.unscaledDeltaTime, 0.04f);
+                    _world.Tick(stepDt);
+                    if (fastBattle && !_world.Paused && !_world.Victory && !_world.Defeat)
+                        _world.Tick(stepDt);
                     PumpCodexToast();
                     PumpDiscovery();
                     TickAutoDraft();
@@ -327,6 +338,7 @@ namespace InkLine
             if (_world == null || _askingRetreat || _hud == null || _guide) return;
             if (_screen == Screen.Lobby) return;
             _askingRetreat = true;
+            Time.timeScale = 1f;
             bool wasPaused = _world.Paused;
             _world.Paused = true;
             RectTransform dim = null;
@@ -399,6 +411,7 @@ namespace InkLine
         {
             _meta.StorePending();
             if (_screen == Screen.Result && HoldOverflow(() => ShowHome(tab))) return;
+            Time.timeScale = 1f;
             _screen = Screen.Lobby;
             ClearLayer();
             if (_view != null) { _view.Dispose(); _view = null; }
@@ -795,11 +808,13 @@ namespace InkLine
         }
 
         // 无尽：扣当天的无尽次数，不扣体力。字池和活动一样，打到哪关就用那关的字。
-        void StartEndless()
+        void StartEndless() => StartEndless(0);
+
+        void StartEndless(int skipWaves)
         {
             if (!_meta.EndlessOpen) return;
             _meta.StorePending();
-            if (HoldOverflow(StartEndless)) return;
+            if (HoldOverflow(() => StartEndless(skipWaves))) return;
             _overflowSnooze = false;
             if (!_meta.SpendEndlessPlay()) return;
             _guide = false;
@@ -811,9 +826,20 @@ namespace InkLine
             _hard = false;
             _teachAim = false;
             StageRule rule = StageRules.ThisWeek;
-            BeginBattle(StageCatalog.EndlessStage(_meta.EventPool(), rule));
-            string best = _meta.EndlessWeekBest > 0 ? "，本周最好第 " + _meta.EndlessWeekBest + " 波" : "";
-            _world.ShowToast("本周词缀 · " + rule.Name + "：" + rule.Desc + best, 3f);
+            CardId[] pool = _meta.EventPool();
+            int maxSkip = StageCatalog.EndlessSkipWave(_meta.EndlessBest);
+            int actualSkip = skipWaves > 0 ? Mathf.Clamp(skipWaves, 0, maxSkip) : 0;
+            PresetGlyph[] preset = actualSkip > 0 ? _meta.BuildEndlessSkipPreset(pool) : null;
+            BeginBattle(StageCatalog.EndlessStage(pool, rule, actualSkip, preset));
+            if (actualSkip > 0)
+            {
+                _world.ShowToast($"破阵直通第 {actualSkip + 1} 波 · 已配发双列成词与前 {actualSkip} 波军饷灵墨", 3.2f);
+            }
+            else
+            {
+                string best = _meta.EndlessWeekBest > 0 ? "，本周最好第 " + _meta.EndlessWeekBest + " 波" : "";
+                _world.ShowToast("本周词缀 · " + rule.Name + "：" + rule.Desc + best, 3f);
+            }
         }
 
         // 百鬼狂潮：扣当天狂潮次数，不扣体力，96 秒爽刷割草。
@@ -1067,7 +1093,7 @@ namespace InkLine
             }
             BuildBattleHud();
             if (stage.Event) _hud.InkChip.gameObject.SetActive(false);
-            _autoWait = 0f;
+            _autoWait = stage.StartWave > 0 ? AutoDelay : 0f;
             _autoMute = 0f;
             _offerKept = false;
             _digging = false;
@@ -1180,9 +1206,18 @@ namespace InkLine
                     _holdForAd = false;
                     _world.Paused = wasPaused;
                 }
-            });
+            }, PureEndless ? (System.Action)ToggleEndlessSpeed : null, PureEndless && _speed2x);
             _hud.GunSkin = _meta.Skin;
             _hud.Guided = _guide;
+        }
+
+        void ToggleEndlessSpeed()
+        {
+            if (!PureEndless) return;
+            AudioBus.Tap();
+            _speed2x = !_speed2x;
+            if (_hud != null) _hud.SetSpeed2x(_speed2x);
+            if (_world != null) _world.ShowToast(_speed2x ? "已开启 ×2 倍速" : "已恢复 ×1 原速", 1.2f);
         }
 
         static bool EventSystemOverUi()
@@ -1669,6 +1704,7 @@ namespace InkLine
                 ShowHome();
                 return;
             }
+            Time.timeScale = 1f;
             _screen = Screen.Result;
             _world.Paused = true;
             _inkDoubled = false;
@@ -1903,6 +1939,7 @@ namespace InkLine
 
         void SettleFrenzy(bool win = true)
         {
+            Time.timeScale = 1f;
             _screen = Screen.Result;
             if (_world != null) _world.Paused = true;
             DropOverlay();
@@ -2004,6 +2041,7 @@ namespace InkLine
         // 无尽结算只算一次：阵亡（续过命或不续）、撤退、打完全部波次都走这里。
         void SettleEndless(bool win)
         {
+            Time.timeScale = 1f;
             _screen = Screen.Result;
             if (_world != null) _world.Paused = true;
             DropOverlay();

@@ -24,8 +24,8 @@ namespace InkLine
     // 不进主线关卡表，也不进 check_stages 的主线曲线。
     public static partial class StageCatalog
     {
-        // 无尽上限开放至 200 波供周榜深度冲层区分名次；前 70 波正常产墨领满基础收益，71 波起为纯荣耀冲榜层（0 产墨、指数加压）。
-        public const int EndlessWaves = 200;
+        // 无尽上限开放至 300 波供周榜深度冲层区分名次；前 70 波正常产墨领满基础收益，71 波起为纯荣耀冲榜层（0 产墨、指数加压）。
+        public const int EndlessWaves = 300;
         public const int EndlessInkWaves = 70;
         // 血量和移速收到这一波为止，和加尾段之前的 50 波完全一样。每日残局也读这条曲线。
         const int EndlessPaceWaves = 50;
@@ -192,7 +192,16 @@ namespace InkLine
             return Mathf.Lerp(0.86f, 0.75f, k);
         }
 
-        public static StageDef EndlessStage(CardId[] pool, StageRule rule)
+        // 无尽破阵直通档位：按历史最高波数解锁起跳点（封顶完成前 50 波，即直通第 51 波开打）。
+        public static int EndlessSkipWave(int endlessBest)
+        {
+            if (endlessBest >= 70) return 50;
+            if (endlessBest >= 50) return 35;
+            if (endlessBest >= 30) return 20;
+            return 0;
+        }
+
+        public static StageDef EndlessStage(CardId[] pool, StageRule rule, int startWave = 0, PresetGlyph[] preset = null)
         {
             float countMul = rule != null ? rule.CountMul : 1f;
             var waves = new WaveDef[EndlessWaves];
@@ -244,9 +253,42 @@ namespace InkLine
                 StaminaCost = 0,
                 Endless = true,
                 Backdrop = EndlessBackdrop,
+                Preset = preset,
             };
             ApplyRule(s, rule);
             PriceSurvival(s, EndlessPriceWaves);
+            if (startWave > 0)
+            {
+                int skip = Mathf.Clamp(startWave, 0, EndlessInkWaves - 1);
+                int rawGold = 0, kills = 0;
+                float rawInk = 0f;
+                for (int w = 0; w < skip; w++)
+                {
+                    float drop = EnemyCatalog.DropMul(s.HpAt(w));
+                    float inkMul = drop * InkOf(s.Chapter) * EndlessInkShare(w);
+                    SpawnSpec[] list = s.Waves[w].Spawns;
+                    for (int k = 0; k < list.Length; k++)
+                    {
+                        SpawnSpec sp = list[k];
+                        int count = s.Bodies[w][k];
+                        EnemyDef d = EnemyCatalog.Base(sp.Id);
+                        rawGold += count * EnemyCatalog.Drop(d.Gold, s.GoldAt(w));
+                        rawInk += count * d.Ink * inkMul;
+                        if (!EnemyIds.IsBoss(sp.Id)) kills += count;
+                    }
+                }
+                int bossChests = skip / EndlessBossEvery;
+                float chests = kills * ChestChance + bossChests;
+                int totalSkipGold = rawGold + Mathf.RoundToInt(chests * ChestGoldShare * s.ChestGold);
+                int preDrafts = skip >= 35 ? 8 : 6;
+                int preCost = 0;
+                for (int i = 0; i < preDrafts; i++) preCost += s.DraftCostAt(i);
+                s.StartWave = skip;
+                s.StartInk = Mathf.Max(0, Mathf.RoundToInt(rawInk));
+                s.StartDraftCount = preDrafts;
+                s.StartGoldBonus = Mathf.Max(s.DraftCostAt(preDrafts) * 3,
+                    Mathf.RoundToInt((totalSkipGold - preCost) * 0.92f));
+            }
             return s;
         }
 

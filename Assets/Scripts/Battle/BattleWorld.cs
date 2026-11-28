@@ -91,6 +91,7 @@ namespace InkLine
         public float DrumBoost;
         public float AbyssVortex;
         public int AbyssWallHits;
+        public bool OverdueEnraged;
 
         public bool Held => HardTime > 0f && (Hard == StatusKind.Freeze || Hard == StatusKind.Stun);
         public bool Confused => HardTime > 0f && Hard == StatusKind.Confuse;
@@ -311,6 +312,8 @@ namespace InkLine
         public bool BossKilled;
         public int WaveIndex;
         public float WaveTime;
+        float _earlyClearWait;
+        bool _overdueShouted;
 
         // 同一组多于一只时，不要在同一帧倒出来。先出一只，剩下的隔开再进。
         // 活动关不走这条：一列在同一帧出完，只沿这一列前后错开。
@@ -636,6 +639,13 @@ namespace InkLine
             _waveLeft = new int[waves];
             _waveSeen = new bool[waves];
             _waveRushed = new bool[waves];
+            WaveIndex = 0;
+            WaveTime = 0f;
+            _earlyClearWait = 0f;
+            _overdueShouted = false;
+            DraftCount = 0;
+            Ink = 0;
+            _inkCarry = 0f;
             RushTime = 0f;
             Combo = 0;
             _comboGap = 0f;
@@ -655,6 +665,22 @@ namespace InkLine
                     Grid[p.Col, p.Row] = p.Id;
                     Stars[p.Col, p.Row] = Mathf.Clamp(p.Star, 1, GameConstants.MaxStar);
                 }
+            if (stage.StartWave > 0 && waves > 0)
+            {
+                int skip = Mathf.Clamp(stage.StartWave, 0, waves - 1);
+                WaveIndex = skip;
+                for (int w = 0; w < skip; w++)
+                {
+                    _waveSeen[w] = true;
+                    _waveLeft[w] = 0;
+                    _waveRushed[w] = true;
+                }
+                if (stage.Endless && stage.WaveCells != null)
+                    GrantEndlessCells(true);
+                Ink += Mathf.Max(0, stage.StartInk);
+                DraftCount = Mathf.Max(0, stage.StartDraftCount);
+                Gold += Mathf.Max(0, Mathf.RoundToInt(stage.StartGoldBonus * _goldGain));
+            }
             if (PreviewFill)
             {
                 OpenRows = GameConstants.Rows;
@@ -834,16 +860,45 @@ namespace InkLine
             if (WaveIndex >= Stage.Waves.Length) return;
             WaveDef wave = Stage.Waves[WaveIndex];
             WaveTime += dt;
+            float lastSpawn = 0f;
             for (int i = 0; i < wave.Spawns.Length; i++)
             {
                 SpawnSpec s = wave.Spawns[i];
+                if (s.Time > lastSpawn) lastSpawn = s.Time;
                 if (WaveTime - dt < s.Time && WaveTime >= s.Time)
                     Spawn(s, i);
             }
             TickDrip(dt);
-            // 这一组还在陆续进场时不切波，免得后半截被下一波掐掉，或和下一波挤在同一帧。
-            if (WaveTime >= wave.Duration && _drip.Count == 0)
+            // 纯无尽模式：本波全部刷完且场上存活怪清零后，留 0.6s 收尾缓冲即刻切入下一波，省去空屏干等。
+            bool pureEndless = Stage.Endless && !Stage.Daily && !Stage.Frenzy;
+            bool earlyCleared = false;
+            if (pureEndless && WaveTime > lastSpawn + 0.05f && _drip.Count == 0 && AliveEnemies == 0)
             {
+                _earlyClearWait += dt;
+                if (_earlyClearWait >= 0.6f) earlyCleared = true;
+            }
+            else
+            {
+                _earlyClearWait = 0f;
+            }
+            // 这一组还在陆续进场时不切波，免得后半截被下一波掐掉，或和下一波挤在同一帧。
+            if ((WaveTime >= wave.Duration || earlyCleared) && _drip.Count == 0)
+            {
+                // 纯无尽最多允许叠 1 波：若上一波（WaveIndex - 1 及更早）仍有残敌未死，
+                // 锁住波次号不再虚涨，并令超时残敌进入免控免推狂暴冲线，保住火力检定同时根除波数歧义。
+                if (pureEndless && WaveIndex > 0 && EnrageOverdueEnemies(WaveIndex - 1))
+                {
+                    if (!_overdueShouted)
+                    {
+                        _overdueShouted = true;
+                        Shouts.Add(new Shout { Kind = ShoutKind.Horde, Text = "残敌狂暴！", Sub = "清完上波残敌再进下一波" });
+                        AudioBus.Horde();
+                        AddShake(0.18f);
+                    }
+                    return;
+                }
+                _earlyClearWait = 0f;
+                _overdueShouted = false;
                 WaveIndex++;
                 WaveTime = 0f;
                 _eventFileTime = -1f;
@@ -875,7 +930,7 @@ namespace InkLine
 
         // 无尽开局只有第一排，按波数往上补格：第二排随机挑空格，满了再轮到第三排。
         // 开出来的格子这一局一直留着，续命也不收回。
-        void GrantEndlessCells()
+        void GrantEndlessCells(bool silent = false)
         {
             int want = Stage.WaveCells[Mathf.Clamp(WaveIndex, 0, Stage.WaveCells.Length - 1)];
             int have = 0;
@@ -896,11 +951,11 @@ namespace InkLine
                     if (Open[c, row] || pick-- > 0) continue;
                     Open[c, row] = true;
                     OpenRows = Mathf.Max(OpenRows, row + 1);
-                    Beat(CellBeat.Unlock, c, row);
+                    if (!silent) Beat(CellBeat.Unlock, c, row);
                     break;
                 }
             }
-            if (row < 1 || row >= GameConstants.Rows) return;
+            if (silent || row < 1 || row >= GameConstants.Rows) return;
             int left = ClosedIn(row);
             string sub = left > 0 ? $"第{(row == 1 ? "二" : "三")}排还差 {left} 格"
                 : row == 1 ? "第二排开满，接着开第三排" : "格子全开了";
@@ -914,6 +969,32 @@ namespace InkLine
             for (int c = 0; c < GameConstants.Columns; c++)
                 if (!Open[c, row]) n++;
             return n;
+        }
+
+        bool EnrageOverdueEnemies(int maxOldWave)
+        {
+            bool any = false;
+            for (int i = 0; i < Enemies.Count; i++)
+            {
+                EnemyActor e = Enemies[i];
+                if (e.Dead || e.Wave < 0 || e.Wave > maxOldWave) continue;
+                any = true;
+                if (e.OverdueEnraged) continue;
+                e.OverdueEnraged = true;
+                e.Colored = true;
+                e.StunImmune = true;
+                e.NoKnock = true;
+                e.KnockLeft = 0f;
+                e.PullLeft = Vector2.zero;
+                e.HoldTime = 0f;
+                if (e.Hard == StatusKind.Freeze || e.Hard == StatusKind.Stun || e.Hard == StatusKind.Confuse)
+                {
+                    e.Hard = StatusKind.None;
+                    e.HardTime = 0f;
+                }
+                e.Speed *= 1.55f;
+            }
+            return any;
         }
 
         void WaveDone(int w)
@@ -3130,9 +3211,10 @@ namespace InkLine
                 if (e.HoldTime > 0f) { e.HoldTime -= dt; continue; }
                 if (e.SlowTime > 0f) e.SlowTime -= dt;
                 else e.Slow = 1f;
-                if (e.Confused) { TickConfused(e, dt); continue; }
+                if (e.Confused && !e.OverdueEnraged) { TickConfused(e, dt); continue; }
 
                 float effSlow = e.IsBoss ? Mathf.Lerp(1f, e.Slow, 0.5f) : e.Slow;
+                if (e.OverdueEnraged) effSlow = Mathf.Max(0.75f, effSlow);
                 float speed = e.Speed * effSlow;
                 if (HaltAura > 0f && (e.IsBoss || e.StunImmune)) speed *= 0.48f;
                 if (e.DrumBoost > 0f) speed *= 1.28f;

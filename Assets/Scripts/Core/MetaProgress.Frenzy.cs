@@ -233,5 +233,84 @@ namespace InkLine
                 return GameConstants.CopybookFavMul;
             return 1f;
         }
+
+        static readonly (WordId Word, CardId A, CardId B, int BaseScore)[] SkipWordPairs =
+        {
+            (WordId.Sweep, CardId.Heng, CardId.Sao, 18),
+            (WordId.Crush, CardId.Qian, CardId.Jun, 16),
+            (WordId.Cleave, CardId.Link, CardId.Slash, 15),
+            (WordId.ArrowRain, CardId.Myriad, CardId.Arrow, 14),
+            (WordId.InstantKill, CardId.Sec, CardId.Kill, 12),
+            (WordId.Knockback, CardId.Strike, CardId.Back, 8),
+        };
+
+        // 无尽破阵直通开局预铺：从玩家当前可用字池中优先挑 2 组主力成词（★2）摆在第 2、3 列，
+        // 严格尊重字帖偏爱/封存、已镶嵌印章品质与字卡等级；不足 2 组时用高练度单字补齐。
+        public PresetGlyph[] BuildEndlessSkipPreset(CardId[] rawPool)
+        {
+            CardId[] activePool = StudyOpen ? AccountPool(null) : rawPool;
+            var poolSet = new HashSet<CardId>();
+            if (activePool != null)
+                for (int i = 0; i < activePool.Length; i++) poolSet.Add(activePool[i]);
+
+            var wordPicks = new List<(CardId A, CardId B, int Score)>();
+            for (int i = 0; i < SkipWordPairs.Length; i++)
+            {
+                var p = SkipWordPairs[i];
+                if (!poolSet.Contains(p.A) || !poolSet.Contains(p.B)) continue;
+                if (CardBanned(p.A) || CardBanned(p.B)) continue;
+                int score = p.BaseScore;
+                if (StudyOpen && HasCopyKey(CopyFav, CopyKeyOf(p.Word))) score += 10000;
+                if (StudyOpen && WordLevel != null && (int)p.Word < WordLevel.Length)
+                    score += WordLevel[(int)p.Word] * 25;
+                if (SealOpen && WordSlotSeal != null)
+                {
+                    int baseIdx = (int)p.Word * SealCatalog.SlotsPer;
+                    for (int k = 0; k < SealCatalog.SlotsPer && baseIdx + k < WordSlotSeal.Length; k++)
+                        score += WordSlotSeal[baseIdx + k] * 120;
+                }
+                wordPicks.Add((p.A, p.B, score));
+            }
+            wordPicks.Sort((x, y) => y.Score.CompareTo(x.Score));
+
+            var presets = new List<PresetGlyph>(4);
+            int[] cols = { 2, 3 };
+            int pairUsed = Mathf.Min(2, wordPicks.Count);
+            for (int i = 0; i < pairUsed; i++)
+            {
+                presets.Add(new PresetGlyph(cols[i], 0, wordPicks[i].A, 2));
+                presets.Add(new PresetGlyph(cols[i], 1, wordPicks[i].B, 2));
+            }
+
+            if (pairUsed < 2 && activePool != null)
+            {
+                var singles = new List<(CardId Id, int Score)>();
+                for (int i = 0; i < activePool.Length; i++)
+                {
+                    CardId id = activePool[i];
+                    if (id == CardId.None || CardBanned(id)) continue;
+                    if (CardCatalog.Get(id).Wake == CardWake.WordPart) continue;
+                    int score = 10;
+                    if (StudyOpen && HasCopyKey(CopyFav, CopyKeyOf(id))) score += 10000;
+                    if (StudyOpen && GlyphLevel != null && (int)id < GlyphLevel.Length)
+                        score += GlyphLevel[(int)id] * 25;
+                    if (SealOpen && SlotSeal != null)
+                    {
+                        int baseIdx = (int)id * SealCatalog.SlotsPer;
+                        for (int k = 0; k < SealCatalog.SlotsPer && baseIdx + k < SlotSeal.Length; k++)
+                            score += SlotSeal[baseIdx + k] * 120;
+                    }
+                    singles.Add((id, score));
+                }
+                singles.Sort((x, y) => y.Score.CompareTo(x.Score));
+                int sIdx = 0;
+                for (int c = pairUsed; c < 2; c++)
+                for (int r = 0; r < 2 && sIdx < singles.Count; r++)
+                {
+                    presets.Add(new PresetGlyph(cols[c], r, singles[sIdx++].Id, 2));
+                }
+            }
+            return presets.ToArray();
+        }
     }
 }
